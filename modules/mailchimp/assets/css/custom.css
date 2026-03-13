@@ -1,0 +1,140 @@
+/****** MAilchimp 02-08-2022*****/
+#audience_sync_btn{
+    margin-left: 5px;
+}
+#store_sync_btn{
+    margin-left: 5px;
+}
+.contact-mailchimp-sync-div >a{
+    margin-top: -25px;
+    margin-left: 2px;
+}
+.link-to-mailchimp-btn img{
+    margin: 0px 3px;
+    width: 20px;
+    position: relative;
+    top: 0px;
+    left: 5px;
+}
+.linked-mailchimp-btn img{
+    margin: 1px 3px;
+    width: 20px;
+    position: relative;
+    top: 0px;
+}
+.link-to-mailchimp-btn{
+    display: flex;
+    align-items: center!important;
+    font-size: 11px !important;
+    height: 32px;
+    padding: 9px 29px;
+    width: 125px;
+    margin-top: 2px;
+}
+.mailchimp-linked-txt-color {
+    color:#323a45!important;
+    text-transform: uppercase;
+}
+.mailchimp-sync-btn img{
+    margin: 0px 3px;
+    width: 18px;
+    position: relative;
+    top: 0px;
+    left: -1px;
+}
+.side_menu_mailchimp_setup_icon {
+    width: 133px;
+}
+.menu-item-mailchimp{
+    background-color: rgb(2,45,98);
+}
+#setup-menu .menu-item-mailchimp.active > a{
+    color: white;
+    background-color: #FFA500;
+}
+.mailchimp_logo_bg_color{
+    background-color: white;
+    border-radius: 50px;
+}
+.audience_select_div .bootstrap-select{
+    min-width: 250px !important;
+    margin-top: -25px !important;
+    margin-left: 4px;
+}
+.table-estimates .link-to-mailchimp-btn{
+    display: flex;
+    align-items: center!important;
+    font-size: 11px !important;
+    height: 32px;
+    padding: 9px 29px;
+    width: 125px !important;
+    margin-top: 9px;
+    margin-bottom: 9px;
+}
+.table-clients .link-to-mailchimp-btn {
+    display: flex;
+    align-items: center!important;
+    font-size: 11px !important;
+    height: 33px;
+    ppadding: 9px 29px;
+    width: 125px;
+    margin-top: 1px;
+    margin-bottom: 9px;
+}
+#all_mc_to_jm_contact_sync_btn{
+    margin-bottom: 10px;
+}
+#all_jm_to_mc_contact_sync_btn{
+    margin-bottom: 10px;
+}
+.contact-mailchimp-sync-div #all_jm_to_mc_contact_sync_btn{
+    margin-top: -15px;
+}
+.contact-mailchimp-info{
+    width: 47.66667%;
+}
+.mc-subscribed-disable{
+    pointer-events: none;
+}
+
+/*Configuration page*/
+.mailchimp-configure-row{
+    margin-left: 0px !important;
+}
+/*estimate page*/
+.table-estimates .link-to-mailchimp-btn{
+    margin-top: 0px;
+}
+
+.bottom40 {
+    margin-bottom: 40px;
+}
+
+.bottom15 {
+    margin-bottom: 15px;
+}
+.right5{
+    margin-right:5px;
+}
+
+.right38{
+    margin-right:38px;
+}
+
+.bottom25{
+    margin-bottom: 25px;
+}
+
+.mt_7{
+    margin-top:-7px;
+}
+
+
+
+.fa-pencil-square-o:before {
+    content: "\f303" !important;
+}
+
+.edit-mailchimp-audience-icon {
+    padding: 10px !important;
+}

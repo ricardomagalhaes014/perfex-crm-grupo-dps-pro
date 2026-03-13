@@ -1,0 +1,34 @@
+<?php
+$lang['vl_video_library']                           = 'Video Kitaplığı';
+$lang['vl_menu']                          			= 'Video Kitaplığı';
+$lang['vl_videos_submenu']                          = 'Videolar';
+$lang['vl_categories_submenu']                      = 'Kategoriler';
+$lang['vl_add_video']                      = 'Video ekle';
+$lang['vl_edit_video']                      = 'Videoyu düzenle';
+$lang['vl_video_title']                      = 'Başlık';
+$lang['vl_video_file']                      = 'Video';
+$lang['vl_video_description']                      = 'Tanım';
+$lang['vl_video_cate']                      = 'Kategori';
+$lang['vl_video_not_deleted']                      = 'Video silinmez!';
+$lang['vl_video_deleted']                      = 'Video silindi!';
+$lang['new_video_library_added_alert']                      = 'Video eklendi!';
+$lang['new_video_library_added_failed_alert']                      = 'Video eklenemedi!';
+$lang['vl_projects']                      = 'Proje ile İlgili';
+$lang['video_library']                   = 'Video Kitaplığı';
+$lang['vl_add_category']                 = 'Kategori ekle';
+## version 101
+$lang['vl_driveurl_placeholder']          = 'Yönlendirme uri Ex: https://your_domain/admin/video_library/uploadFileGoogleDrive';
+$lang['vl_drivesecret_placeholder']          = 'Sürücü gizli anahtarınızı girin';
+$lang['vl_ask_for_upload_gdrive']          = 'Dosyanızı Google Drive\'a yüklemek istiyor musunuz?';
+$lang['vl_input_yes']                      = 'Evet';
+$lang['vl_input_no']                      = 'Numara';
+$lang['vl_client_id_placeholder']         = 'Müşteri Kimliğinizi girin';
+$lang['vl_client_id']                      = 'Müşteri Kimliği';
+$lang['vl_client_secret']                  = 'Müşteri Sırrı';
+$lang['vl_client_uri']                     = 'Yönlendirme URI\'si';
+$lang['vl_client_heading']                     = 'Google Drive Kimlik Bilgilerini Girin';
+$lang['vl_ask_for_upload_file']                     = 'ne yüklemek istiyorsun';
+$lang['vl_input_option1']                     = 'Video dosyası';
+$lang['vl_input_option2']                     = 'Video linki';
+$lang['vl_link_url']                     = 'URL';
+$lang['vl_credentials']                     = 'Kimlik Bilgileriniz Başarıyla Güncellendi';

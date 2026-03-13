@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'マインドマップ';
+$lang['mindmap']                                              = '心理図';
+$lang['mindmap_create_new']                                   = '新しく作る';
+$lang['mindmap_edit']                                         = '編集する';
+$lang['mindmap_delete']                                       = '削除する';
+$lang['mindmap_title']                                        = '題名';
+$lang['mindmap_desc']                                         = '説明文';
+$lang['mindmap_staff']										  = 'によって作成された';
+$lang['mindmap_search']										  = 'マインドマップを検索';
+$lang['mindmap_group']								          = 'グループ';
+$lang['mindmap_groups']								          = '団体';
+$lang['edit_mindmap_group']								      = 'グループを編集';
+$lang['new_mindmap_group']								      = '新しい集団';
+$lang['mindmap_group_add_edit_name']						  = '名前';
+$lang['mindmap_group_add_edit_description']					  = '説明文';
+$lang['mindmap_switch_to_grid_view']						  = 'グリッドに切り替え';
+$lang['mindmap_switch_to_list_view']						  = 'リストに切り替え';
+$lang['mindmap_assigned_to_me']								  = '私のマインドマップ';
+$lang['mindmap_filter_staff']								  = 'スタッフ';
+$lang['mindmap_filter_group']								  = 'グループ';
+$lang['mindmap_info']								          = 'マインドマップ情報';
+$lang['mindmap_staff']								          = 'スタッフ';
+$lang['mindmap_view']								          = '見る';
+$lang['mindmap_not_found']								      = 'マインドマップが見つかりません';
+$lang['preview_mindmap']								      = 'マインドマップをプレビュー';
+$lang['mindmap_settings_name']								  = '心理図';
+$lang['new_mindmap_group']								      = '新しい集団';
+$lang['mindmap_created_at']									  = 'で作成';
+$lang['mindmap_enable_group_option']                          = '管理者以外のスタッフがマインドマップの作成/編集領域でグループを作成できるようにする?  ';

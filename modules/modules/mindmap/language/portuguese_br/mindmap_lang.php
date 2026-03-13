@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Mapas mentais';
+$lang['mindmap']                                              = 'Mapa mental';
+$lang['mindmap_create_new']                                   = 'Crie um novo';
+$lang['mindmap_edit']                                         = 'Editar';
+$lang['mindmap_delete']                                       = 'Excluir';
+$lang['mindmap_title']                                        = 'Título';
+$lang['mindmap_desc']                                         = 'Descrição';
+$lang['mindmap_staff']										  = 'Criado por';
+$lang['mindmap_search']										  = 'Pesquisa Mapa Mental';
+$lang['mindmap_group']								          = 'Grupo';
+$lang['mindmap_groups']								          = 'Grupos';
+$lang['edit_mindmap_group']								      = 'Editar grupo';
+$lang['new_mindmap_group']								      = 'Novo grupo';
+$lang['mindmap_group_add_edit_name']						  = 'Nome';
+$lang['mindmap_group_add_edit_description']					  = 'Descrição';
+$lang['mindmap_switch_to_grid_view']						  = 'Mudar para Grade';
+$lang['mindmap_switch_to_list_view']						  = 'Mudar para lista';
+$lang['mindmap_assigned_to_me']								  = 'My Mindmap';
+$lang['mindmap_filter_staff']								  = 'Funcionárias';
+$lang['mindmap_filter_group']								  = 'Grupo';
+$lang['mindmap_info']								          = 'Informações do mapa mental';
+$lang['mindmap_staff']								          = 'Funcionárias';
+$lang['mindmap_view']								          = 'Visão';
+$lang['mindmap_not_found']								      = 'Mapa mental não encontrado';
+$lang['preview_mindmap']								      = 'Visualizar Mindmap';
+$lang['mindmap_settings_name']								  = 'Mapa mental';
+$lang['new_mindmap_group']								      = 'Novo grupo';
+$lang['mindmap_created_at']									  = 'Criado em';
+$lang['mindmap_enable_group_option']                          = 'Permitir que membros da equipe que não sejam administradores criem Grupo na área de criação / edição do Mindmap?  ';

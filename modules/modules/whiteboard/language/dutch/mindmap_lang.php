@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Mind maps';
+$lang['mindmap']                                              = 'Mind Map';
+$lang['mindmap_create_new']                                   = 'Maak nieuw';
+$lang['mindmap_edit']                                         = 'Bewerk';
+$lang['mindmap_delete']                                       = 'Verwijderen';
+$lang['mindmap_title']                                        = 'Titel';
+$lang['mindmap_desc']                                         = 'Omschrijving';
+$lang['mindmap_staff']										  = 'Gemaakt door';
+$lang['mindmap_search']										  = 'Zoek Mind Map';
+$lang['mindmap_group']								          = 'Groep';
+$lang['mindmap_groups']								          = 'Groepen';
+$lang['edit_mindmap_group']								      = 'Groep bewerken';
+$lang['new_mindmap_group']								      = 'Nieuwe groep';
+$lang['mindmap_group_add_edit_name']						  = 'Naam';
+$lang['mindmap_group_add_edit_description']					  = 'Omschrijving';
+$lang['mindmap_switch_to_grid_view']						  = 'Schakel over naar Grid';
+$lang['mindmap_switch_to_list_view']						  = 'Schakel over naar lijst';
+$lang['mindmap_assigned_to_me']								  = 'Mijn Mindmap';
+$lang['mindmap_filter_staff']								  = 'Personeel';
+$lang['mindmap_filter_group']								  = 'Groep';
+$lang['mindmap_info']								          = 'Mindmap Info';
+$lang['mindmap_staff']								          = 'Personeel';
+$lang['mindmap_view']								          = 'Visie';
+$lang['mindmap_not_found']								      = 'Mindmap niet gevonden';
+$lang['preview_mindmap']								      = 'Voorbeeld Mindmap bekijken';
+$lang['mindmap_settings_name']								  = 'Mindmap';
+$lang['new_mindmap_group']								      = 'Nieuwe groep';
+$lang['mindmap_created_at']									  = 'Gemaakt bij';
+$lang['mindmap_enable_group_option']                          = 'Sta niet-admin personeel toe om een groep aan te maken in Mindmap creëren / bewerken gebied?  ';

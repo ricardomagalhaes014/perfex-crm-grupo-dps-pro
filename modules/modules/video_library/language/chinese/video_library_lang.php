@@ -1,0 +1,34 @@
+<?php
+$lang['vl_video_library']                           = '视频库';
+$lang['vl_menu']                          			= '视频库';
+$lang['vl_videos_submenu']                          = '视频';
+$lang['vl_categories_submenu']                      = '类别';
+$lang['vl_add_video']                      = '添加视频';
+$lang['vl_edit_video']                      = '编辑视频';
+$lang['vl_video_title']                      = '标题';
+$lang['vl_video_file']                      = '视频';
+$lang['vl_video_description']                      = '描述';
+$lang['vl_video_cate']                      = '类别';
+$lang['vl_video_not_deleted']                      = '视频不删！';
+$lang['vl_video_deleted']                      = '视频删了！';
+$lang['new_video_library_added_alert']                      = '视频已添加！';
+$lang['new_video_library_added_failed_alert']                      = '视频添加失败！';
+$lang['vl_projects']                      = '与项目相关';
+$lang['video_library']                           = '视频库';
+$lang['vl_add_category']                      = '添加類別';
+## version 101
+$lang['vl_driveurl_placeholder']          = '重定向 uri 例如：https://your_domain/admin/video_library/uploadFileGoogleDrive';
+$lang['vl_drivesecret_placeholder']          = '输入您的驱动器密钥';
+$lang['vl_ask_for_upload_gdrive']          = '您想将文件上传到 Google 云端硬盘吗';
+$lang['vl_input_yes']                      = '是的';
+$lang['vl_input_no']                      = '不';
+$lang['vl_client_id_placeholder']         = '输入您的客户 ID';
+$lang['vl_client_id']                      = '客户编号';
+$lang['vl_client_secret']                  = '客户秘密';
+$lang['vl_client_uri']                     = '重定向 URI';
+$lang['vl_client_heading']                     = '输入 Google 云端硬盘凭据';
+$lang['vl_ask_for_upload_file']                     = '你要上传什么';
+$lang['vl_input_option1']                     = '视频文件';
+$lang['vl_input_option2']                     = '视频网址';
+$lang['vl_link_url']                     = '网址';
+$lang['vl_credentials']                     = '您的凭据已成功更新';

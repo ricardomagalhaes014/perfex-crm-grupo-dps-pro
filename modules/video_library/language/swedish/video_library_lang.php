@@ -1,0 +1,34 @@
+<?php
+$lang['vl_video_library']                           = 'Videobibliotek';
+$lang['vl_menu']                          			= 'Videobibliotek';
+$lang['vl_videos_submenu']                          = 'videoklipp';
+$lang['vl_categories_submenu']                      = 'Kategorier';
+$lang['vl_add_video']                      = 'Lägg till video';
+$lang['vl_edit_video']                      = 'Redigera video';
+$lang['vl_video_title']                      = 'Titel';
+$lang['vl_video_file']                      = 'Video';
+$lang['vl_video_description']                      = 'Beskrivning';
+$lang['vl_video_cate']                      = 'Kategori';
+$lang['vl_video_not_deleted']                      = 'Videon raderas inte!';
+$lang['vl_video_deleted']                      = 'Videon raderad!';
+$lang['new_video_library_added_alert']                      = 'Video har lagts till!';
+$lang['new_video_library_added_failed_alert']                      = 'Videotillägg misslyckades!';
+$lang['vl_projects']                      = 'Relaterat till projekt';
+$lang['video_library']                   = 'Videobibliotek';
+$lang['vl_add_category']                 = 'Lägg till Kategori';
+## version 101
+$lang['vl_driveurl_placeholder']          = 'Omdirigera uri Ex: https://din_domän/admin/video_library/uploadFileGoogleDrive';
+$lang['vl_drivesecret_placeholder']          = 'Ange din hemliga nyckel för enheten';
+$lang['vl_ask_for_upload_gdrive']          = 'Vill du ladda upp din fil på Google Drive';
+$lang['vl_input_yes']                      = 'Ja';
+$lang['vl_input_no']                      = 'Nej';
+$lang['vl_client_id_placeholder']         = 'Ange ditt kund-ID';
+$lang['vl_client_id']                      = 'Klient ID';
+$lang['vl_client_secret']                  = 'Klienthemlighet';
+$lang['vl_client_uri']                     = 'Omdirigera URI';
+$lang['vl_client_heading']                     = 'Ange Google Drive-uppgifter';
+$lang['vl_ask_for_upload_file']                     = 'Vad vill du ladda upp';
+$lang['vl_input_option1']                     = 'Videofil';
+$lang['vl_input_option2']                     = 'Videons URL';
+$lang['vl_link_url']                     = 'URL';
+$lang['vl_credentials']                     = 'Dina inloggningsuppgifter har uppdaterats';

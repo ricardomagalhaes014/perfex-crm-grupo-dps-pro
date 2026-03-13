@@ -1,0 +1,45 @@
+/*Chart of acc*/
+.tr-root-group {
+    background-color: #dedada !important;
+    font-weight: 500 !important;
+}
+
+.tr-sub-group {
+    background-color: #84c5293d !important;
+    font-weight: 400 !important;
+}
+
+.tr-ledger{
+   color: #467305 !important;
+}
+
+/*Subs*/
+.qb_sub{
+	min-height: 100px;
+	margin-top: 20px;
+}
+
+.qb_sub .panel-body{
+	background: #84c5293d;
+	border: 1px solid #6ab3006e;
+	text-align: center;
+	min-height: 100px;
+}
+
+.qb_sub .panel-heading{
+	background: #84c52959;
+	border: 1px solid #6ab3006e;
+	border-bottom: 1px solid #6ab30029;
+}
+
+.qb_sub .panel-body .btn{
+	text-transform: none;
+}
+
+.progress-bar-mini{
+   margin-bottom: 0px !important;
+}
+
+.nav-tabs{
+	border-top:none;
+}

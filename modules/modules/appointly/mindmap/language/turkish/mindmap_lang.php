@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Zihin Haritaları';
+$lang['mindmap']                                              = 'Zihin haritası';
+$lang['mindmap_create_new']                                   = 'Yeni oluşturmak';
+$lang['mindmap_edit']                                         = 'Düzenle';
+$lang['mindmap_delete']                                       = 'Sil';
+$lang['mindmap_title']                                        = 'Başlık';
+$lang['mindmap_desc']                                         = 'Açıklama';
+$lang['mindmap_staff']										  = 'Tarafından yaratıldı';
+$lang['mindmap_search']										  = 'Zihin Haritası Ara';
+$lang['mindmap_group']								          = 'grup';
+$lang['mindmap_groups']								          = 'Gruplar';
+$lang['edit_mindmap_group']								      = 'Grubu Düzenle';
+$lang['new_mindmap_group']								      = 'Yeni Grup';
+$lang['mindmap_group_add_edit_name']						  = 'ad';
+$lang['mindmap_group_add_edit_description']					  = 'Açıklama';
+$lang['mindmap_switch_to_grid_view']						  = 'Şebekeye Geç';
+$lang['mindmap_switch_to_list_view']						  = 'Listeye Geç';
+$lang['mindmap_assigned_to_me']								  = 'Akıl Haritam';
+$lang['mindmap_filter_staff']								  = 'Personel';
+$lang['mindmap_filter_group']								  = 'grup';
+$lang['mindmap_info']								          = 'Mindmap Bilgisi';
+$lang['mindmap_staff']								          = 'Personel';
+$lang['mindmap_view']								          = 'Görünüm';
+$lang['mindmap_not_found']								      = 'Mindmap bulunamadı';
+$lang['preview_mindmap']								      = 'Mindmap Önizleme';
+$lang['mindmap_settings_name']								  = 'Zihin haritası';
+$lang['new_mindmap_group']								      = 'Yeni Grup';
+$lang['mindmap_created_at']									  = 'Oluşturma tarihi';
+$lang['mindmap_enable_group_option']                          = 'Yönetici olmayan personelin Mindmap oluşturma / düzenleme alanında Grup oluşturmasına izin ver?  ';

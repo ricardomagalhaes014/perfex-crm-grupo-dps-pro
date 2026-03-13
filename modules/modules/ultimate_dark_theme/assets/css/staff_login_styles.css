@@ -1,0 +1,69 @@
+body.login_admin:before {
+    content: " ";
+    min-height: 100%;
+    min-width: 100%;
+    position: absolute;
+}
+
+body.login_admin:before {
+    background: linear-gradient(136deg, #222, #181818, #181818, #222);
+    background-size: 400% 400%;
+
+    -webkit-animation: BgAnimation 4s ease infinite;
+    -moz-animation: BgAnimation 4s ease infinite;
+    -o-animation: BgAnimation 4s ease infinite;
+    animation: BgAnimation s ease infinite;
+}
+
+@-webkit-keyframes BgAnimation {
+    0%{background-position:14% 0%}
+    50%{background-position:87% 100%}
+    100%{background-position:14% 0%}
+}
+@-moz-keyframes BgAnimation {
+    0%{background-position:14% 0%}
+    50%{background-position:87% 100%}
+    100%{background-position:14% 0%}
+}
+@-o-keyframes BgAnimation {
+    0%{background-position:14% 0%}
+    50%{background-position:87% 100%}
+    100%{background-position:14% 0%}
+}
+@keyframes BgAnimation {
+    0%{background-position:14% 0%}
+    50%{background-position:87% 100%}
+    100%{background-position:14% 0%}
+}
+
+#wrapper {
+    min-height: 100%!important;
+}
+
+::-webkit-scrollbar {
+    width: 10px!important;
+}
+
+/* Track */
+
+::-webkit-scrollbar-track {
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3)!important;
+    -webkit-border-radius: 10px!important;
+    border-radius: 10px!important;
+}
+
+/* Handle */
+
+::-webkit-scrollbar-thumb {
+    -webkit-border-radius: 10px!important;
+    border-radius: 10px!important;
+    background: #eee!important;
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.5)!important;
+    min-height: 30px!important;
+}
+
+::-webkit-scrollbar-thumb:window-inactive {
+    background: rgba(0, 0, 0, 0.7)!important;
+}
+.authentication-form { border-radius: 2px; border: 1px solid #424242; padding: 20px; background: #222; }
+input[type="text"], input[type="password"], input[type="datetime"], input[type="datetime-local"], input[type="date"], input[type="month"], input[type="time"], input[type="week"], input[type="number"], input[type="email"], input[type="url"], input[type="search"], input[type="tel"], input[type="color"], .uneditable-input, input[type="color"] { border: 1px solid #424242; -webkit-box-shadow: none; box-shadow: none; color: #ffffff; font-size: 14px; line-height: 1; height: 36px; background: #222; }

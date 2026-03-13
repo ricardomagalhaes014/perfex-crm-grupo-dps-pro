@@ -1,0 +1,34 @@
+<?php
+$lang['vl_video_library']                           = 'Biblioteka wideo';
+$lang['vl_menu']                          			= 'Biblioteka wideo';
+$lang['vl_videos_submenu']                          = 'Filmy';
+$lang['vl_categories_submenu']                      = 'Kategorie';
+$lang['vl_add_video']                      = 'Dodaj wideo';
+$lang['vl_edit_video']                      = 'Edytuj wideo';
+$lang['vl_video_title']                      = 'Tytuł';
+$lang['vl_video_file']                      = 'Wideo';
+$lang['vl_video_description']                      = 'Opis';
+$lang['vl_video_cate']                      = 'Kategoria';
+$lang['vl_video_not_deleted']                      = 'Film nie jest usuwany!';
+$lang['vl_video_deleted']                      = 'Film usunięty!';
+$lang['new_video_library_added_alert']                      = 'Dodano wideo!';
+$lang['new_video_library_added_failed_alert']                      = 'Dodawanie wideo nie powiodło się!';
+$lang['vl_projects']                      = 'Powiązane z projektem';
+$lang['video_library']                   = 'Biblioteka wideo';
+$lang['vl_add_category']                 = 'Dodaj kategorię';
+## version 101
+$lang['vl_driveurl_placeholder']          = 'Identyfikator URI przekierowania Przykład: https://twoja_domena/admin/video_library/uploadFileGoogleDrive';
+$lang['vl_drivesecret_placeholder']          = 'Wpisz tajny klucz dysku';
+$lang['vl_ask_for_upload_gdrive']          = 'Czy chcesz przesłać swój plik na Dysk Google?';
+$lang['vl_input_yes']                      = 'tak';
+$lang['vl_input_no']                      = 'Nie';
+$lang['vl_client_id_placeholder']         = 'Wprowadź swój identyfikator klienta';
+$lang['vl_client_id']                      = 'Identyfikator klienta';
+$lang['vl_client_secret']                  = 'Sekret klienta';
+$lang['vl_client_uri']                     = 'URI przekierowania';
+$lang['vl_client_heading']                     = 'Wpisz dane logowania do Dysku Google';
+$lang['vl_ask_for_upload_file']                     = 'Co chcesz przesłać';
+$lang['vl_input_option1']                     = 'Plik wideo';
+$lang['vl_input_option2']                     = 'URL wideo';
+$lang['vl_link_url']                     = 'URL';
+$lang['vl_credentials']                     = 'Twoje poświadczenia zostały zaktualizowane pomyślnie';

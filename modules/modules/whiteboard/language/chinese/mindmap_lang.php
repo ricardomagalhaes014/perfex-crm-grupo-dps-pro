@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = '思维导图';
+$lang['mindmap']                                              = '思维导图';
+$lang['mindmap_create_new']                                   = '创建新的';
+$lang['mindmap_edit']                                         = '编辑';
+$lang['mindmap_delete']                                       = '删除';
+$lang['mindmap_title']                                        = '标题';
+$lang['mindmap_desc']                                         = '描述';
+$lang['mindmap_staff']										  = '由...制作';
+$lang['mindmap_search']										  = '搜索思维导图';
+$lang['mindmap_group']								          = '组';
+$lang['mindmap_groups']								          = '团体';
+$lang['edit_mindmap_group']								      = '编辑组';
+$lang['new_mindmap_group']								      = '新组';
+$lang['mindmap_group_add_edit_name']						  = '名称';
+$lang['mindmap_group_add_edit_description']					  = '描述';
+$lang['mindmap_switch_to_grid_view']						  = '切换到网格';
+$lang['mindmap_switch_to_list_view']						  = '切换到清单';
+$lang['mindmap_assigned_to_me']								  = '我的思维导图';
+$lang['mindmap_filter_staff']								  = '员工';
+$lang['mindmap_filter_group']								  = '组';
+$lang['mindmap_info']								          = '思维导图信息';
+$lang['mindmap_staff']								          = '员工';
+$lang['mindmap_view']								          = '视图';
+$lang['mindmap_not_found']								      = '找不到思维导图';
+$lang['preview_mindmap']								      = '预览思维导图';
+$lang['mindmap_settings_name']								  = '思维导图';
+$lang['new_mindmap_group']								      = '新组';
+$lang['mindmap_created_at']									  = '创建于';
+$lang['mindmap_enable_group_option']                          = '允许非管理员人员在思维导图创建/编辑区域中创建组?  ';

@@ -1,0 +1,6 @@
+{
+    "require": {        
+        "quickbooks/v3-php-sdk": ">=4.0.1",
+    	"league/oauth2-client": "^2.3"
+    }
+}

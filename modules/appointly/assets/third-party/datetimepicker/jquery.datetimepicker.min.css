@@ -1,0 +1,68 @@
+.xdsoft_datetimepicker {
+  box-sizing: border-box;
+  display: none;
+  position: absolute;
+  z-index: 9999;
+}
+.xdsoft_datetimepicker.xdsoft_inline {
+  display: inline-block;
+}
+.xdsoft_datetimepicker * {
+  box-sizing: border-box;
+}
+.xdsoft_noselect {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.xdsoft_datepicker,
+.xdsoft_timepicker {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ccc;
+}
+.xdsoft_calendar {
+  width: 100%;
+}
+.xdsoft_calendar td,
+.xdsoft_calendar th {
+  text-align: center;
+  padding: 5px;
+  cursor: pointer;
+}
+.xdsoft_calendar td.xdsoft_current {
+  background: #4285f4;
+  color: #fff;
+}
+.xdsoft_calendar td.xdsoft_disabled {
+  color: #ccc;
+  cursor: default;
+}
+.xdsoft_time_box {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.xdsoft_time_box > div > div {
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.xdsoft_time_box > div > div:hover {
+  background: #e6e6e6;
+}
+.xdsoft_time_box > div > div.xdsoft_current {
+  background: #4285f4;
+  color: #fff;
+}
+.xdsoft_monthpicker,
+.xdsoft_yearpicker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.xdsoft_prev,
+.xdsoft_next {
+  cursor: pointer;
+  padding: 0 5px;
+}

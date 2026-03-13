@@ -1,0 +1,25 @@
+.literally {
+width: 900px;
+height: 800px;
+position: relative;
+pointer-events:none;
+}
+.literally .lc-picker {
+z-index: 0000 !important;
+border-right: 1px solid #555;
+display: none;
+
+}
+.lc-options{
+display: none;
+}
+.literally .lc-drawing>* {
+position: absolute;
+top: -50px !important;
+right: 0;
+bottom: 0;
+left: -110px !important;
+}
+#whiteboardfile{
+  display: none;
+}

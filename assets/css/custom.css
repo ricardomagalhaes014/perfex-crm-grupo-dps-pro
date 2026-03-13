@@ -1,0 +1,35 @@
+.note-item {
+    padding: 4px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    line-height: 1.3;
+
+    /* tirar o limite fixo */
+    max-width: none;
+
+    white-space: normal;
+    display: block;   /* ocupa toda a largura da célula */
+}
+
+/* Aumentar a largura da coluna Notes na tabela de leads */
+#leads col:nth-child(7),
+#leads th:nth-child(7),
+#leads td:nth-child(7) {
+    width: 450px !important;
+}
+
+
+/* Até 3 dias: verde */
+.note-fresh {
+    background-color: #d4edda;
+}
+
+/* >3 e <=5 dias: amarelo */
+.note-warning-age {
+    background-color: #fff3cd;
+}
+
+/* >5 dias: vermelho */
+.note-danger-age {
+    background-color: #f8d7da;
+}

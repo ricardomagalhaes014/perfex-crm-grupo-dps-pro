@@ -1,0 +1,15 @@
+.social_icon{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding-top: 15px;
+    padding-bottom: 15px;
+}
+.social_icon a{
+	margin-right: 5px;
+	padding:5px 5px;
+}
+.social_icon a img{
+	height: 45px;
+	width: 45px;
+}

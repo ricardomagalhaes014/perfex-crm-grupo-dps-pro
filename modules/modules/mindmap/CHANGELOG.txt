@@ -1,0 +1,5 @@
+1.0.4
+- Fix small issues
+- Added Properties popup
+- Fix Grid view bugs
+- Fix Preview mode bugs

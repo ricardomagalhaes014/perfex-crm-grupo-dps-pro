@@ -1,0 +1,5 @@
+body.customers {
+    background-color: tw-bg-neutral-100;
+    --tw-bg-opacity: 1;
+    background-color: rgb(241 245 249 / var(--tw-bg-opacity));
+}

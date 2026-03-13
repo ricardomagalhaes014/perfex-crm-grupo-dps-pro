@@ -1,0 +1,26 @@
+#menu
+{
+	display: none;
+}
+#header
+{
+	display: none;
+}
+.btn-bottom-toolbar
+{
+	display: none;
+}
+.no-margin
+{
+	display: none;
+}
+.panel_s .panel-body {
+border: none;
+}
+.hr-panel-heading {
+display: none;
+	}
+	#wrapper
+	{
+		margin: 0;
+	}

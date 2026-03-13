@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Mapes d’ànim';
+$lang['mindmap']                                              = 'Mapa mental';
+$lang['mindmap_create_new']                                   = 'Crea un nou';
+$lang['mindmap_edit']                                         = 'Edita';
+$lang['mindmap_delete']                                       = 'Suprimeix';
+$lang['mindmap_title']                                        = 'Títol';
+$lang['mindmap_desc']                                         = 'Descripció';
+$lang['mindmap_staff']										  = 'Creat per';
+$lang['mindmap_search']										  = 'Cerca al mapa de la ment';
+$lang['mindmap_group']								          = 'Grup';
+$lang['mindmap_groups']								          = 'Grups';
+$lang['edit_mindmap_group']								      = 'Grup d\'edicions';
+$lang['new_mindmap_group']								      = 'Grup nou';
+$lang['mindmap_group_add_edit_name']						  = 'Nom';
+$lang['mindmap_group_add_edit_description']					  = 'Descripció';
+$lang['mindmap_switch_to_grid_view']						  = 'Canvia a Graella';
+$lang['mindmap_switch_to_list_view']						  = 'Canvia a llista';
+$lang['mindmap_assigned_to_me']								  = 'El meu mapa mental';
+$lang['mindmap_filter_staff']								  = 'Personal';
+$lang['mindmap_filter_group']								  = 'Grup';
+$lang['mindmap_info']								          = 'Informació del mapa de pantalla';
+$lang['mindmap_staff']								          = 'Personal';
+$lang['mindmap_view']								          = 'Veure';
+$lang['mindmap_not_found']								      = 'No s\'ha trobat mapa de pantalla';
+$lang['preview_mindmap']								      = 'Vista prèvia del mapa directori';
+$lang['mindmap_settings_name']								  = 'Mapa mental';
+$lang['new_mindmap_group']								      = 'Grup nou';
+$lang['mindmap_created_at']									  = 'Creat a';
+$lang['mindmap_enable_group_option']                          = 'Permet que els membres del personal que no siguin administradors crein un grup de l\'àrea de creació / edició de Mindmap?  ';

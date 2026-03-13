@@ -1,0 +1,33 @@
+#top-panel{
+	display: none;
+}
+.close2{
+	float:right;
+	color:black;
+	cursor:pointer;
+}
+#expand-button{
+	float: right;
+	margin-right:2px;
+}
+#whiteboard_content{
+	display: none;
+}
+.literally {
+width: 100%;
+height: 800px;
+position: relative;
+	pointer-events:none;
+}
+.lc-picker
+{
+display: none!important;
+}
+.lc-options
+{
+display: none!important;
+}
+.lt{width: 40px !important;}
+#print{
+	float: right;
+}

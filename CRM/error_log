@@ -1,0 +1,6 @@
+[07-Dec-2023 19:56:15 Europe/Lisbon] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/dl5naiz2/crm.dentalprosmart.pt/system/database/drivers/mysqli/mysqli_driver.php on line 307
+[11-Jan-2024 12:35:21 Europe/Lisbon] PHP Fatal error:  Maximum execution time of 30 seconds exceeded in /home/dl5naiz2/crm.dentalprosmart.pt/system/database/DB_driver.php on line 1049
+[24-Jan-2024 15:52:28 UTC] PHP Fatal error:  Uncaught Error: Class "config" not found in /home/dl5naiz2/crm.dentalprosmart.pt/cron.php:4
+Stack trace:
+#0 {main}
+  thrown in /home/dl5naiz2/crm.dentalprosmart.pt/cron.php on line 4

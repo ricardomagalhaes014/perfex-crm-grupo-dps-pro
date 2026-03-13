@@ -1,0 +1,21 @@
+.literally {
+width: 100%;
+height: 100%;
+position: relative;
+}
+.lc-picker
+{
+display: none!important;
+}
+.lc-options
+{
+display: none!important;
+}
+#whiteboard_content{
+  display: none;
+}
+.task-single-col-left
+{
+  min-height: 926px;
+}
+.lt{width: 40px !important;}

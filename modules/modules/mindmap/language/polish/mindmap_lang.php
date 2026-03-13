@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Mapy myśli';
+$lang['mindmap']                                              = 'Mapa myśli';
+$lang['mindmap_create_new']                                   = 'Tworzyć nowe';
+$lang['mindmap_edit']                                         = 'Edytować';
+$lang['mindmap_delete']                                       = 'Usunąć';
+$lang['mindmap_title']                                        = 'Tytuł';
+$lang['mindmap_desc']                                         = 'Opis';
+$lang['mindmap_staff']										  = 'Stworzone przez';
+$lang['mindmap_search']										  = 'Przeszukaj mapę myśli';
+$lang['mindmap_group']								          = 'Grupa';
+$lang['mindmap_groups']								          = 'Grupy';
+$lang['edit_mindmap_group']								      = 'Edytuj grupę';
+$lang['new_mindmap_group']								      = 'Nowa grupa';
+$lang['mindmap_group_add_edit_name']						  = 'Imię';
+$lang['mindmap_group_add_edit_description']					  = 'Opis';
+$lang['mindmap_switch_to_grid_view']						  = 'Przełącz na siatkę';
+$lang['mindmap_switch_to_list_view']						  = 'Przełącz na listę';
+$lang['mindmap_assigned_to_me']								  = 'Moja mapa myśli';
+$lang['mindmap_filter_staff']								  = 'Personel';
+$lang['mindmap_filter_group']								  = 'Grupa';
+$lang['mindmap_info']								          = 'Informacje o mapie myśli';
+$lang['mindmap_staff']								          = 'Personel';
+$lang['mindmap_view']								          = 'Widok';
+$lang['mindmap_not_found']								      = 'Nie znaleziono mapy myśli';
+$lang['preview_mindmap']								      = 'Podgląd mapy myśli';
+$lang['mindmap_settings_name']								  = 'Mapa myśli';
+$lang['new_mindmap_group']								      = 'Nowa grupa';
+$lang['mindmap_created_at']									  = 'Utworzono w';
+$lang['mindmap_enable_group_option']                          = 'Pozwól członkom personelu niebędącego administratorami tworzyć grupy w obszarze tworzenia / edycji mapy myśli?  ';

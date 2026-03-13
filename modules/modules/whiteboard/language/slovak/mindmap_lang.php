@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Mapy mysle';
+$lang['mindmap']                                              = 'Myšlienkové mapy';
+$lang['mindmap_create_new']                                   = 'Vytvor nový';
+$lang['mindmap_edit']                                         = 'editovať';
+$lang['mindmap_delete']                                       = 'delete';
+$lang['mindmap_title']                                        = 'nadpis';
+$lang['mindmap_desc']                                         = 'popis';
+$lang['mindmap_staff']										  = 'Vytvoril';
+$lang['mindmap_search']										  = 'Vyhľadajte mapu mysle';
+$lang['mindmap_group']								          = 'skupina';
+$lang['mindmap_groups']								          = 'skupiny';
+$lang['edit_mindmap_group']								      = 'Upraviť skupinu';
+$lang['new_mindmap_group']								      = 'Nová skupina';
+$lang['mindmap_group_add_edit_name']						  = 'názov';
+$lang['mindmap_group_add_edit_description']					  = 'popis';
+$lang['mindmap_switch_to_grid_view']						  = 'Prepnite na mriežku';
+$lang['mindmap_switch_to_list_view']						  = 'Prepnúť na zoznam';
+$lang['mindmap_assigned_to_me']								  = 'My Mindmap';
+$lang['mindmap_filter_staff']								  = 'zamestnanci';
+$lang['mindmap_filter_group']								  = 'skupina';
+$lang['mindmap_info']								          = 'Informácie o mysli';
+$lang['mindmap_staff']								          = 'zamestnanci';
+$lang['mindmap_view']								          = 'vyhliadka';
+$lang['mindmap_not_found']								      = 'Mindmap sa nenašiel';
+$lang['preview_mindmap']								      = 'Preview Mindmap';
+$lang['mindmap_settings_name']								  = 'Myšlienkové mapy';
+$lang['new_mindmap_group']								      = 'Nová skupina';
+$lang['mindmap_created_at']									  = 'Vytvorené v';
+$lang['mindmap_enable_group_option']                          = 'Umožnite neadministratívnym zamestnancom vytvárať skupinu v oblasti vytvárania / úprav Mindmapy?  ';

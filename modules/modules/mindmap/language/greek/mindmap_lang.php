@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Χάρτες μυαλού';
+$lang['mindmap']                                              = 'Χάρτης του μυαλού';
+$lang['mindmap_create_new']                                   = 'Δημιουργία νέου';
+$lang['mindmap_edit']                                         = 'Επεξεργασία';
+$lang['mindmap_delete']                                       = 'Διαγράφω';
+$lang['mindmap_title']                                        = 'Τίτλος';
+$lang['mindmap_desc']                                         = 'Περιγραφή';
+$lang['mindmap_staff']										  = 'Δημιουργήθηκε από';
+$lang['mindmap_search']										  = 'Αναζήτηση χάρτη μυαλού';
+$lang['mindmap_group']								          = 'Ομάδα';
+$lang['mindmap_groups']								          = 'Ομάδες';
+$lang['edit_mindmap_group']								      = 'Επεξεργασία ομάδας';
+$lang['new_mindmap_group']								      = 'Νέα ομάδα';
+$lang['mindmap_group_add_edit_name']						  = 'Ονομα';
+$lang['mindmap_group_add_edit_description']					  = 'Περιγραφή';
+$lang['mindmap_switch_to_grid_view']						  = 'Μετάβαση σε πλέγμα';
+$lang['mindmap_switch_to_list_view']						  = 'Μετάβαση σε λίστα';
+$lang['mindmap_assigned_to_me']								  = 'Ο χάρτης μου';
+$lang['mindmap_filter_staff']								  = 'Προσωπικό';
+$lang['mindmap_filter_group']								  = 'Ομάδα';
+$lang['mindmap_info']								          = 'Πληροφορίες Mindmap';
+$lang['mindmap_staff']								          = 'Προσωπικό';
+$lang['mindmap_view']								          = 'Θέα';
+$lang['mindmap_not_found']								      = 'Το Mindmap δεν βρέθηκε';
+$lang['preview_mindmap']								      = 'Προεπισκόπηση Mindmap';
+$lang['mindmap_settings_name']								  = 'Χάρτης του μυαλού';
+$lang['new_mindmap_group']								      = 'Νέα ομάδα';
+$lang['mindmap_created_at']									  = 'Δημιουργήθηκε στις';
+$lang['mindmap_enable_group_option']                          = 'Επιτρέψτε στα μέλη του προσωπικού που δεν είναι διαχειριστές να δημιουργήσουν ομάδα στο Mindmap create / edit area?  ';

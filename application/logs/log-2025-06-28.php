@@ -1,0 +1,50 @@
+<?php defined('BASEPATH') OR exit('No direct script access allowed'); ?>
+
+ERROR - 2025-06-28 04:16:28 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 04:16:28 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 04:16:28 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 04:16:28 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 05:50:14 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 05:50:14 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 05:50:14 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 05:50:14 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 08:58:02 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 08:58:02 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 08:58:03 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 08:58:03 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 08:58:06 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 08:58:06 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 08:58:06 --> 404 Page Not Found: /index
+ERROR - 2025-06-28 12:06:50 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:06:50 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:06:51 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:06:51 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:52 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:52 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:54 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:54 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:55 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:55 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:56 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:56 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:57 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:57 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 12:07:58 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 12:07:58 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 14:13:23 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 14:13:23 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 15:35:35 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 15:35:35 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 15:35:37 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 15:35:37 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 15:59:43 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 15:59:43 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 15:59:44 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 15:59:44 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 18:46:00 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 18:46:00 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 18:46:00 --> 404 Page Not Found: /index
+ERROR - 2025-06-28 18:46:02 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 18:46:02 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142
+ERROR - 2025-06-28 18:46:05 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 138
+ERROR - 2025-06-28 18:46:05 --> Severity: Warning --> Undefined array key "log_threshold" /home/u677382737/domains/crm.dps.energy/public_html/system/core/Log.php 142

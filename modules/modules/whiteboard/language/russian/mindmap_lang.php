@@ -1,0 +1,31 @@
+<?php
+
+$lang['mindmaps']                                             = 'Карты разума';
+$lang['mindmap']                                              = 'Карта разума';
+$lang['mindmap_create_new']                                   = 'Создать новый';
+$lang['mindmap_edit']                                         = 'редактировать';
+$lang['mindmap_delete']                                       = 'Удалить';
+$lang['mindmap_title']                                        = 'заглавие';
+$lang['mindmap_desc']                                         = 'Описание';
+$lang['mindmap_staff']										  = 'Создано';
+$lang['mindmap_search']										  = 'Поиск Mind Map';
+$lang['mindmap_group']								          = 'группа';
+$lang['mindmap_groups']								          = 'группы';
+$lang['edit_mindmap_group']								      = 'Редактировать группу';
+$lang['new_mindmap_group']								      = 'Новая группа';
+$lang['mindmap_group_add_edit_name']						  = 'название';
+$lang['mindmap_group_add_edit_description']					  = 'Описание';
+$lang['mindmap_switch_to_grid_view']						  = 'Переключиться на сетку';
+$lang['mindmap_switch_to_list_view']						  = 'Переключиться на список';
+$lang['mindmap_assigned_to_me']								  = 'Моя карта разума';
+$lang['mindmap_filter_staff']								  = 'Штат сотрудников';
+$lang['mindmap_filter_group']								  = 'группа';
+$lang['mindmap_info']								          = 'Информация о Mindmap';
+$lang['mindmap_staff']								          = 'Штат сотрудников';
+$lang['mindmap_view']								          = 'Посмотреть';
+$lang['mindmap_not_found']								      = 'Mindmap не найден';
+$lang['preview_mindmap']								      = 'Предварительный просмотр Mindmap';
+$lang['mindmap_settings_name']								  = 'Карта разума';
+$lang['new_mindmap_group']								      = 'Новая группа';
+$lang['mindmap_created_at']									  = 'Создано на';
+$lang['mindmap_enable_group_option']                          = 'Разрешить сотрудникам без прав администратора создавать группы в области создания и редактирования Mindmap?  ';
