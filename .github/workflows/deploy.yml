@@ -20,11 +20,21 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port: ${{ secrets.FTP_PORT }}
+          port: 21
           local-dir: ./
           server-dir: /public_html/
+
           exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
             **/uploads/**
             **/media/**
             **/backups/**
             **/temp/**
+            **/*.zip
+            **/*.log
+            **/*.mp4
+            **/*.mov
+            **/*.avi
+            **/*.mkv
