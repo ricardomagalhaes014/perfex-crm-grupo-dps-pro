@@ -11,22 +11,38 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.PORT }} ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy with rsync
+      - name: Deploy changed files only
         run: |
-          rsync -avz \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='uploads' \
-            --exclude='application/config' \
-            --exclude='backups' \
-            -e "ssh -p ${{ secrets.PORT }}" \
-            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/
+          if [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push detected. Sending all tracked files."
+            FILES=$(git ls-files)
+          else
+            FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          fi
+
+          echo "Changed files:"
+          echo "$FILES"
+
+          for file in $FILES; do
+            case "$file" in
+              .git*|.github/*|node_modules/*|uploads/*|assets/uploads/*|backups/*|temp/*|application/config/*|application/logs/*|application/cache/*)
+                echo "Skipping $file"
+                continue
+                ;;
+            esac
+
+            if [ -f "$file" ]; then
+              echo "Uploading $file"
+              ssh -p ${{ secrets.PORT }} ${{ secrets.USER }}@${{ secrets.HOST }} "mkdir -p /home/${{ secrets.USER }}/public_html/$(dirname "$file")"
+              scp -P ${{ secrets.PORT }} "$file" ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/"$file"
+            fi
+          done
