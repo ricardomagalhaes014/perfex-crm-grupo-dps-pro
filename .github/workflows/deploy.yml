@@ -20,7 +20,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p ${{ secrets.PORT }} ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy via rsync (incremental real)
+      - name: Deploy via rsync
         run: |
           rsync -avz \
             --exclude='.git' \
@@ -32,4 +32,4 @@ jobs:
             --exclude='application/cache' \
             --exclude='backups' \
             -e "ssh -p ${{ secrets.PORT }}" \
-            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/CRM/
+            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/
