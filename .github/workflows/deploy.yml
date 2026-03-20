@@ -32,4 +32,4 @@ jobs:
             --exclude='application/cache' \
             --exclude='backups' \
             -e "ssh -p ${{ secrets.PORT }}" \
-            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/
+            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/CRM/
