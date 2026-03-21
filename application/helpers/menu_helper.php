@@ -105,35 +105,7 @@ function app_init_admin_sidebar_menu_items()
         ]);
     }
 
-    if (staff_can('view',  'subscriptions') || staff_can('view_own',  'subscriptions')) {
-        $CI->app_menu->add_sidebar_menu_item('subscriptions', [
-            'name'     => _l('subscriptions'),
-            'href'     => admin_url('subscriptions'),
-            'icon'     => 'fa fa-repeat',
-            'position' => 15,
-            'badge'    => [],
-        ]);
-    }
-
-    if (staff_can('view',  'expenses') || staff_can('view_own',  'expenses')) {
-        $CI->app_menu->add_sidebar_menu_item('expenses', [
-            'name'     => _l('expenses'),
-            'href'     => admin_url('expenses'),
-            'icon'     => 'fa-regular fa-file-lines',
-            'position' => 20,
-            'badge'    => [],
-        ]);
-    }
-
-    if (staff_can('view',  'contracts') || staff_can('view_own',  'contracts')) {
-        $CI->app_menu->add_sidebar_menu_item('contracts', [
-            'name'     => _l('contracts'),
-            'href'     => admin_url('contracts'),
-            'icon'     => 'fa-regular fa-note-sticky',
-            'position' => 25,
-            'badge'    => [],
-        ]);
-    }
+    // DPS: Assinaturas, Despesas e Contratos removidos do menu lateral
 
     $CI->app_menu->add_sidebar_menu_item('projects', [
         'name'     => _l('projects'),
@@ -191,12 +163,15 @@ function app_init_admin_sidebar_menu_items()
         ]);
     }
 
-    if ((staff_can('view',  'estimate_request') || staff_can('view_own',  'estimate_request'))) {
-        $CI->app_menu->add_sidebar_menu_item('estimate_request', [
-            'name'     => _l('estimate_request'),
-            'href'     => admin_url('estimate_request'),
-            'position' => 46,
-            'icon'     => 'fa-regular fa-file',
+    // DPS: Pedido de Orçamento removido do menu lateral
+
+    // DPS Teams: Gestão de Equipas (só Super Admin)
+    if (is_admin()) {
+        $CI->app_menu->add_sidebar_menu_item('dps_teams', [
+            'name'     => 'Equipas DPS',
+            'href'     => admin_url('dps_teams'),
+            'icon'     => 'fa fa-users',
+            'position' => 47,
             'badge'    => [],
         ]);
     }
