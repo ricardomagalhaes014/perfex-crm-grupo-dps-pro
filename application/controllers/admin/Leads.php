@@ -1076,6 +1076,16 @@ class Leads extends AdminController
             $note_id = $this->misc_model->add_note($data, 'lead', $rel_id);
 
             if ($note_id) {
+                // 📝 DPS: Registar nota como actividade na lead
+                $note_text = strip_tags(html_entity_decode($data['description'], ENT_QUOTES, 'UTF-8'));
+                $note_text = mb_substr(trim($note_text), 0, 300);
+                if (!empty($note_text)) {
+                    $this->leads_model->log_lead_activity(
+                        $rel_id,
+                        '📝 Nota gravada por ' . get_staff_full_name(get_staff_user_id()) . ': ' . $note_text
+                    );
+                }
+
                 if (isset($contacted_date)) {
                     $this->db->where('id', $rel_id);
                     $this->db->update(db_prefix() . 'leads', [

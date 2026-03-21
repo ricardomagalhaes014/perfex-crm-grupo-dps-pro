@@ -336,7 +336,25 @@ class Misc extends AdminController
     {
         if ($this->input->post()) {
             $data    = $this->input->post();
+
+            // 📝 DPS: Registar edição de nota como actividade na lead
+            // Obter a nota original para saber a qual lead pertence
+            $this->db->where('id', $id);
+            $original_note = $this->db->get(db_prefix() . 'notes')->row_array();
+
             $success = $this->misc_model->edit_note($data, $id);
+
+            if ($success && $original_note && $original_note['rel_type'] === 'lead') {
+                $note_text = strip_tags(html_entity_decode($data['description'], ENT_QUOTES, 'UTF-8'));
+                $note_text = mb_substr(trim($note_text), 0, 300);
+                if (!empty($note_text)) {
+                    $this->load->model('leads_model');
+                    $this->leads_model->log_lead_activity(
+                        (int)$original_note['rel_id'],
+                        '✏️ Nota editada por ' . get_staff_full_name(get_staff_user_id()) . ': ' . $note_text
+                    );
+                }
+            }
 
             echo json_encode([
                 'description' => process_text_content_for_display(nl2br($data['description'])),

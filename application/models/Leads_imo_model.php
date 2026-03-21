@@ -4,20 +4,24 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Leads_imo_model extends App_Model
 {
     /**
-     * Grupos de fontes (de acordo com a tua tela):
+     * Grupos de fontes:
      *
-     *  id 1 = Google
-     *  id 2 = Meta
+     *  id 1 = Imo Brasil (anteriormente Google)
+     *  id 2 = Imo Brasil (anteriormente Meta)  → ambos agrupados como "Imo Brasil"
      *  id 3 = DENTARIA
      *  id 4 = MEDIA
-     *  id 5 = EXPANSAO IMO
+     *  id 5 = Imo Portugal
+     *  id 6 = Imo Dubai (futuro)
      */
     private $sourceGroups = [
-        // IMO = Google + Meta
+        // IMO BRASIL = fontes id 1 e id 2 (renomeadas de Google/Meta para Imo Brasil)
         'imo'          => [1, 2],
 
-        // EXPANSAO IMO separado
+        // IMO PORTUGAL
         'expansao_imo' => [5],
+
+        // IMO DUBAI (futuro)
+        'imo_dubai'    => [6],
 
         // MEDIA
         'media'        => [4],

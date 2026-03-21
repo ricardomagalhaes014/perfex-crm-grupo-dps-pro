@@ -146,9 +146,25 @@ return App_table::find('leads')
             $where[] = $filtersWhere;
         }
 
-        // 🔒 Restrição: só admins veem tudo, comerciais apenas as suas leads
+        // 🔒 DPS Teams: filtro hierárquico por equipa
+        // Super Admin (Ricardo) → vê tudo
+        // Gestor de Equipa       → vê leads dos seus comerciais + as suas
+        // Comercial              → só vê as suas próprias leads
         if (!is_admin()) {
-            $where[] = 'AND assigned = ' . get_staff_user_id();
+            $staff_id = get_staff_user_id();
+            $this->ci->load->model('dps_teams/Dps_teams_model', 'dps_teams_model');
+            $member = $this->ci->dps_teams_model->get_member($staff_id);
+            if ($member && $member['role'] === 'manager') {
+                // Gestor: vê leads dos comerciais da sua equipa + as suas próprias
+                $commercials = $this->ci->dps_teams_model->get_team_commercials((int)$member['team_id']);
+                $ids = array_column($commercials, 'staff_id');
+                $ids[] = (int)$staff_id;
+                $ids_str = implode(',', array_map('intval', $ids));
+                $where[] = 'AND (' . db_prefix() . 'leads.assigned IN (' . $ids_str . ') OR ' . db_prefix() . 'leads.addedfrom IN (' . $ids_str . '))';
+            } else {
+                // Comercial (ou sem equipa): só as suas leads
+                $where[] = 'AND (' . db_prefix() . 'leads.assigned = ' . (int)$staff_id . ' OR ' . db_prefix() . 'leads.addedfrom = ' . (int)$staff_id . ')';
+            }
         }
 
         $aColumns = hooks()->apply_filters('leads_table_sql_columns', $aColumns);
