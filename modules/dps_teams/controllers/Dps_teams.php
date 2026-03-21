@@ -6,8 +6,11 @@ class Dps_teams extends AdminController
     public function __construct()
     {
         parent::__construct();
-        // Apenas super admins (Ricardo) acedem a este módulo
-        if (!is_admin()) {
+        // Acesso: Super Admin OU utilizador principal DPS (ricardomagalhaes014@gmail.com)
+        $dps_super_admin_email = 'ricardomagalhaes014@gmail.com';
+        $staff = $this->db->select('email')->where('staffid', get_staff_user_id())->get(db_prefix() . 'staff')->row_array();
+        $is_dps_owner = isset($staff['email']) && $staff['email'] === $dps_super_admin_email;
+        if (!is_admin() && !$is_dps_owner) {
             access_denied('DPS Teams');
         }
         $this->load->model('dps_teams/Dps_teams_model', 'dps_teams_model');

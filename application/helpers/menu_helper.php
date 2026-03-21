@@ -165,8 +165,14 @@ function app_init_admin_sidebar_menu_items()
 
     // DPS: Pedido de Orçamento removido do menu lateral
 
-    // DPS Teams: Gestão de Equipas (só Super Admin)
-    if (is_admin()) {
+    // DPS Teams: Gestão de Equipas (Super Admin ou utilizador principal DPS)
+    $dps_super_admin_email = 'ricardomagalhaes014@gmail.com';
+    $current_staff_email   = '';
+    if (isset($CI->session) && $CI->session->userdata('staff_user_id')) {
+        $s = $CI->db->select('email')->where('staffid', $CI->session->userdata('staff_user_id'))->get(db_prefix() . 'staff')->row_array();
+        $current_staff_email = $s['email'] ?? '';
+    }
+    if (is_admin() || $current_staff_email === $dps_super_admin_email) {
         $CI->app_menu->add_sidebar_menu_item('dps_teams', [
             'name'     => 'Equipas DPS',
             'href'     => admin_url('dps_teams'),
