@@ -163,16 +163,20 @@ function app_init_admin_sidebar_menu_items()
         ]);
     }
 
-    // DPS: Pedido de Orçamento removido do menu lateral
+     // DPS: Pedido de Orçamento removido do menu lateral
 
-    // DPS Teams: Gestão de Equipas (Super Admin ou utilizador principal DPS)
+    // DPS Teams: Gestão de Equipas
+    // Visível ao Super Admin OU ao utilizador principal DPS (por email)
     $dps_super_admin_email = 'ricardomagalhaes014@gmail.com';
-    $current_staff_email   = '';
-    if (isset($CI->session) && $CI->session->userdata('staff_user_id')) {
-        $s = $CI->db->select('email')->where('staffid', $CI->session->userdata('staff_user_id'))->get(db_prefix() . 'staff')->row_array();
-        $current_staff_email = $s['email'] ?? '';
+    // Usar $GLOBALS['current_user'] que já está carregado pelo AdminController
+    $current_user_email = '';
+    if (isset($GLOBALS['current_user']) && isset($GLOBALS['current_user']->email)) {
+        $current_user_email = $GLOBALS['current_user']->email;
+    } elseif (function_exists('get_staff_user_id') && get_staff_user_id()) {
+        $row = $CI->db->select('email')->where('staffid', (int)get_staff_user_id())->get(db_prefix() . 'staff')->row_array();
+        $current_user_email = $row['email'] ?? '';
     }
-    if (is_admin() || $current_staff_email === $dps_super_admin_email) {
+    if (is_admin() || $current_user_email === $dps_super_admin_email) {
         $CI->app_menu->add_sidebar_menu_item('dps_teams', [
             'name'     => 'Equipas DPS',
             'href'     => admin_url('dps_teams'),
