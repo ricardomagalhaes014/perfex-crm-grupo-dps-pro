@@ -28,16 +28,21 @@ function dps_teams_uninstall_hook()
 // Registar ficheiros de idioma
 register_language_files(DPS_TEAMS_MODULE, [DPS_TEAMS_MODULE]);
 
-// Adicionar menu ao painel admin
+// ─── Menu lateral do painel admin ────────────────────────────────────────────
+// Usa o hook admin_init tal como os outros módulos do Perfex
 hooks()->add_action('admin_init', 'dps_teams_init_menu_items');
 function dps_teams_init_menu_items()
 {
-    // Só o super admin (Ricardo) vê o menu de gestão de equipas
+    $CI = &get_instance();
+
+    // Só o Super Admin (Ricardo) vê o item "Equipas DPS" no menu lateral
     if (!is_admin()) {
         return;
     }
-    $CI = &get_instance();
-    $CI->app_menu->add_sidebar_menu_item('dps-teams', [
+
+    // Adicionar item de topo no sidebar (sem filhos, link directo)
+    $CI->app_menu->add_sidebar_menu_item('dps_teams', [
+        'slug'     => 'dps_teams',
         'name'     => 'Equipas DPS',
         'href'     => admin_url('dps_teams'),
         'icon'     => 'fa fa-users',
@@ -45,78 +50,41 @@ function dps_teams_init_menu_items()
     ]);
 }
 
-// Hook: filtrar leads por equipa/comercial ao listar
-hooks()->add_filter('leads_table_where', 'dps_teams_filter_leads_by_team');
-function dps_teams_filter_leads_by_team($where)
-{
-    // Super admin vê tudo
-    if (is_admin()) {
-        return $where;
-    }
-
-    $CI        = &get_instance();
-    $staff_id  = get_staff_user_id();
-
-    // Carregar o modelo se necessário
-    if (!isset($CI->dps_teams_model)) {
-        $CI->load->model('dps_teams/Dps_teams_model', 'dps_teams_model');
-    }
-
-    $member = $CI->dps_teams_model->get_member($staff_id);
-
-    if (!$member) {
-        // Sem equipa definida: só vê as suas leads
-        if (is_array($where)) {
-            $where[] = '(assigned = ' . (int)$staff_id . ' OR addedfrom = ' . (int)$staff_id . ')';
-        } else {
-            $where = '(assigned = ' . (int)$staff_id . ' OR addedfrom = ' . (int)$staff_id . ')';
-        }
-        return $where;
-    }
-
-    $role = $member['role']; // 'manager' ou 'commercial'
-
-    if ($role === 'manager') {
-        // Gestor vê todas as leads da sua equipa (os seus comerciais + as suas próprias)
-        $team_id      = (int)$member['team_id'];
-        $commercials  = $CI->dps_teams_model->get_team_commercials($team_id);
-        $ids          = array_column($commercials, 'staff_id');
-        $ids[]        = $staff_id;
-        $ids_str      = implode(',', array_map('intval', $ids));
-        $cond         = '(assigned IN (' . $ids_str . ') OR addedfrom IN (' . $ids_str . '))';
-        if (is_array($where)) {
-            $where[] = $cond;
-        } else {
-            $where = $cond;
-        }
-    } else {
-        // Comercial só vê as suas próprias leads
-        $cond = '(assigned = ' . (int)$staff_id . ' OR addedfrom = ' . (int)$staff_id . ')';
-        if (is_array($where)) {
-            $where[] = $cond;
-        } else {
-            $where = $cond;
-        }
-    }
-
-    return $where;
-}
-
-// Hook: registar nota como actividade na lead
+// ─── Hook: registar nota como actividade na lead ──────────────────────────────
+// Nota: a lógica principal de notas como actividade está directamente no
+// controller Leads.php (add_note) e Misc.php (edit_note).
+// Este hook serve como fallback para outros módulos que possam criar notas.
 hooks()->add_action('note_created', 'dps_teams_note_as_lead_activity', 10, 2);
 function dps_teams_note_as_lead_activity($note_id, $note_data)
 {
+    // Só processar notas de leads
     if (!isset($note_data['rel_type']) || $note_data['rel_type'] !== 'lead') {
         return;
     }
+
     $CI      = &get_instance();
     $lead_id = (int)$note_data['rel_id'];
-    $desc    = strip_tags($note_data['description']);
-    $desc    = html_entity_decode($desc, ENT_QUOTES, 'UTF-8');
-    $desc    = mb_substr(trim($desc), 0, 300);
+
+    // Evitar duplicação: o controller já regista a actividade directamente
+    // Este hook só actua se o registo vier de outro contexto (ex: API, automações)
+    // Verificar se já foi registado nos últimos 5 segundos
+    $recent = $CI->db
+        ->where('leadid', $lead_id)
+        ->where('staffid', get_staff_user_id())
+        ->where('date >=', date('Y-m-d H:i:s', time() - 5))
+        ->like('description', 'Nota', 'after')
+        ->count_all_results(db_prefix() . 'lead_activity_log');
+
+    if ($recent > 0) {
+        return; // Já registado pelo controller
+    }
+
+    $desc = strip_tags(html_entity_decode($note_data['description'], ENT_QUOTES, 'UTF-8'));
+    $desc = mb_substr(trim($desc), 0, 300);
     if (empty($desc)) {
         $desc = 'Nota adicionada';
     }
+
     $CI->load->model('leads_model');
-    $CI->leads_model->log_lead_activity($lead_id, 'Nota: ' . $desc);
+    $CI->leads_model->log_lead_activity($lead_id, '📝 Nota: ' . $desc);
 }
