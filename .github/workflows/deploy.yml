@@ -22,7 +22,7 @@ jobs:
 
       - name: Deploy via rsync
         run: |
-          rsync -avz --delete \
+          rsync -avz \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
