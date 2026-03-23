@@ -18,12 +18,11 @@ jobs:
           mkdir -p ~/.ssh
           printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.PORT }} ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ secrets.PORT }}" "${{ secrets.HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy via rsync
         run: |
-          rsync -avz \
-            --delete \
+          rsync -avz --delete \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
@@ -32,5 +31,5 @@ jobs:
             --exclude='application/logs' \
             --exclude='application/cache' \
             --exclude='backups' \
-            -e "ssh -p ${{ secrets.PORT }}" \
-            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/crm.grupo-dps.com/public_html/
+            -e "ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.PORT }} -o StrictHostKeyChecking=no" \
+            ./ "${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/crm.grupo-dps.com/public_html/"
