@@ -23,6 +23,7 @@ jobs:
       - name: Deploy via rsync
         run: |
           rsync -avz \
+            --delete \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='node_modules' \
@@ -32,4 +33,4 @@ jobs:
             --exclude='application/cache' \
             --exclude='backups' \
             -e "ssh -p ${{ secrets.PORT }}" \
-            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/
+            ./ ${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/crm.grupo-dps.com/public_html/
