@@ -32,4 +32,4 @@ jobs:
             --exclude='application/cache' \
             --exclude='backups' \
             -e "ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.PORT }} -o StrictHostKeyChecking=no" \
-            ./ "${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/crm.grupo-dps.com/public_html/"
+            ./ "${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/CRM/"
