@@ -33,10 +33,30 @@ $report_heading = '';
 						<div class="clearfix"></div>
 						<hr />
 						<div class="row">
-							<?php if(has_permission('leads','','view')){ ?>
+							<?php if($has_permission_view){ ?>
+							<!-- Selector de Equipa DPS -->
+							<div class="col-md-2 border-right">
+								<label class="control-label">Equipa DPS</label>
+								<select name="team_id" id="dps_team_select" class="selectpicker no-margin" data-width="100%" data-none-selected-text="Todas as equipas">
+									<option value="">-- Todas --</option>
+									<?php foreach($dps_teams as $team): ?>
+									<option value="<?php echo $team['id']; ?>" <?php echo ($team_id == $team['id'] ? 'selected' : ''); ?>>
+										<?php echo htmlspecialchars($team['name']); ?>
+									</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
+							<!-- Selector de Membro (filtrado por equipa via AJAX) -->
 							<div class="col-md-2 border-right">
 								<label for="rel_type" class="control-label"><?php echo _l('staff_members'); ?></label>
-								<?php echo render_select('member',$members,array('staffid',array('firstname','lastname')),'',$staff_id,array('data-none-selected-text'=>_l('all_staff_members')),array(),'no-margin'); ?>
+								<select name="member" id="dps_member_select" class="selectpicker no-margin" data-width="100%" data-none-selected-text="<?php echo _l('all_staff_members'); ?>">
+									<option value="">-- <?php echo _l('all_staff_members'); ?> --</option>
+									<?php foreach($members as $m): ?>
+									<option value="<?php echo $m['staffid']; ?>" <?php echo ($staff_id == $m['staffid'] ? 'selected' : ''); ?>>
+										<?php echo htmlspecialchars($m['firstname'] . ' ' . $m['lastname']); ?>
+									</option>
+									<?php endforeach; ?>
+								</select>
 							</div>
 							<?php } ?>
 							<div class="col-md-2 text-center1 border-right">
@@ -86,6 +106,7 @@ $report_heading = '';
 								<label for="hide_columns" class="control-label"><span class="control-label"><?php echo _l('si_lf_hide_export_columns'); ?></span></label>
 								<select name="hide_columns[]" id="hide_columns" class="selectpicker no-margin" data-width="100%" multiple>
 									<option value=""><?php echo _l('dropdown_non_selected_tex'); ?></option>
+									<option value="interactions" <?php echo (in_array('interactions',$hide_columns)?'selected':'')?>">Interacções</option>
 									<option value="name" <?php echo (in_array('name',$hide_columns)?'selected':'')?>><?php echo _l('leads_dt_name'); ?></option>
 									<option value="company" <?php echo (in_array('company',$hide_columns)?'selected':'')?>><?php echo _l('lead_company'); ?></option>
 									<option value="email" <?php echo (in_array('email',$hide_columns)?'selected':'')?>><?php echo _l('leads_dt_email'); ?></option>
@@ -176,7 +197,7 @@ $report_heading = '';
 									<div class="checkbox checkbox-success checklist-checkbox" data-toggle="tooltip" title="" data-original-title="<?php echo _l('si_lf_save_filter_template'); ?>">
 										<input type="checkbox" id="si_lf_save_filter" name="save_filter" value="1" title="<?php echo _l('si_lf_save_filter_template'); ?>" <?php echo ($this->input->get('filter_id')?'checked':'')?>>
 										<label for=""><span class="hide"><?php echo _l('si_lf_save_filter_template'); ?></span></label>
-										<textarea id="si_lf_filter_name" name="filter_name" rows="1" placeholder="<?php echo _l('si_lf_filter_template_name'); ?>" <?php echo ($this->input->get('filter_id')?'':'disabled="disabled"')?> maxlength='100'><?php echo ($this->input->get('filter_id')?$saved_filter_name:'');?></textarea>
+										<textarea id="si_lf_filter_name" name="filter_name" rows="1" placeholder="<?php echo _l('si_lf_filter_template_name'); ?>" <?php echo ($this->input->get('filter_id')?'':'disabled="disabled"')?> maxlength='100'><?php echo ($this->input->get('filter_id') ? htmlspecialchars($saved_filter_name) : '');?></textarea>
 									</div>
 								</div>
 							</div>
@@ -194,8 +215,9 @@ $report_heading = '';
 							<caption class="si_lf_caption"><?php echo htmlspecialchars($month.$report_heading);?></caption>
 							<thead>
 								<tr>
-								
 									<th>#</th>
+									<!-- Interacções: primeiro campo de dados -->
+									<th class="<?php echo (in_array('interactions',$hide_columns)?'not-export':'')?>">Interacções</th>
 									<th class="<?php echo (in_array('name',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_name'); ?></th>
 									<th class="<?php echo (in_array('company',$hide_columns)?'not-export':'')?>"><?php echo _l('lead_company'); ?></th>
 									<th class="<?php echo (in_array('email',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_email'); ?></th>
@@ -222,8 +244,15 @@ $report_heading = '';
 								$no=1;
 								foreach($data as $lead){ ?>
 								<tr>
-								
 									<td><?php echo htmlspecialchars($no++);?></td>
+									<!-- Interacções -->
+									<td class="text-center <?php echo (in_array('interactions',$hide_columns)?'not-export':'')?>">
+										<?php 
+										$int_count = isset($lead['interactions']) ? (int)$lead['interactions'] : 0;
+										$badge_class = $int_count > 0 ? 'label-success' : 'label-default';
+										echo '<span class="label ' . $badge_class . '">' . $int_count . '</span>';
+										?>
+									</td>
 									<td data-order="<?php echo htmlspecialchars($lead['name']); ?>"><a href="<?php echo admin_url('leads/index/'.$lead['id']); ?>" onclick="init_lead(<?php echo htmlspecialchars($lead['id']); ?>); return false;"><?php echo htmlspecialchars($lead['name']); ?></a>
 									</td>
 									<td><?php echo htmlspecialchars($lead['company']); ?></td>
@@ -283,6 +312,46 @@ $report_heading = '';
 <?php
 	}
 ?>
+
+// ── Filtro dinâmico de membros por equipa ─────────────────────────────────
+var DPS_TEAMS_AJAX_URL = '<?php echo admin_url('si_lead_filters/get_team_members_ajax'); ?>';
+var currentSelectedMember = '<?php echo htmlspecialchars($staff_id); ?>';
+
+$('#dps_team_select').on('change', function() {
+	var teamId = $(this).val();
+	var $memberSelect = $('#dps_member_select');
+	
+	// Mostrar a carregar
+	$memberSelect.html('<option value="">A carregar...</option>');
+	$memberSelect.selectpicker('refresh');
+
+	$.ajax({
+		url: DPS_TEAMS_AJAX_URL,
+		type: 'GET',
+		data: { team_id: teamId },
+		dataType: 'json',
+		headers: { 'X-Requested-With': 'XMLHttpRequest' },
+		success: function(members) {
+			var opts = '<option value="">-- <?php echo _l('all_staff_members'); ?> --</option>';
+			$.each(members, function(i, m) {
+				var selected = (m.staffid == currentSelectedMember) ? ' selected' : '';
+				opts += '<option value="' + m.staffid + '"' + selected + '>' + m.full_name + '</option>';
+			});
+			$memberSelect.html(opts);
+			$memberSelect.selectpicker('refresh');
+		},
+		error: function() {
+			$memberSelect.html('<option value="">-- Erro ao carregar --</option>');
+			$memberSelect.selectpicker('refresh');
+		}
+	});
+});
+
+// Se já há uma equipa seleccionada ao carregar a página, actualizar o select de membros
+<?php if($team_id !== ''): ?>
+$('#dps_team_select').trigger('change');
+<?php endif; ?>
+
 })(jQuery);				  
 </script>
 

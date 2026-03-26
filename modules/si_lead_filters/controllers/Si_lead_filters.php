@@ -54,7 +54,66 @@ class Si_lead_filters extends AdminController
 		
 		 return $custom_date_select;
 	}
-	
+
+	/**
+	 * AJAX: retorna os membros de uma equipa para o select de utilizador
+	 */
+	public function get_team_members_ajax()
+	{
+		if (!$this->input->is_ajax_request()) {
+			show_404();
+		}
+		$team_id = (int)$this->input->get('team_id');
+		if ($team_id <= 0) {
+			// Sem equipa seleccionada: devolver todos os staff activos
+			$members = $this->db
+				->select('staffid, CONCAT(firstname, \' \', lastname) as full_name')
+				->where('active', 1)
+				->order_by('firstname', 'asc')
+				->get(db_prefix() . 'staff')
+				->result_array();
+		} else {
+			// Devolver apenas os membros da equipa seleccionada
+			$this->db->select(
+				db_prefix() . 'staff.staffid, ' .
+				'CONCAT(' . db_prefix() . 'staff.firstname, \' \', ' . db_prefix() . 'staff.lastname) as full_name'
+			);
+			$this->db->from(db_prefix() . 'dps_team_members');
+			$this->db->join(db_prefix() . 'staff', db_prefix() . 'staff.staffid = ' . db_prefix() . 'dps_team_members.staff_id');
+			$this->db->where(db_prefix() . 'dps_team_members.team_id', $team_id);
+			$this->db->where(db_prefix() . 'staff.active', 1);
+			$this->db->order_by(db_prefix() . 'staff.firstname', 'asc');
+			$members = $this->db->get()->result_array();
+		}
+		header('Content-Type: application/json');
+		echo json_encode($members);
+	}
+
+	/**
+	 * Conta o número de interacções (notas sem mudança de estado) de uma lead
+	 */
+	private function count_lead_interactions($lead_id)
+	{
+		// Interacções = entradas no lead_activity_log que são notas
+		// Usar query directa para evitar problemas de collation entre utf8mb3 e utf8mb4
+		$lead_id = (int)$lead_id;
+		$prefix  = db_prefix();
+		$sql = "SELECT COUNT(*) as cnt FROM {$prefix}lead_activity_log
+				WHERE leadid = {$lead_id}
+				AND (
+					description LIKE CONVERT('%Nota%' USING utf8mb3) COLLATE utf8mb3_general_ci
+					OR description LIKE CONVERT('%nota%' USING utf8mb3) COLLATE utf8mb3_general_ci
+				)
+				AND description NOT LIKE CONVERT('%status%' USING utf8mb3) COLLATE utf8mb3_general_ci
+				AND description NOT LIKE CONVERT('%Estado%' USING utf8mb3) COLLATE utf8mb3_general_ci";
+		$result = $this->db->query($sql);
+		if ($result) {
+			$row = $result->row_array();
+			return (int)($row['cnt'] ?? 0);
+		}
+		return 0;
+	}
+
 	public function leads_filter()
 	{
 		$overview = [];
@@ -71,15 +130,69 @@ class Si_lead_filters extends AdminController
 			}	
 		}	
 
-		$has_permission_view   = has_permission('leads', '', 'view');
+		$has_permission_view = has_permission('leads', '', 'view');
+		$current_user_id     = get_staff_user_id();
 
-		if (!$has_permission_view) {
-			$staff_id = get_staff_user_id();
-		} elseif ($this->input->post('member')) {
-			$staff_id = $this->input->post('member');
+		// ── Filtro de equipa ──────────────────────────────────────────────────
+		$team_id = $this->input->post('team_id');
+		if (!is_numeric($team_id)) $team_id = '';
+
+		// ── Filtro de membro ──────────────────────────────────────────────────
+		// Visibilidade por papel DPS:
+		//   Super Admin / Admin: vê tudo (pode filtrar por equipa/membro)
+		//   Gestor: vê apenas leads dos membros da(s) sua(s) equipa(s)
+		//   Comercial: vê apenas as suas próprias leads
+		if ($has_permission_view) {
+			// Admin / Super Admin
+			if ($this->input->post('member')) {
+				$staff_id = $this->input->post('member');
+			} elseif ($team_id !== '') {
+				// Se filtrou por equipa mas não por membro: filtrar pelos membros da equipa
+				$staff_id = '';
+			} else {
+				$staff_id = '';
+			}
 		} else {
-			$staff_id = '';
+			// Verificar papel DPS do utilizador actual
+			$dps_role = $this->db
+				->select('role')
+				->where('staff_id', $current_user_id)
+				->order_by("FIELD(role,'manager','commercial')", null, false)
+				->limit(1)
+				->get(db_prefix() . 'dps_team_members')
+				->row_array();
+
+			if (!empty($dps_role) && $dps_role['role'] === 'manager') {
+				// Gestor: vê as leads de todos os membros das suas equipas
+				$managed_teams = $this->db
+					->select('team_id')
+					->where('staff_id', $current_user_id)
+					->where('role', 'manager')
+					->get(db_prefix() . 'dps_team_members')
+					->result_array();
+				$managed_team_ids = array_column($managed_teams, 'team_id');
+
+				if (!empty($managed_team_ids)) {
+					$team_members = $this->db
+						->select('staff_id')
+						->where_in('team_id', $managed_team_ids)
+						->get(db_prefix() . 'dps_team_members')
+						->result_array();
+					$team_staff_ids = array_column($team_members, 'staff_id');
+					// Incluir o próprio gestor
+					if (!in_array($current_user_id, $team_staff_ids)) {
+						$team_staff_ids[] = $current_user_id;
+					}
+					$staff_id = $team_staff_ids; // array para where_in
+				} else {
+					$staff_id = $current_user_id;
+				}
+			} else {
+				// Comercial ou sem papel: vê apenas as suas próprias leads
+				$staff_id = $current_user_id;
+			}
 		}
+
 		$status = $this->input->post('status');
 		if(empty($status))
 			$status=array('');
@@ -116,7 +229,6 @@ class Si_lead_filters extends AdminController
 		
 		$save_filter = $this->input->post('save_filter');
 		$filter_name='';
-		$current_user_id = get_staff_user_id();
 		if($save_filter==1)
 		{
 			$filter_name=$this->input->post('filter_name');
@@ -147,12 +259,37 @@ class Si_lead_filters extends AdminController
 			$this->db->where("1=1 ".$custom_date_select);
 		}
 		
-		if(!$has_permission_view){
-			$this->db->where('(assigned =' . $staff_id . ' OR addedfrom = ' . $staff_id . ' OR is_public = 1)');
-		}
-		elseif ($has_permission_view) {
-			if (is_numeric($staff_id)) {
-				$this->db->where('assigned',$staff_id);
+		// ── Aplicar filtro de visibilidade ────────────────────────────────────
+		if ($has_permission_view) {
+			// Admin: filtrar por equipa e/ou membro
+			if ($team_id !== '' && is_numeric($team_id)) {
+				// Obter membros da equipa seleccionada
+				$team_members = $this->db
+					->select('staff_id')
+					->where('team_id', (int)$team_id)
+					->get(db_prefix() . 'dps_team_members')
+					->result_array();
+				$team_staff_ids = array_column($team_members, 'staff_id');
+
+				if ($this->input->post('member') && is_numeric($this->input->post('member'))) {
+					// Filtrar por membro específico dentro da equipa
+					$this->db->where('assigned', (int)$this->input->post('member'));
+				} elseif (!empty($team_staff_ids)) {
+					// Filtrar por todos os membros da equipa
+					$this->db->where_in('assigned', $team_staff_ids);
+				} else {
+					// Equipa sem membros: não mostrar nada
+					$this->db->where('1=0');
+				}
+			} elseif (is_numeric($staff_id)) {
+				$this->db->where('assigned', (int)$staff_id);
+			}
+		} else {
+			// Não-admin: aplicar filtro por papel DPS
+			if (is_array($staff_id)) {
+				$this->db->where_in('assigned', $staff_id);
+			} else {
+				$this->db->where('assigned', (int)$staff_id);
 			}
 		}
 		
@@ -187,14 +324,22 @@ class Si_lead_filters extends AdminController
 		}
 
 		$this->db->order_by($fetch_month_from, 'DESC');
-		$overview[''] = $this->db->get(db_prefix() . 'leads')->result_array();
+		$leads_raw = $this->db->get(db_prefix() . 'leads')->result_array();
+
+		// ── Calcular interacções para cada lead ───────────────────────────────
+		foreach ($leads_raw as &$lead) {
+			$lead['interactions'] = $this->count_lead_interactions($lead['id']);
+		}
+		unset($lead);
+
+		$overview[''] = $leads_raw;
 		
 		$data['title']    = _l('si_lf_submenu_lead_filters');
 		$data['lead_statuses'] = $this->leads_model->get_status();
 		$data['lead_sources']  = $this->leads_model->get_source();
 		$data['lead_countries']  = $this->si_lead_filter_model->get_leads_country_list();
 		$data['members']  = $this->staff_model->get();
-		$data['staff_id'] = $staff_id;
+		$data['staff_id'] = is_array($staff_id) ? '' : $staff_id;
 		$data['saved_filter_name'] = $saved_filter_name;
 		$data['date_by'] = $date_by;
 		$data['statuses']  =$status;
@@ -208,6 +353,14 @@ class Si_lead_filters extends AdminController
 		$data['hide_columns'] = $hide_columns;
 		$data['filter_templates'] = $this->si_lead_filter_model->get_templates($current_user_id);
 		$data['overview'] = $overview;
+		$data['has_permission_view'] = $has_permission_view;
+		$data['team_id'] = $team_id;
+
+		// Carregar equipas DPS para o selector
+		$data['dps_teams'] = $this->db
+			->order_by('area', 'asc')
+			->get(db_prefix() . 'dps_teams')
+			->result_array();
 		
 		$this->load->view('lead_report', $data);
 	}
