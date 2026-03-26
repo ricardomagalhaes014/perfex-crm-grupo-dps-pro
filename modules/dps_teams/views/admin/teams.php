@@ -210,6 +210,8 @@
     </div>
 </div>
 
+<?php init_tail(); ?>
+
 <!-- Modal: Adicionar Membro -->
 <div class="modal fade" id="addMemberModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
@@ -359,7 +361,6 @@ function renderMemberList(selector, members, teamId) {
 }
 </script>
 
-<?php init_tail(); ?>
 
 <?php
 function render_member_row($m, $team_id) {
