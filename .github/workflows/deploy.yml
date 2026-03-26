@@ -1,25 +1,20 @@
 name: Deploy via SSH
-
 on:
   push:
     branches:
       - main
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.PORT }}" "${{ secrets.HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
-
       - name: Deploy via rsync
         run: |
           rsync -avz \
@@ -32,4 +27,4 @@ jobs:
             --exclude='application/cache' \
             --exclude='backups' \
             -e "ssh -i ~/.ssh/id_ed25519 -p ${{ secrets.PORT }} -o StrictHostKeyChecking=no" \
-            ./ "${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/public_html/CRM/"
+            ./ "${{ secrets.USER }}@${{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/crm.grupo-dps.com/public_html/"
