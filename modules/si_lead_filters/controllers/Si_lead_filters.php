@@ -31,6 +31,8 @@ class Si_lead_filters extends AdminController
 				$custom_date_select = 'AND (' . $field . ' >= "' . $beginMonth . ' 00:00:00" AND ' . $field . ' <= "' . $endMonth . ' 23:59:59")';
 			} elseif ($months_report == 'this_month') {
 				$custom_date_select = 'AND (' . $field . ' >= "' . date('Y-m-01 00:00:00') . '" AND ' . $field . ' < "' . date('Y-m-01', strtotime('+1 month')) . ' 00:00:00")';
+			} elseif ($months_report == 'last_7_days') {
+				$custom_date_select = 'AND (' . $field . ' >= "' . date('Y-m-d', strtotime('-6 days')) . ' 00:00:00" AND ' . $field . ' <= "' . date('Y-m-d') . ' 23:59:59")';
 			} elseif ($months_report == 'this_year') {
 				$custom_date_select = 'AND (' . $field . ' >= "' . date('Y-01-01 00:00:00') . '" AND ' . $field . ' < "' . (date('Y')+1) . '-01-01 00:00:00")';
 			} elseif ($months_report == 'last_year') {
@@ -87,17 +89,29 @@ class Si_lead_filters extends AdminController
 
 	/**
 	 * Conta interacções em batch para um array de lead IDs.
+	 * Interacção = nota escrita manualmente (description LIKE '? Nota%'),
+	 * excluindo eventos automáticos do sistema (status, contacto, etc.).
 	 * Retorna array [lead_id => count]
 	 */
-	private function count_interactions_batch(array $lead_ids)
+	private function count_interactions_batch(array $lead_ids, $date_filter_sql = '')
 	{
 		if (empty($lead_ids)) return [];
 		$prefix = db_prefix();
 		$ids    = implode(',', array_map('intval', $lead_ids));
-		$sql    = "SELECT leadid, COUNT(*) as cnt
-				   FROM {$prefix}lead_activity_log
-				   WHERE leadid IN ({$ids})
-				   GROUP BY leadid";
+		// Filtrar apenas notas manuais: description começa com '? Nota'
+		// Excluir eventos automáticos do sistema (not_lead_activity_*)
+		$date_clause = '';
+		if (!empty($date_filter_sql)) {
+			// date_filter_sql vem no formato "AND (field >= ... AND field <= ...)"
+			// Adaptar para o campo 'date' desta tabela
+			$date_clause = preg_replace('/l\.\w+\s*(>=|<=|>|<)/i', 'date $1', $date_filter_sql);
+		}
+		$sql = "SELECT leadid, COUNT(*) as cnt
+				FROM {$prefix}lead_activity_log
+				WHERE leadid IN ({$ids})
+				AND description LIKE '? Nota%'
+				{$date_clause}
+				GROUP BY leadid";
 		$result = $this->db->query($sql);
 		$map    = [];
 		if ($result) {
@@ -356,8 +370,11 @@ class Si_lead_filters extends AdminController
 		$leads_raw = $this->db->query($sql)->result_array();
 
 		// ── Calcular interacções em batch (uma única query) ──────────────────
+		// Passa o filtro de data para que as interacções sejam contadas
+		// apenas no período activo (mesmo intervalo que os leads filtrados)
 		$lead_ids = array_column($leads_raw, 'id');
-		$interactions_map = $this->count_interactions_batch($lead_ids);
+		$date_filter_for_interactions = isset($date_clause) ? $date_clause : '';
+		$interactions_map = $this->count_interactions_batch($lead_ids, $date_filter_for_interactions);
 		foreach ($leads_raw as &$lead) {
 			$lead['interactions'] = $interactions_map[(int)$lead['id']] ?? 0;
 		}

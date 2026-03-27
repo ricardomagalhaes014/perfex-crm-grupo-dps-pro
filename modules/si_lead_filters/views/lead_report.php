@@ -142,8 +142,9 @@ $report_heading = '';
 								<label for="months-report"><?php echo _l('period_datepicker'); ?></label><br />
 								<select class="selectpicker" name="report_months" id="report_months" data-width="100%" data-none-selected-text="<?php echo _l('dropdown_non_selected_tex'); ?>">
 									<option value=""><?php echo _l('report_sales_months_all_time'); ?></option>
-									<option value="this_month"><?php echo _l('this_month'); ?></option>
-									<option value="1"><?php echo _l('last_month'); ?></option>
+								<option value="this_month"><?php echo _l('this_month'); ?></option>
+								<option value="last_7_days" data-subtext="<?php echo _d(date('Y-m-d', strtotime('-6 days'))); ?> - <?php echo _d(date('Y-m-d')); ?>">Últimos 7 dias</option>
+								<option value="1"><?php echo _l('last_month'); ?></option>
 									<option value="this_year"><?php echo _l('this_year'); ?></option>
 									<option value="last_year"><?php echo _l('last_year'); ?></option>
 									<option value="3" data-subtext="<?php echo _d(date('Y-m-01', strtotime("-2 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_three_months'); ?></option>
@@ -157,8 +158,9 @@ $report_heading = '';
 										$report_heading.=' for '._l('period_datepicker')." ";
 										switch($report_months)
 										{
-											case 'this_month':$report_heading.=date('01-m-Y')." To ".date('t-m-Y');break;
-											case '1'         :$report_heading.=date('01-m-Y',strtotime('-1 month'))." To ".date('t-m-Y',strtotime('-1 month'));break;
+										case 'this_month' :$report_heading.=date('01-m-Y')." To ".date('t-m-Y');break;
+										case 'last_7_days':$report_heading.=date('d-m-Y',strtotime('-6 days'))." To ".date('d-m-Y');break;
+										case '1'          :$report_heading.=date('01-m-Y',strtotime('-1 month'))." To ".date('t-m-Y',strtotime('-1 month'));break;
 											case 'this_year' :$report_heading.=date('01-01-Y')." To ".date('31-12-Y');break;
 											case 'last_year' :$report_heading.=date('01-01-Y',strtotime('-1 year'))." To ".date('31-12-Y',strtotime('-1 year'));break;
 											case '3'         :$report_heading.=date('01-m-Y',strtotime('-2 month'))." To ".date('t-m-Y');break;
