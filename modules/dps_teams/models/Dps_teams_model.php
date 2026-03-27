@@ -27,6 +27,19 @@ class Dps_teams_model extends App_Model
         return $this->db->insert_id();
     }
 
+    /**
+     * Obter as sub-equipas directas de uma equipa pai
+     */
+    public function get_sub_teams($parent_id)
+    {
+        $p   = db_prefix();
+        $sql = "SELECT id, name, area, parent_id, source_ids, description, created_at
+                FROM {$p}dps_teams
+                WHERE parent_id = ?
+                ORDER BY name ASC";
+        return $this->db->query($sql, [(int)$parent_id])->result_array();
+    }
+
     // ─── Membros ─────────────────────────────────────────────────────────────
 
     public function get_team_members($team_id)
@@ -186,45 +199,61 @@ class Dps_teams_model extends App_Model
     }
 
     /**
-     * Contar as interacções reais de um comercial num mês/ano
-     * Interacção = nota gravada numa lead (independentemente do estado)
+     * Contar as interacções reais de um comercial num mês/ano.
+     * Interacção = nota escrita numa lead SEM alteração de estado
+     * (entradas no lead_activity_log com description que começa por "Nota"
+     *  e que NÃO têm uma entrada de alteração de estado no mesmo segundo)
      */
     public function count_interactions($staff_id, $year, $month)
     {
         $start = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT) . '-01 00:00:00';
         $end   = date('Y-m-t 23:59:59', strtotime($start));
+        $p     = db_prefix();
 
-        return (int)$this->db
-            ->where('staffid', (int)$staff_id)
-            ->where('date >=', $start)
-            ->where('date <=', $end)
-            ->like('description', 'Nota', 'after')
-            ->count_all_results(db_prefix() . 'lead_activity_log');
+        // Conta entradas de "Nota" do comercial que NÃO sejam acompanhadas
+        // de uma alteração de estado na mesma lead no mesmo segundo
+        $sql = "SELECT COUNT(*) as cnt
+                FROM {$p}lead_activity_log note_log
+                WHERE note_log.staffid = ?
+                  AND note_log.date >= ?
+                  AND note_log.date <= ?
+                  AND note_log.description LIKE 'Nota%'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM {$p}lead_activity_log status_log
+                      WHERE status_log.leadid    = note_log.leadid
+                        AND status_log.staffid   = note_log.staffid
+                        AND status_log.date      = note_log.date
+                        AND status_log.description LIKE 'Status alterado%'
+                  )";
+
+        $row = $this->db->query($sql, [(int)$staff_id, $start, $end])->row_array();
+        return (int)($row['cnt'] ?? 0);
     }
 
     /**
-     * Obter dashboard completo de objectivos vs real para uma equipa num mês/ano
+     * Obter dashboard de objectivos para uma equipa simples (sem sub-equipas).
      * Retorna array de comerciais com: staff_id, full_name, target, real, pct
      */
-    public function get_objectives_dashboard($team_id, $year, $month)
+    private function build_dashboard_for_team($team_id, $year, $month)
     {
-        // Obter todos os comerciais da equipa
-        $this->db->select(
-            db_prefix() . 'dps_team_members.staff_id, ' .
-            'CONCAT(' . db_prefix() . 'staff.firstname, \' \', ' . db_prefix() . 'staff.lastname) as full_name, ' .
-            db_prefix() . 'staff.profile_image'
-        );
-        $this->db->from(db_prefix() . 'dps_team_members');
-        $this->db->join(db_prefix() . 'staff', db_prefix() . 'staff.staffid = ' . db_prefix() . 'dps_team_members.staff_id');
-        $this->db->where(db_prefix() . 'dps_team_members.team_id', (int)$team_id);
-        $this->db->where(db_prefix() . 'dps_team_members.role', 'commercial');
-        $this->db->order_by(db_prefix() . 'staff.firstname', 'asc');
-        $commercials = $this->db->get()->result_array();
+        $p = db_prefix();
 
-        // Obter objectivos definidos
+        // Obter todos os comerciais da equipa via SQL raw (evita problemas CI3/MariaDB)
+        $sql = "SELECT m.staff_id,
+                       CONCAT(s.firstname, ' ', s.lastname) AS full_name,
+                       s.profile_image
+                FROM {$p}dps_team_members m
+                JOIN {$p}staff s ON s.staffid = m.staff_id
+                WHERE m.team_id = ?
+                  AND m.role = 'commercial'
+                ORDER BY s.firstname ASC";
+
+        $commercials = $this->db->query($sql, [(int)$team_id])->result_array();
+
+        // Obter objectivos definidos para esta sub-equipa
         $objectives = $this->get_objectives($team_id, $year, $month);
 
-        // Para cada comercial, contar as interacções reais
         $result = [];
         foreach ($commercials as $c) {
             $sid    = (int)$c['staff_id'];
@@ -242,5 +271,42 @@ class Dps_teams_model extends App_Model
             ];
         }
         return $result;
+    }
+
+    /**
+     * Obter dashboard completo de objectivos vs real para uma equipa num mês/ano.
+     *
+     * Se a equipa tiver sub-equipas, devolve um array agrupado:
+     *   [ ['sub_team' => [...], 'rows' => [...]], ... ]
+     *   com a chave 'has_sub_teams' => true
+     *
+     * Se a equipa não tiver sub-equipas, devolve o array simples de comerciais
+     *   com a chave 'has_sub_teams' => false
+     */
+    public function get_objectives_dashboard($team_id, $year, $month)
+    {
+        $sub_teams = $this->get_sub_teams($team_id);
+
+        if (!empty($sub_teams)) {
+            // Equipa pai com sub-equipas: agrupar por sub-equipa
+            $groups = [];
+            foreach ($sub_teams as $sub) {
+                $rows = $this->build_dashboard_for_team($sub['id'], $year, $month);
+                $groups[] = [
+                    'sub_team' => $sub,
+                    'rows'     => $rows,
+                ];
+            }
+            return [
+                'has_sub_teams' => true,
+                'groups'        => $groups,
+            ];
+        }
+
+        // Equipa simples: retornar lista directa
+        return [
+            'has_sub_teams' => false,
+            'rows'          => $this->build_dashboard_for_team($team_id, $year, $month),
+        ];
     }
 }
