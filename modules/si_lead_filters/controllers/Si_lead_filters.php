@@ -28,26 +28,21 @@ class Si_lead_filters extends AdminController
 					$endMonth   = date('Y-m-t');
 				}
 
-				$custom_date_select = 'AND (' . $field . ' BETWEEN "' . $beginMonth . '" AND "' . $endMonth . '")';
+				$custom_date_select = 'AND (' . $field . ' >= "' . $beginMonth . ' 00:00:00" AND ' . $field . ' <= "' . $endMonth . ' 23:59:59")';
 			} elseif ($months_report == 'this_month') {
-				$custom_date_select = 'AND (' . $field . ' BETWEEN "' . date('Y-m-01') . '" AND "' . date('Y-m-t') . '")';
+				$custom_date_select = 'AND (' . $field . ' >= "' . date('Y-m-01 00:00:00') . '" AND ' . $field . ' < "' . date('Y-m-01', strtotime('+1 month')) . ' 00:00:00")';
 			} elseif ($months_report == 'this_year') {
-				$custom_date_select = 'AND (' . $field . ' BETWEEN "' .
-				date('Y-m-d', strtotime(date('Y-01-01'))) .
-				'" AND "' .
-				date('Y-m-d', strtotime(date('Y-12-31'))) . '")';
+				$custom_date_select = 'AND (' . $field . ' >= "' . date('Y-01-01 00:00:00') . '" AND ' . $field . ' < "' . (date('Y')+1) . '-01-01 00:00:00")';
 			} elseif ($months_report == 'last_year') {
-				$custom_date_select = 'AND (' . $field . ' BETWEEN "' .
-				date('Y-m-d', strtotime(date(date('Y', strtotime('last year')) . '-01-01'))) .
-				'" AND "' .
-				date('Y-m-d', strtotime(date(date('Y', strtotime('last year')) . '-12-31'))) . '")';
+				$last_year = date('Y', strtotime('last year'));
+				$custom_date_select = 'AND (' . $field . ' >= "' . $last_year . '-01-01 00:00:00" AND ' . $field . ' < "' . ($last_year+1) . '-01-01 00:00:00")';
 			} elseif ($months_report == 'custom') {
 				$from_date = to_sql_date($this->input->post('report_from'));
 				$to_date   = to_sql_date($this->input->post('report_to'));
 				if ($from_date == $to_date) {
-					$custom_date_select = 'AND ' . $field . ' = "' . $from_date . '"';
+					$custom_date_select = 'AND (' . $field . ' >= "' . $from_date . ' 00:00:00" AND ' . $field . ' <= "' . $from_date . ' 23:59:59")';
 				} else {
-					$custom_date_select = 'AND (' . $field . ' BETWEEN "' . $from_date . '" AND "' . $to_date . '")';
+					$custom_date_select = 'AND (' . $field . ' >= "' . $from_date . ' 00:00:00" AND ' . $field . ' <= "' . $to_date . ' 23:59:59")';
 				}
 			}
 		}
@@ -76,7 +71,8 @@ class Si_lead_filters extends AdminController
 			// Devolver apenas os membros da equipa seleccionada
 			$this->db->select(
 				db_prefix() . 'staff.staffid, ' .
-				'CONCAT(' . db_prefix() . 'staff.firstname, \' \', ' . db_prefix() . 'staff.lastname) as full_name'
+				'CONCAT(' . db_prefix() . 'staff.firstname, \' \', ' . db_prefix() . 'staff.lastname) as full_name',
+				FALSE  // Desactivar escape automático para evitar SQL inválido
 			);
 			$this->db->from(db_prefix() . 'dps_team_members');
 			$this->db->join(db_prefix() . 'staff', db_prefix() . 'staff.staffid = ' . db_prefix() . 'dps_team_members.staff_id');
@@ -90,28 +86,26 @@ class Si_lead_filters extends AdminController
 	}
 
 	/**
-	 * Conta o número de interacções (notas sem mudança de estado) de uma lead
+	 * Conta interacções em batch para um array de lead IDs.
+	 * Retorna array [lead_id => count]
 	 */
-	private function count_lead_interactions($lead_id)
+	private function count_interactions_batch(array $lead_ids)
 	{
-		// Interacções = entradas no lead_activity_log que são notas
-		// Usar query directa para evitar problemas de collation entre utf8mb3 e utf8mb4
-		$lead_id = (int)$lead_id;
-		$prefix  = db_prefix();
-		$sql = "SELECT COUNT(*) as cnt FROM {$prefix}lead_activity_log
-				WHERE leadid = {$lead_id}
-				AND (
-					description LIKE CONVERT('%Nota%' USING utf8mb3) COLLATE utf8mb3_general_ci
-					OR description LIKE CONVERT('%nota%' USING utf8mb3) COLLATE utf8mb3_general_ci
-				)
-				AND description NOT LIKE CONVERT('%status%' USING utf8mb3) COLLATE utf8mb3_general_ci
-				AND description NOT LIKE CONVERT('%Estado%' USING utf8mb3) COLLATE utf8mb3_general_ci";
+		if (empty($lead_ids)) return [];
+		$prefix = db_prefix();
+		$ids    = implode(',', array_map('intval', $lead_ids));
+		$sql    = "SELECT leadid, COUNT(*) as cnt
+				   FROM {$prefix}lead_activity_log
+				   WHERE leadid IN ({$ids})
+				   GROUP BY leadid";
 		$result = $this->db->query($sql);
+		$map    = [];
 		if ($result) {
-			$row = $result->row_array();
-			return (int)($row['cnt'] ?? 0);
+			foreach ($result->result_array() as $row) {
+				$map[(int)$row['leadid']] = (int)$row['cnt'];
+			}
 		}
-		return 0;
+		return $map;
 	}
 
 	public function leads_filter()
@@ -223,7 +217,9 @@ class Si_lead_filters extends AdminController
 		if ($this->input->post('report_months')!='')
 			$report_months = $this->input->post('report_months');
 		elseif($this->input->post('report_months')=='' && $filter_id=='' && $this->input->server('REQUEST_METHOD') !== 'POST')
-			$report_months = 'this_month';//by default when loaded
+			$report_months = 'this_month';//by default when loaded (GET)
+		elseif($this->input->post('report_months')=='' && $this->input->server('REQUEST_METHOD') === 'POST')
+			$report_months = 'this_month';//by default when submitted via POST without date filter
 		else
 			$report_months = '';
 		
@@ -245,101 +241,165 @@ class Si_lead_filters extends AdminController
 			else					 
 				$new_filter_id = $this->si_lead_filter_model->add($filter_data);
 		}
-		
-		//get query Leads
-		$sqlLeadsSelect = db_prefix().'leads.*,CONCAT('.db_prefix().'staff.firstname," ",'.db_prefix().'staff.lastname) as staff_name,'.db_prefix().'leads_sources.name as source_name';
-		
-		$this->db->select($sqlLeadsSelect);
-		
-		$this->db->join(db_prefix().'staff',db_prefix() . 'staff.staffid = ' . db_prefix() . 'leads.assigned','left');
-		$this->db->join(db_prefix() . 'leads_sources' , db_prefix() . 'leads_sources.id = ' . db_prefix() . 'leads.source','left');
-		
-		if($report_months!=''){
-			$custom_date_select = $this->get_where_report_period('DATE('.$fetch_month_from.')',$report_months);
-			$this->db->where("1=1 ".$custom_date_select);
-		}
-		
-		// ── Aplicar filtro de visibilidade ────────────────────────────────────
+
+		// ── Construir query de leads com SQL raw (evita problemas com MariaDB 11.8) ──
+		$p = db_prefix();
+
+		// ── Determinar staff_ids a filtrar ────────────────────────────────────
+		$where_parts = [];
+
 		if ($has_permission_view) {
-			// Admin: filtrar por equipa e/ou membro
 			$member_post = $this->input->post('member');
 			if ($team_id !== '' && is_numeric($team_id)) {
-				// Obter membros da equipa seleccionada
-				$team_members = $this->db
-					->select('staff_id')
-					->where('team_id', (int)$team_id)
-					->get(db_prefix() . 'dps_team_members')
-					->result_array();
-				$team_staff_ids = array_column($team_members, 'staff_id');
+				// Obter sub-equipas (1 nível)
+				$sub_q = $this->db->query("SELECT id FROM {$p}dps_teams WHERE parent_id = ?", [(int)$team_id]);
+				$all_team_ids = [(int)$team_id];
+				foreach ($sub_q->result_array() as $st) {
+					$all_team_ids[] = (int)$st['id'];
+				}
+				$team_ids_str = implode(',', $all_team_ids);
+				$members_q = $this->db->query("SELECT DISTINCT staff_id FROM {$p}dps_team_members WHERE team_id IN ({$team_ids_str})");
+				$team_staff_ids = array_column($members_q->result_array(), 'staff_id');
 
 				if ($member_post !== '' && $member_post !== null && is_numeric($member_post)) {
-					// Filtrar por membro específico dentro da equipa
-					$this->db->where(db_prefix() . 'leads.assigned', (int)$member_post);
+					$where_parts[] = "l.assigned = " . (int)$member_post;
 				} elseif (!empty($team_staff_ids)) {
-					// Filtrar por todos os membros da equipa
-					$this->db->where_in(db_prefix() . 'leads.assigned', $team_staff_ids);
+					$where_parts[] = "l.assigned IN (" . implode(',', array_map('intval', $team_staff_ids)) . ")";
 				} else {
-					// Equipa sem membros: não mostrar nada
-					$this->db->where('1=0');
+					$where_parts[] = "1=0"; // equipa sem membros
 				}
 			} elseif ($member_post !== '' && $member_post !== null && is_numeric($member_post)) {
-				// Sem equipa seleccionada mas com membro específico
-				$this->db->where(db_prefix() . 'leads.assigned', (int)$member_post);
+				$where_parts[] = "l.assigned = " . (int)$member_post;
 			}
-			// Se nem equipa nem membro: admin vê tudo (sem filtro adicional)
+			// Admin sem filtro: vê tudo
 		} else {
-			// Não-admin: aplicar filtro por papel DPS
 			if (is_array($staff_id)) {
-				$this->db->where_in('assigned', $staff_id);
+				$where_parts[] = "l.assigned IN (" . implode(',', array_map('intval', $staff_id)) . ")";
 			} else {
-				$this->db->where('assigned', (int)$staff_id);
-			}
-		}
-		
-		if ($status && !in_array('',$status)) {
-			$this->db->where_in('status', $status);
-		}
-		
-		if ($source && !in_array('',$source)) {
-			$this->db->where_in('source', $source);
-		}
-		
-		if ($tag && !in_array('',$tag)) {
-			$this->db->join(db_prefix() . 'taggables' , '('.db_prefix() . 'taggables.rel_id = ' . db_prefix() . 'leads.id and rel_type=\'lead\')','left');
-			$this->db->where_in('tag_id', $tag);
-			$this->db->group_by(db_prefix() . 'leads.id');
-		}
-		if ($country && !in_array('',$country)) {
-			if(in_array(-1,$country))//if country is unknown
-				$country[]=0;
-			$this->db->where_in('country', $country);
-		}
-		if($type!='')
-		{
-			if($type=='lost')
-				$this->db->where('lost',1);
-			if($type=='junk')
-				$this->db->where('junk',1);
-			if($type=='public')
-				$this->db->where('is_public',1);
-			if($type=='not_assigned')
-				$this->db->where('assigned',0);
-			if($type=='converted') {
-				// Lead convertida = existe um cliente com leadid = lead.id
-				$this->db->where(db_prefix().'leads.id IN (SELECT leadid FROM '.db_prefix().'clients WHERE leadid IS NOT NULL AND leadid > 0)', null, false);
+				$where_parts[] = "l.assigned = " . (int)$staff_id;
 			}
 		}
 
-		$this->db->order_by($fetch_month_from, 'DESC');
-		$leads_raw = $this->db->get(db_prefix() . 'leads')->result_array();
+		// ── Filtro de data ────────────────────────────────────────────────────
+		if ($report_months != '') {
+			$date_clause = $this->get_where_report_period("l.{$fetch_month_from}", $report_months);
+			// get_where_report_period devolve "AND (...)" — remover o "AND " inicial
+			if ($date_clause !== '') {
+				$where_parts[] = ltrim(substr($date_clause, 4)); // remover "AND "
+			}
+		}
 
-		// ── Calcular interacções para cada lead ───────────────────────────────
+		// ── Filtro de status ──────────────────────────────────────────────────
+		if ($status && !in_array('', $status)) {
+			$status_esc = implode(',', array_map(function($v){ return (int)$v; }, $status));
+			$where_parts[] = "l.status IN ({$status_esc})";
+		}
+
+		// ── Filtro de source ──────────────────────────────────────────────────
+		if ($source && !in_array('', $source)) {
+			$source_esc = implode(',', array_map(function($v){ return (int)$v; }, $source));
+			$where_parts[] = "l.source IN ({$source_esc})";
+		}
+
+		// ── Filtro de país ────────────────────────────────────────────────────
+		if ($country && !in_array('', $country)) {
+			if (in_array(-1, $country)) $country[] = 0;
+			$country_esc = implode(',', array_map(function($v){ return (int)$v; }, $country));
+			$where_parts[] = "l.country IN ({$country_esc})";
+		}
+
+		// ── Filtro de tipo ────────────────────────────────────────────────────
+		if ($type != '') {
+			if ($type == 'lost')         $where_parts[] = "l.lost = 1";
+			if ($type == 'junk')         $where_parts[] = "l.junk = 1";
+			if ($type == 'public')       $where_parts[] = "l.is_public = 1";
+			if ($type == 'not_assigned') $where_parts[] = "l.assigned = 0";
+			if ($type == 'converted')    $where_parts[] = "l.id IN (SELECT leadid FROM {$p}clients WHERE leadid IS NOT NULL AND leadid > 0)";
+		}
+
+		// ── Filtro de tags (JOIN necessário) ──────────────────────────────────
+		$tag_join = '';
+		if ($tag && !in_array('', $tag)) {
+			$tag_esc = implode(',', array_map(function($v){ return (int)$v; }, $tag));
+			$tag_join = "LEFT JOIN {$p}taggables tg ON (tg.rel_id = l.id AND tg.rel_type = 'lead')";
+			$where_parts[] = "tg.tag_id IN ({$tag_esc})";
+		}
+
+		// ── Montar WHERE ──────────────────────────────────────────────────────
+		$where_sql = '';
+		if (!empty($where_parts)) {
+			$where_sql = 'WHERE ' . implode(' AND ', $where_parts);
+		}
+
+		// ── GROUP BY (necessário quando há JOIN de tags) ──────────────────────
+		$group_sql = (!empty($tag_join)) ? 'GROUP BY l.id' : '';
+
+		// ── Query final com SQL raw ───────────────────────────────────────────
+		$sql = "SELECT
+			l.id, l.hash, l.name, l.title, l.company, l.description, l.country,
+			l.zip, l.city, l.state, l.address, l.assigned, l.status, l.source,
+			l.email, l.website, l.phonenumber, l.lead_value, l.junk, l.lost,
+			l.is_public, l.dateadded, l.lastcontact, l.date_converted,
+			l.addedfrom, l.default_language, l.dateassigned, l.last_status_change,
+			l.leadorder, l.from_form_id, l.last_lead_status, l.client_id,
+			l.converted_by_lead_manager, l.lm_follow_up, l.from_ma_form_id, l.ma_point,
+			CONCAT(s.firstname, ' ', s.lastname) AS staff_name,
+			ls.name AS source_name
+		FROM {$p}leads l
+		LEFT JOIN {$p}staff s ON s.staffid = l.assigned
+		LEFT JOIN {$p}leads_sources ls ON ls.id = l.source
+		{$tag_join}
+		{$where_sql}
+		{$group_sql}
+		ORDER BY l.{$fetch_month_from} DESC";
+
+		$leads_raw = $this->db->query($sql)->result_array();
+
+		// ── Calcular interacções em batch (uma única query) ──────────────────
+		$lead_ids = array_column($leads_raw, 'id');
+		$interactions_map = $this->count_interactions_batch($lead_ids);
 		foreach ($leads_raw as &$lead) {
-			$lead['interactions'] = $this->count_lead_interactions($lead['id']);
+			$lead['interactions'] = $interactions_map[(int)$lead['id']] ?? 0;
 		}
 		unset($lead);
 
 		$overview[''] = $leads_raw;
+		
+		// ── Batch loading de custom fields e tags (evita N+1 queries) ────────
+		$custom_fields_list = get_custom_fields('leads', ['show_on_table' => 1]);
+		$custom_fields_map  = [];  // [lead_id][field_id] => value
+		$tags_map           = [];  // [lead_id] => [tag_name, ...]
+		
+		if (!empty($lead_ids)) {
+			$ids_str = implode(',', array_map('intval', $lead_ids));
+			
+			// Carregar todos os custom field values de uma vez
+			if (!empty($custom_fields_list)) {
+				$field_ids = array_column($custom_fields_list, 'id');
+				$field_ids_str = implode(',', array_map('intval', $field_ids));
+				$cf_sql = "SELECT relid, fieldid, value FROM " . db_prefix() . "customfieldsvalues 
+				           WHERE fieldto = 'leads' AND relid IN ({$ids_str}) AND fieldid IN ({$field_ids_str})";
+				$cf_result = $this->db->query($cf_sql);
+				if ($cf_result) {
+					foreach ($cf_result->result_array() as $cf_row) {
+						$custom_fields_map[(int)$cf_row['relid']][(int)$cf_row['fieldid']] = $cf_row['value'];
+					}
+				}
+			}
+			
+			// Carregar todas as tags de uma vez
+			$tags_sql = "SELECT t.rel_id, tg.name 
+			             FROM " . db_prefix() . "taggables t
+			             JOIN " . db_prefix() . "tags tg ON tg.id = t.tag_id
+			             WHERE t.rel_type = 'lead' AND t.rel_id IN ({$ids_str})
+			             ORDER BY t.tag_order ASC";
+			$tags_result = $this->db->query($tags_sql);
+			if ($tags_result) {
+				foreach ($tags_result->result_array() as $tag_row) {
+					$tags_map[(int)$tag_row['rel_id']][] = $tag_row['name'];
+				}
+			}
+		}
 		
 		$data['title']    = _l('si_lf_submenu_lead_filters');
 		$data['lead_statuses'] = $this->leads_model->get_status();
@@ -368,6 +428,9 @@ class Si_lead_filters extends AdminController
 			->order_by('area', 'asc')
 			->get(db_prefix() . 'dps_teams')
 			->result_array();
+		$data['custom_fields_list']  = $custom_fields_list;
+		$data['custom_fields_map']   = $custom_fields_map;
+		$data['tags_map']            = $tags_map;
 		
 		$this->load->view('lead_report', $data);
 	}
