@@ -6,7 +6,6 @@ class Dps_teams extends AdminController
     public function __construct()
     {
         parent::__construct();
-        // Acesso: Super Admin OU utilizador principal DPS (ricardomagalhaes014@gmail.com)
         $dps_super_admin_email = 'ricardomagalhaes014@gmail.com';
         $staff = $this->db->select('email')->where('staffid', get_staff_user_id())->get(db_prefix() . 'staff')->row_array();
         $is_dps_owner = isset($staff['email']) && $staff['email'] === $dps_super_admin_email;
@@ -21,10 +20,9 @@ class Dps_teams extends AdminController
      */
     public function index()
     {
-        $data['title']  = 'Gestão de Equipas DPS';
-        $data['teams']  = $this->dps_teams_model->get_teams();
+        $data['title'] = 'Gestão de Equipas DPS';
+        $data['teams'] = $this->dps_teams_model->get_teams();
 
-        // Para cada equipa, carregar membros
         foreach ($data['teams'] as &$team) {
             $team['members'] = $this->dps_teams_model->get_team_members($team['id']);
         }
@@ -34,8 +32,80 @@ class Dps_teams extends AdminController
     }
 
     /**
+     * Página de objectivos mensais de uma equipa
+     * GET: team_id, year, month
+     */
+    public function objectives($team_id = null)
+    {
+        if (!$team_id) { show_404(); }
+
+        $year  = (int)($this->input->get('year')  ?: date('Y'));
+        $month = (int)($this->input->get('month') ?: date('n'));
+
+        $team = $this->dps_teams_model->get_teams($team_id);
+        if (!$team) { show_404(); }
+
+        $data['title']      = 'Objectivos — ' . $team['name'];
+        $data['team']       = $team;
+        $data['year']       = $year;
+        $data['month']      = $month;
+        $data['dashboard']  = $this->dps_teams_model->get_objectives_dashboard($team_id, $year, $month);
+        $data['objectives'] = $this->dps_teams_model->get_objectives($team_id, $year, $month);
+
+        $this->load->view('dps_teams/admin/objectives', $data);
+    }
+
+    /**
+     * AJAX: gravar objectivo mensal
+     * POST: team_id, staff_id, year, month, target
+     */
+    public function save_objective()
+    {
+        if (!$this->input->is_ajax_request() || !$this->input->post()) {
+            show_404();
+        }
+
+        $team_id  = (int)$this->input->post('team_id');
+        $staff_id = (int)$this->input->post('staff_id');
+        $year     = (int)$this->input->post('year');
+        $month    = (int)$this->input->post('month');
+        $target   = (int)$this->input->post('target');
+
+        if ($team_id <= 0 || $staff_id <= 0 || $year < 2020 || $month < 1 || $month > 12 || $target < 0) {
+            echo json_encode(['success' => false, 'message' => 'Dados inválidos']);
+            return;
+        }
+
+        $ok = $this->dps_teams_model->save_objective($team_id, $staff_id, $year, $month, $target, get_staff_user_id());
+        echo json_encode(['success' => (bool)$ok]);
+    }
+
+    /**
+     * AJAX: obter dashboard de objectivos (para actualização dinâmica ao mudar mês)
+     * POST: team_id, year, month
+     */
+    public function objectives_data()
+    {
+        if (!$this->input->is_ajax_request() || !$this->input->post()) {
+            show_404();
+        }
+
+        $team_id = (int)$this->input->post('team_id');
+        $year    = (int)$this->input->post('year');
+        $month   = (int)$this->input->post('month');
+
+        $dashboard  = $this->dps_teams_model->get_objectives_dashboard($team_id, $year, $month);
+        $objectives = $this->dps_teams_model->get_objectives($team_id, $year, $month);
+
+        echo json_encode([
+            'success'    => true,
+            'dashboard'  => $dashboard,
+            'objectives' => $objectives,
+        ]);
+    }
+
+    /**
      * AJAX: adicionar membro a uma equipa
-     * POST: team_id, staff_id, role
      */
     public function add_member()
     {
@@ -45,7 +115,7 @@ class Dps_teams extends AdminController
 
         $team_id  = (int)$this->input->post('team_id');
         $staff_id = (int)$this->input->post('staff_id');
-        $role     = $this->input->post('role'); // 'manager' ou 'commercial'
+        $role     = $this->input->post('role');
 
         if (!in_array($role, ['manager', 'commercial'])) {
             echo json_encode(['success' => false, 'message' => 'Papel inválido']);
@@ -55,7 +125,6 @@ class Dps_teams extends AdminController
         $result = $this->dps_teams_model->add_member($team_id, $staff_id, $role);
 
         if ($result) {
-            // Recarregar membros da equipa
             $members = $this->dps_teams_model->get_team_members($team_id);
             echo json_encode(['success' => true, 'members' => $members]);
         } else {
@@ -65,7 +134,6 @@ class Dps_teams extends AdminController
 
     /**
      * AJAX: remover membro de uma equipa
-     * POST: member_id, team_id
      */
     public function remove_member()
     {
@@ -88,7 +156,6 @@ class Dps_teams extends AdminController
 
     /**
      * AJAX: obter staff disponível para adicionar a uma equipa
-     * GET: team_id
      */
     public function available_staff()
     {
@@ -101,8 +168,7 @@ class Dps_teams extends AdminController
     }
 
     /**
-     * AJAX: alterar o papel (role) de um membro
-     * POST: member_id, team_id, role
+     * AJAX: alterar o papel de um membro
      */
     public function change_role()
     {

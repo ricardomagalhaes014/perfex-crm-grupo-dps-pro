@@ -95,8 +95,9 @@ $report_heading = '';
 									<option value="lost" <?php echo ($type=='lost'?'selected':'')?>><?php echo _l('lead_lost'); ?></option>
 									<option value="junk" <?php echo ($type=='junk'?'selected':'')?>><?php echo _l('lead_junk'); ?></option>
 									<option value="public" <?php echo ($type=='public'?'selected':'')?>><?php echo _l('lead_public'); ?></option>
-									<option value="not_assigned" <?php echo ($type=='not_assigned'?'selected':'')?>><?php echo _l('leads_not_assigned'); ?></option>
-								</select>
+						<option value="not_assigned" <?php echo ($type=='not_assigned'?'selected':'')?>><?php echo _l('leads_not_assigned'); ?></option>
+						<option value="converted" <?php echo ($type=='converted'?'selected':'')?> >Lead Convertida</option>
+					</select>
 							</div>
 							<!--end other_type select-->
 						</div>

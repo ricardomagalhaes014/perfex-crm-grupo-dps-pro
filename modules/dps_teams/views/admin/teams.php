@@ -51,6 +51,11 @@
                                     <?= $area_label ?>
                                 </span>
                             </div>
+                            <div>
+                                <a href="<?= admin_url('dps_teams/objectives/' . $team['id']) ?>" class="btn btn-sm btn-primary">
+                                    <i class="fa fa-bullseye tw-mr-1"></i> Objectivos
+                                </a>
+                            </div>
                         </div>
                     </div>
 

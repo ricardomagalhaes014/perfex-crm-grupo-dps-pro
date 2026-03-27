@@ -262,6 +262,7 @@ class Si_lead_filters extends AdminController
 		// ── Aplicar filtro de visibilidade ────────────────────────────────────
 		if ($has_permission_view) {
 			// Admin: filtrar por equipa e/ou membro
+			$member_post = $this->input->post('member');
 			if ($team_id !== '' && is_numeric($team_id)) {
 				// Obter membros da equipa seleccionada
 				$team_members = $this->db
@@ -271,19 +272,21 @@ class Si_lead_filters extends AdminController
 					->result_array();
 				$team_staff_ids = array_column($team_members, 'staff_id');
 
-				if ($this->input->post('member') && is_numeric($this->input->post('member'))) {
+				if ($member_post !== '' && $member_post !== null && is_numeric($member_post)) {
 					// Filtrar por membro específico dentro da equipa
-					$this->db->where('assigned', (int)$this->input->post('member'));
+					$this->db->where(db_prefix() . 'leads.assigned', (int)$member_post);
 				} elseif (!empty($team_staff_ids)) {
 					// Filtrar por todos os membros da equipa
-					$this->db->where_in('assigned', $team_staff_ids);
+					$this->db->where_in(db_prefix() . 'leads.assigned', $team_staff_ids);
 				} else {
 					// Equipa sem membros: não mostrar nada
 					$this->db->where('1=0');
 				}
-			} elseif (is_numeric($staff_id)) {
-				$this->db->where('assigned', (int)$staff_id);
+			} elseif ($member_post !== '' && $member_post !== null && is_numeric($member_post)) {
+				// Sem equipa seleccionada mas com membro específico
+				$this->db->where(db_prefix() . 'leads.assigned', (int)$member_post);
 			}
+			// Se nem equipa nem membro: admin vê tudo (sem filtro adicional)
 		} else {
 			// Não-admin: aplicar filtro por papel DPS
 			if (is_array($staff_id)) {
@@ -320,7 +323,11 @@ class Si_lead_filters extends AdminController
 			if($type=='public')
 				$this->db->where('is_public',1);
 			if($type=='not_assigned')
-				$this->db->where('assigned',0);			
+				$this->db->where('assigned',0);
+			if($type=='converted') {
+				// Lead convertida = existe um cliente com leadid = lead.id
+				$this->db->where(db_prefix().'leads.id IN (SELECT leadid FROM '.db_prefix().'clients WHERE leadid IS NOT NULL AND leadid > 0)', null, false);
+			}
 		}
 
 		$this->db->order_by($fetch_month_from, 'DESC');
