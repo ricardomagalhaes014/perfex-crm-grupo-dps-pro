@@ -200,9 +200,9 @@ class Dps_teams_model extends App_Model
 
     /**
      * Contar as interacções reais de um comercial num mês/ano.
-     * Interacção = nota escrita numa lead SEM alteração de estado
-     * (entradas no lead_activity_log com description que começa por "Nota"
-     *  e que NÃO têm uma entrada de alteração de estado no mesmo segundo)
+     * Interacção = nota escrita manualmente (description LIKE '? Nota gravada por%').
+     * Cada interacção gera exactamente um registo com este formato, pelo que
+     * não há risco de duplicados.
      */
     public function count_interactions($staff_id, $year, $month)
     {
@@ -210,22 +210,12 @@ class Dps_teams_model extends App_Model
         $end   = date('Y-m-t 23:59:59', strtotime($start));
         $p     = db_prefix();
 
-        // Conta entradas de "Nota" do comercial que NÃO sejam acompanhadas
-        // de uma alteração de estado na mesma lead no mesmo segundo
         $sql = "SELECT COUNT(*) as cnt
-                FROM {$p}lead_activity_log note_log
-                WHERE note_log.staffid = ?
-                  AND note_log.date >= ?
-                  AND note_log.date <= ?
-                  AND note_log.description LIKE 'Nota%'
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM {$p}lead_activity_log status_log
-                      WHERE status_log.leadid    = note_log.leadid
-                        AND status_log.staffid   = note_log.staffid
-                        AND status_log.date      = note_log.date
-                        AND status_log.description LIKE 'Status alterado%'
-                  )";
+                FROM {$p}lead_activity_log
+                WHERE staffid     = ?
+                  AND date        >= ?
+                  AND date        <= ?
+                  AND description LIKE '? Nota gravada por%'";
 
         $row = $this->db->query($sql, [(int)$staff_id, $start, $end])->row_array();
         return (int)($row['cnt'] ?? 0);
