@@ -3,20 +3,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Dps_whatsapp_model extends CI_Model
 {
-    // IDs dos estados que activam follow-up
-    // 4=Novos, 1=QUENTE, 14=VIP
-    const FOLLOWUP_STATUS_IDS = [1, 4, 14];
-
-    // URL do microserviço Node.js
     const WA_SERVICE_URL = 'http://127.0.0.1:3001';
     const WA_API_KEY     = 'dps-wa-secret-2026';
-
-    // Mensagens de follow-up por estado
-    const MESSAGES = [
-        4  => "Olá. Espero que esteja tudo bem.\n\nEstou a entrar em contacto porque há uns dias demonstrou interesse numa oportunidade imobiliária connosco e queria perceber se ainda faz sentido para si receber opções ajustadas ao que procura.\n\nTemos soluções muito interessantes para habitação própria e investimento, com especial destaque para oportunidades em Portugal, Brasil e Dubai.\n\nSe ainda estiver à procura, diga-me apenas:\nzona, tipologia e valor de investimento.\n\nAssim envio-lhe algo realmente alinhado consigo.\nDPS Imobiliário",
-        1  => "Olá,\n\nEstou a voltar ao seu contacto porque, pelo seu interesse, não queria que perdesse boas oportunidades que possam encaixar no seu perfil.\n\nNeste momento temos algumas opções com condições muito competitivas, excelente potencial de valorização e, em certos casos, pagamento faseado ao longo da obra.\n\nComo o mercado está dinâmico e a disponibilidade muda rapidamente, diga-me se quer que lhe envie já as melhores opções disponíveis para si.\n\nFico desse lado.\nDPS Imobiliário",
-        14 => "Olá,\n\nEspero que esteja bem.\n\nEstou a falar consigo novamente porque, atendendo ao seu perfil, acredito que faz sentido apresentar-lhe oportunidades realmente diferenciadas que estão neste momento no mercado.\n\nTemos ativos com localizações premium, condições muito atrativas para investimento e forte potencial de valorização, incluindo opções com estrutura de pagamento bastante inteligente.\n\nSe entender, envio-lhe hoje uma seleção mais exclusiva e alinhada com o que pretende.\n\nFico ao seu dispor.\nDPS Imobiliário",
-    ];
 
     // ─── Configuração do staff ────────────────────────────────────────────────
 
@@ -92,74 +80,137 @@ class Dps_whatsapp_model extends CI_Model
         ]);
     }
 
-    // ─── Agendamento de follow-ups ────────────────────────────────────────────
+    // ─── Automações personalizadas ────────────────────────────────────────────
+
+    public function get_automations($staff_id = null)
+    {
+        $this->db->select('a.*, ls.name as status_name');
+        $this->db->from(db_prefix() . 'dps_whatsapp_automations a');
+        $this->db->join(db_prefix() . 'leads_status ls', 'ls.id = a.lead_status_id', 'left');
+        if ($staff_id) {
+            $this->db->where('a.staff_id', (int)$staff_id);
+        }
+        $this->db->order_by('a.created_at', 'ASC');
+        return $this->db->get()->result_array();
+    }
+
+    public function get_automation($id, $staff_id = null)
+    {
+        $this->db->where('id', (int)$id);
+        if ($staff_id) $this->db->where('staff_id', (int)$staff_id);
+        return $this->db->get(db_prefix() . 'dps_whatsapp_automations')->row_array();
+    }
+
+    public function save_automation($data, $id = null)
+    {
+        if ($id) {
+            $this->db->where('id', (int)$id)->update(db_prefix() . 'dps_whatsapp_automations', $data);
+            return $id;
+        } else {
+            $this->db->insert(db_prefix() . 'dps_whatsapp_automations', $data);
+            return $this->db->insert_id();
+        }
+    }
+
+    public function delete_automation($id, $staff_id)
+    {
+        $this->db->where('id', (int)$id)
+            ->where('staff_id', (int)$staff_id)
+            ->delete(db_prefix() . 'dps_whatsapp_automations');
+        return $this->db->affected_rows() > 0;
+    }
+
+    public function toggle_automation($id, $staff_id, $is_active)
+    {
+        $this->db->where('id', (int)$id)
+            ->where('staff_id', (int)$staff_id)
+            ->update(db_prefix() . 'dps_whatsapp_automations', ['is_active' => (int)$is_active]);
+    }
+
+    // ─── Agendamento de follow-ups baseado em automações ─────────────────────
 
     /**
-     * Quando uma lead é criada, agendar follow-up para 7 dias depois
-     * se o estado for Nova/Quente/VIP
+     * Obtém todas as automações activas para um staff e estado de lead
+     */
+    private function get_active_automations_for($staff_id, $lead_status_id)
+    {
+        return $this->db
+            ->where('staff_id', (int)$staff_id)
+            ->where('lead_status_id', (int)$lead_status_id)
+            ->where('is_active', 1)
+            ->get(db_prefix() . 'dps_whatsapp_automations')
+            ->result_array();
+    }
+
+    /**
+     * Obtém todos os estados de lead que têm automações activas para um staff
+     */
+    private function get_active_status_ids_for_staff($staff_id)
+    {
+        $rows = $this->db
+            ->select('DISTINCT lead_status_id')
+            ->where('staff_id', (int)$staff_id)
+            ->where('is_active', 1)
+            ->get(db_prefix() . 'dps_whatsapp_automations')
+            ->result_array();
+        return array_column($rows, 'lead_status_id');
+    }
+
+    /**
+     * Quando uma lead é criada ou o estado muda:
+     * - Cancelar follow-ups pendentes anteriores
+     * - Agendar novos follow-ups para cada automação activa que corresponda ao estado
      */
     public function schedule_followup($lead_id)
     {
         $lead = $this->db->where('id', (int)$lead_id)->get(db_prefix() . 'leads')->row_array();
         if (!$lead) return;
-
-        // Só agendar se o estado for um dos estados de follow-up
-        if (!in_array((int)$lead['status'], self::FOLLOWUP_STATUS_IDS)) return;
-
-        // Cancelar follow-ups anteriores pendentes para esta lead
-        $this->db->where('lead_id', (int)$lead_id)
-            ->where('status', 'pending')
-            ->update(db_prefix() . 'dps_whatsapp_followups', ['status' => 'cancelled']);
-
-        // Agendar novo follow-up para 7 dias após a criação
-        $scheduled_at = date('Y-m-d H:i:s', strtotime('+7 days'));
-        $this->db->insert(db_prefix() . 'dps_whatsapp_followups', [
-            'lead_id'        => (int)$lead_id,
-            'staff_id'       => (int)$lead['assigned'],
-            'scheduled_at'   => $scheduled_at,
-            'status'         => 'pending',
-            'lead_status_id' => (int)$lead['status'],
-        ]);
+        $this->_schedule_for_lead($lead);
     }
 
-    /**
-     * Quando o estado de uma lead muda:
-     * - Se for para Nova/Quente/VIP → agendar/reagendar follow-up de 7 dias
-     * - Se for para outro estado → cancelar follow-up pendente
-     */
     public function reschedule_followup($lead_id)
     {
         $lead = $this->db->where('id', (int)$lead_id)->get(db_prefix() . 'leads')->row_array();
         if (!$lead) return;
 
-        // Cancelar follow-ups anteriores pendentes
+        // Cancelar follow-ups pendentes anteriores
         $this->db->where('lead_id', (int)$lead_id)
             ->where('status', 'pending')
             ->update(db_prefix() . 'dps_whatsapp_followups', ['status' => 'cancelled']);
 
-        // Se o novo estado não é de follow-up, não agendar
-        if (!in_array((int)$lead['status'], self::FOLLOWUP_STATUS_IDS)) return;
+        $this->_schedule_for_lead($lead);
+    }
 
-        // Agendar novo follow-up para 7 dias a partir de agora
-        $scheduled_at = date('Y-m-d H:i:s', strtotime('+7 days'));
-        $this->db->insert(db_prefix() . 'dps_whatsapp_followups', [
-            'lead_id'        => (int)$lead_id,
-            'staff_id'       => (int)$lead['assigned'],
-            'scheduled_at'   => $scheduled_at,
-            'status'         => 'pending',
-            'lead_status_id' => (int)$lead['status'],
-        ]);
+    private function _schedule_for_lead($lead)
+    {
+        $staff_id  = (int)$lead['assigned'];
+        $status_id = (int)$lead['status'];
+
+        // Obter automações activas para este staff e estado
+        $automations = $this->get_active_automations_for($staff_id, $status_id);
+        if (empty($automations)) return;
+
+        foreach ($automations as $auto) {
+            $days         = max(1, (int)$auto['days_delay']);
+            $scheduled_at = date('Y-m-d H:i:s', strtotime("+{$days} days"));
+
+            $this->db->insert(db_prefix() . 'dps_whatsapp_followups', [
+                'lead_id'        => (int)$lead['id'],
+                'staff_id'       => $staff_id,
+                'scheduled_at'   => $scheduled_at,
+                'status'         => 'pending',
+                'lead_status_id' => $status_id,
+                'automation_id'  => (int)$auto['id'],
+            ]);
+        }
     }
 
     /**
-     * Processar follow-ups pendentes (chamado pelo cron do Perfex)
-     * Verifica se a lead ainda está no estado correcto e envia a mensagem
+     * Processar follow-ups pendentes (cron)
      */
     public function process_pending_followups()
     {
         $now = date('Y-m-d H:i:s');
-
-        // Obter follow-ups pendentes cuja hora já passou
         $followups = $this->db
             ->where('status', 'pending')
             ->where('scheduled_at <=', $now)
@@ -173,59 +224,54 @@ class Dps_whatsapp_model extends CI_Model
 
     private function process_single_followup($followup)
     {
-        $lead_id  = (int)$followup['lead_id'];
-        $staff_id = (int)$followup['staff_id'];
+        $lead_id      = (int)$followup['lead_id'];
+        $staff_id     = (int)$followup['staff_id'];
+        $automation_id = isset($followup['automation_id']) ? (int)$followup['automation_id'] : null;
 
         // Verificar estado actual da lead
         $lead = $this->db->where('id', $lead_id)->get(db_prefix() . 'leads')->row_array();
-        if (!$lead) {
-            $this->mark_followup($followup['id'], 'cancelled');
-            return;
-        }
+        if (!$lead) { $this->mark_followup($followup['id'], 'cancelled'); return; }
 
         $current_status = (int)$lead['status'];
 
-        // Se o estado já não é Nova/Quente/VIP → cancelar
-        if (!in_array($current_status, self::FOLLOWUP_STATUS_IDS)) {
-            $this->mark_followup($followup['id'], 'cancelled');
-            return;
+        // Obter a automação (personalizada ou por estado)
+        $message = null;
+        if ($automation_id) {
+            $auto = $this->get_automation($automation_id);
+            // Verificar se a automação ainda está activa e se o estado ainda corresponde
+            if (!$auto || !$auto['is_active'] || (int)$auto['lead_status_id'] !== $current_status) {
+                $this->mark_followup($followup['id'], 'cancelled');
+                return;
+            }
+            $message = $auto['message'];
+        } else {
+            // Fallback: verificar automações para o estado actual
+            $autos = $this->get_active_automations_for($staff_id, $current_status);
+            if (empty($autos)) { $this->mark_followup($followup['id'], 'cancelled'); return; }
+            $message = $autos[0]['message'];
         }
 
-        // Verificar se o staff tem WhatsApp ligado
+        // Verificar se o WhatsApp está ligado
         $config = $this->get_config($staff_id);
         if (!$config || !$config['is_connected']) {
-            // Verificar estado real no microserviço
             $status = $this->get_wa_status($staff_id);
             if (empty($status['connected'])) {
                 $this->mark_followup($followup['id'], 'failed');
                 return;
             }
-            // Actualizar config
             $this->save_config($staff_id, ['is_connected' => 1]);
         }
 
-        // Obter número de telefone da lead
+        // Obter número de telefone
         $phone = $lead['phonenumber'] ?? '';
-        if (empty($phone)) {
-            $this->mark_followup($followup['id'], 'failed');
-            return;
-        }
+        if (empty($phone)) { $this->mark_followup($followup['id'], 'failed'); return; }
 
-        // Obter mensagem para o estado actual
-        $message = self::MESSAGES[$current_status] ?? null;
-        if (!$message) {
-            $this->mark_followup($followup['id'], 'cancelled');
-            return;
-        }
+        // Substituir variáveis na mensagem
+        $message = str_replace('{{nome}}', $lead['name'] ?? '', $message);
 
-        // Enviar mensagem
+        // Enviar
         $result = $this->wa_send($staff_id, $phone, $message);
-
-        if (!empty($result['success'])) {
-            $this->mark_followup($followup['id'], 'sent');
-        } else {
-            $this->mark_followup($followup['id'], 'failed');
-        }
+        $this->mark_followup($followup['id'], !empty($result['success']) ? 'sent' : 'failed');
     }
 
     private function mark_followup($id, $status)
@@ -237,7 +283,7 @@ class Dps_whatsapp_model extends CI_Model
 
     // ─── Listagem de follow-ups ───────────────────────────────────────────────
 
-    public function get_followups($staff_id = null, $limit = 50)
+    public function get_followups($staff_id = null, $limit = 100)
     {
         $this->db->select('f.*, l.name as lead_name, l.phonenumber, ls.name as status_name, s.firstname, s.lastname');
         $this->db->from(db_prefix() . 'dps_whatsapp_followups f');
@@ -248,5 +294,13 @@ class Dps_whatsapp_model extends CI_Model
         $this->db->order_by('f.scheduled_at', 'DESC');
         $this->db->limit($limit);
         return $this->db->get()->result_array();
+    }
+
+    // ─── Estados de leads ─────────────────────────────────────────────────────
+
+    public function get_lead_statuses()
+    {
+        return $this->db->order_by('name', 'ASC')
+            ->get(db_prefix() . 'leads_status')->result_array();
     }
 }
