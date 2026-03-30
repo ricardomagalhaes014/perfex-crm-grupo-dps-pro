@@ -306,7 +306,7 @@ function pollQR() {
     });
 }
 
-$(document).ready(function() {
+function initWA() {
     // Verificar estado inicial
     checkStatus();
     statusPollInterval = setInterval(checkStatus, 5000);
@@ -454,7 +454,10 @@ $(document).ready(function() {
             data: { id: id, is_active: active }
         });
     });
-});
+}
+
+// Inicializar após 500ms para garantir que o DOM está completamente pronto
+setTimeout(initWA, 500);
 </script>
 
 <?php init_tail(); ?>
