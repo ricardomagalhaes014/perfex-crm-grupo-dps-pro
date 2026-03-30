@@ -29,7 +29,7 @@ define('DB_NAME', 'u172337921_crmgrupopds');
 define('TBL_PREFIX', 'tbl');
 
 // URL base do CRM para imagens
-define('CRM_URL', 'https://crm.grupo-dps.com');
+define('CRM_URL', 'https://crm.grupo-dps.com/admin');
 
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -43,12 +43,12 @@ function db_connect() {
 }
 
 function get_imoveis($conn, $filters = []) {
-    $where = ["i.can_be_property_listing = 1", "i.published_website = 1"];
+    $where = ["i.published_website = 1", "i.status = 'aprovado'"];
     
     // Filtros opcionais
     if (!empty($filters['tipo'])) {
         $tipo = $conn->real_escape_string($filters['tipo']);
-        $where[] = "i.property_style = '$tipo'";
+        $where[] = "i.tipo = '$tipo'";
     }
     if (!empty($filters['distrito'])) {
         $distrito = $conn->real_escape_string($filters['distrito']);
@@ -58,14 +58,6 @@ function get_imoveis($conn, $filters = []) {
         $tipologia = $conn->real_escape_string($filters['tipologia']);
         $where[] = "i.tipologia = '$tipologia'";
     }
-    if (!empty($filters['preco_min'])) {
-        $preco_min = (float)$filters['preco_min'];
-        $where[] = "i.rate >= $preco_min";
-    }
-    if (!empty($filters['preco_max'])) {
-        $preco_max = (float)$filters['preco_max'];
-        $where[] = "i.rate <= $preco_max";
-    }
     if (!empty($filters['agente_slug'])) {
         $slug = $conn->real_escape_string($filters['agente_slug']);
         $where[] = "LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) = '$slug'";
@@ -73,45 +65,35 @@ function get_imoveis($conn, $filters = []) {
     
     $where_sql = implode(' AND ', $where);
     
-    $sql = "SELECT 
+    $sql = "SELECT
         i.id,
-        i.description AS titulo,
-        i.short_description AS resumo,
-        i.long_description AS descricao,
-        i.rate AS preco,
-        i.property_style AS tipo_imovel,
-        i.listing_type AS tipo_anuncio,
-        i.city AS cidade,
-        i.state AS estado,
-        i.distrito,
+        i.titulo,
+        i.tipo,
         i.tipologia,
-        i.beds AS nr_quartos,
-        i.area_quartos,
+        i.distrito,
+        i.cidade,
+        i.morada,
+        i.preco,
+        i.area_total,
+        i.nr_quartos,
         i.nr_suites,
-        i.area_suites,
         i.nr_salas,
-        i.area_salas,
-        i.full_baths AS nr_casas_banho,
-        i.area_casas_banho,
-        i.area_cozinha,
-        i.equipamento,
-        i.sqFt_total AS area_total,
-        i.garage AS garagem,
+        i.nr_casas_banho,
+        i.garagem,
         i.lugar_garagem,
         i.ano_construcao,
-        i.long_description AS texto_livre,
-        i.status,
-        i.date_entered AS data_criacao,
-        i.date_approval AS data_aprovacao,
-        s.staffid AS agente_id,
-        s.firstname AS agente_nome,
-        s.lastname AS agente_apelido,
-        s.email AS agente_email,
+        i.equipamento,
+        i.texto_livre,
+        i.foto_principal,
+        i.fotos,
+        i.date_approval AS data_publicacao,
+        CONCAT(s.firstname, ' ', s.lastname) AS agente_nome,
         s.phonenumber AS agente_telefone,
+        s.email AS agente_email,
         s.profile_image AS agente_foto,
         LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) AS agente_slug
-    FROM " . TBL_PREFIX . "items i
-    LEFT JOIN " . TBL_PREFIX . "staff s ON (i.related_type = 'staff' AND i.related_id = s.staffid)
+    FROM " . TBL_PREFIX . "dps_imoveis i
+    LEFT JOIN " . TBL_PREFIX . "staff s ON s.staffid = i.agente_id
     WHERE $where_sql
     ORDER BY i.date_approval DESC";
     
@@ -121,54 +103,44 @@ function get_imoveis($conn, $filters = []) {
     }
     
     $imoveis = [];
+    $base_url = CRM_URL . '/';
     while ($row = $result->fetch_assoc()) {
-        // Buscar fotos do imóvel
-        $id = (int)$row['id'];
-        $fotos = get_imovel_fotos($conn, $id);
-        $row['fotos'] = $fotos;
-        $row['foto_principal'] = !empty($fotos) ? $fotos[0] : null;
-        
-        // Formatar dados do agente
-        if ($row['agente_foto']) {
-            $row['agente_foto_url'] = CRM_URL . '/uploads/staff_profile_images/' . $row['agente_foto'];
+        // Foto principal
+        if (!empty($row['foto_principal'])) {
+            $row['foto_principal_url'] = $base_url . $row['foto_principal'];
+        } else {
+            $row['foto_principal_url'] = null;
+        }
+
+        // Galeria
+        $fotos_arr = [];
+        if (!empty($row['fotos'])) {
+            $decoded = json_decode($row['fotos'], true);
+            if (is_array($decoded)) {
+                $fotos_arr = array_map(fn($f) => $base_url . $f, $decoded);
+            }
+        }
+        $row['fotos_urls'] = $fotos_arr;
+        unset($row['fotos']);
+
+        // Foto do agente
+        if (!empty($row['agente_foto'])) {
+            $row['agente_foto_url'] = $base_url . 'uploads/staff_profile_images/' . $row['agente_foto'];
         } else {
             $row['agente_foto_url'] = null;
         }
-        
-        // Formatar preço
-        $row['preco_formatado'] = number_format((float)$row['preco'], 0, ',', '.') . ' €';
-        
+        unset($row['agente_foto']);
+
+        // Preço formatado
+        $row['preco_formatado'] = $row['preco'] ? number_format((float)$row['preco'], 0, ',', '.') . ' €' : 'Preço sob consulta';
+
         $imoveis[] = $row;
     }
-    
+
     return $imoveis;
 }
 
-function get_imovel_fotos($conn, $imovel_id) {
-    $sql = "SELECT site_url, file_name, is_main_image 
-            FROM " . TBL_PREFIX . "real_property_assets 
-            WHERE item_id = $imovel_id 
-            ORDER BY is_main_image DESC, id ASC 
-            LIMIT 20";
-    
-    $result = $conn->query($sql);
-    if (!$result) {
-        // Tentar tabela alternativa
-        $sql2 = "SELECT site_url FROM " . TBL_PREFIX . "itemsattachments 
-                 WHERE itemid = $imovel_id LIMIT 20";
-        $result = $conn->query($sql2);
-        if (!$result) return [];
-    }
-    
-    $fotos = [];
-    while ($row = $result->fetch_assoc()) {
-        $url = !empty($row['site_url']) ? $row['site_url'] : null;
-        if ($url) {
-            $fotos[] = $url;
-        }
-    }
-    return $fotos;
-}
+
 
 function get_agentes($conn) {
     $sql = "SELECT DISTINCT
@@ -181,21 +153,23 @@ function get_agentes($conn) {
         LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) AS slug,
         COUNT(i.id) AS total_imoveis
     FROM " . TBL_PREFIX . "staff s
-    INNER JOIN " . TBL_PREFIX . "items i ON (i.related_type = 'staff' AND i.related_id = s.staffid AND i.can_be_property_listing = 1 AND i.published_website = 1)
+    INNER JOIN " . TBL_PREFIX . "dps_imoveis i ON (i.agente_id = s.staffid AND i.published_website = 1 AND i.status = 'aprovado')
     WHERE s.active = 1
     GROUP BY s.staffid
     ORDER BY s.firstname ASC";
-    
+
     $result = $conn->query($sql);
     if (!$result) return [];
-    
+
     $agentes = [];
+    $base_url = CRM_URL . '/';
     while ($row = $result->fetch_assoc()) {
-        if ($row['foto']) {
-            $row['foto_url'] = CRM_URL . '/uploads/staff_profile_images/' . $row['foto'];
+        if (!empty($row['foto'])) {
+            $row['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $row['foto'];
         } else {
             $row['foto_url'] = null;
         }
+        unset($row['foto']);
         $agentes[] = $row;
     }
     return $agentes;
@@ -203,7 +177,7 @@ function get_agentes($conn) {
 
 function get_agente_by_slug($conn, $slug) {
     $slug_escaped = $conn->real_escape_string($slug);
-    $sql = "SELECT 
+    $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
         s.lastname AS apelido,
@@ -214,16 +188,18 @@ function get_agente_by_slug($conn, $slug) {
     WHERE LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) = '$slug_escaped'
     AND s.active = 1
     LIMIT 1";
-    
+
     $result = $conn->query($sql);
     if (!$result || $result->num_rows === 0) return null;
-    
+
     $agente = $result->fetch_assoc();
-    if ($agente['foto']) {
-        $agente['foto_url'] = CRM_URL . '/uploads/staff_profile_images/' . $agente['foto'];
+    $base_url = CRM_URL . '/';
+    if (!empty($agente['foto'])) {
+        $agente['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $agente['foto'];
     } else {
         $agente['foto_url'] = null;
     }
+    unset($agente['foto']);
     return $agente;
 }
 
@@ -237,8 +213,6 @@ switch ($action) {
             'tipo'      => $_GET['tipo'] ?? '',
             'distrito'  => $_GET['distrito'] ?? '',
             'tipologia' => $_GET['tipologia'] ?? '',
-            'preco_min' => $_GET['preco_min'] ?? '',
-            'preco_max' => $_GET['preco_max'] ?? '',
         ];
         $data = get_imoveis($conn, $filters);
         echo json_encode(['success' => true, 'data' => $data, 'total' => count($data)]);
