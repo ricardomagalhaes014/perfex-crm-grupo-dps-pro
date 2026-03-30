@@ -387,4 +387,91 @@ class Dps_imoveis_model extends CI_Model
             if (file_exists($full)) @unlink($full);
         }
     }
+
+    // ---------------------------------------------------------------
+    // NECESSIDADES
+    // ---------------------------------------------------------------
+
+    public function get_necessidades()
+    {
+        $tbl = db_prefix() . 'dps_necessidades';
+        $this->db->select('n.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome');
+        $this->db->from($tbl . ' n');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = n.staff_id', 'left');
+
+        // Não-admin e não-aprovadores só vêem as suas próprias necessidades
+        if (!is_admin() && !has_permission('dps_imoveis', '', 'approve')) {
+            $this->db->where('n.staff_id', get_staff_user_id());
+        }
+
+        $this->db->order_by('n.data_criacao', 'DESC');
+        return $this->db->get()->result_array();
+    }
+
+    public function get_necessidade_by_id($id)
+    {
+        $tbl = db_prefix() . 'dps_necessidades';
+        $this->db->select('n.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome');
+        $this->db->from($tbl . ' n');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = n.staff_id', 'left');
+        $this->db->where('n.id', $id);
+        return $this->db->get()->row_array();
+    }
+
+    public function create_necessidade($data)
+    {
+        $tbl = db_prefix() . 'dps_necessidades';
+        $insert = [
+            'staff_id'        => get_staff_user_id(),
+            'nome_cliente'    => $data['nome_cliente'] ?? '',
+            'contacto_cliente'=> $data['contacto_cliente'] ?? '',
+            'email_cliente'   => $data['email_cliente'] ?? '',
+            'tipo'            => $data['tipo'] ?? '',
+            'tipologia'       => $data['tipologia'] ?? '',
+            'distrito'        => $data['distrito'] ?? '',
+            'cidade'          => $data['cidade'] ?? '',
+            'preco_min'       => !empty($data['preco_min']) ? (float)$data['preco_min'] : null,
+            'preco_max'       => !empty($data['preco_max']) ? (float)$data['preco_max'] : null,
+            'area_min'        => !empty($data['area_min']) ? (float)$data['area_min'] : null,
+            'nr_quartos_min'  => isset($data['nr_quartos_min']) && $data['nr_quartos_min'] !== '' ? (int)$data['nr_quartos_min'] : null,
+            'garagem'         => isset($data['garagem']) && $data['garagem'] !== '' ? (int)$data['garagem'] : null,
+            'urgencia'        => $data['urgencia'] ?? 'normal',
+            'observacoes'     => $data['observacoes'] ?? '',
+            'data_criacao'    => date('Y-m-d H:i:s'),
+        ];
+        $this->db->insert($tbl, $insert);
+        return $this->db->insert_id();
+    }
+
+    public function update_necessidade($id, $data)
+    {
+        $tbl = db_prefix() . 'dps_necessidades';
+        $update = [
+            'nome_cliente'    => $data['nome_cliente'] ?? '',
+            'contacto_cliente'=> $data['contacto_cliente'] ?? '',
+            'email_cliente'   => $data['email_cliente'] ?? '',
+            'tipo'            => $data['tipo'] ?? '',
+            'tipologia'       => $data['tipologia'] ?? '',
+            'distrito'        => $data['distrito'] ?? '',
+            'cidade'          => $data['cidade'] ?? '',
+            'preco_min'       => !empty($data['preco_min']) ? (float)$data['preco_min'] : null,
+            'preco_max'       => !empty($data['preco_max']) ? (float)$data['preco_max'] : null,
+            'area_min'        => !empty($data['area_min']) ? (float)$data['area_min'] : null,
+            'nr_quartos_min'  => isset($data['nr_quartos_min']) && $data['nr_quartos_min'] !== '' ? (int)$data['nr_quartos_min'] : null,
+            'garagem'         => isset($data['garagem']) && $data['garagem'] !== '' ? (int)$data['garagem'] : null,
+            'urgencia'        => $data['urgencia'] ?? 'normal',
+            'observacoes'     => $data['observacoes'] ?? '',
+        ];
+        $this->db->where('id', $id);
+        $this->db->update($tbl, $update);
+        return $this->db->affected_rows() >= 0;
+    }
+
+    public function delete_necessidade($id)
+    {
+        $tbl = db_prefix() . 'dps_necessidades';
+        $this->db->where('id', $id);
+        $this->db->delete($tbl);
+        return $this->db->affected_rows() > 0;
+    }
 }

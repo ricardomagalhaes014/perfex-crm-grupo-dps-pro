@@ -12,8 +12,7 @@ class Dps_imoveis extends AdminController
 
     /**
      * Verifica se o utilizador actual pode aprovar/rejeitar imóveis.
-     * Apenas Super Admin ou quem tiver a capability 'approve' (atribuída
-     * manualmente pelo admin aos Directores / Responsáveis de Área).
+     * Apenas Super Admin ou quem tiver a capability 'approve'.
      */
     private function _pode_aprovar()
     {
@@ -25,9 +24,6 @@ class Dps_imoveis extends AdminController
     // ---------------------------------------------------------------
     public function index()
     {
-        // Qualquer membro de staff autenticado pode aceder
-        // (o AdminController já garante que só staff autenticado chega aqui)
-
         $filters = [
             'status'    => $this->input->get('status'),
             'tipo'      => $this->input->get('tipo'),
@@ -78,7 +74,6 @@ class Dps_imoveis extends AdminController
             show_404();
         }
 
-        // Não-admin e não-aprovador só pode editar os seus próprios imóveis
         if (!is_admin() && !$this->_pode_aprovar()) {
             if ($imovel['agente_id'] != get_staff_user_id()) {
                 set_alert('danger', 'Só pode editar os seus próprios imóveis.');
@@ -213,7 +208,7 @@ class Dps_imoveis extends AdminController
     }
 
     // ---------------------------------------------------------------
-    // REMOVER FOTO (AJAX)  — qualquer staff pode remover fotos dos seus imóveis
+    // REMOVER FOTO (AJAX)
     // ---------------------------------------------------------------
     public function remover_foto($id)
     {
@@ -223,7 +218,6 @@ class Dps_imoveis extends AdminController
             return;
         }
 
-        // Não-admin só pode remover fotos dos seus próprios imóveis
         if (!is_admin() && !$this->_pode_aprovar()) {
             if ($imovel['agente_id'] != get_staff_user_id()) {
                 echo json_encode(['success' => false, 'message' => 'Sem permissão']);
@@ -234,6 +228,134 @@ class Dps_imoveis extends AdminController
         $foto = $this->input->post('foto');
         $ok = $this->dps_imoveis_model->remover_foto($id, $foto);
         echo json_encode(['success' => $ok]);
+    }
+
+    // ---------------------------------------------------------------
+    // NECESSIDADES — aba interna, sem aprovação, sem publicação no site
+    // ---------------------------------------------------------------
+
+    /**
+     * Listagem de necessidades
+     */
+    public function necessidades()
+    {
+        $data['necessidades'] = $this->dps_imoveis_model->get_necessidades();
+        $data['title']        = 'Necessidades de Clientes';
+        $data['bodyclass']    = 'dps-imoveis-page';
+        $this->load->view('dps_imoveis/necessidades/index', $data);
+    }
+
+    /**
+     * Formulário de nova necessidade
+     */
+    public function nova_necessidade()
+    {
+        if ($this->input->post()) {
+            $post = $this->input->post();
+            $id = $this->dps_imoveis_model->create_necessidade($post);
+            if ($id) {
+                set_alert('success', 'Necessidade registada com sucesso!');
+                redirect(admin_url('dps_imoveis/necessidades'));
+            } else {
+                set_alert('danger', 'Erro ao registar a necessidade. Tente novamente.');
+            }
+        }
+
+        $data['necessidade'] = null;
+        $data['title']       = 'Nova Necessidade';
+        $data['bodyclass']   = 'dps-imoveis-page';
+        $this->load->view('dps_imoveis/necessidades/form', $data);
+    }
+
+    /**
+     * Formulário de edição de necessidade
+     */
+    public function editar_necessidade($id)
+    {
+        $necessidade = $this->dps_imoveis_model->get_necessidade_by_id($id);
+        if (!$necessidade) {
+            show_404();
+        }
+
+        // Não-admin só pode editar as suas próprias necessidades
+        if (!is_admin() && !$this->_pode_aprovar()) {
+            if ($necessidade['staff_id'] != get_staff_user_id()) {
+                set_alert('danger', 'Só pode editar as suas próprias necessidades.');
+                redirect(admin_url('dps_imoveis/necessidades'));
+            }
+        }
+
+        if ($this->input->post()) {
+            $post = $this->input->post();
+            $ok = $this->dps_imoveis_model->update_necessidade($id, $post);
+            if ($ok) {
+                set_alert('success', 'Necessidade actualizada com sucesso!');
+                redirect(admin_url('dps_imoveis/necessidades'));
+            } else {
+                set_alert('danger', 'Erro ao actualizar a necessidade.');
+            }
+        }
+
+        $data['necessidade'] = $necessidade;
+        $data['title']       = 'Editar Necessidade';
+        $data['bodyclass']   = 'dps-imoveis-page';
+        $this->load->view('dps_imoveis/necessidades/form', $data);
+    }
+
+    /**
+     * Apagar necessidade — apenas admin
+     */
+    public function apagar_necessidade($id)
+    {
+        if (!is_admin()) {
+            set_alert('danger', 'Apenas o administrador pode apagar necessidades.');
+            redirect(admin_url('dps_imoveis/necessidades'));
+        }
+
+        $ok = $this->dps_imoveis_model->delete_necessidade($id);
+        if ($ok) {
+            set_alert('success', 'Necessidade apagada com sucesso.');
+        } else {
+            set_alert('danger', 'Erro ao apagar a necessidade.');
+        }
+        redirect(admin_url('dps_imoveis/necessidades'));
+    }
+
+    /**
+     * Guardar necessidade (POST handler para novo e editar)
+     */
+    public function guardar_necessidade()
+    {
+        $id = $this->input->post('id');
+        $post = $this->input->post();
+
+        if ($id) {
+            $necessidade = $this->dps_imoveis_model->get_necessidade_by_id($id);
+            if (!$necessidade) { show_404(); }
+
+            if (!is_admin() && !$this->_pode_aprovar()) {
+                if ($necessidade['staff_id'] != get_staff_user_id()) {
+                    set_alert('danger', 'Sem permissão.');
+                    redirect(admin_url('dps_imoveis/necessidades'));
+                }
+            }
+
+            $ok = $this->dps_imoveis_model->update_necessidade($id, $post);
+            if ($ok) {
+                set_alert('success', 'Necessidade actualizada com sucesso!');
+            } else {
+                set_alert('danger', 'Erro ao actualizar a necessidade.');
+            }
+        } else {
+            $new_id = $this->dps_imoveis_model->create_necessidade($post);
+            if ($new_id) {
+                set_alert('success', 'Necessidade registada com sucesso!');
+            } else {
+                set_alert('danger', 'Erro ao registar a necessidade.');
+            }
+        }
+
+        redirect(admin_url('dps_imoveis/necessidades'));
     }
 
     // ---------------------------------------------------------------
@@ -252,7 +374,6 @@ class Dps_imoveis extends AdminController
 
         $imoveis = $this->dps_imoveis_model->get_for_api($filters);
 
-        // Formatar fotos
         foreach ($imoveis as &$i) {
             $base = base_url();
             if (!empty($i['foto_principal'])) {

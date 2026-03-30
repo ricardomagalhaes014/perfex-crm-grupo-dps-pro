@@ -47,13 +47,30 @@
           </div>
         </div>
       </div>
-      <!-- Botão Novo Imóvel — visível para todos os staff -->
+      <!-- Botões de acção — visíveis para todos os staff -->
       <div class="col-md-2 col-sm-4 col-xs-6 text-right">
         <a href="<?php echo admin_url('dps_imoveis/novo'); ?>" class="btn btn-primary btn-block mtop5">
           <i class="fa fa-plus"></i> Novo Imóvel
         </a>
+        <a href="<?php echo admin_url('dps_imoveis/nova_necessidade'); ?>" class="btn btn-default btn-block mtop5">
+          <i class="fa fa-search"></i> Nova Necessidade
+        </a>
       </div>
     </div>
+
+    <!-- TABS DE NAVEGAÇÃO -->
+    <ul class="nav nav-tabs tw-mb-4">
+      <li class="active">
+        <a href="<?php echo admin_url('dps_imoveis'); ?>">
+          <i class="fa fa-home"></i> Imóveis
+        </a>
+      </li>
+      <li>
+        <a href="<?php echo admin_url('dps_imoveis/necessidades'); ?>">
+          <i class="fa fa-search"></i> Necessidades
+        </a>
+      </li>
+    </ul>
 
     <!-- FILTROS -->
     <div class="panel_s">
