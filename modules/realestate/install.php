@@ -771,3 +771,71 @@ if (!$CI->db->table_exists(db_prefix() . "real_activity")) {
 		PRIMARY KEY (`id`)
 	) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ";");
 }
+
+// ============================================================
+// Campos DPS Imobiliário - Novos campos para dpsimobiliario.pt
+// ============================================================
+
+if (!$CI->db->field_exists('published_website', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `published_website` TINYINT(1) NULL DEFAULT 0");
+}
+if (!$CI->db->field_exists('distrito', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `distrito` VARCHAR(100) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('tipologia', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `tipologia` VARCHAR(10) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('area_quartos', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `area_quartos` DECIMAL(10,2) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('nr_suites', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `nr_suites` INT(11) NULL DEFAULT 0");
+}
+if (!$CI->db->field_exists('area_suites', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `area_suites` DECIMAL(10,2) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('nr_salas', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `nr_salas` INT(11) NULL DEFAULT 0");
+}
+if (!$CI->db->field_exists('area_salas', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `area_salas` DECIMAL(10,2) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('area_casas_banho', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `area_casas_banho` DECIMAL(10,2) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('area_cozinha', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `area_cozinha` DECIMAL(10,2) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('equipamento', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `equipamento` TEXT NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('lugar_garagem', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `lugar_garagem` TINYINT(1) NULL DEFAULT 0");
+}
+if (!$CI->db->field_exists('ano_construcao', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `ano_construcao` INT(4) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('doc_cmi', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `doc_cmi` VARCHAR(255) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('doc_cc_proprietarios', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `doc_cc_proprietarios` VARCHAR(255) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('doc_caderneta_predial', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `doc_caderneta_predial` VARCHAR(255) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('nome_proprietarios', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `nome_proprietarios` VARCHAR(255) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('contacto_proprietario', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `contacto_proprietario` VARCHAR(50) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('mail_proprietario', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `mail_proprietario` VARCHAR(191) NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('date_approval', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `date_approval` DATETIME NULL DEFAULT NULL");
+}
+if (!$CI->db->field_exists('approver_id', db_prefix() . 'items')) {
+$CI->db->query('ALTER TABLE `' . db_prefix() . "items` ADD COLUMN `approver_id` INT(11) NULL DEFAULT NULL");
+}
