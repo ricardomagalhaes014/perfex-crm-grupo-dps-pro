@@ -182,7 +182,7 @@ class Dps_imoveis_model extends CI_Model
         if (!$imovel) return false;
 
         $fotos = $imovel['fotos_array'];
-        $fotos = array_filter($fotos, fn($f) => $f !== $foto_path);
+        $fotos = array_filter($fotos, function($f) use ($foto_path) { return $f !== $foto_path; });
         $fotos = array_values($fotos);
 
         // Apagar ficheiro físico

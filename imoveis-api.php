@@ -117,7 +117,7 @@ function get_imoveis($conn, $filters = []) {
         if (!empty($row['fotos'])) {
             $decoded = json_decode($row['fotos'], true);
             if (is_array($decoded)) {
-                $fotos_arr = array_map(fn($f) => $base_url . $f, $decoded);
+                $fotos_arr = array_map(function($f) use ($base_url) { return $base_url . $f; }, $decoded);
             }
         }
         $row['fotos_urls'] = $fotos_arr;

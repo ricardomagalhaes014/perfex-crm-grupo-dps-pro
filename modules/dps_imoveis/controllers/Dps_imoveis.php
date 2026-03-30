@@ -240,7 +240,7 @@ class Dps_imoveis extends AdminController
             }
             if (!empty($i['fotos'])) {
                 $fotos_arr = json_decode($i['fotos'], true) ?: [];
-                $i['fotos_urls'] = array_map(fn($f) => $base . $f, $fotos_arr);
+                $i['fotos_urls'] = array_map(function($f) use ($base) { return $base . $f; }, $fotos_arr);
             } else {
                 $i['fotos_urls'] = [];
             }
