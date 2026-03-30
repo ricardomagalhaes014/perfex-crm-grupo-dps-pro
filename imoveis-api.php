@@ -144,6 +144,20 @@ function get_imoveis($conn, $filters = []) {
 
 
 
+// Gerar slug limpo a partir do nome (remove espaços duplos, hífens duplos, acentos)
+function make_slug($firstname, $lastname) {
+    $name = trim($firstname) . '-' . trim($lastname);
+    // Converter acentos para equivalentes sem acento
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
+    // Converter para minúsculas
+    $name = strtolower($name);
+    // Substituir espaços e caracteres não alfanuméricos por hífen
+    $name = preg_replace('/[^a-z0-9]+/', '-', $name);
+    // Remover hífens duplos ou no início/fim
+    $name = trim(preg_replace('/-+/', '-', $name), '-');
+    return $name;
+}
+
 function get_agentes($conn) {
     $sql = "SELECT DISTINCT
         s.staffid AS id,
@@ -152,7 +166,6 @@ function get_agentes($conn) {
         s.email,
         s.phonenumber AS telefone,
         s.profile_image AS foto,
-        LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) AS slug,
         COUNT(i.id) AS total_imoveis
     FROM " . TBL_PREFIX . "staff s
     INNER JOIN " . TBL_PREFIX . "dps_imoveis i ON (i.agente_id = s.staffid AND i.published_website = 1 AND i.status = 'aprovado')
@@ -172,35 +185,48 @@ function get_agentes($conn) {
             $row['foto_url'] = null;
         }
         unset($row['foto']);
+        // Gerar slug limpo
+        $row['slug'] = make_slug($row['nome'], $row['apelido']);
         $agentes[] = $row;
     }
     return $agentes;
 }
 
 function get_agente_by_slug($conn, $slug) {
-    $slug_escaped = $conn->real_escape_string($slug);
+    // Buscar todos os staff activos e comparar o slug gerado
+    // Campo 19 = WhatsApp (número para landing page)
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
         s.lastname AS apelido,
         s.email,
         s.phonenumber AS telefone,
-        s.profile_image AS foto
+        s.profile_image AS foto,
+        cfv_wa.value AS whatsapp
     FROM " . TBL_PREFIX . "staff s
-    WHERE LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) = '$slug_escaped'
-    AND s.active = 1
-    LIMIT 1";
+    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
+    WHERE s.active = 1";
 
     $result = $conn->query($sql);
-    if (!$result || $result->num_rows === 0) return null;
+    if (!$result) return null;
 
-    $agente = $result->fetch_assoc();
+    $agente = null;
     $base_url = CRM_URL . '/';
+    while ($row = $result->fetch_assoc()) {
+        $row_slug = make_slug($row['nome'], $row['apelido']);
+        if ($row_slug === $slug) {
+            $agente = $row;
+            break;
+        }
+    }
+    if (!$agente) return null;
+
     if (!empty($agente['foto'])) {
         $agente['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $agente['foto'];
     } else {
         $agente['foto_url'] = null;
     }
+    $agente['slug'] = $slug;
     unset($agente['foto']);
     return $agente;
 }
