@@ -36,8 +36,8 @@ class Dps_imoveis_model extends CI_Model
             $this->db->where('i.published_website', 1);
         }
 
-        // Comerciais só vêem os seus próprios imóveis
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'view_all')) {
+        // Não-admin e não-aprovadores só vêem os seus próprios imóveis
+        if (!is_admin() && !has_permission('dps_imoveis', '', 'approve')) {
             $this->db->where('i.agente_id', get_staff_user_id());
         }
 

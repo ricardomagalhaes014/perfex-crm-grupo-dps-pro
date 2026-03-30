@@ -10,14 +10,23 @@ class Dps_imoveis extends AdminController
         $this->lang->load('dps_imoveis', 'portuguese');
     }
 
+    /**
+     * Verifica se o utilizador actual pode aprovar/rejeitar imóveis.
+     * Apenas Super Admin ou quem tiver a capability 'approve' (atribuída
+     * manualmente pelo admin aos Directores / Responsáveis de Área).
+     */
+    private function _pode_aprovar()
+    {
+        return is_admin() || has_permission('dps_imoveis', '', 'approve');
+    }
+
     // ---------------------------------------------------------------
-    // DASHBOARD / LISTAGEM
+    // DASHBOARD / LISTAGEM  — acessível a todos os staff autenticados
     // ---------------------------------------------------------------
     public function index()
     {
-        if (!has_permission('dps_imoveis', '', 'view') && !is_admin()) {
-            access_denied('dps_imoveis');
-        }
+        // Qualquer membro de staff autenticado pode aceder
+        // (o AdminController já garante que só staff autenticado chega aqui)
 
         $filters = [
             'status'    => $this->input->get('status'),
@@ -26,25 +35,22 @@ class Dps_imoveis extends AdminController
             'agente_id' => $this->input->get('agente_id'),
         ];
 
-        $data['imoveis']    = $this->dps_imoveis_model->get_all($filters);
-        $data['stats']      = $this->dps_imoveis_model->get_stats();
-        $data['agentes']    = $this->_get_agentes();
-        $data['filters']    = $filters;
-        $data['title']      = 'DPS Imóveis';
-        $data['bodyclass']  = 'dps-imoveis-page';
+        $data['imoveis']      = $this->dps_imoveis_model->get_all($filters);
+        $data['stats']        = $this->dps_imoveis_model->get_stats();
+        $data['agentes']      = $this->_get_agentes();
+        $data['filters']      = $filters;
+        $data['pode_aprovar'] = $this->_pode_aprovar();
+        $data['title']        = 'DPS Imóveis';
+        $data['bodyclass']    = 'dps-imoveis-page';
 
         $this->load->view('dps_imoveis/imoveis/index', $data);
     }
 
     // ---------------------------------------------------------------
-    // CRIAR IMÓVEL
+    // CRIAR IMÓVEL  — acessível a todos os staff autenticados
     // ---------------------------------------------------------------
     public function novo()
     {
-        if (!has_permission('dps_imoveis', '', 'create') && !is_admin()) {
-            access_denied('dps_imoveis');
-        }
-
         if ($this->input->post()) {
             $post = $this->input->post();
             $id = $this->dps_imoveis_model->create($post);
@@ -63,23 +69,20 @@ class Dps_imoveis extends AdminController
     }
 
     // ---------------------------------------------------------------
-    // EDITAR IMÓVEL
+    // EDITAR IMÓVEL  — qualquer staff pode editar; não-admin só edita os seus
     // ---------------------------------------------------------------
     public function editar($id)
     {
-        if (!has_permission('dps_imoveis', '', 'edit') && !is_admin()) {
-            access_denied('dps_imoveis');
-        }
-
         $imovel = $this->dps_imoveis_model->get_by_id($id);
         if (!$imovel) {
             show_404();
         }
 
-        // Comercial só edita os seus
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'view_all')) {
+        // Não-admin e não-aprovador só pode editar os seus próprios imóveis
+        if (!is_admin() && !$this->_pode_aprovar()) {
             if ($imovel['agente_id'] != get_staff_user_id()) {
-                access_denied('dps_imoveis');
+                set_alert('danger', 'Só pode editar os seus próprios imóveis.');
+                redirect(admin_url('dps_imoveis'));
             }
         }
 
@@ -102,34 +105,31 @@ class Dps_imoveis extends AdminController
     }
 
     // ---------------------------------------------------------------
-    // DETALHE
+    // DETALHE  — acessível a todos os staff autenticados
     // ---------------------------------------------------------------
     public function detalhe($id)
     {
-        if (!has_permission('dps_imoveis', '', 'view') && !is_admin()) {
-            access_denied('dps_imoveis');
-        }
-
         $imovel = $this->dps_imoveis_model->get_by_id($id);
         if (!$imovel) {
             show_404();
         }
 
-        $data['imovel']    = $imovel;
-        $data['is_admin']  = is_admin();
-        $data['pode_aprovar'] = is_admin() || has_permission('dps_imoveis', '', 'edit');
-        $data['title']     = $imovel['titulo'];
-        $data['bodyclass'] = 'dps-imoveis-page';
+        $data['imovel']       = $imovel;
+        $data['is_admin']     = is_admin();
+        $data['pode_aprovar'] = $this->_pode_aprovar();
+        $data['title']        = $imovel['titulo'];
+        $data['bodyclass']    = 'dps-imoveis-page';
         $this->load->view('dps_imoveis/imoveis/detalhe', $data);
     }
 
     // ---------------------------------------------------------------
-    // APAGAR
+    // APAGAR  — apenas admin ou aprovador
     // ---------------------------------------------------------------
     public function apagar($id)
     {
-        if (!has_permission('dps_imoveis', '', 'delete') && !is_admin()) {
-            access_denied('dps_imoveis');
+        if (!$this->_pode_aprovar()) {
+            set_alert('danger', 'Sem permissão para apagar imóveis.');
+            redirect(admin_url('dps_imoveis'));
         }
 
         $ok = $this->dps_imoveis_model->delete($id);
@@ -142,12 +142,17 @@ class Dps_imoveis extends AdminController
     }
 
     // ---------------------------------------------------------------
-    // APROVAÇÃO
+    // APROVAÇÃO  — apenas Super Admin ou Responsável de Área (approve)
     // ---------------------------------------------------------------
     public function aprovar($id)
     {
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'edit')) {
-            access_denied('dps_imoveis');
+        if (!$this->_pode_aprovar()) {
+            if ($this->input->is_ajax_request()) {
+                echo json_encode(['success' => false, 'message' => 'Sem permissão para aprovar imóveis.']);
+                return;
+            }
+            set_alert('danger', 'Sem permissão para aprovar imóveis.');
+            redirect(admin_url('dps_imoveis/detalhe/' . $id));
         }
 
         $notas = $this->input->post('notas_aprovacao') ?: '';
@@ -168,8 +173,13 @@ class Dps_imoveis extends AdminController
 
     public function rejeitar($id)
     {
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'edit')) {
-            access_denied('dps_imoveis');
+        if (!$this->_pode_aprovar()) {
+            if ($this->input->is_ajax_request()) {
+                echo json_encode(['success' => false, 'message' => 'Sem permissão para rejeitar imóveis.']);
+                return;
+            }
+            set_alert('danger', 'Sem permissão para rejeitar imóveis.');
+            redirect(admin_url('dps_imoveis/detalhe/' . $id));
         }
 
         $notas = $this->input->post('notas_aprovacao') ?: '';
@@ -190,8 +200,9 @@ class Dps_imoveis extends AdminController
 
     public function despublicar($id)
     {
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'edit')) {
-            access_denied('dps_imoveis');
+        if (!$this->_pode_aprovar()) {
+            set_alert('danger', 'Sem permissão para despublicar imóveis.');
+            redirect(admin_url('dps_imoveis/detalhe/' . $id));
         }
 
         $ok = $this->dps_imoveis_model->despublicar($id);
@@ -202,13 +213,22 @@ class Dps_imoveis extends AdminController
     }
 
     // ---------------------------------------------------------------
-    // REMOVER FOTO (AJAX)
+    // REMOVER FOTO (AJAX)  — qualquer staff pode remover fotos dos seus imóveis
     // ---------------------------------------------------------------
     public function remover_foto($id)
     {
-        if (!has_permission('dps_imoveis', '', 'edit') && !is_admin()) {
-            echo json_encode(['success' => false, 'message' => 'Sem permissão']);
+        $imovel = $this->dps_imoveis_model->get_by_id($id);
+        if (!$imovel) {
+            echo json_encode(['success' => false, 'message' => 'Imóvel não encontrado']);
             return;
+        }
+
+        // Não-admin só pode remover fotos dos seus próprios imóveis
+        if (!is_admin() && !$this->_pode_aprovar()) {
+            if ($imovel['agente_id'] != get_staff_user_id()) {
+                echo json_encode(['success' => false, 'message' => 'Sem permissão']);
+                return;
+            }
         }
 
         $foto = $this->input->post('foto');

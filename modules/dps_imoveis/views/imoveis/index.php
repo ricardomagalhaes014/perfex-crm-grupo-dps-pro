@@ -47,12 +47,11 @@
           </div>
         </div>
       </div>
+      <!-- Botão Novo Imóvel — visível para todos os staff -->
       <div class="col-md-2 col-sm-4 col-xs-6 text-right">
-        <?php if(has_permission('dps_imoveis','','create') || is_admin()): ?>
         <a href="<?php echo admin_url('dps_imoveis/novo'); ?>" class="btn btn-primary btn-block mtop5">
           <i class="fa fa-plus"></i> Novo Imóvel
         </a>
-        <?php endif; ?>
       </div>
     </div>
 
@@ -85,7 +84,8 @@
               <?php endforeach; ?>
             </select>
           </div>
-          <?php if(is_admin() || has_permission('dps_imoveis','','view_all')): ?>
+          <!-- Filtro por agente — visível para aprovadores e admin -->
+          <?php if($pode_aprovar): ?>
           <div class="form-group mright5">
             <select name="agente_id" class="form-control input-sm">
               <option value="">Todos os agentes</option>
@@ -108,9 +108,7 @@
           <div class="text-center text-muted p20">
             <i class="fa fa-home fa-3x mbottom10"></i>
             <p>Nenhum imóvel encontrado.</p>
-            <?php if(has_permission('dps_imoveis','','create') || is_admin()): ?>
             <a href="<?php echo admin_url('dps_imoveis/novo'); ?>" class="btn btn-primary">Registar primeiro imóvel</a>
-            <?php endif; ?>
           </div>
         <?php else: ?>
         <div class="table-responsive">
@@ -160,14 +158,16 @@
                   <?php endif; ?>
                 </td>
                 <td>
+                  <!-- Ver — todos podem ver -->
                   <a href="<?php echo admin_url('dps_imoveis/detalhe/'.$i['id']); ?>" class="btn btn-xs btn-default" title="Ver"><i class="fa fa-eye"></i></a>
-                  <?php if(has_permission('dps_imoveis','','edit') || is_admin()): ?>
+                  <!-- Editar — todos podem editar (controller restringe ao próprio imóvel para não-aprovadores) -->
                   <a href="<?php echo admin_url('dps_imoveis/editar/'.$i['id']); ?>" class="btn btn-xs btn-info" title="Editar"><i class="fa fa-pencil"></i></a>
-                  <?php endif; ?>
-                  <?php if((is_admin() || has_permission('dps_imoveis','','edit')) && $i['status']=='pendente'): ?>
+                  <!-- Aprovar — apenas aprovadores -->
+                  <?php if($pode_aprovar && $i['status']=='pendente'): ?>
                   <a href="<?php echo admin_url('dps_imoveis/aprovar/'.$i['id']); ?>" class="btn btn-xs btn-success" title="Aprovar" onclick="return confirm('Aprovar e publicar este imóvel?')"><i class="fa fa-check"></i></a>
                   <?php endif; ?>
-                  <?php if(has_permission('dps_imoveis','','delete') || is_admin()): ?>
+                  <!-- Apagar — apenas aprovadores -->
+                  <?php if($pode_aprovar): ?>
                   <a href="<?php echo admin_url('dps_imoveis/apagar/'.$i['id']); ?>" class="btn btn-xs btn-danger" title="Apagar" onclick="return confirm('Apagar este imóvel?')"><i class="fa fa-trash"></i></a>
                   <?php endif; ?>
                 </td>

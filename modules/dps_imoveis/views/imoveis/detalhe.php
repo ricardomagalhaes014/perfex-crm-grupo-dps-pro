@@ -153,8 +153,8 @@
       </div>
     </div>
 
-    <!-- DADOS PRIVADOS (só para admin/gestor) -->
-    <?php if(is_admin() || has_permission('dps_imoveis','','view_all')): ?>
+    <!-- DADOS PRIVADOS — visíveis para o agente responsável, aprovadores e admin -->
+    <?php if($pode_aprovar || $imovel['agente_id'] == get_staff_user_id()): ?>
     <div class="panel_s">
       <div class="panel-body">
         <h5><i class="fa fa-lock text-warning"></i> Dados Privados do Proprietário</h5>
@@ -194,10 +194,10 @@
     <!-- BOTÕES DE ACÇÃO -->
     <div class="text-right mbottom20">
       <a href="<?php echo admin_url('dps_imoveis'); ?>" class="btn btn-default mright5"><i class="fa fa-arrow-left"></i> Voltar</a>
-      <?php if(has_permission('dps_imoveis','','edit') || is_admin()): ?>
+      <!-- Editar — todos podem editar (controller restringe ao próprio imóvel para não-aprovadores) -->
       <a href="<?php echo admin_url('dps_imoveis/editar/'.$imovel['id']); ?>" class="btn btn-info mright5"><i class="fa fa-pencil"></i> Editar</a>
-      <?php endif; ?>
-      <?php if(has_permission('dps_imoveis','','delete') || is_admin()): ?>
+      <!-- Apagar — apenas aprovadores -->
+      <?php if($pode_aprovar): ?>
       <a href="<?php echo admin_url('dps_imoveis/apagar/'.$imovel['id']); ?>" class="btn btn-danger" onclick="return confirm('Apagar este imóvel permanentemente?')"><i class="fa fa-trash"></i> Apagar</a>
       <?php endif; ?>
     </div>
