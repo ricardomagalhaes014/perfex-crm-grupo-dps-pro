@@ -225,7 +225,8 @@ class Dps_imoveis_model extends CI_Model
     // ---------------------------------------------------------------
     public function get_for_api($filters = [])
     {
-        $this->db->select('i.id, i.titulo, i.tipo, i.tipologia, i.distrito, i.cidade, i.preco, i.area_total, i.nr_quartos, i.nr_suites, i.nr_salas, i.nr_casas_banho, i.garagem, i.ano_construcao, i.texto_livre, i.foto_principal, i.fotos, i.datecreated, CONCAT(s.firstname, " ", s.lastname) AS agente_nome, s.phonenumber AS agente_telefone, s.profile_image AS agente_foto, LOWER(REPLACE(CONCAT(s.firstname, "-", s.lastname), " ", "-")) AS agente_slug');
+        // NOTA: dados privados do proprietário (nome, telefone, email) NUNCA são incluídos na API pública
+        $this->db->select('i.id, i.titulo, i.tipo, i.tipologia, i.distrito, i.cidade, i.preco, i.area_total, i.nr_quartos, i.nr_suites, i.nr_salas, i.nr_casas_banho, i.garagem, i.ano_construcao, i.texto_livre, i.equipamento, i.foto_principal, i.fotos, i.datecreated, CONCAT(s.firstname, " ", s.lastname) AS agente_nome, s.phonenumber AS agente_telefone, s.profile_image AS agente_foto, LOWER(REPLACE(CONCAT(s.firstname, "-", s.lastname), " ", "-")) AS agente_slug');
         $this->db->from($this->table . ' i');
         $this->db->join(db_prefix() . 'staff s', 's.staffid = i.agente_id', 'left');
         $this->db->where('i.published_website', 1);

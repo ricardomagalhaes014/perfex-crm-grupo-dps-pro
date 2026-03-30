@@ -65,6 +65,8 @@ function get_imoveis($conn, $filters = []) {
     
     $where_sql = implode(' AND ', $where);
     
+    // NOTA: nome_proprietarios, contacto_proprietario, mail_proprietario são dados PRIVADOS
+    // e NUNCA devem aparecer na API pública nem no site.
     $sql = "SELECT
         i.id,
         i.titulo,
