@@ -1,10 +1,9 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <?php init_head(); ?>
 <div id="wrapper">
-  <?php $this->load->view('includes/header'); ?>
-  <div class="content-wrapper">
-    <div class="row">
-      <div class="col-md-12">
+<div class="content">
+<div class="row">
+  <div class="col-md-12">
         <div class="tw-mb-4">
           <a href="<?php echo admin_url('dps_imoveis/necessidades'); ?>" class="btn btn-default btn-sm">
             <i class="fa fa-arrow-left"></i> <?php echo _l('dps_imoveis_voltar'); ?>
@@ -207,8 +206,8 @@
             <?php echo form_close(); ?>
           </div>
         </div>
-      </div>
-    </div>
   </div>
+</div>
+</div>
 </div>
 <?php init_tail(); ?>
