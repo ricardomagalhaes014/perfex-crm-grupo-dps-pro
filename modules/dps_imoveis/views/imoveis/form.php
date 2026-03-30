@@ -363,19 +363,58 @@
 </div>
 </div>
 
-<script>
-function removerFoto(imovelId, fotoPath, container) {
-  if (!confirm('Remover esta foto?')) return;
-  $.post('<?php echo admin_url("dps_imoveis/remover_foto/"); ?>' + imovelId, {
-    foto: fotoPath,
-    <?php echo csrf_token_name(); ?>: '<?php echo csrf_hash(); ?>'
-  }, function(r) {
-    if (r.success) {
-      container.remove();
-    } else {
-      alert('Erro ao remover foto.');
-    }
-  }, 'json');
-}
-</script>
 <?php init_tail(); ?>
+<script>
+(function() {
+  var REMOVE_FOTO_URL = '<?php echo admin_url("dps_imoveis/remover_foto/"); ?>';
+
+  // Activar tabs com vanilla JS (Bootstrap pode nao estar disponivel imediatamente)
+  function initTabs() {
+    var tabLinks = document.querySelectorAll('.nav-tabs [data-toggle="tab"]');
+    tabLinks.forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var targetId = this.getAttribute('href');
+        // Desactivar todos
+        document.querySelectorAll('.tab-pane').forEach(function(p) {
+          p.classList.remove('active', 'in');
+        });
+        document.querySelectorAll('.nav-tabs li').forEach(function(li) {
+          li.classList.remove('active');
+        });
+        // Activar o seleccionado
+        var pane = document.querySelector(targetId);
+        if (pane) { pane.classList.add('active', 'in'); }
+        this.parentElement.classList.add('active');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTabs);
+  } else {
+    initTabs();
+  }
+
+  // Funcao para remover foto (usa fetch em vez de $.post)
+  window.removerFoto = function(imovelId, fotoPath, btnEl) {
+    if (!confirm('Remover esta foto?')) return;
+    var formData = new FormData();
+    formData.append('foto', fotoPath);
+    if (typeof csrfData !== 'undefined') {
+      formData.append(csrfData.token_name, csrfData.hash);
+    }
+    fetch(REMOVE_FOTO_URL + imovelId, { method: 'POST', body: formData })
+      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (r.success) {
+          var wrapper = btnEl.closest('.foto-item');
+          if (wrapper) wrapper.remove();
+        } else {
+          alert('Erro ao remover foto.');
+        }
+      })
+      .catch(function() { alert('Erro de rede ao remover foto.'); });
+  };
+})();
+</script>
