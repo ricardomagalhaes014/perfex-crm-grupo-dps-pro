@@ -52,10 +52,13 @@ class Dps_imoveis_model extends CI_Model
         $this->db->join(db_prefix() . 'staff s', 's.staffid = i.agente_id', 'left');
         $this->db->where('i.id', $id);
         $row = $this->db->get()->row_array();
-        if ($row && !empty($row['fotos'])) {
-            $row['fotos_array'] = json_decode($row['fotos'], true) ?: [];
-        } else {
-            $row['fotos_array'] = [];
+        if ($row) {
+            $row['fotos_array']          = !empty($row['fotos'])            ? (json_decode($row['fotos'], true) ?: [])            : [];
+            $row['areas_quartos']        = !empty($row['areas_quartos_json'])   ? $row['areas_quartos_json']   : '[]';
+            $row['areas_suites']         = !empty($row['areas_suites_json'])    ? $row['areas_suites_json']    : '[]';
+            $row['areas_salas']          = !empty($row['areas_salas_json'])     ? $row['areas_salas_json']     : '[]';
+            $row['areas_cozinhas']       = !empty($row['areas_cozinhas_json'])  ? $row['areas_cozinhas_json']  : '[]';
+            $row['areas_casas_banho']    = !empty($row['areas_casasbanho_json'])? $row['areas_casasbanho_json']: '[]';
         }
         return $row;
     }
@@ -69,6 +72,9 @@ class Dps_imoveis_model extends CI_Model
         $data['created_by']  = get_staff_user_id();
         $data['status']      = 'pendente';
         $data['published_website'] = 0;
+
+        // Processar áreas individuais das divisões
+        $data = $this->_process_areas($data);
 
         // Tratar fotos
         $fotos = $this->_handle_fotos();
@@ -95,6 +101,9 @@ class Dps_imoveis_model extends CI_Model
 
     public function update($id, $data)
     {
+        // Processar áreas individuais das divisões
+        $data = $this->_process_areas($data);
+
         // Tratar fotos novas (se enviadas)
         $fotos = $this->_handle_fotos();
         if (!empty($fotos['principal'])) {
@@ -239,6 +248,56 @@ class Dps_imoveis_model extends CI_Model
     // ---------------------------------------------------------------
     // HELPERS PRIVADOS
     // ---------------------------------------------------------------
+
+    /**
+     * Processa os arrays de áreas individuais vindos do POST:
+     * - Filtra valores vazios/zero
+     * - Guarda como JSON nos campos areas_*_json
+     * - Calcula nr_* e area_* (soma) automaticamente
+     * - Define tipologia com base no número de quartos
+     * - Remove os campos array do $data (não existem como colunas directas)
+     */
+    private function _process_areas($data)
+    {
+        $map = [
+            'areas_quartos'    => ['json_col' => 'areas_quartos_json',    'nr_col' => 'nr_quartos',     'area_col' => 'area_quartos'],
+            'areas_suites'     => ['json_col' => 'areas_suites_json',     'nr_col' => 'nr_suites',      'area_col' => 'area_suites'],
+            'areas_salas'      => ['json_col' => 'areas_salas_json',      'nr_col' => 'nr_salas',       'area_col' => 'area_salas'],
+            'areas_cozinhas'   => ['json_col' => 'areas_cozinhas_json',   'nr_col' => null,             'area_col' => 'area_cozinha'],
+            'areas_casas_banho'=> ['json_col' => 'areas_casasbanho_json', 'nr_col' => 'nr_casas_banho', 'area_col' => 'area_casas_banho'],
+        ];
+
+        foreach ($map as $post_key => $cols) {
+            $raw = isset($data[$post_key]) ? (array)$data[$post_key] : [];
+            // Filtrar valores vazios ou zero
+            $filtered = [];
+            foreach ($raw as $v) {
+                $v = trim($v);
+                if ($v !== '' && floatval($v) > 0) {
+                    $filtered[] = floatval($v);
+                }
+            }
+            // Guardar JSON
+            $data[$cols['json_col']] = json_encode($filtered);
+            // Calcular nr_*
+            if ($cols['nr_col']) {
+                $data[$cols['nr_col']] = count($filtered);
+            }
+            // Calcular área total da divisão (soma)
+            $data[$cols['area_col']] = !empty($filtered) ? array_sum($filtered) : null;
+            // Remover o campo array do data (não é coluna da tabela)
+            unset($data[$post_key]);
+        }
+
+        // Tipologia automática baseada no número de quartos
+        $nr_quartos = isset($data['nr_quartos']) ? (int)$data['nr_quartos'] : 0;
+        // Só sobrescrever se não foi enviada manualmente (ou se estava vazia)
+        $tipologias = ['T0','T1','T2','T3','T4','T4+'];
+        $data['tipologia'] = $nr_quartos >= 5 ? 'T4+' : $tipologias[$nr_quartos];
+
+        return $data;
+    }
+
     private function _handle_fotos()
     {
         $result = ['principal' => null, 'galeria' => []];

@@ -5,6 +5,12 @@
 .dps-doc-badge { display:inline-block; padding:4px 10px; background:#e8f4e8; border:1px solid #5cb85c; border-radius:4px; font-size:12px; color:#3d8b3d; margin-top:5px; }
 .foto-preview { width:80px; height:70px; object-fit:cover; border-radius:4px; border:2px solid #ddd; margin:3px; cursor:pointer; }
 .foto-preview:hover { border-color:#337ab7; }
+.divisao-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; padding:8px 10px; background:#fafafa; border:1px solid #eee; border-radius:5px; }
+.divisao-row label { min-width:110px; font-weight:normal; margin:0; color:#555; font-size:13px; }
+.divisao-row input { width:110px; }
+.divisao-row .divisao-num { display:inline-block; min-width:24px; height:24px; line-height:24px; text-align:center; background:#337ab7; color:#fff; border-radius:50%; font-size:12px; font-weight:bold; margin-right:4px; }
+.tipologia-badge { display:inline-block; padding:4px 14px; background:#337ab7; color:#fff; border-radius:20px; font-size:14px; font-weight:bold; margin-left:10px; }
+#tipologia-display { font-size:15px; color:#555; margin-bottom:12px; }
 </style>
 <div id="wrapper">
 <div class="content">
@@ -18,6 +24,13 @@
         <?php
         $imovel = isset($imovel) ? $imovel : [];
         $action = isset($imovel['id']) ? admin_url('dps_imoveis/editar/'.$imovel['id']) : admin_url('dps_imoveis/novo');
+
+        // Carregar áreas individuais guardadas (JSON)
+        $areas_quartos   = json_decode($imovel['areas_quartos']   ?? '[]', true) ?: [];
+        $areas_suites    = json_decode($imovel['areas_suites']    ?? '[]', true) ?: [];
+        $areas_salas     = json_decode($imovel['areas_salas']     ?? '[]', true) ?: [];
+        $areas_cozinhas  = json_decode($imovel['areas_cozinhas']  ?? '[]', true) ?: [];
+        $areas_casas_banho = json_decode($imovel['areas_casas_banho'] ?? '[]', true) ?: [];
         ?>
 
         <?php echo form_open_multipart($action, ['id'=>'dps_imovel_form']); ?>
@@ -63,8 +76,8 @@
               </div>
               <div class="col-md-4">
                 <div class="form-group">
-                  <label>Tipologia</label>
-                  <select name="tipologia" class="form-control">
+                  <label>Tipologia <small class="text-muted">(definida automaticamente pelas divisões)</small></label>
+                  <select name="tipologia" id="tipologia_select" class="form-control">
                     <option value="">Seleccionar...</option>
                     <?php foreach(['T0','T1','T2','T3','T4','T4+'] as $t): ?>
                     <option value="<?php echo $t; ?>" <?php echo (($imovel['tipologia']??'')==$t?'selected':''); ?>><?php echo $t; ?></option>
@@ -168,74 +181,128 @@
             </div>
           </div>
 
-          <!-- TAB: ÁREAS E DIVISÕES -->
+          <!-- TAB: ÁREAS E DIVISÕES (DINÂMICA) -->
           <div class="tab-pane" id="tab-areas">
-            <div class="dps-section-title">Quartos</div>
-            <div class="row">
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Nº de Quartos</label>
-                  <input type="number" name="nr_quartos" class="form-control" min="0" value="<?php echo $imovel['nr_quartos'] ?? 0; ?>" />
-                </div>
+
+            <!-- Indicador de tipologia -->
+            <div id="tipologia-display">
+              Tipologia detectada: <span class="tipologia-badge" id="tipologia-badge"><?php echo htmlspecialchars($imovel['tipologia'] ?? 'T0'); ?></span>
+              <small class="text-muted mleft10">(actualizada automaticamente conforme os quartos preenchidos)</small>
+            </div>
+
+            <!-- QUARTOS -->
+            <div class="dps-section-title"><i class="fa fa-bed"></i> Quartos</div>
+            <div id="quartos-container">
+              <?php
+              // Mostrar quartos já guardados + 1 vazio para adicionar
+              $quartos_existentes = !empty($areas_quartos) ? $areas_quartos : [];
+              foreach($quartos_existentes as $qi => $qa):
+              ?>
+              <div class="divisao-row" id="quarto-row-<?php echo $qi+1; ?>">
+                <span class="divisao-num"><?php echo $qi+1; ?></span>
+                <label>Quarto <?php echo $qi+1; ?></label>
+                <input type="number" name="areas_quartos[]" class="form-control quarto-area" step="0.01" min="0" placeholder="Área m²" value="<?php echo htmlspecialchars($qa); ?>" data-index="<?php echo $qi+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Área Quartos (m²)</label>
-                  <input type="number" name="area_quartos" class="form-control" step="0.01" value="<?php echo $imovel['area_quartos'] ?? ''; ?>" />
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Nº de Suítes</label>
-                  <input type="number" name="nr_suites" class="form-control" min="0" value="<?php echo $imovel['nr_suites'] ?? 0; ?>" />
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Área Suítes (m²)</label>
-                  <input type="number" name="area_suites" class="form-control" step="0.01" value="<?php echo $imovel['area_suites'] ?? ''; ?>" />
-                </div>
+              <?php endforeach; ?>
+              <!-- Primeiro campo vazio (ou próximo após os existentes) -->
+              <div class="divisao-row" id="quarto-row-<?php echo count($quartos_existentes)+1; ?>">
+                <span class="divisao-num"><?php echo count($quartos_existentes)+1; ?></span>
+                <label>Quarto <?php echo count($quartos_existentes)+1; ?></label>
+                <input type="number" name="areas_quartos[]" class="form-control quarto-area" step="0.01" min="0" placeholder="Área m²" value="" data-index="<?php echo count($quartos_existentes)+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
             </div>
 
-            <div class="dps-section-title">Salas e Cozinha</div>
-            <div class="row">
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Nº de Salas</label>
-                  <input type="number" name="nr_salas" class="form-control" min="0" value="<?php echo $imovel['nr_salas'] ?? 0; ?>" />
-                </div>
+            <!-- SUÍTES -->
+            <div class="dps-section-title"><i class="fa fa-star"></i> Suítes</div>
+            <div id="suites-container">
+              <?php
+              $suites_existentes = !empty($areas_suites) ? $areas_suites : [];
+              foreach($suites_existentes as $si => $sa):
+              ?>
+              <div class="divisao-row" id="suite-row-<?php echo $si+1; ?>">
+                <span class="divisao-num"><?php echo $si+1; ?></span>
+                <label>Suíte <?php echo $si+1; ?></label>
+                <input type="number" name="areas_suites[]" class="form-control suite-area" step="0.01" min="0" placeholder="Área m²" value="<?php echo htmlspecialchars($sa); ?>" data-index="<?php echo $si+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Área Salas (m²)</label>
-                  <input type="number" name="area_salas" class="form-control" step="0.01" value="<?php echo $imovel['area_salas'] ?? ''; ?>" />
-                </div>
-              </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Área Cozinha (m²)</label>
-                  <input type="number" name="area_cozinha" class="form-control" step="0.01" value="<?php echo $imovel['area_cozinha'] ?? ''; ?>" />
-                </div>
+              <?php endforeach; ?>
+              <div class="divisao-row" id="suite-row-<?php echo count($suites_existentes)+1; ?>">
+                <span class="divisao-num"><?php echo count($suites_existentes)+1; ?></span>
+                <label>Suíte <?php echo count($suites_existentes)+1; ?></label>
+                <input type="number" name="areas_suites[]" class="form-control suite-area" step="0.01" min="0" placeholder="Área m²" value="" data-index="<?php echo count($suites_existentes)+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
             </div>
 
-            <div class="dps-section-title">Casas de Banho</div>
-            <div class="row">
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Nº de Casas de Banho</label>
-                  <input type="number" name="nr_casas_banho" class="form-control" min="0" value="<?php echo $imovel['nr_casas_banho'] ?? 0; ?>" />
-                </div>
+            <!-- SALAS -->
+            <div class="dps-section-title"><i class="fa fa-couch"></i> Salas</div>
+            <div id="salas-container">
+              <?php
+              $salas_existentes = !empty($areas_salas) ? $areas_salas : [];
+              foreach($salas_existentes as $li => $la):
+              ?>
+              <div class="divisao-row" id="sala-row-<?php echo $li+1; ?>">
+                <span class="divisao-num"><?php echo $li+1; ?></span>
+                <label>Sala <?php echo $li+1; ?></label>
+                <input type="number" name="areas_salas[]" class="form-control sala-area" step="0.01" min="0" placeholder="Área m²" value="<?php echo htmlspecialchars($la); ?>" data-index="<?php echo $li+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
-              <div class="col-md-3">
-                <div class="form-group">
-                  <label>Área Casas de Banho (m²)</label>
-                  <input type="number" name="area_casas_banho" class="form-control" step="0.01" value="<?php echo $imovel['area_casas_banho'] ?? ''; ?>" />
-                </div>
+              <?php endforeach; ?>
+              <div class="divisao-row" id="sala-row-<?php echo count($salas_existentes)+1; ?>">
+                <span class="divisao-num"><?php echo count($salas_existentes)+1; ?></span>
+                <label>Sala <?php echo count($salas_existentes)+1; ?></label>
+                <input type="number" name="areas_salas[]" class="form-control sala-area" step="0.01" min="0" placeholder="Área m²" value="" data-index="<?php echo count($salas_existentes)+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
               </div>
             </div>
-          </div>
+
+            <!-- COZINHAS -->
+            <div class="dps-section-title"><i class="fa fa-cutlery"></i> Cozinhas</div>
+            <div id="cozinhas-container">
+              <?php
+              $cozinhas_existentes = !empty($areas_cozinhas) ? $areas_cozinhas : [];
+              foreach($cozinhas_existentes as $ci => $ca):
+              ?>
+              <div class="divisao-row" id="cozinha-row-<?php echo $ci+1; ?>">
+                <span class="divisao-num"><?php echo $ci+1; ?></span>
+                <label>Cozinha <?php echo $ci+1; ?></label>
+                <input type="number" name="areas_cozinhas[]" class="form-control cozinha-area" step="0.01" min="0" placeholder="Área m²" value="<?php echo htmlspecialchars($ca); ?>" data-index="<?php echo $ci+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
+              </div>
+              <?php endforeach; ?>
+              <div class="divisao-row" id="cozinha-row-<?php echo count($cozinhas_existentes)+1; ?>">
+                <span class="divisao-num"><?php echo count($cozinhas_existentes)+1; ?></span>
+                <label>Cozinha <?php echo count($cozinhas_existentes)+1; ?></label>
+                <input type="number" name="areas_cozinhas[]" class="form-control cozinha-area" step="0.01" min="0" placeholder="Área m²" value="" data-index="<?php echo count($cozinhas_existentes)+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
+              </div>
+            </div>
+
+            <!-- CASAS DE BANHO -->
+            <div class="dps-section-title"><i class="fa fa-bath"></i> Casas de Banho</div>
+            <div id="casasbanho-container">
+              <?php
+              $casasbanho_existentes = !empty($areas_casas_banho) ? $areas_casas_banho : [];
+              foreach($casasbanho_existentes as $bi => $ba):
+              ?>
+              <div class="divisao-row" id="casabanho-row-<?php echo $bi+1; ?>">
+                <span class="divisao-num"><?php echo $bi+1; ?></span>
+                <label>Casa de Banho <?php echo $bi+1; ?></label>
+                <input type="number" name="areas_casas_banho[]" class="form-control casabanho-area" step="0.01" min="0" placeholder="Área m²" value="<?php echo htmlspecialchars($ba); ?>" data-index="<?php echo $bi+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
+              </div>
+              <?php endforeach; ?>
+              <div class="divisao-row" id="casabanho-row-<?php echo count($casasbanho_existentes)+1; ?>">
+                <span class="divisao-num"><?php echo count($casasbanho_existentes)+1; ?></span>
+                <label>Casa de Banho <?php echo count($casasbanho_existentes)+1; ?></label>
+                <input type="number" name="areas_casas_banho[]" class="form-control casabanho-area" step="0.01" min="0" placeholder="Área m²" value="" data-index="<?php echo count($casasbanho_existentes)+1; ?>" />
+                <span class="text-muted" style="font-size:12px;">m²</span>
+              </div>
+            </div>
+
+          </div><!-- /tab-areas -->
 
           <!-- TAB: FOTOS -->
           <div class="tab-pane" id="tab-fotos">
@@ -368,21 +435,21 @@
 (function() {
   var REMOVE_FOTO_URL = '<?php echo admin_url("dps_imoveis/remover_foto/"); ?>';
 
-  // Activar tabs com vanilla JS (Bootstrap pode nao estar disponivel imediatamente)
+  // ---------------------------------------------------------------
+  // TABS — activação com vanilla JS
+  // ---------------------------------------------------------------
   function initTabs() {
     var tabLinks = document.querySelectorAll('.nav-tabs [data-toggle="tab"]');
     tabLinks.forEach(function(link) {
       link.addEventListener('click', function(e) {
         e.preventDefault();
         var targetId = this.getAttribute('href');
-        // Desactivar todos
         document.querySelectorAll('.tab-pane').forEach(function(p) {
           p.classList.remove('active', 'in');
         });
         document.querySelectorAll('.nav-tabs li').forEach(function(li) {
           li.classList.remove('active');
         });
-        // Activar o seleccionado
         var pane = document.querySelector(targetId);
         if (pane) { pane.classList.add('active', 'in'); }
         this.parentElement.classList.add('active');
@@ -390,13 +457,147 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTabs);
-  } else {
-    initTabs();
+  // ---------------------------------------------------------------
+  // DIVISÕES DINÂMICAS
+  // Ao preencher a área de uma divisão, aparece automaticamente a seguinte.
+  // Ao limpar uma área, as divisões seguintes são removidas.
+  // ---------------------------------------------------------------
+
+  /**
+   * Configuração de cada tipo de divisão:
+   * containerId  — id do container div
+   * cssClass     — classe CSS dos inputs de área
+   * inputName    — name do campo (array)
+   * labelSingular — texto do label
+   * rowIdPrefix  — prefixo do id das rows
+   */
+  var DIVISOES = [
+    { containerId: 'quartos-container',    cssClass: 'quarto-area',    inputName: 'areas_quartos[]',     labelSingular: 'Quarto',        rowIdPrefix: 'quarto-row-'    },
+    { containerId: 'suites-container',     cssClass: 'suite-area',     inputName: 'areas_suites[]',      labelSingular: 'Suíte',         rowIdPrefix: 'suite-row-'     },
+    { containerId: 'salas-container',      cssClass: 'sala-area',      inputName: 'areas_salas[]',       labelSingular: 'Sala',          rowIdPrefix: 'sala-row-'      },
+    { containerId: 'cozinhas-container',   cssClass: 'cozinha-area',   inputName: 'areas_cozinhas[]',    labelSingular: 'Cozinha',       rowIdPrefix: 'cozinha-row-'   },
+    { containerId: 'casasbanho-container', cssClass: 'casabanho-area', inputName: 'areas_casas_banho[]', labelSingular: 'Casa de Banho', rowIdPrefix: 'casabanho-row-' }
+  ];
+
+  /**
+   * Cria uma nova row de divisão
+   */
+  function criarRow(cfg, index) {
+    var row = document.createElement('div');
+    row.className = 'divisao-row';
+    row.id = cfg.rowIdPrefix + index;
+    row.innerHTML =
+      '<span class="divisao-num">' + index + '</span>' +
+      '<label>' + cfg.labelSingular + ' ' + index + '</label>' +
+      '<input type="number" name="' + cfg.inputName + '" class="form-control ' + cfg.cssClass + '" step="0.01" min="0" placeholder="Área m²" data-index="' + index + '" />' +
+      '<span class="text-muted" style="font-size:12px;">m²</span>';
+    return row;
   }
 
-  // Funcao para remover foto (usa fetch em vez de $.post)
+  /**
+   * Ao alterar o valor de um campo de área:
+   * - Se preenchido: garante que existe o campo seguinte
+   * - Se vazio: remove todos os campos seguintes que também estejam vazios
+   */
+  function handleAreaChange(cfg, input) {
+    var container = document.getElementById(cfg.containerId);
+    var allInputs = container.querySelectorAll('.' + cfg.cssClass);
+    var thisIndex = parseInt(input.getAttribute('data-index'), 10);
+    var val = input.value.trim();
+
+    if (val !== '' && parseFloat(val) > 0) {
+      // Verificar se já existe o próximo campo
+      var nextIndex = thisIndex + 1;
+      var nextRow = document.getElementById(cfg.rowIdPrefix + nextIndex);
+      if (!nextRow) {
+        var newRow = criarRow(cfg, nextIndex);
+        container.appendChild(newRow);
+        // Adicionar listener ao novo campo
+        var newInput = newRow.querySelector('.' + cfg.cssClass);
+        addListener(cfg, newInput);
+      }
+    } else {
+      // Campo limpo — remover todos os campos seguintes que estejam vazios
+      var toRemove = [];
+      allInputs.forEach(function(inp) {
+        var idx = parseInt(inp.getAttribute('data-index'), 10);
+        if (idx > thisIndex && (inp.value.trim() === '' || parseFloat(inp.value) === 0)) {
+          toRemove.push(inp.closest('.divisao-row'));
+        }
+      });
+      toRemove.forEach(function(row) {
+        if (row) row.remove();
+      });
+    }
+
+    // Actualizar tipologia se for quartos
+    if (cfg.cssClass === 'quarto-area') {
+      actualizarTipologia();
+    }
+  }
+
+  function addListener(cfg, input) {
+    input.addEventListener('input', function() {
+      handleAreaChange(cfg, this);
+    });
+    input.addEventListener('change', function() {
+      handleAreaChange(cfg, this);
+    });
+  }
+
+  /**
+   * Conta os quartos preenchidos e actualiza a tipologia
+   */
+  function actualizarTipologia() {
+    var container = document.getElementById('quartos-container');
+    if (!container) return;
+    var inputs = container.querySelectorAll('.quarto-area');
+    var count = 0;
+    inputs.forEach(function(inp) {
+      if (inp.value.trim() !== '' && parseFloat(inp.value) > 0) {
+        count++;
+      }
+    });
+
+    var tipologias = ['T0','T1','T2','T3','T4','T4+'];
+    var tipologia = count >= 5 ? 'T4+' : tipologias[count];
+
+    // Actualizar badge
+    var badge = document.getElementById('tipologia-badge');
+    if (badge) badge.textContent = tipologia;
+
+    // Actualizar select na tab Informação Básica
+    var sel = document.getElementById('tipologia_select');
+    if (sel) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === tipologia) {
+          sel.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Inicializar listeners em todos os campos existentes
+   */
+  function initDivisoes() {
+    DIVISOES.forEach(function(cfg) {
+      var container = document.getElementById(cfg.containerId);
+      if (!container) return;
+      var inputs = container.querySelectorAll('.' + cfg.cssClass);
+      inputs.forEach(function(input) {
+        addListener(cfg, input);
+      });
+    });
+
+    // Calcular tipologia inicial (para edição de imóvel existente)
+    actualizarTipologia();
+  }
+
+  // ---------------------------------------------------------------
+  // REMOVER FOTO
+  // ---------------------------------------------------------------
   window.removerFoto = function(imovelId, fotoPath, btnEl) {
     if (!confirm('Remover esta foto?')) return;
     var formData = new FormData();
@@ -408,7 +609,7 @@
       .then(function(r) { return r.json(); })
       .then(function(r) {
         if (r.success) {
-          var wrapper = btnEl.closest('.foto-item');
+          var wrapper = btnEl.closest ? btnEl.closest('.inline-block') : btnEl.parentElement;
           if (wrapper) wrapper.remove();
         } else {
           alert('Erro ao remover foto.');
@@ -416,5 +617,19 @@
       })
       .catch(function() { alert('Erro de rede ao remover foto.'); });
   };
+
+  // ---------------------------------------------------------------
+  // INICIALIZAR
+  // ---------------------------------------------------------------
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      initTabs();
+      initDivisoes();
+    });
+  } else {
+    initTabs();
+    initDivisoes();
+  }
+
 })();
 </script>
