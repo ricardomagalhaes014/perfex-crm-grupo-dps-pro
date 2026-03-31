@@ -29,7 +29,7 @@ define('DB_NAME', 'u172337921_crmgrupopds');
 define('TBL_PREFIX', 'tbl');
 
 // URL base do CRM para imagens
-define('CRM_URL', 'https://crm.grupo-dps.com/admin');
+define('CRM_URL', 'https://crm.grupo-dps.com');
 
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
