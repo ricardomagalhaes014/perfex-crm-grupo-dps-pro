@@ -237,6 +237,73 @@ class Staff extends AdminController
         $this->load->view('admin/staff/profile', $data);
     }
 
+    /* Guardar dados da Landing Page DPS Imobiliário */
+    public function save_landing_profile()
+    {
+        if (!$this->input->post()) {
+            redirect(admin_url('staff/edit_profile'));
+        }
+
+        $staff_id = get_staff_user_id();
+        $data = [];
+
+        // Slug: limpar e validar
+        $landing_slug = trim($this->input->post('landing_slug'));
+        $landing_slug = strtolower(preg_replace('/[^a-z0-9]/', '', $landing_slug));
+        $data['landing_slug'] = $landing_slug ?: null;
+
+        // WhatsApp: apenas dígitos
+        $landing_whatsapp = preg_replace('/[^0-9]/', '', $this->input->post('landing_whatsapp'));
+        $data['landing_whatsapp'] = $landing_whatsapp ?: null;
+
+        // Upload da foto da landing
+        if (!empty($_FILES['landing_foto']['name'])) {
+            $upload_dir = FCPATH . 'uploads/staff_landing_photos/' . $staff_id . '/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            $ext = strtolower(pathinfo($_FILES['landing_foto']['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            if (in_array($ext, $allowed)) {
+                $filename = 'landing_' . time() . '.' . $ext;
+                if (move_uploaded_file($_FILES['landing_foto']['tmp_name'], $upload_dir . $filename)) {
+                    // Remover foto anterior se existir
+                    $member = $this->staff_model->get($staff_id);
+                    if (!empty($member->landing_foto) && file_exists($upload_dir . $member->landing_foto)) {
+                        unlink($upload_dir . $member->landing_foto);
+                    }
+                    $data['landing_foto'] = $filename;
+                }
+            } else {
+                set_alert('danger', 'Formato de imagem não suportado. Use JPG, PNG, GIF ou WebP.');
+                redirect(admin_url('staff/edit_profile'));
+            }
+        }
+
+        $this->db->where('staffid', $staff_id);
+        $this->db->update(db_prefix() . 'staff', $data);
+
+        set_alert('success', 'Landing page actualizada com sucesso.');
+        redirect(admin_url('staff/edit_profile'));
+    }
+
+    /* Remover foto da Landing Page */
+    public function remove_landing_photo()
+    {
+        $staff_id = get_staff_user_id();
+        $member = $this->staff_model->get($staff_id);
+        if (!empty($member->landing_foto)) {
+            $path = FCPATH . 'uploads/staff_landing_photos/' . $staff_id . '/' . $member->landing_foto;
+            if (file_exists($path)) {
+                unlink($path);
+            }
+        }
+        $this->db->where('staffid', $staff_id);
+        $this->db->update(db_prefix() . 'staff', ['landing_foto' => null]);
+        set_alert('success', 'Foto da landing page removida.');
+        redirect(admin_url('staff/edit_profile'));
+    }
+
     /* Remove staff profile image / ajax */
     public function remove_staff_profile_image($id = '')
     {

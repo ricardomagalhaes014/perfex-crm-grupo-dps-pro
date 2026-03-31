@@ -146,6 +146,100 @@
             </div>
             <?= form_close(); ?>
 
+            <!-- ===== LANDING PAGE DPS IMOBILIÁRIO ===== -->
+            <h4 class="tw-mt-0 tw-font-bold tw-text-lg tw-text-neutral-700" style="margin-top:30px;">
+                <i class="fa fa-home" style="color:#c8a96e;"></i> Landing Page DPS Imobiliário
+            </h4>
+            <?= form_open_multipart('admin/staff/save_landing_profile', ['id' => 'landing_profile_form', 'autocomplete' => 'off']); ?>
+            <div class="panel_s">
+                <div class="panel-body">
+
+                    <?php
+                    // Slug: usa landing_slug se definido, senão gera a partir do nome
+                    $lslug = (isset($member->landing_slug) && $member->landing_slug) ? $member->landing_slug : null;
+                    $raw = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $member->firstname . $member->lastname);
+                    $auto_slug = strtolower(preg_replace('/[^a-z0-9]/', '', $raw));
+                    $slug_display = $lslug ? $lslug : $auto_slug;
+                    ?>
+
+                    <!-- URL da Landing Page (só leitura) -->
+                    <div class="form-group">
+                        <label class="control-label"><i class="fa fa-link"></i> URL da sua Landing Page</label>
+                        <div class="input-group">
+                            <span class="input-group-addon">dpsimobiliario.pt/</span>
+                            <input type="text" class="form-control" id="landing_slug_preview"
+                                value="<?= e($slug_display); ?>" readonly
+                                style="background:#f5f5f5;font-weight:bold;color:#333;">
+                            <span class="input-group-btn">
+                                <a href="https://dpsimobiliario.pt/<?= e($slug_display); ?>" target="_blank"
+                                    class="btn btn-default" title="Ver landing page">
+                                    <i class="fa fa-external-link"></i> Ver
+                                </a>
+                            </span>
+                        </div>
+                        <p class="help-block">Este é o link da sua página pessoal. Partilhe com os seus clientes.</p>
+                    </div>
+
+                    <!-- Slug personalizado -->
+                    <div class="form-group">
+                        <label for="landing_slug" class="control-label"><i class="fa fa-tag"></i> URL personalizado (slug)</label>
+                        <div class="input-group">
+                            <span class="input-group-addon">dpsimobiliario.pt/</span>
+                            <input type="text" class="form-control" name="landing_slug" id="landing_slug"
+                                value="<?= e(isset($member->landing_slug) ? $member->landing_slug : ''); ?>"
+                                placeholder="<?= e($auto_slug); ?>"
+                                oninput="document.getElementById('landing_slug_preview').value=this.value||'<?= e($auto_slug); ?>'">
+                        </div>
+                        <p class="help-block">Opcional. Deixe em branco para usar o nome automático (<strong><?= e($auto_slug); ?></strong>). Use apenas letras minúsculas e números, sem espaços ou hífens.</p>
+                    </div>
+
+                    <!-- WhatsApp da Landing -->
+                    <div class="form-group">
+                        <label for="landing_whatsapp" class="control-label">
+                            <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp para a Landing Page
+                        </label>
+                        <input type="text" class="form-control" name="landing_whatsapp" id="landing_whatsapp"
+                            value="<?= e(isset($member->landing_whatsapp) ? $member->landing_whatsapp : ''); ?>"
+                            placeholder="351912345678 (com código do país, sem +)">
+                        <p class="help-block">Número que aparece no botão WhatsApp da sua landing page. Formato: <strong>351912345678</strong></p>
+                    </div>
+
+                    <!-- Foto da Landing -->
+                    <div class="form-group">
+                        <label class="control-label"><i class="fa fa-camera"></i> Foto para a Landing Page</label>
+                        <?php if (!empty($member->landing_foto)): ?>
+                        <div class="row" style="margin-bottom:10px;">
+                            <div class="col-md-3">
+                                <img src="<?= site_url('uploads/staff_landing_photos/' . $member->staffid . '/' . $member->landing_foto); ?>"
+                                    alt="Foto Landing" class="img-responsive img-thumbnail" style="max-height:120px;">
+                            </div>
+                            <div class="col-md-9">
+                                <p class="text-muted" style="margin-top:10px;">Foto actual da landing page.</p>
+                                <a href="<?= admin_url('staff/remove_landing_photo'); ?>" class="btn btn-xs btn-danger"
+                                    onclick="return confirm('Remover foto da landing page?')">
+                                    <i class="fa fa-trash"></i> Remover foto
+                                </a>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <div class="alert alert-info" style="padding:8px 12px;margin-bottom:8px;">
+                            <i class="fa fa-info-circle"></i> Sem foto definida. Será usada a foto de perfil do CRM.
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="landing_foto" id="landing_foto" class="form-control" accept="image/*">
+                        <p class="help-block">Foto que aparece na sua landing page pessoal. Se não carregar, usa a foto de perfil do CRM.</p>
+                    </div>
+
+                </div>
+                <div class="panel-footer text-right">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-save"></i> Guardar Landing Page
+                    </button>
+                </div>
+            </div>
+            <?= form_close(); ?>
+            <!-- ===== FIM LANDING PAGE ===== -->
+
             <h4 class="tw-mt-0 tw-font-bold tw-text-lg tw-text-neutral-700">
                 <?= _l('staff_edit_profile_change_your_password'); ?>
             </h4>
