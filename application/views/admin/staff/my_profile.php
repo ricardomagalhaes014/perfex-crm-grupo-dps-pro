@@ -242,6 +242,96 @@
                 <?php } ?>
             </div>
         </div>
+        <!-- ===== LANDING PAGE DPS IMOBILIÁRIO ===== -->
+        <div class="row" style="margin-top:30px;">
+            <div class="col-md-12">
+                <h4 class="tw-mt-0 tw-font-bold tw-text-lg tw-text-neutral-700">
+                    <i class="fa fa-home" style="color:#c8a96e;"></i> Landing Page DPS Imobiliário
+                </h4>
+                <?php
+                $lslug = (isset($member->landing_slug) && $member->landing_slug) ? $member->landing_slug : null;
+                $raw = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $member->firstname . $member->lastname);
+                $auto_slug = strtolower(preg_replace('/[^a-z0-9]/', '', $raw));
+                $slug_display = $lslug ? $lslug : $auto_slug;
+                ?>
+                <?php echo form_open_multipart('admin/staff/save_landing_profile', ['id' => 'landing_profile_form', 'autocomplete' => 'off']); ?>
+                <div class="panel_s">
+                    <div class="panel-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <!-- URL da Landing Page -->
+                                <div class="form-group">
+                                    <label class="control-label"><i class="fa fa-link"></i> URL da sua Landing Page</label>
+                                    <div class="input-group">
+                                        <span class="input-group-addon">dpsimobiliario.pt/</span>
+                                        <input type="text" class="form-control" id="landing_slug_preview"
+                                            value="<?php echo e($slug_display); ?>" readonly style="background:#f5f5f5;">
+                                        <span class="input-group-btn">
+                                            <a href="https://dpsimobiliario.pt/<?php echo e($slug_display); ?>" target="_blank"
+                                                class="btn btn-default" title="Ver landing page"><i class="fa fa-external-link"></i></a>
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- Slug personalizado -->
+                                <div class="form-group">
+                                    <label for="landing_slug" class="control-label"><i class="fa fa-tag"></i> URL personalizado (slug)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-addon">dpsimobiliario.pt/</span>
+                                        <input type="text" class="form-control" name="landing_slug" id="landing_slug"
+                                            value="<?php echo e(isset($member->landing_slug) ? $member->landing_slug : ''); ?>"
+                                            placeholder="<?php echo e($auto_slug); ?>"
+                                            oninput="document.getElementById('landing_slug_preview').value=this.value||'<?php echo e($auto_slug); ?>'">
+                                    </div>
+                                    <p class="help-block">Deixe vazio para usar o nome automático: <strong><?php echo e($auto_slug); ?></strong></p>
+                                </div>
+                                <!-- WhatsApp -->
+                                <div class="form-group">
+                                    <label for="landing_whatsapp" class="control-label">
+                                        <i class="fa-brands fa-whatsapp" style="color:#25D366;"></i> WhatsApp para a Landing Page
+                                    </label>
+                                    <input type="text" class="form-control" name="landing_whatsapp" id="landing_whatsapp"
+                                        value="<?php echo e(isset($member->landing_whatsapp) ? $member->landing_whatsapp : ''); ?>"
+                                        placeholder="351912345678">
+                                    <p class="help-block">Número que aparece no botão WhatsApp da sua landing page. Formato: <strong>351912345678</strong></p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- Foto da Landing -->
+                                <div class="form-group">
+                                    <label class="control-label"><i class="fa fa-camera"></i> Foto para a Landing Page</label>
+                                    <?php if (!empty($member->landing_foto)): ?>
+                                        <div class="row" style="margin-bottom:10px;">
+                                            <div class="col-md-4">
+                                                <img src="<?php echo site_url('uploads/staff_landing_photos/' . $member->staffid . '/' . $member->landing_foto); ?>"
+                                                    style="max-width:100%;border-radius:8px;border:1px solid #ddd;">
+                                            </div>
+                                            <div class="col-md-8">
+                                                <p class="text-muted" style="margin-top:10px;">Foto actual da landing page.</p>
+                                                <a href="<?php echo admin_url('staff/remove_landing_photo'); ?>" class="btn btn-xs btn-danger"
+                                                    onclick="return confirm('Remover foto da landing page?')">
+                                                    <i class="fa fa-trash"></i> Remover foto
+                                                </a>
+                                            </div>
+                                        </div>
+                                    <?php else: ?>
+                                        <p class="text-muted">Nenhuma foto definida. Será usada a foto de perfil do CRM.</p>
+                                    <?php endif; ?>
+                                    <input type="file" name="landing_foto" id="landing_foto" class="form-control" accept="image/*">
+                                    <p class="help-block">Foto que aparece na sua landing page pessoal. Se não carregar, usa a foto de perfil do CRM.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="panel-footer text-right">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Guardar Landing Page
+                        </button>
+                    </div>
+                </div>
+                <?php echo form_close(); ?>
+            </div>
+        </div>
+        <!-- ===== FIM LANDING PAGE ===== -->
     </div>
     <?php init_tail(); ?>
     <script>
