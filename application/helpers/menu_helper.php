@@ -165,6 +165,15 @@ function app_init_admin_sidebar_menu_items()
 
      // DPS: Pedido de Orçamento removido do menu lateral
 
+    // DPS: Agenda como item directo no menu lateral (visível para todos os staff)
+    $CI->app_menu->add_sidebar_menu_item('agenda', [
+        'name'     => 'Agenda',
+        'href'     => admin_url('utilities/calendar'),
+        'icon'     => 'fa fa-calendar',
+        'position' => 46,
+        'badge'    => [],
+    ]);
+
     // DPS Teams: Gestão de Equipas
     // Visível ao Super Admin OU ao utilizador principal DPS (por email)
     $dps_super_admin_email = 'ricardomagalhaes014@gmail.com';
