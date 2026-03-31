@@ -29,7 +29,7 @@ define('DB_NAME', 'u172337921_crmgrupopds');
 define('TBL_PREFIX', 'tbl');
 
 // URL base do CRM para imagens
-define('CRM_URL', 'https://crm.grupo-dps.com');
+define('CRM_URL', 'https://crm.grupo-dps.com/admin');
 
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -222,8 +222,8 @@ function get_agente_by_slug($conn, $slug) {
     if (!$agente) return null;
 
     if (!empty($agente['foto'])) {
-        // As fotos ficam em subpastas por staffid: uploads/staff_profile_images/{id}/{filename}
-        $agente['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $agente['id'] . '/' . $agente['foto'];
+        // As fotos ficam em subpastas por staffid: uploads/staff_profile_images/{id}/small_{filename}
+        $agente['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $agente['id'] . '/small_' . $agente['foto'];
     } else {
         $agente['foto_url'] = null;
     }
