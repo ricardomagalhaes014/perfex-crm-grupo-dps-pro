@@ -1,0 +1,25 @@
+<?php
+$lang['dps_meetings'] = 'Reuniões online';
+$lang['dps_meeting'] = 'reunião';
+$lang['dps_meeting_new'] = 'Nova reunião online';
+$lang['dps_meeting_edit'] = 'Editar reunião online';
+$lang['dps_meeting_title'] = 'Título';
+$lang['dps_meeting_provider'] = 'Plataforma';
+$lang['dps_meeting_room_name'] = 'Nome da sala';
+$lang['dps_meeting_url'] = 'Link da reunião';
+$lang['dps_meeting_related_type'] = 'Tipo relacionado';
+$lang['dps_meeting_related_id'] = 'ID da lead/cliente';
+$lang['dps_meeting_related'] = 'Relacionado';
+$lang['dps_meeting_contact_name'] = 'Nome do contacto';
+$lang['dps_meeting_contact_email'] = 'Email do contacto';
+$lang['dps_meeting_host'] = 'Responsável';
+$lang['dps_meeting_start_at'] = 'Início';
+$lang['dps_meeting_end_at'] = 'Fim';
+$lang['dps_meeting_status'] = 'Estado';
+$lang['dps_meeting_status_scheduled'] = 'Agendada';
+$lang['dps_meeting_status_completed'] = 'Concluída';
+$lang['dps_meeting_status_cancelled'] = 'Cancelada';
+$lang['dps_meeting_status_no_show'] = 'Não compareceu';
+$lang['dps_meeting_description'] = 'Observações antes da reunião';
+$lang['dps_meeting_result_notes'] = 'Resultado / conclusão';
+$lang['dps_meeting_join'] = 'Entrar na reunião';

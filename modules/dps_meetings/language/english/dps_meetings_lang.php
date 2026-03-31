@@ -1,0 +1,25 @@
+<?php
+$lang['dps_meetings'] = 'Online Meetings';
+$lang['dps_meeting'] = 'meeting';
+$lang['dps_meeting_new'] = 'New online meeting';
+$lang['dps_meeting_edit'] = 'Edit online meeting';
+$lang['dps_meeting_title'] = 'Title';
+$lang['dps_meeting_provider'] = 'Provider';
+$lang['dps_meeting_room_name'] = 'Room name';
+$lang['dps_meeting_url'] = 'Meeting link';
+$lang['dps_meeting_related_type'] = 'Related type';
+$lang['dps_meeting_related_id'] = 'Lead/Client ID';
+$lang['dps_meeting_related'] = 'Related';
+$lang['dps_meeting_contact_name'] = 'Contact name';
+$lang['dps_meeting_contact_email'] = 'Contact email';
+$lang['dps_meeting_host'] = 'Host';
+$lang['dps_meeting_start_at'] = 'Start';
+$lang['dps_meeting_end_at'] = 'End';
+$lang['dps_meeting_status'] = 'Status';
+$lang['dps_meeting_status_scheduled'] = 'Scheduled';
+$lang['dps_meeting_status_completed'] = 'Completed';
+$lang['dps_meeting_status_cancelled'] = 'Cancelled';
+$lang['dps_meeting_status_no_show'] = 'No-show';
+$lang['dps_meeting_description'] = 'Notes before meeting';
+$lang['dps_meeting_result_notes'] = 'Result / conclusion';
+$lang['dps_meeting_join'] = 'Join meeting';
