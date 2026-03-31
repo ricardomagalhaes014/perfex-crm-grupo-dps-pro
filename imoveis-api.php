@@ -8,28 +8,27 @@
  *   ?action=agentes          - Lista agentes activos
  *   ?action=imovel&id=X      - Detalhe de um imóvel
  *   ?action=agente&slug=X    - Detalhe de um agente e os seus imóveis
+ *   ?action=equipa           - Lista toda a equipa (para página /equipa)
  */
-
 // CORS - permitir acesso do site dpsimobiliario.pt
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json; charset=utf-8');
-
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
 // Configuração da BD (lida do app-config.php do Perfex)
 define('DB_HOST', 'localhost');
 define('DB_USER', 'u172337921_crmgrupopds');
 define('DB_PASS', '3AF5_ZCiqQ7:=At');
 define('DB_NAME', 'u172337921_crmgrupopds');
 define('TBL_PREFIX', 'tbl');
-
 // URL base do CRM para imagens
 define('CRM_URL', 'https://crm.grupo-dps.com');
+// Caminho físico base no servidor
+define('SERVER_BASE', '/home/u172337921/domains/grupo-dps.com/public_html/');
 
 // Corrigir URLs de imagens que possam ter o caminho duplicado na BD
 function fix_image_url($url) {
@@ -57,12 +56,70 @@ function db_connect() {
     return $conn;
 }
 
+/**
+ * Determina a melhor URL de foto para um agente/staff
+ * Prioridade: landing_foto (se existir fisicamente) > profile_image > null
+ */
+function get_foto_url($staffid, $landing_foto, $profile_image) {
+    $base_url = CRM_URL . '/';
+    $base_path = SERVER_BASE;
+    
+    // 1. Tentar landing_foto
+    if (!empty($landing_foto)) {
+        $landing_path = $base_path . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
+        if (file_exists($landing_path)) {
+            return $base_url . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
+        }
+    }
+    
+    // 2. Fallback para foto de perfil do staff
+    if (!empty($profile_image)) {
+        // Tentar subpasta por staffid (formato novo)
+        $profile_path_sub = $base_path . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
+        if (file_exists($profile_path_sub)) {
+            return $base_url . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
+        }
+        // Tentar sem subpasta (formato antigo)
+        $profile_path_flat = $base_path . 'uploads/staff_profile_images/' . $profile_image;
+        if (file_exists($profile_path_flat)) {
+            return $base_url . 'uploads/staff_profile_images/' . $profile_image;
+        }
+        // Tentar thumb
+        $profile_path_thumb = $base_path . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
+        if (file_exists($profile_path_thumb)) {
+            return $base_url . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
+        }
+    }
+    
+    return null;
+}
+
+function make_slug($firstname, $lastname) {
+    $name = trim($firstname) . '-' . trim($lastname);
+    $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
+    $name = strtolower($name);
+    $name = preg_replace('/[^a-z0-9]+/', '-', $name);
+    $name = trim(preg_replace('/-+/', '-', $name), '-');
+    return $name;
+}
+
+// Mapeamento de tipos EN->PT (para compatibilidade com o React)
+$TIPO_MAP = [
+    'Apartment'  => 'Apartamento',
+    'House'      => 'Moradia',
+    'Commercial' => 'Loja',
+    'Land'       => 'Terreno',
+];
+
 function get_imoveis($conn, $filters = []) {
+    global $TIPO_MAP;
     $where = ["i.published_website = 1", "i.status = 'aprovado'"];
     
-    // Filtros opcionais
     if (!empty($filters['tipo'])) {
-        $tipo = $conn->real_escape_string($filters['tipo']);
+        $tipo_raw = $filters['tipo'];
+        // Converter de EN para PT se necessário
+        $tipo = isset($TIPO_MAP[$tipo_raw]) ? $TIPO_MAP[$tipo_raw] : $tipo_raw;
+        $tipo = $conn->real_escape_string($tipo);
         $where[] = "i.tipo = '$tipo'";
     }
     if (!empty($filters['distrito'])) {
@@ -75,17 +132,15 @@ function get_imoveis($conn, $filters = []) {
     }
     if (!empty($filters['agente_slug'])) {
         $slug = $conn->real_escape_string($filters['agente_slug']);
-        $where[] = "LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) = '$slug'";
+        $where[] = "LOWER(REPLACE(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-'), 'ã', 'a')) = '$slug'";
     }
     
     $where_sql = implode(' AND ', $where);
     
-    // NOTA: nome_proprietarios, contacto_proprietario, mail_proprietario são dados PRIVADOS
-    // e NUNCA devem aparecer na API pública nem no site.
     $sql = "SELECT
         i.id,
         i.titulo,
-        i.tipo,
+        i.tipo AS tipo_imovel,
         i.tipologia,
         i.distrito,
         i.cidade,
@@ -105,22 +160,24 @@ function get_imoveis($conn, $filters = []) {
         i.fotos,
         i.date_approval AS data_publicacao,
         CONCAT(s.firstname, ' ', s.lastname) AS agente_nome,
+        s.staffid AS agente_id,
         s.phonenumber AS agente_telefone,
         s.email AS agente_email,
         s.profile_image AS agente_foto,
-        LOWER(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-')) AS agente_slug
+        s.landing_foto AS agente_landing_foto,
+        LOWER(REPLACE(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-'), 'ã', 'a')) AS agente_slug
     FROM " . TBL_PREFIX . "dps_imoveis i
     LEFT JOIN " . TBL_PREFIX . "staff s ON s.staffid = i.agente_id
     WHERE $where_sql
     ORDER BY i.date_approval DESC";
     
     $result = $conn->query($sql);
-    if (!$result) {
-        return [];
-    }
+    if (!$result) return [];
     
     $imoveis = [];
     $base_url = CRM_URL . '/';
+    $module_url = CRM_URL . '/modules/dps_imoveis/uploads/fotos/';
+    
     while ($row = $result->fetch_assoc()) {
         // Foto principal - corrigir URL duplicado se existir
         if (!empty($row['foto_principal'])) {
@@ -130,48 +187,24 @@ function get_imoveis($conn, $filters = []) {
         }
 
         // Galeria - corrigir URLs duplicados se existirem
-        $fotos_arr = [];
         if (!empty($row['fotos'])) {
-            $decoded = json_decode($row['fotos'], true);
-            if (is_array($decoded)) {
-                $fotos_arr = array_map(function($f) { return fix_image_url($f); }, $decoded);
-            }
-        }
-        $row['fotos_urls'] = $fotos_arr;
-        $row['fotos'] = $fotos_arr; // manter compatibilidade
-        unset($row['fotos']);
-
-        // Foto do agente
-        if (!empty($row['agente_foto'])) {
-            $row['agente_foto_url'] = $base_url . 'uploads/staff_profile_images/' . $row['agente_foto'];
+            $fotos_arr = json_decode($row['fotos'], true) ?: [];
+            $row['fotos_urls'] = array_map(function($f) { return fix_image_url($f); }, $fotos_arr);
         } else {
-            $row['agente_foto_url'] = null;
+            $row['fotos_urls'] = [];
         }
-        unset($row['agente_foto']);
-
-        // Preço formatado
-        $row['preco_formatado'] = $row['preco'] ? number_format((float)$row['preco'], 0, ',', '.') . ' €' : 'Preço sob consulta';
-
+        // Foto do agente com fallback
+        $row['agente_foto_url'] = get_foto_url(
+            $row['agente_id'],
+            $row['agente_landing_foto'] ?? null,
+            $row['agente_foto']
+        );
+        // Formatar preço
+        $row['preco_formatado'] = number_format((float)$row['preco'], 0, ',', '.') . ' €';
+        unset($row['fotos'], $row['agente_foto'], $row['agente_landing_foto']);
         $imoveis[] = $row;
     }
-
     return $imoveis;
-}
-
-
-
-// Gerar slug limpo a partir do nome (remove espaços duplos, hífens duplos, acentos)
-function make_slug($firstname, $lastname) {
-    $name = trim($firstname) . '-' . trim($lastname);
-    // Converter acentos para equivalentes sem acento
-    $name = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $name);
-    // Converter para minúsculas
-    $name = strtolower($name);
-    // Substituir espaços e caracteres não alfanuméricos por hífen
-    $name = preg_replace('/[^a-z0-9]+/', '-', $name);
-    // Remover hífens duplos ou no início/fim
-    $name = trim(preg_replace('/-+/', '-', $name), '-');
-    return $name;
 }
 
 function get_agentes($conn) {
@@ -182,35 +215,27 @@ function get_agentes($conn) {
         s.email,
         s.phonenumber AS telefone,
         s.profile_image AS foto,
+        s.landing_foto AS landing_foto,
+        s.landing_slug,
         COUNT(i.id) AS total_imoveis
     FROM " . TBL_PREFIX . "staff s
     INNER JOIN " . TBL_PREFIX . "dps_imoveis i ON (i.agente_id = s.staffid AND i.published_website = 1 AND i.status = 'aprovado')
     WHERE s.active = 1
     GROUP BY s.staffid
     ORDER BY s.firstname ASC";
-
     $result = $conn->query($sql);
     if (!$result) return [];
-
     $agentes = [];
-    $base_url = CRM_URL . '/';
     while ($row = $result->fetch_assoc()) {
-        if (!empty($row['foto'])) {
-            $row['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $row['foto'];
-        } else {
-            $row['foto_url'] = null;
-        }
-        unset($row['foto']);
-        // Gerar slug limpo
+        $row['foto_url'] = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
         $row['slug'] = make_slug($row['nome'], $row['apelido']);
+        unset($row['foto'], $row['landing_foto']);
         $agentes[] = $row;
     }
     return $agentes;
 }
 
 function get_agente_by_slug($conn, $slug) {
-    // Buscar todos os staff activos e comparar o slug gerado
-    // Campo 19 = WhatsApp (número para landing page)
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
@@ -218,40 +243,113 @@ function get_agente_by_slug($conn, $slug) {
         s.email,
         s.phonenumber AS telefone,
         s.profile_image AS foto,
+        s.landing_foto,
+        s.landing_slug,
+        s.landing_whatsapp,
         cfv_wa.value AS whatsapp
     FROM " . TBL_PREFIX . "staff s
     LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
     WHERE s.active = 1";
-
     $result = $conn->query($sql);
     if (!$result) return null;
-
     $agente = null;
-    $base_url = CRM_URL . '/';
     while ($row = $result->fetch_assoc()) {
-        $row_slug = make_slug($row['nome'], $row['apelido']);
-        if ($row_slug === $slug) {
+        // Verificar slug por landing_slug ou slug gerado
+        $landing_slug = !empty($row['landing_slug']) ? $row['landing_slug'] : null;
+        $generated_slug = make_slug($row['nome'], $row['apelido']);
+        if ($landing_slug === $slug || $generated_slug === $slug) {
             $agente = $row;
             break;
         }
     }
     if (!$agente) return null;
-
-    if (!empty($agente['foto'])) {
-        // As fotos ficam em subpastas por staffid: uploads/staff_profile_images/{id}/small_{filename}
-        $agente['foto_url'] = $base_url . 'uploads/staff_profile_images/' . $agente['id'] . '/small_' . $agente['foto'];
-    } else {
-        $agente['foto_url'] = null;
-    }
+    
+    // Determinar a melhor foto
+    $agente['foto_url'] = get_foto_url($agente['id'], $agente['landing_foto'], $agente['foto']);
     $agente['slug'] = $slug;
-    unset($agente['foto']);
+    unset($agente['foto'], $agente['landing_foto']);
     return $agente;
+}
+
+/**
+ * Endpoint para a página /equipa - retorna toda a equipa com hierarquia
+ */
+function get_equipa($conn) {
+    // Buscar todos os staff activos com foto
+    $sql = "SELECT
+        s.staffid AS id,
+        s.firstname AS nome,
+        s.lastname AS apelido,
+        s.email,
+        s.phonenumber AS telefone,
+        s.profile_image AS foto,
+        s.landing_foto,
+        s.landing_slug,
+        s.is_admin,
+        cfv_wa.value AS whatsapp,
+        cfv_cargo.value AS cargo,
+        cfv_mercado.value AS mercado
+    FROM " . TBL_PREFIX . "staff s
+    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
+    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_cargo ON (cfv_cargo.relid = s.staffid AND cfv_cargo.fieldid = 20)
+    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_mercado ON (cfv_mercado.relid = s.staffid AND cfv_mercado.fieldid = 21)
+    WHERE s.active = 1
+    ORDER BY s.is_admin DESC, s.staffid ASC";
+    
+    $result = $conn->query($sql);
+    if (!$result) return [];
+    
+    $staff = [];
+    while ($row = $result->fetch_assoc()) {
+        $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
+        // Só incluir se tiver foto
+        if (empty($foto_url)) continue;
+        
+        $row['foto_url'] = $foto_url;
+        $row['slug'] = !empty($row['landing_slug']) ? $row['landing_slug'] : make_slug($row['nome'], $row['apelido']);
+        unset($row['foto'], $row['landing_foto'], $row['landing_slug']);
+        $staff[] = $row;
+    }
+    
+    // Buscar equipas do módulo dps_teams
+    $teams_sql = "SELECT t.id, t.name, t.area, t.parent_id,
+        m.staff_id, m.role
+    FROM " . TBL_PREFIX . "dps_teams t
+    LEFT JOIN " . TBL_PREFIX . "dps_team_members m ON m.team_id = t.id
+    ORDER BY t.area, t.id, m.role";
+    
+    $teams_result = $conn->query($teams_sql);
+    $teams = [];
+    if ($teams_result) {
+        while ($tr = $teams_result->fetch_assoc()) {
+            $tid = $tr['id'];
+            if (!isset($teams[$tid])) {
+                $teams[$tid] = [
+                    'id' => $tid,
+                    'name' => $tr['name'],
+                    'area' => $tr['area'],
+                    'parent_id' => $tr['parent_id'],
+                    'members' => []
+                ];
+            }
+            if (!empty($tr['staff_id'])) {
+                $teams[$tid]['members'][] = [
+                    'staff_id' => $tr['staff_id'],
+                    'role' => $tr['role']
+                ];
+            }
+        }
+    }
+    
+    return [
+        'staff' => $staff,
+        'teams' => array_values($teams)
+    ];
 }
 
 // Router principal
 $action = isset($_GET['action']) ? $_GET['action'] : 'imoveis';
 $conn = db_connect();
-
 switch ($action) {
     case 'imoveis':
         $filters = [
@@ -291,7 +389,7 @@ switch ($action) {
         break;
         
     case 'agente':
-        $slug = isset($_GET['slug']) ? $_GET['slug'] : '';
+        $slug = isset($_GET['slug']) ? trim($_GET['slug']) : '';
         if (!$slug) {
             echo json_encode(['success' => false, 'error' => 'Slug inválido']);
             break;
@@ -302,14 +400,17 @@ switch ($action) {
             echo json_encode(['success' => false, 'error' => 'Agente não encontrado']);
             break;
         }
-        // Buscar imóveis do agente
         $imoveis = get_imoveis($conn, ['agente_slug' => $slug]);
         echo json_encode(['success' => true, 'data' => ['agente' => $agente, 'imoveis' => $imoveis]]);
+        break;
+    
+    case 'equipa':
+        $data = get_equipa($conn);
+        echo json_encode(['success' => true, 'data' => $data]);
         break;
         
     default:
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Acção inválida']);
 }
-
 $conn->close();
