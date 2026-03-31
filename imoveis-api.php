@@ -31,6 +31,21 @@ define('TBL_PREFIX', 'tbl');
 // URL base do CRM para imagens
 define('CRM_URL', 'https://crm.grupo-dps.com');
 
+// Corrigir URLs de imagens que possam ter o caminho duplicado na BD
+function fix_image_url($url) {
+    if (empty($url)) return null;
+    // Remover duplicação do caminho se existir
+    $dup = 'modules/dps_imoveis/uploads/fotos/modules/dps_imoveis/uploads/fotos/';
+    $fix = 'modules/dps_imoveis/uploads/fotos/';
+    if (strpos($url, $dup) !== false) {
+        $url = str_replace($dup, $fix, $url);
+    }
+    // Se o URL já começa com http, retornar directamente
+    if (strpos($url, 'http') === 0) return $url;
+    // Caso contrário, construir URL completo
+    return CRM_URL . '/' . ltrim($url, '/');
+}
+
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
     if ($conn->connect_error) {
@@ -107,22 +122,23 @@ function get_imoveis($conn, $filters = []) {
     $imoveis = [];
     $base_url = CRM_URL . '/';
     while ($row = $result->fetch_assoc()) {
-        // Foto principal
+        // Foto principal - corrigir URL duplicado se existir
         if (!empty($row['foto_principal'])) {
-            $row['foto_principal_url'] = $base_url . $row['foto_principal'];
+            $row['foto_principal'] = fix_image_url($row['foto_principal']);
         } else {
-            $row['foto_principal_url'] = null;
+            $row['foto_principal'] = null;
         }
 
-        // Galeria
+        // Galeria - corrigir URLs duplicados se existirem
         $fotos_arr = [];
         if (!empty($row['fotos'])) {
             $decoded = json_decode($row['fotos'], true);
             if (is_array($decoded)) {
-                $fotos_arr = array_map(function($f) use ($base_url) { return $base_url . $f; }, $decoded);
+                $fotos_arr = array_map(function($f) { return fix_image_url($f); }, $decoded);
             }
         }
         $row['fotos_urls'] = $fotos_arr;
+        $row['fotos'] = $fotos_arr; // manter compatibilidade
         unset($row['fotos']);
 
         // Foto do agente
