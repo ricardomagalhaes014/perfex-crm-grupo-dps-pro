@@ -62,31 +62,15 @@ function db_connect() {
 function get_foto_url($staffid, $landing_foto, $profile_image) {
     $base = CRM_URL . '/';
 
-    // 1. Prioridade: landing_foto
+    // 1. Prioridade: landing_foto (campo guardado no CRM na secção Landing Page)
     if (!empty($landing_foto)) {
         return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . $landing_foto;
     }
 
-    // 2. Fallback: foto de perfil — verificar via HEAD request qual URL existe
+    // 2. Fallback: foto de perfil — construir URL directamente sem verificar existência
+    // (evitar curl HEAD requests que causam timeout em loop)
     if (!empty($profile_image)) {
-        $candidates = [
-            $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image,
-            $base . 'uploads/staff_profile_images/' . $profile_image,
-            $base . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image,
-        ];
-        foreach ($candidates as $url) {
-            $ch = curl_init($url);
-            curl_setopt_array($ch, [
-                CURLOPT_NOBODY         => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 3,
-                CURLOPT_FOLLOWLOCATION => true,
-            ]);
-            curl_exec($ch);
-            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            if ($code === 200) return $url;
-        }
+        return $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
     }
 
     return null;
