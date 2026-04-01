@@ -1,0 +1,15 @@
+{
+  "name": "dps-whatsapp-service",
+  "version": "1.0.0",
+  "description": "Microserviço WhatsApp para DPS CRM",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.9",
+    "express": "^4.18.2",
+    "qrcode": "^1.5.3",
+    "pino": "^8.17.2"
+  }
+}

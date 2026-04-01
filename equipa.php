@@ -1,7 +1,12 @@
 <?php
 /**
  * Página de Equipa - DPS Imobiliário
- * URL: dpsimobiliario.pt/equipa
+ * URL: dpsimobiliario.pt/equipa.php
+ * 
+ * Correcções:
+ * - get_foto_url usa curl HEAD em vez de file_exists() (SERVER_BASE estava errado)
+ * - SQL de equipas sem coluna parent_id (não existe na tabela tbldps_teams)
+ * - Lógica de sub-equipas: todas as equipas com area='imo' são mercados
  */
 
 define('DB_HOST', 'localhost');
@@ -9,7 +14,6 @@ define('DB_USER', 'u172337921_crmgrupopds');
 define('DB_PASS', '3AF5_ZCiqQ7:=At');
 define('DB_NAME', 'u172337921_crmgrupopds');
 define('CRM_URL', 'https://crm.grupo-dps.com');
-define('SERVER_BASE', '/home/u172337921/domains/grupo-dps.com/public_html/');
 
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -18,22 +22,48 @@ function db_connect() {
     return $conn;
 }
 
+/**
+ * Determina a melhor URL de foto para um agente/staff.
+ * Usa curl HEAD para verificar existência (sem depender de file_exists com caminho errado).
+ * Prioridade: landing_foto > small_profile > flat_profile > thumb_profile
+ */
 function get_foto_url($staffid, $landing_foto, $profile_image) {
-    $base_url = CRM_URL . '/';
-    $base_path = SERVER_BASE;
+    $base = CRM_URL . '/';
+
+    // 1. Prioridade: landing_foto
     if (!empty($landing_foto)) {
-        $p = $base_path . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
-        if (file_exists($p)) return $base_url . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
+        $url = $base . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
+        if (url_exists($url)) return $url;
     }
+
+    // 2. Fallback: foto de perfil
     if (!empty($profile_image)) {
-        $p1 = $base_path . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
-        if (file_exists($p1)) return $base_url . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
-        $p2 = $base_path . 'uploads/staff_profile_images/' . $profile_image;
-        if (file_exists($p2)) return $base_url . 'uploads/staff_profile_images/' . $profile_image;
-        $p3 = $base_path . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
-        if (file_exists($p3)) return $base_url . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
+        $candidates = [
+            $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image,
+            $base . 'uploads/staff_profile_images/' . $profile_image,
+            $base . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image,
+        ];
+        foreach ($candidates as $url) {
+            if (url_exists($url)) return $url;
+        }
     }
+
     return null;
+}
+
+function url_exists($url) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_NOBODY         => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 4,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+    curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return $code === 200;
 }
 
 $conn = db_connect();
@@ -54,11 +84,11 @@ while ($row = $staff_result->fetch_assoc()) {
     $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
     $row['foto_url'] = $foto_url;
     $row['has_foto'] = !empty($foto_url);
-    $staff_map[$row['id']] = $row;
+    $staff_map[(int)$row['id']] = $row;
 }
 
-// Buscar equipas imobiliárias
-$teams_sql = "SELECT t.id, t.name, t.area, t.parent_id,
+// Buscar equipas imobiliárias (SEM coluna parent_id - não existe na tabela)
+$teams_sql = "SELECT t.id, t.name, t.area,
     m.staff_id, m.role
 FROM tbldps_teams t
 LEFT JOIN tbldps_team_members m ON m.team_id = t.id
@@ -69,25 +99,27 @@ $teams_result = $conn->query($teams_sql);
 $teams = [];
 if ($teams_result) {
     while ($tr = $teams_result->fetch_assoc()) {
-        $tid = $tr['id'];
+        $tid = (int)$tr['id'];
         if (!isset($teams[$tid])) {
-            $teams[$tid] = ['id' => $tid, 'name' => $tr['name'], 'area' => $tr['area'],
-                'parent_id' => $tr['parent_id'], 'managers' => [], 'members' => []];
+            $teams[$tid] = [
+                'id'       => $tid,
+                'name'     => $tr['name'],
+                'area'     => $tr['area'],
+                'managers' => [],
+                'members'  => [],
+            ];
         }
         if (!empty($tr['staff_id'])) {
-            if ($tr['role'] === 'manager') $teams[$tid]['managers'][] = (int)$tr['staff_id'];
-            else $teams[$tid]['members'][] = (int)$tr['staff_id'];
+            $sid = (int)$tr['staff_id'];
+            if ($tr['role'] === 'manager') $teams[$tid]['managers'][] = $sid;
+            else $teams[$tid]['members'][] = $sid;
         }
     }
 }
 $conn->close();
 
-$main_team = null;
-$sub_teams = [];
-foreach ($teams as $t) {
-    if (empty($t['parent_id'])) $main_team = $t;
-    else $sub_teams[] = $t;
-}
+// Todas as equipas com area='imo' são mercados (não há hierarquia parent_id)
+$all_teams = array_values($teams);
 
 $market_map = [
     'IMO BRASIL & BSX' => ['flag' => '🇧🇷', 'label' => 'Brasil'],
@@ -96,12 +128,12 @@ $market_map = [
     'IMO DUBAI'        => ['flag' => '🇦🇪', 'label' => 'Dubai'],
 ];
 
-$ceo_id = 1;    // Ricardo Magalhães
-$gestor_id = 46; // Cláudio Carvalho
+$ceo_id    = 1;   // Ricardo Magalhães
+$gestor_id = 46;  // Cláudio Carvalho
 
-// Ordenar sub-equipas: Portugal primeiro, depois Brasil, depois Dubai
+// Ordenar: Portugal primeiro, depois Brasil, depois Dubai
 $order = ['IMO PORTUGAL' => 1, 'IMO BRASIL & BSX' => 2, 'IMO BRASIL' => 2, 'IMO DUBAI' => 3];
-usort($sub_teams, function($a, $b) use ($order) {
+usort($all_teams, function($a, $b) use ($order) {
     $oa = $order[strtoupper(trim($a['name']))] ?? 99;
     $ob = $order[strtoupper(trim($b['name']))] ?? 99;
     return $oa - $ob;
@@ -199,7 +231,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
 <!-- Mercados -->
 <section class="markets-section">
   <p class="section-title">Equipas por Mercado</p>
-  <?php foreach ($sub_teams as $team):
+  <?php foreach ($all_teams as $team):
       $team_name_upper = strtoupper(trim($team['name']));
       $market_info = $market_map[$team_name_upper] ?? ['flag' => '🌍', 'label' => $team['name']];
       $all_ids = array_unique(array_merge($team['managers'], $team['members']));
@@ -207,7 +239,9 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
       foreach ($all_ids as $sid) {
           if ($sid == $ceo_id || $sid == $gestor_id) continue;
           if (isset($staff_map[$sid]) && $staff_map[$sid]['has_foto']) {
-              $members_with_photo[] = $staff_map[$sid];
+              $m = $staff_map[$sid];
+              $m['role_label'] = in_array($sid, $team['managers']) ? 'Coordenador' : 'Consultor';
+              $members_with_photo[] = $m;
           }
       }
       if (empty($members_with_photo)) continue;
@@ -220,7 +254,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
     </div>
     <div class="market-grid">
       <?php foreach ($members_with_photo as $m):
-          render_member_card($m, 'Consultor', 'card-comercial', $icons_email, $icons_wa);
+          render_member_card($m, $m['role_label'], 'card-comercial', $icons_email, $icons_wa);
       endforeach; ?>
     </div>
   </div>

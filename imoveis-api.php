@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-// Configuração da BD (lida do app-config.php do Perfex)
+// Configuração da BD
 define('DB_HOST', 'localhost');
 define('DB_USER', 'u172337921_crmgrupopds');
 define('DB_PASS', '3AF5_ZCiqQ7:=At');
@@ -27,8 +27,6 @@ define('DB_NAME', 'u172337921_crmgrupopds');
 define('TBL_PREFIX', 'tbl');
 // URL base do CRM para imagens
 define('CRM_URL', 'https://crm.grupo-dps.com');
-// Caminho físico base no servidor
-define('SERVER_BASE', '/home/u172337921/domains/grupo-dps.com/public_html/');
 
 // Corrigir URLs de imagens que possam ter o caminho duplicado na BD
 function fix_image_url($url) {
@@ -57,40 +55,40 @@ function db_connect() {
 }
 
 /**
- * Determina a melhor URL de foto para um agente/staff
- * Prioridade: landing_foto (se existir fisicamente) > profile_image > null
+ * Determina a melhor URL de foto para um agente/staff.
+ * Constrói URLs directamente sem file_exists() (que falha com SERVER_BASE errado).
+ * Prioridade: landing_foto > small_profile > flat_profile > thumb_profile
  */
 function get_foto_url($staffid, $landing_foto, $profile_image) {
-    $base_url = CRM_URL . '/';
-    $base_path = SERVER_BASE;
-    
-    // 1. Tentar landing_foto
+    $base = CRM_URL . '/';
+
+    // 1. Prioridade: landing_foto
     if (!empty($landing_foto)) {
-        $landing_path = $base_path . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
-        if (file_exists($landing_path)) {
-            return $base_url . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
-        }
+        return $base . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
     }
-    
-    // 2. Fallback para foto de perfil do staff
+
+    // 2. Fallback: foto de perfil — verificar via HEAD request qual URL existe
     if (!empty($profile_image)) {
-        // Tentar subpasta por staffid (formato novo)
-        $profile_path_sub = $base_path . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
-        if (file_exists($profile_path_sub)) {
-            return $base_url . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
-        }
-        // Tentar sem subpasta (formato antigo)
-        $profile_path_flat = $base_path . 'uploads/staff_profile_images/' . $profile_image;
-        if (file_exists($profile_path_flat)) {
-            return $base_url . 'uploads/staff_profile_images/' . $profile_image;
-        }
-        // Tentar thumb
-        $profile_path_thumb = $base_path . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
-        if (file_exists($profile_path_thumb)) {
-            return $base_url . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image;
+        $candidates = [
+            $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image,
+            $base . 'uploads/staff_profile_images/' . $profile_image,
+            $base . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image,
+        ];
+        foreach ($candidates as $url) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_NOBODY         => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 3,
+                CURLOPT_FOLLOWLOCATION => true,
+            ]);
+            curl_exec($ch);
+            $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($code === 200) return $url;
         }
     }
-    
+
     return null;
 }
 
@@ -117,7 +115,6 @@ function get_imoveis($conn, $filters = []) {
     
     if (!empty($filters['tipo'])) {
         $tipo_raw = $filters['tipo'];
-        // Converter de EN para PT se necessário
         $tipo = isset($TIPO_MAP[$tipo_raw]) ? $TIPO_MAP[$tipo_raw] : $tipo_raw;
         $tipo = $conn->real_escape_string($tipo);
         $where[] = "i.tipo = '$tipo'";
@@ -175,8 +172,6 @@ function get_imoveis($conn, $filters = []) {
     if (!$result) return [];
     
     $imoveis = [];
-    $base_url = CRM_URL . '/';
-    $module_url = CRM_URL . '/modules/dps_imoveis/uploads/fotos/';
     
     while ($row = $result->fetch_assoc()) {
         // Foto principal - corrigir URL duplicado se existir
@@ -254,7 +249,6 @@ function get_agente_by_slug($conn, $slug) {
     if (!$result) return null;
     $agente = null;
     while ($row = $result->fetch_assoc()) {
-        // Verificar slug por landing_slug ou slug gerado
         $landing_slug = !empty($row['landing_slug']) ? $row['landing_slug'] : null;
         $generated_slug = make_slug($row['nome'], $row['apelido']);
         if ($landing_slug === $slug || $generated_slug === $slug) {
@@ -264,7 +258,6 @@ function get_agente_by_slug($conn, $slug) {
     }
     if (!$agente) return null;
     
-    // Determinar a melhor foto
     $agente['foto_url'] = get_foto_url($agente['id'], $agente['landing_foto'], $agente['foto']);
     $agente['slug'] = $slug;
     unset($agente['foto'], $agente['landing_foto']);
@@ -272,10 +265,11 @@ function get_agente_by_slug($conn, $slug) {
 }
 
 /**
- * Endpoint para a página /equipa - retorna toda a equipa com hierarquia
+ * Endpoint para a página /equipa - retorna equipa por sector de mercado
+ * Lê da tabela tbldps_teams (sem coluna parent_id)
  */
 function get_equipa($conn) {
-    // Buscar todos os staff activos com foto
+    // Buscar todos os staff activos
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
@@ -286,64 +280,117 @@ function get_equipa($conn) {
         s.landing_foto,
         s.landing_slug,
         s.is_admin,
-        cfv_wa.value AS whatsapp,
-        cfv_cargo.value AS cargo,
-        cfv_mercado.value AS mercado
+        cfv_wa.value AS whatsapp
     FROM " . TBL_PREFIX . "staff s
     LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
-    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_cargo ON (cfv_cargo.relid = s.staffid AND cfv_cargo.fieldid = 20)
-    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_mercado ON (cfv_mercado.relid = s.staffid AND cfv_mercado.fieldid = 21)
     WHERE s.active = 1
     ORDER BY s.is_admin DESC, s.staffid ASC";
     
     $result = $conn->query($sql);
-    if (!$result) return [];
-    
-    $staff = [];
-    while ($row = $result->fetch_assoc()) {
-        $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
-        // Só incluir se tiver foto
-        if (empty($foto_url)) continue;
-        
-        $row['foto_url'] = $foto_url;
-        $row['slug'] = !empty($row['landing_slug']) ? $row['landing_slug'] : make_slug($row['nome'], $row['apelido']);
-        unset($row['foto'], $row['landing_foto'], $row['landing_slug']);
-        $staff[] = $row;
+    if (!$result) {
+        return ['lideranca' => [], 'mercados' => []];
     }
     
-    // Buscar equipas do módulo dps_teams
-    $teams_sql = "SELECT t.id, t.name, t.area, t.parent_id,
+    $staff_map = [];
+    while ($row = $result->fetch_assoc()) {
+        $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
+        $row['foto_url'] = $foto_url;
+        $row['has_foto'] = !empty($foto_url);
+        $row['slug'] = !empty($row['landing_slug']) ? $row['landing_slug'] : make_slug($row['nome'], $row['apelido']);
+        unset($row['foto'], $row['landing_foto'], $row['landing_slug']);
+        $staff_map[(int)$row['id']] = $row;
+    }
+    
+    // Buscar equipas imobiliárias (sem coluna parent_id)
+    $teams_sql = "SELECT t.id, t.name, t.area,
         m.staff_id, m.role
     FROM " . TBL_PREFIX . "dps_teams t
     LEFT JOIN " . TBL_PREFIX . "dps_team_members m ON m.team_id = t.id
-    ORDER BY t.area, t.id, m.role";
+    WHERE t.area = 'imo'
+    ORDER BY t.id ASC, m.role ASC";
     
     $teams_result = $conn->query($teams_sql);
     $teams = [];
     if ($teams_result) {
         while ($tr = $teams_result->fetch_assoc()) {
-            $tid = $tr['id'];
+            $tid = (int)$tr['id'];
             if (!isset($teams[$tid])) {
                 $teams[$tid] = [
-                    'id' => $tid,
-                    'name' => $tr['name'],
-                    'area' => $tr['area'],
-                    'parent_id' => $tr['parent_id'],
-                    'members' => []
+                    'id'       => $tid,
+                    'name'     => $tr['name'],
+                    'area'     => $tr['area'],
+                    'managers' => [],
+                    'members'  => [],
                 ];
             }
             if (!empty($tr['staff_id'])) {
-                $teams[$tid]['members'][] = [
-                    'staff_id' => $tr['staff_id'],
-                    'role' => $tr['role']
-                ];
+                $sid = (int)$tr['staff_id'];
+                if ($tr['role'] === 'manager') {
+                    $teams[$tid]['managers'][] = $sid;
+                } else {
+                    $teams[$tid]['members'][] = $sid;
+                }
             }
         }
     }
     
+    // Liderança fixa: CEO (id=1) e Gestor de Equipa (id=46)
+    $ceo_id    = 1;
+    $gestor_id = 46;
+    $lideranca = [];
+    foreach ([$ceo_id => ['role' => 'ceo', 'label' => 'CEO'],
+              $gestor_id => ['role' => 'gestor', 'label' => 'Gestor de Equipa']] as $sid => $info) {
+        if (isset($staff_map[$sid]) && $staff_map[$sid]['has_foto']) {
+            $m = $staff_map[$sid];
+            $m['role']       = $info['role'];
+            $m['role_label'] = $info['label'];
+            $lideranca[] = $m;
+        }
+    }
+    
+    // Mapear nomes de equipas para mercados
+    $market_map = [
+        'IMO BRASIL & BSX' => ['flag' => '🇧🇷', 'label' => 'Brasil'],
+        'IMO BRASIL'       => ['flag' => '🇧🇷', 'label' => 'Brasil'],
+        'IMO PORTUGAL'     => ['flag' => '🇵🇹', 'label' => 'Portugal'],
+        'IMO DUBAI'        => ['flag' => '🇦🇪', 'label' => 'Dubai'],
+    ];
+    
+    // Ordenar mercados: Portugal, Brasil, Dubai
+    $order_map = ['IMO PORTUGAL' => 1, 'IMO BRASIL & BSX' => 2, 'IMO BRASIL' => 2, 'IMO DUBAI' => 3];
+    $teams_arr = array_values($teams);
+    usort($teams_arr, function($a, $b) use ($order_map) {
+        $oa = $order_map[strtoupper(trim($a['name']))] ?? 99;
+        $ob = $order_map[strtoupper(trim($b['name']))] ?? 99;
+        return $oa - $ob;
+    });
+    
+    $mercados = [];
+    foreach ($teams_arr as $team) {
+        $name_upper  = strtoupper(trim($team['name']));
+        $market_info = $market_map[$name_upper] ?? ['flag' => '🌍', 'label' => $team['name']];
+        $all_ids     = array_unique(array_merge($team['managers'], $team['members']));
+        $membros     = [];
+        foreach ($all_ids as $sid) {
+            if ($sid === $ceo_id || $sid === $gestor_id) continue;
+            if (isset($staff_map[$sid]) && $staff_map[$sid]['has_foto']) {
+                $m = $staff_map[$sid];
+                $m['role_label'] = in_array($sid, $team['managers']) ? 'Coordenador' : 'Consultor';
+                $membros[] = $m;
+            }
+        }
+        if (empty($membros)) continue;
+        $mercados[] = [
+            'name'    => $team['name'],
+            'flag'    => $market_info['flag'],
+            'label'   => $market_info['label'],
+            'membros' => $membros,
+        ];
+    }
+    
     return [
-        'staff' => $staff,
-        'teams' => array_values($teams)
+        'lideranca' => $lideranca,
+        'mercados'  => $mercados,
     ];
 }
 
