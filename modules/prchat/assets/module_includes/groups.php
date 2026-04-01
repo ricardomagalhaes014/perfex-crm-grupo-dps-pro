@@ -571,7 +571,7 @@
                 $(group_selector_options).hide();
             }
 
-            if (user.created_by_id !== userSessionId && $('#frame .chat_groups_list li.active .leave_chat_group').length == 0) {
+            if (!isAdmin && user.created_by_id !== userSessionId && $('#frame .chat_groups_list li.active .leave_chat_group').length == 0) {
                 $('#frame .chat_groups_list li.active').append('<button data-toggle="tooltip" title="<?php echo _l('chat_group_leave'); ?>" onClick="leaveGroup(' + group_id + ')" class="leave_chat_group btn btn-sm btn-info pull-right"><i class="fa fa-sign-out leave_icon" aria-hidden="true"></i></button>');
             }
 

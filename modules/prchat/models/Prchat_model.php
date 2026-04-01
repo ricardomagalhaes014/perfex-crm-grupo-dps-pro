@@ -1162,20 +1162,36 @@ class Prchat_model extends App_Model
     public function getMyGroups()
     {
         $id = get_staff_user_id();
+        $is_admin = is_admin($id);
 
         $groups = $this->db->query('SELECT * from ' . TABLE_CHATGROUPS . ' ORDER BY id ASC')->result_array();
 
         $this->db->trans_start();
 
         foreach ($groups as $key => $group) {
-            $groups[$key]['members'] = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+            if ($is_admin) {
+                $members = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+                if (empty($members)) {
+                    $staff_info = $this->db->get_where(db_prefix() . 'staff', array('staffid' => $id))->row_array();
+                    $members = array(array(
+                        'member_id' => $id,
+                        'firstname' => isset($staff_info['firstname']) ? $staff_info['firstname'] : '',
+                        'lastname'  => isset($staff_info['lastname']) ? $staff_info['lastname'] : '',
+                        'group_id'  => $group['id'],
+                        'is_admin_virtual' => true,
+                    ));
+                }
+                $groups[$key]['members'] = $members;
+            } else {
+                $groups[$key]['members'] = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+            }
         }
 
         if ($this->db->trans_complete()) {
             if (!empty($groups)) {
-                echo json_encode(['groups' => $groups]);
+                echo json_encode(array('groups' => $groups));
             } else {
-                echo json_encode(['noChannels' => true]);
+                echo json_encode(array('noChannels' => true));
             }
         }
     }

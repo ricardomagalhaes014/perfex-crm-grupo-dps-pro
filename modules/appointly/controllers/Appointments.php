@@ -67,7 +67,14 @@ class Appointments extends AdminController
             access_denied('Appointments');
         }
 
-        $data['client_id']       = $this->input->get('client_id') ?? null;
+        $client_id = $this->input->get('client_id') ?? null;
+        $rel_id    = $this->input->get('rel_id') ?? null;
+        $rel_type  = $this->input->get('rel_type') ?? null;
+        if (empty($client_id) && !empty($rel_id) && $rel_type === 'customer') {
+            $client_id = $rel_id;
+        }
+        $data['client_id']       = $client_id;
+        $data['auto_open_new']   = ($this->input->get('new') == '1') ? true : false;
         $data['td_appointments'] = $this->getTodaysAppointments();
 
         $this->load->view('index', $data);
