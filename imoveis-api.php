@@ -252,7 +252,7 @@ function get_agente_by_slug($conn, $slug) {
  * Lê da tabela tbldps_teams (sem coluna parent_id)
  */
 function get_equipa($conn) {
-    // Buscar todos os staff activos
+    // Buscar todos os staff activos (sem JOIN para evitar erros com tabelas opcionais)
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
@@ -262,10 +262,9 @@ function get_equipa($conn) {
         s.profile_image AS foto,
         s.landing_foto,
         s.landing_slug,
-        s.is_admin,
-        cfv_wa.value AS whatsapp
+        s.landing_whatsapp AS whatsapp,
+        s.is_admin
     FROM " . TBL_PREFIX . "staff s
-    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
     WHERE s.active = 1
     ORDER BY s.is_admin DESC, s.staffid ASC";
     
