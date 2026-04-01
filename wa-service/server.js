@@ -24,7 +24,7 @@ const fs = require('fs');
 
 const API_KEY = process.env.WA_API_KEY || 'dps-wa-secret-2026';
 const PORT = parseInt(process.env.PORT || '3001');
-const SESSIONS_DIR = path.join(__dirname, 'wa-sessions');
+const SESSIONS_DIR = path.resolve(__dirname, 'wa-sessions');
 
 // Garantir que o directório de sessões existe
 if (!fs.existsSync(SESSIONS_DIR)) {
@@ -44,8 +44,44 @@ app.use((req, res, next) => {
 });
 
 // Estado das sessões em memória
-// { staff_id: { client, qr, connected, phone, connecting } }
+// { staff_id: { client, qr, connected, phone, connecting, reconnectTimer } }
 const sessions = {};
+
+/**
+ * Verifica se existe uma sessão guardada válida para o staff_id
+ * O LocalAuth guarda em: <dataPath>/.wwebjs_auth/session-<clientId>/
+ */
+function hasStoredSession(staff_id) {
+    const sid = String(staff_id);
+    const sessionDir = getSessionDir(sid);
+    if (!fs.existsSync(sessionDir)) return false;
+
+    // Estrutura principal do LocalAuth
+    const authDir = path.join(sessionDir, '.wwebjs_auth', 'session-staff-' + sid);
+    if (fs.existsSync(authDir)) {
+        try {
+            const files = fs.readdirSync(authDir);
+            if (files.length > 0) {
+                console.log(`[${sid}] Sessão guardada: ${authDir} (${files.length} ficheiros)`);
+                return true;
+            }
+        } catch(e) {}
+    }
+
+    // Estrutura alternativa
+    const altDir = path.join(sessionDir, '.wwebjs_auth');
+    if (fs.existsSync(altDir)) {
+        try {
+            const entries = fs.readdirSync(altDir);
+            if (entries.length > 0) {
+                console.log(`[${sid}] Sessão guardada: ${altDir}`);
+                return true;
+            }
+        } catch(e) {}
+    }
+
+    return false;
+}
 
 function getSessionDir(staff_id) {
     return path.join(SESSIONS_DIR, String(staff_id));
@@ -64,6 +100,7 @@ async function createSession(staff_id) {
     // Fechar sessão anterior se existir
     if (sessions[sid] && sessions[sid].client) {
         try {
+            if (sessions[sid].reconnectTimer) clearTimeout(sessions[sid].reconnectTimer);
             await sessions[sid].client.destroy();
         } catch(e) {
             console.error(`[${sid}] Erro ao fechar sessão anterior:`, e.message);
@@ -76,6 +113,7 @@ async function createSession(staff_id) {
         connected: false,
         phone: null,
         connecting: true,
+        reconnectTimer: null,
     };
     
     const sessionDir = getSessionDir(sid);
@@ -118,43 +156,74 @@ async function createSession(staff_id) {
         
         // Cliente pronto
         client.on('ready', () => {
-            console.log(`[${sid}] WhatsApp ligado`);
+            console.log(`[${sid}] WhatsApp pronto e ligado`);
             sessions[sid].connected = true;
             sessions[sid].connecting = false;
             sessions[sid].qr = null;
             
-            // Obter número de telefone
-            client.info.then(info => {
-                sessions[sid].phone = info.wid.user;
-                console.log(`[${sid}] Número: ${info.wid.user}`);
-            }).catch(e => {
+            // client.info é um objecto SÍNCRONO, NÃO uma Promise
+            try {
+                if (client.info && client.info.wid) {
+                    sessions[sid].phone = client.info.wid.user;
+                    console.log(`[${sid}] Número: ${client.info.wid.user}`);
+                }
+            } catch(e) {
                 console.error(`[${sid}] Erro ao obter número:`, e.message);
-            });
+            }
         });
         
-        // Autenticação bem-sucedida
+        // Autenticação bem-sucedida (sessão guardada em disco)
         client.on('authenticated', () => {
-            console.log(`[${sid}] Autenticado`);
+            console.log(`[${sid}] Autenticado - sessão guardada`);
+            sessions[sid].qr = null;
             sessions[sid].connecting = false;
         });
         
-        // Falha de autenticação
+        // Falha de autenticação - limpar sessão corrompida
         client.on('auth_failure', (msg) => {
             console.error(`[${sid}] Falha de autenticação:`, msg);
             sessions[sid].connecting = false;
             sessions[sid].connected = false;
+            sessions[sid].qr = null;
+            // Limpar ficheiros de sessão corrompidos
+            const sd = getSessionDir(sid);
+            if (fs.existsSync(sd)) {
+                try { fs.rmSync(sd, { recursive: true, force: true }); console.log(`[${sid}] Sessão corrompida removida`); } catch(e) {}
+            }
         });
         
-        // Desconectado
+        // Desconectado - reconectar automaticamente se não foi logout intencional
         client.on('disconnected', (reason) => {
-            console.log(`[${sid}] Desconectado:`, reason);
+            console.log(`[${sid}] Desconectado: ${reason}`);
             sessions[sid].connected = false;
             sessions[sid].connecting = false;
             sessions[sid].qr = null;
+
+            if (reason === 'LOGOUT') {
+                console.log(`[${sid}] Logout remoto - a limpar sessão`);
+                const sd = getSessionDir(sid);
+                if (fs.existsSync(sd)) {
+                    try { fs.rmSync(sd, { recursive: true, force: true }); } catch(e) {}
+                }
+                delete sessions[sid];
+                return;
+            }
+
+            // Reconectar automaticamente após 15 segundos
+            console.log(`[${sid}] A reconectar em 15 segundos...`);
+            sessions[sid].reconnectTimer = setTimeout(async () => {
+                if (sessions[sid] && !sessions[sid].connected && !sessions[sid].connecting) {
+                    console.log(`[${sid}] A reconectar...`);
+                    createSession(sid).catch(e => console.error(`[${sid}] Erro reconexão:`, e.message));
+                }
+            }, 15000);
         });
         
-        // Inicializar cliente
-        await client.initialize();
+        // Inicializar cliente (não bloquear a função)
+        client.initialize().catch(e => {
+            console.error(`[${sid}] Erro ao inicializar:`, e.message);
+            if (sessions[sid]) { sessions[sid].connecting = false; sessions[sid].connected = false; }
+        });
         
     } catch (e) {
         console.error(`[${sid}] Erro ao criar sessão:`, e.message);
@@ -165,25 +234,32 @@ async function createSession(staff_id) {
 
 // Carregar sessões existentes ao iniciar o servidor
 async function loadExistingSessions() {
-    console.log('A carregar sessões existentes...');
+    console.log(`A carregar sessões de: ${SESSIONS_DIR}`);
     
     if (!fs.existsSync(SESSIONS_DIR)) {
-        console.log('Nenhuma sessão existente');
+        console.log('Directório de sessões não existe');
         return;
     }
     
+    let restored = 0;
     const dirs = fs.readdirSync(SESSIONS_DIR);
     for (const dir of dirs) {
         const fullPath = path.join(SESSIONS_DIR, dir);
-        if (fs.statSync(fullPath).isDirectory()) {
-            // Verificar se tem ficheiros de sessão
-            const files = fs.readdirSync(fullPath);
-            if (files.length > 0) {
-                console.log(`Restaurar sessão: ${dir}`);
-                await createSession(dir);
+        try {
+            if (!fs.statSync(fullPath).isDirectory()) continue;
+            if (hasStoredSession(dir)) {
+                console.log(`[${dir}] A restaurar sessão...`);
+                // Não aguardar - restaurar em paralelo
+                createSession(dir).catch(e => console.error(`[${dir}] Erro ao restaurar:`, e.message));
+                restored++;
+            } else {
+                console.log(`[${dir}] Pasta sem sessão válida - ignorar`);
             }
+        } catch(e) {
+            console.error(`Erro ao processar ${dir}:`, e.message);
         }
     }
+    console.log(`${restored} sessão(ões) a restaurar`);
 }
 
 // ── Endpoints ──────────────────────────────────────────────────────────────
@@ -199,7 +275,7 @@ app.get('/status', (req, res) => {
     const session = sessions[sid];
     
     if (!session || !session.client) {
-        return res.json({ connected: false });
+        return res.json({ connected: false, connecting: false });
     }
     
     res.json({
@@ -228,7 +304,7 @@ app.get('/qr', (req, res) => {
     }
     
     if (!session.qr) {
-        return res.json({ qr: null, message: 'QR code ainda não gerado' });
+        return res.json({ qr: null, message: 'QR code ainda não gerado', connecting: session.connecting });
     }
     
     res.json({ qr: session.qr });
@@ -253,8 +329,8 @@ app.post('/connect', async (req, res) => {
         return res.json({ success: true, message: 'A ligar...' });
     }
     
-    // Iniciar nova sessão
-    createSession(staff_id);
+    // Iniciar nova sessão (não bloquear a resposta)
+    createSession(staff_id).catch(e => console.error(`[${sid}] Erro /connect:`, e.message));
     res.json({ success: true, message: 'A iniciar ligação' });
 });
 
@@ -273,6 +349,7 @@ app.post('/disconnect', async (req, res) => {
     }
     
     try {
+        if (session.reconnectTimer) clearTimeout(session.reconnectTimer);
         await session.client.destroy();
         
         // Apagar ficheiros de sessão
@@ -286,7 +363,9 @@ app.post('/disconnect', async (req, res) => {
         res.json({ success: true, message: 'Desligado' });
     } catch (e) {
         console.error(`[${sid}] Erro ao desligar:`, e.message);
-        res.status(500).json({ error: e.message });
+        // Forçar limpeza mesmo com erro
+        delete sessions[sid];
+        res.json({ success: true, message: 'Desligado (com erro)' });
     }
 });
 
@@ -327,7 +406,11 @@ app.post('/send', async (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', sessions: Object.keys(sessions).length });
+    const info = {};
+    for (const [sid, s] of Object.entries(sessions)) {
+        info[sid] = { connected: s.connected, connecting: s.connecting, phone: s.phone };
+    }
+    res.json({ status: 'ok', sessions_count: Object.keys(sessions).length, sessions: info, sessions_dir: SESSIONS_DIR });
 });
 
 // ── Iniciar servidor ───────────────────────────────────────────────────────
@@ -336,8 +419,8 @@ app.listen(PORT, async () => {
     console.log(`✓ DPS WhatsApp Service a correr na porta ${PORT}`);
     console.log(`✓ Sessões guardadas em: ${SESSIONS_DIR}`);
     
-    // Carregar sessões existentes
-    await loadExistingSessions();
+    // Carregar sessões existentes (sem bloquear)
+    loadExistingSessions().catch(e => console.error('Erro ao carregar sessões:', e.message));
     
     console.log('✓ Pronto para receber pedidos');
 });
