@@ -598,7 +598,7 @@ setTimeout(initWA, 500);
 
 <script>
 // ── Enviar Agora (por automação) ──────────────────────────────────────────
-jQuery(document).ready(function($) {
+$(document).ready(function() {
 $(document).on('click', '.btn-send-now', function() {
     var message = $(this).data('message');
     $('#modal-automation-id').val($(this).data('id'));
