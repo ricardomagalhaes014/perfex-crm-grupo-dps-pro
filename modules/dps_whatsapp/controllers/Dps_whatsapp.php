@@ -153,4 +153,33 @@ class Dps_whatsapp extends AdminController
         echo json_encode(['success' => true]);
         exit;
     }
+
+    // AJAX: envio manual de mensagem
+    public function ajax_send_message()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+        $staff_id = get_staff_user_id();
+
+        $phone   = trim($this->input->post('phone'));
+        $message = trim($this->input->post('message'));
+
+        if (!$phone || !$message) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Número e mensagem são obrigatórios.']);
+            exit;
+        }
+
+        // Verificar se o WhatsApp está ligado
+        $status = $this->Dps_whatsapp_model->get_wa_status($staff_id);
+        if (empty($status['connected'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'WhatsApp não está ligado. Ligue primeiro.']);
+            exit;
+        }
+
+        $result = $this->Dps_whatsapp_model->wa_send($staff_id, $phone, $message);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
 }

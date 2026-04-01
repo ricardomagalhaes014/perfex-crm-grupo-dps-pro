@@ -10,6 +10,7 @@
 .wa-qr-box img { max-width: 220px; border-radius: 8px; border: 1px solid #ccc; }
 .wa-automation-row td { vertical-align: middle !important; }
 .automation-msg-preview { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #666; font-size: 12px; }
+.wa-send-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 15px; }
 </style>
 
 <div id="wrapper">
@@ -24,7 +25,7 @@
                 </h4>
             </div>
 
-            <!-- Coluna esquerda: Ligação + Automações -->
+            <!-- Coluna esquerda: Ligação + Envio Manual + Automações -->
             <div class="col-md-5">
 
                 <!-- Painel de Ligação -->
@@ -76,6 +77,40 @@
                             </p>
                         </div>
 
+                    </div>
+                </div>
+
+                <!-- Painel de Envio Manual -->
+                <div class="panel_s" id="panel-send-manual">
+                    <div class="panel-body">
+                        <h5 style="font-weight:600;margin-bottom:15px;">
+                            <i class="fa fa-paper-plane" style="color:#25D366;margin-right:5px;"></i>
+                            Enviar Mensagem
+                        </h5>
+                        <div class="wa-send-box">
+                            <div class="form-group" style="margin-bottom:10px;">
+                                <label style="font-size:13px;font-weight:600;">Número de destino</label>
+                                <div class="input-group">
+                                    <span class="input-group-addon"><i class="fa fa-phone"></i></span>
+                                    <input type="text" id="send-phone" class="form-control input-sm"
+                                        placeholder="Ex: 351912345678 (sem + ou espaços)">
+                                </div>
+                                <p style="font-size:11px;color:#999;margin-top:3px;margin-bottom:0;">
+                                    Inclua o código do país sem o sinal +. Ex: Portugal = 351912345678
+                                </p>
+                            </div>
+                            <div class="form-group" style="margin-bottom:10px;">
+                                <label style="font-size:13px;font-weight:600;">Mensagem</label>
+                                <textarea id="send-message" class="form-control" rows="4"
+                                    placeholder="Escreva aqui a mensagem a enviar..."></textarea>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <button id="btn-send-manual" class="btn btn-success btn-sm">
+                                    <i class="fa fa-paper-plane"></i> Enviar Agora
+                                </button>
+                                <span id="send-result" style="font-size:13px;display:none;"></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -253,23 +288,28 @@ var WA_PROCESS_URL     = '<?php echo admin_url("dps_whatsapp/ajax_process_follow
 var WA_SAVE_AUTO_URL   = '<?php echo admin_url("dps_whatsapp/ajax_save_automation"); ?>';
 var WA_DELETE_AUTO_URL = '<?php echo admin_url("dps_whatsapp/ajax_delete_automation"); ?>';
 var WA_TOGGLE_AUTO_URL = '<?php echo admin_url("dps_whatsapp/ajax_toggle_automation"); ?>';
+var WA_SEND_URL        = '<?php echo admin_url("dps_whatsapp/ajax_send_message"); ?>';
 
 var qrPollInterval     = null;
 var statusPollInterval = null;
+var waIsConnected      = false;
 
 // ── Estado da ligação ──────────────────────────────────────────────────────
 function showStatus(connected, phone) {
     $('#wa-status-loading').hide();
+    waIsConnected = connected;
     if (connected) {
         $('#wa-status-connected').show();
         $('#wa-status-disconnected').hide();
         $('#wa-qr-box').hide();
         $('#wa-phone-display').text(phone || 'Ligado');
+        $('#panel-send-manual').show();
         clearInterval(qrPollInterval);
         clearInterval(statusPollInterval);
     } else {
         $('#wa-status-connected').hide();
         $('#wa-status-disconnected').show();
+        $('#panel-send-manual').hide();
     }
 }
 
@@ -284,6 +324,7 @@ function checkStatus() {
         error: function() {
             $('#wa-status-loading').hide();
             $('#wa-status-disconnected').show();
+            $('#panel-send-manual').hide();
         }
     });
 }
@@ -307,6 +348,9 @@ function pollQR() {
 }
 
 function initWA() {
+    // Ocultar painel de envio até confirmar ligação
+    $('#panel-send-manual').hide();
+
     // Verificar estado inicial
     checkStatus();
     statusPollInterval = setInterval(checkStatus, 5000);
@@ -341,6 +385,48 @@ function initWA() {
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
             complete: function() { location.reload(); }
+        });
+    });
+
+    // ── Envio Manual ───────────────────────────────────────────────────────
+    $('#btn-send-manual').on('click', function() {
+        var phone   = $.trim($('#send-phone').val()).replace(/\D/g, '');
+        var message = $.trim($('#send-message').val());
+        var $result = $('#send-result');
+
+        if (!phone) {
+            $result.show().css('color','#dc2626').text('Por favor insira um número de telefone.');
+            return;
+        }
+        if (!message) {
+            $result.show().css('color','#dc2626').text('Por favor escreva uma mensagem.');
+            return;
+        }
+
+        var $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A enviar...');
+        $result.hide();
+
+        $.ajax({
+            url: WA_SEND_URL,
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { phone: phone, message: message },
+            success: function(data) {
+                if (data.success) {
+                    $result.show().css('color','#16a34a').html('<i class="fa fa-check"></i> Mensagem enviada com sucesso!');
+                    $('#send-phone').val('');
+                    $('#send-message').val('');
+                } else {
+                    $result.show().css('color','#dc2626').text(data.error || 'Erro ao enviar mensagem.');
+                }
+            },
+            error: function() {
+                $result.show().css('color','#dc2626').text('Erro de comunicação com o servidor.');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar Agora');
+            }
         });
     });
 
