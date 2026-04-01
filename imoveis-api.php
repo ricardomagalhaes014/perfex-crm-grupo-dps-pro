@@ -224,9 +224,8 @@ function get_agente_by_slug($conn, $slug) {
         s.profile_image AS foto,
         s.landing_foto,
         s.landing_slug,
-        cfv_wa.value AS whatsapp
+        s.landing_whatsapp AS whatsapp
     FROM " . TBL_PREFIX . "staff s
-    LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
     WHERE s.active = 1";
     $result = $conn->query($sql);
     if (!$result) return null;
