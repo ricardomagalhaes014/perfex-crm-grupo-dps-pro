@@ -1,61 +1,57 @@
 #!/bin/bash
+#
 # Script de instalação do DPS WhatsApp Service
-# Executar como root no servidor crm.grupo-dps.com
-# Uso: bash install.sh
+# Corre no servidor CRM (crm.grupo-dps.com)
+# Uso: cd wa-service && bash install.sh
+#
 
 set -e
 
-SERVICE_DIR="/opt/dps-whatsapp"
-SERVICE_USER="www-data"
-NODE_BIN=$(which node || which nodejs)
-
 echo "=== DPS WhatsApp Service - Instalação ==="
+echo ""
 
-# 1. Criar directório do serviço
-mkdir -p "$SERVICE_DIR"
-mkdir -p /var/wa-sessions
-chown -R "$SERVICE_USER:$SERVICE_USER" /var/wa-sessions
+# Verificar Node.js
+if ! command -v node &> /dev/null; then
+    echo "ERRO: Node.js não está instalado"
+    exit 1
+fi
 
-# 2. Copiar ficheiros
-cp server.js "$SERVICE_DIR/"
-cp package.json "$SERVICE_DIR/"
+NODE_VERSION=$(node --version)
+echo "✓ Node.js: $NODE_VERSION"
 
-# 3. Instalar dependências
-cd "$SERVICE_DIR"
+# Instalar dependências (inclui puppeteer/chromium para whatsapp-web.js)
+echo ""
+echo "A instalar dependências (pode demorar 2-5 minutos)..."
 npm install --production
 
-# 4. Criar ficheiro de serviço systemd
-cat > /etc/systemd/system/dps-whatsapp.service << 'UNIT'
-[Unit]
-Description=DPS WhatsApp Microservice
-After=network.target
+# Instalar PM2 globalmente (se não existir)
+if ! command -v pm2 &> /dev/null; then
+    echo ""
+    echo "A instalar PM2..."
+    npm install -g pm2
+fi
 
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/opt/dps-whatsapp
-ExecStart=/usr/bin/node /opt/dps-whatsapp/server.js
-Restart=always
-RestartSec=5
-Environment=PORT=3001
-Environment=WA_API_KEY=dps-wa-secret-2026
-Environment=SESSIONS_DIR=/var/wa-sessions
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=dps-whatsapp
+# Parar o serviço se já estiver a correr
+pm2 delete dps-wa-service 2>/dev/null || true
 
-[Install]
-WantedBy=multi-user.target
-UNIT
+# Iniciar o serviço com PM2
+echo ""
+echo "A iniciar o serviço com PM2..."
+pm2 start server.js --name dps-wa-service --restart-delay=5000
 
-# 5. Activar e iniciar o serviço
-systemctl daemon-reload
-systemctl enable dps-whatsapp
-systemctl restart dps-whatsapp
+# Guardar a configuração do PM2
+pm2 save
+
+# Configurar PM2 para iniciar automaticamente no boot
+pm2 startup 2>/dev/null || true
 
 echo ""
 echo "=== Instalação concluída ==="
-echo "Estado do serviço:"
-systemctl status dps-whatsapp --no-pager
 echo ""
-echo "Para ver logs: journalctl -u dps-whatsapp -f"
+echo "Comandos úteis:"
+echo "  pm2 status                 - Ver estado do serviço"
+echo "  pm2 logs dps-wa-service    - Ver logs em tempo real"
+echo "  pm2 restart dps-wa-service - Reiniciar o serviço"
+echo ""
+echo "Teste: curl -H 'x-api-key: dps-wa-secret-2026' http://127.0.0.1:3001/health"
+echo ""
