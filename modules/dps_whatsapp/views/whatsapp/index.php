@@ -547,47 +547,44 @@ function initWA() {
             data: { id: id, is_active: active }
         });
     });
+
+    // Enviar Automação Agora (envio em massa a todos os leads do estado)
+    $(document).on('click', '.btn-send-now', function() {
+        var $btn          = $(this);
+        var automation_id = $btn.data('id');
+        var auto_name     = $btn.closest('tr').find('strong').first().text();
+        var status_name   = $btn.closest('tr').find('.label-default').first().text();
+
+        if (!confirm('Enviar a mensagem da automação "' + auto_name + '" para TODOS os leads no estado "' + status_name + '"?\n\nEsta acção envia imediatamente para todos os leads nesse estado.')) {
+            return;
+        }
+
+        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A enviar...');
+
+        $.ajax({
+            url: WA_SEND_NOW_URL,
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { automation_id: automation_id },
+            success: function(data) {
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ Erro: ' + (data.error || 'Não foi possível enviar.'));
+                }
+            },
+            error: function() {
+                alert('❌ Erro de comunicação com o servidor.');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar');
+            }
+        });
+    });
 }
 
 // Inicializar após 500ms para garantir que o DOM está completamente pronto
 setTimeout(initWA, 500);
-</script>
-
-
-<script>
-// ── Enviar Automação Agora (envio em massa a todos os leads do estado) ─────────────────
-$(document).on('click', '.btn-send-now', function() {
-    var $btn          = $(this);
-    var automation_id = $btn.data('id');
-    var auto_name     = $btn.closest('tr').find('strong').first().text();
-    var status_name   = $btn.closest('tr').find('.label-default').first().text();
-
-    if (!confirm('Enviar a mensagem da automação "' + auto_name + '" para TODOS os leads no estado "' + status_name + '"?\n\nEsta acção envia imediatamente para todos os leads nesse estado.')) {
-        return;
-    }
-
-    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A enviar...');
-
-    $.ajax({
-        url: WA_SEND_NOW_URL,
-        type: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'},
-        data: { automation_id: automation_id },
-        success: function(data) {
-            if (data.success) {
-                alert('✅ ' + data.message);
-            } else {
-                alert('❌ Erro: ' + (data.error || 'Não foi possível enviar.'));
-            }
-        },
-        error: function() {
-            alert('❌ Erro de comunicação com o servidor.');
-        },
-        complete: function() {
-            $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar');
-        }
-    });
-});
 </script>
 
 <?php init_tail(); ?>
