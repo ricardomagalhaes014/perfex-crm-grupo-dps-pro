@@ -550,26 +550,13 @@
             $('#frame .contact-profile').append('<div class="group_members_inline"><img class="groups_image" src="<?= module_dir_url('prchat', 'assets/chat_implements/icons/groups.png'); ?>" alt="Group"/><p class="active_group_members"></p></div>');
         }
         var group_selector_options = '.chat_group_options #group_options';
-
-        // Se admin: garantir que o painel de opções aparece mesmo que não seja membro
-        if (isAdmin) {
-            if ($('.chat_group_options #group_options').length == 0) {
-                $('#frame .chat_group_options').prepend('<div class="panel-group" id="group_options">');
-            }
-            if ($('#frame .chat_group_options .member_identifier_' + group_id).length == 0) {
-                $(group_selector_options).append('<div class="add_member member_identifier_' + group_id + '"><a data-toggle="tooltip" data-placement="left" title="<?php echo _l('chat_add_new_member'); ?>" class="add_chat_member" href="#"><svg class="svg_add_chat_member" viewBox="0 0 24 24"><path d="M15,14C12.33,14 7,15.33 7,18V20H23V18C23,15.33 17.67,14 15,14M6,10V7H4V10H1V12H4V15H6V12H9V10M15,12A4,4 0 0,0 19,8A4,4 0 0,0 15,4A4,4 0 0,0 11,8A4,4 0 0,0 15,12Z"/></svg><?php echo _l('chat_add_members'); ?></a></div>');
-            }
-            if ($('#frame .chat_group_options').find('.dismiss_chat_group').length == 0) {
-                $(group_selector_options).append('<div data-group-id="' + group_id + '" data-group-name="' + group_name + '" class="dismiss_chat_group btn btn-sm" onClick="deleteGroup(this)"><?php echo _l('chat_group_delete'); ?></div>');
-            }
-        }
-
         $.each(users, function(i, user) {
             active_members += user.firstname + ' ' + user.lastname + ', ';
 
             if (user.created_by_id == userSessionId || isAdmin) {
                 if ($('.chat_group_options #group_options').length == 0) {
                     $('#frame .chat_group_options').prepend('<div class="panel-group" id="group_options">');
+
                 }
                 if ($('#frame .chat_group_options  .member_identifier_' + group_id).length == 0) {
                     $(group_selector_options).append('<div class="add_member member_identifier_' + group_id + '"><a data-toggle="tooltip" data-placement="left" title="<?php echo _l('chat_add_new_member'); ?>" class="add_chat_member" href="#"><svg class="svg_add_chat_member" viewBox="0 0 24 24"><path d="M15,14C12.33,14 7,15.33 7,18V20H23V18C23,15.33 17.67,14 15,14M6,10V7H4V10H1V12H4V15H6V12H9V10M15,12A4,4 0 0,0 19,8A4,4 0 0,0 15,4A4,4 0 0,0 11,8A4,4 0 0,0 15,12Z"/></svg><?php echo _l('chat_add_members'); ?></a></div>');
@@ -584,8 +571,7 @@
                 $(group_selector_options).hide();
             }
 
-            // Admin não deve ver o botão "Sair do grupo" — só membros normais que não criaram o grupo
-            if (!isAdmin && user.created_by_id !== userSessionId && $('#frame .chat_groups_list li.active .leave_chat_group').length == 0) {
+            if (user.created_by_id !== userSessionId && $('#frame .chat_groups_list li.active .leave_chat_group').length == 0) {
                 $('#frame .chat_groups_list li.active').append('<button data-toggle="tooltip" title="<?php echo _l('chat_group_leave'); ?>" onClick="leaveGroup(' + group_id + ')" class="leave_chat_group btn btn-sm btn-info pull-right"><i class="fa fa-sign-out leave_icon" aria-hidden="true"></i></button>');
             }
 
@@ -594,9 +580,10 @@
                 $('#frame .chat_group_options .group_members').append('<p class="members_list" id="member_' + user.member_id + '"><a target="_blank" href="' + site_url + 'admin/profile/' + user.member_id + '">' + user.firstname + ' ' + user.lastname + '</a></p>');
             }
             if (user.member_id !== userSessionId &&
-                (user.created_by_id == userSessionId || isAdmin) &&
-                $('#frame .chat_group_options #member_' + user.member_id + ' i#' + user.member_id).length == 0) {
-                $('#frame .chat_group_options #group_members #member_' + user.member_id + '').append('<i id="' + user.member_id + '" data-group="' + group_name + '" data-group-id="' + user.group_id + '" class="fa fa-times" data-toggle="tooltip" data-placement="left" title="<?php echo _l('chat_group_remove_member'); ?>" onClick="removeChatGroupUser(this)"></i>');
+                user.created_by_id == userSessionId &&
+                $('#frame .chat_group_options #member_' + user.member_id + ' i#' + user.member_id).length == 0 ||
+                isAdmin) {
+                $('#frame .chat_group_options #group_members #member_' + user.member_id + '').append('<i id="' + user.member_id + '" data-group="' + group_name + '" data-group-id="' + user.group_id + '" class="fa fa-times" data-toggle="tooltip" data-placement="left" title="<?php echo _l('chat_group_remove_member'); ?>" onClick="removeChatGroupUser(this)""></i>');
             }
 
         });
