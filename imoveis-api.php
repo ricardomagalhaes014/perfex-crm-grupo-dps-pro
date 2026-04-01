@@ -64,7 +64,7 @@ function get_foto_url($staffid, $landing_foto, $profile_image) {
 
     // 1. Prioridade: landing_foto
     if (!empty($landing_foto)) {
-        return $base . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
+        return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . $landing_foto;
     }
 
     // 2. Fallback: foto de perfil — verificar via HEAD request qual URL existe
@@ -240,7 +240,6 @@ function get_agente_by_slug($conn, $slug) {
         s.profile_image AS foto,
         s.landing_foto,
         s.landing_slug,
-        s.landing_whatsapp,
         cfv_wa.value AS whatsapp
     FROM " . TBL_PREFIX . "staff s
     LEFT JOIN " . TBL_PREFIX . "customfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
