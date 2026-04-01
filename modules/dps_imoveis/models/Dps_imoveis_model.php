@@ -226,7 +226,7 @@ class Dps_imoveis_model extends CI_Model
     public function get_for_api($filters = [])
     {
         // NOTA: dados privados do proprietário (nome, telefone, email) NUNCA são incluídos na API pública
-        $this->db->select('i.id, i.titulo, i.tipo, i.tipologia, i.distrito, i.cidade, i.preco, i.area_total, i.nr_quartos, i.nr_suites, i.nr_salas, i.nr_casas_banho, i.garagem, i.ano_construcao, i.texto_livre, i.equipamento, i.foto_principal, i.fotos, i.datecreated, CONCAT(s.firstname, " ", s.lastname) AS agente_nome, s.phonenumber AS agente_telefone, s.profile_image AS agente_foto, LOWER(REPLACE(CONCAT(s.firstname, "-", s.lastname), " ", "-")) AS agente_slug');
+        $this->db->select('i.id, i.titulo, i.tipo, i.tipologia, i.distrito, i.cidade, i.preco, i.area_total, i.nr_quartos, i.nr_suites, i.nr_salas, i.nr_casas_banho, i.garagem, i.ano_construcao, i.descricao_curta, i.texto_livre, i.equipamento, i.foto_principal, i.fotos, i.datecreated, CONCAT(s.firstname, " ", s.lastname) AS agente_nome, s.phonenumber AS agente_telefone, s.profile_image AS agente_foto, LOWER(REPLACE(CONCAT(s.firstname, "-", s.lastname), " ", "-")) AS agente_slug');
         $this->db->from($this->table . ' i');
         $this->db->join(db_prefix() . 'staff s', 's.staffid = i.agente_id', 'left');
         $this->db->where('i.published_website', 1);
@@ -290,11 +290,14 @@ class Dps_imoveis_model extends CI_Model
             unset($data[$post_key]);
         }
 
-        // Tipologia automática baseada no número de quartos
+        // Tipologia automática: quartos + suítes (suite conta como quarto)
+        // Regra: T = nr_quartos_com_area + nr_suites_com_area
+        // Se nenhum tem área preenchida → T0
         $nr_quartos = isset($data['nr_quartos']) ? (int)$data['nr_quartos'] : 0;
-        // Só sobrescrever se não foi enviada manualmente (ou se estava vazia)
+        $nr_suites  = isset($data['nr_suites'])  ? (int)$data['nr_suites']  : 0;
+        $total_divisoes = $nr_quartos + $nr_suites;
         $tipologias = ['T0','T1','T2','T3','T4','T4+'];
-        $data['tipologia'] = $nr_quartos >= 5 ? 'T4+' : $tipologias[$nr_quartos];
+        $data['tipologia'] = $total_divisoes >= 5 ? 'T4+' : $tipologias[$total_divisoes];
 
         return $data;
     }

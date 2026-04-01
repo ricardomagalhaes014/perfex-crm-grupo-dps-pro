@@ -174,8 +174,18 @@
             <div class="row">
               <div class="col-md-12">
                 <div class="form-group">
-                  <label>Descrição Livre</label>
-                  <textarea name="texto_livre" class="form-control" rows="5" placeholder="Descrição detalhada do imóvel para o site..."><?php echo htmlspecialchars($imovel['texto_livre'] ?? ''); ?></textarea>
+                  <label>Descrição Curta <small class="text-muted">(máx. 600 caracteres — aparece no anúncio do site)</small></label>
+                  <textarea name="descricao_curta" id="descricao_curta" class="form-control" rows="3" maxlength="600" placeholder="Descrição breve que aparece na página do imóvel no site..."><?php echo htmlspecialchars($imovel['descricao_curta'] ?? ''); ?></textarea>
+                  <small class="text-muted"><span id="descricao_curta_count"><?php echo strlen($imovel['descricao_curta'] ?? ''); ?></span>/600 caracteres</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="form-group">
+                  <label>Descrição Completa</label>
+                  <textarea name="texto_livre" class="form-control" rows="5" placeholder="Descrição detalhada do imóvel (uso interno / detalhe)..."><?php echo htmlspecialchars($imovel['texto_livre'] ?? ''); ?></textarea>
                 </div>
               </div>
             </div>
@@ -187,7 +197,7 @@
             <!-- Indicador de tipologia -->
             <div id="tipologia-display">
               Tipologia detectada: <span class="tipologia-badge" id="tipologia-badge"><?php echo htmlspecialchars($imovel['tipologia'] ?? 'T0'); ?></span>
-              <small class="text-muted mleft10">(actualizada automaticamente conforme os quartos preenchidos)</small>
+              <small class="text-muted mleft10">(actualizada automaticamente: quartos + suítes com área preenchida)</small>
             </div>
 
             <!-- QUARTOS -->
@@ -617,6 +627,18 @@
       })
       .catch(function() { alert('Erro de rede ao remover foto.'); });
   };
+
+  // ---------------------------------------------------------------
+  // CONTADOR DESCRIÇÃO CURTA
+  // ---------------------------------------------------------------
+  var dcTextarea = document.getElementById('descricao_curta');
+  var dcCount = document.getElementById('descricao_curta_count');
+  if (dcTextarea && dcCount) {
+    dcTextarea.addEventListener('input', function() {
+      dcCount.textContent = this.value.length;
+      dcCount.style.color = this.value.length > 550 ? '#d9534f' : '';
+    });
+  }
 
   // ---------------------------------------------------------------
   // INICIALIZAR

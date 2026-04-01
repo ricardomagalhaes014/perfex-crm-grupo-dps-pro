@@ -28,6 +28,7 @@ if (!$CI->db->table_exists(db_prefix() . 'dps_imoveis')) {
         `lugar_garagem`           TINYINT(1) NULL DEFAULT 0,
         `ano_construcao`          INT(4) NULL DEFAULT NULL,
         `equipamento`             TEXT NULL DEFAULT NULL,
+        `descricao_curta`         VARCHAR(600) NULL DEFAULT NULL COMMENT 'Descrição curta (máx 600 chars) — aparece no site',
         `texto_livre`             TEXT NULL DEFAULT NULL COMMENT 'Descrição livre do imóvel',
         `foto_principal`          VARCHAR(255) NULL DEFAULT NULL,
         `fotos`                   TEXT NULL DEFAULT NULL COMMENT 'JSON array de paths de fotos',
@@ -53,4 +54,12 @@ if (!$CI->db->table_exists(db_prefix() . 'dps_imoveis')) {
         KEY `idx_tipo` (`tipo`),
         KEY `idx_distrito` (`distrito`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+}
+
+// Adicionar coluna descricao_curta se ainda não existir (para instalações existentes)
+if ($CI->db->table_exists(db_prefix() . 'dps_imoveis')) {
+    $fields = $CI->db->list_fields(db_prefix() . 'dps_imoveis');
+    if (!in_array('descricao_curta', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `descricao_curta` VARCHAR(600) NULL DEFAULT NULL COMMENT 'Descrição curta (máx 600 chars) — aparece no site' AFTER `equipamento`");
+    }
 }

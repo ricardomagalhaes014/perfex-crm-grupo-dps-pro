@@ -30,12 +30,12 @@ function db_connect() {
  */
 function get_foto_url($staffid, $landing_foto, $profile_image) {
     $base = CRM_URL . '/';
-
+    // rawurlencode garante URLs válidos mesmo com espaços e caracteres especiais nos nomes de ficheiro
     if (!empty($landing_foto)) {
-        return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . $landing_foto;
+        return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . rawurlencode($landing_foto);
     }
     if (!empty($profile_image)) {
-        return $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
+        return $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . rawurlencode($profile_image);
     }
     return null;
 }
@@ -50,6 +50,7 @@ $staff_sql = "SELECT
     s.lastname AS apelido,
     s.email,
     s.phonenumber AS telefone,
+    s.landing_whatsapp,
     s.profile_image AS foto,
     s.landing_foto,
     s.landing_slug
@@ -67,7 +68,8 @@ while ($row = $staff_result->fetch_assoc()) {
     $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
     $row['foto_url'] = $foto_url;
     $row['has_foto'] = !empty($foto_url);
-    $row['whatsapp'] = $row['telefone'] ?? '';
+    // Prioridade: landing_whatsapp > phonenumber (ambos podem estar vazios na BD)
+    $row['whatsapp'] = !empty($row['landing_whatsapp']) ? $row['landing_whatsapp'] : ($row['telefone'] ?? '');
     $staff_map[(int)$row['id']] = $row;
 }
 
