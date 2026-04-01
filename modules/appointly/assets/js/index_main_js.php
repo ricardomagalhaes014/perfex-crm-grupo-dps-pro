@@ -10,6 +10,8 @@
     var appointly_reminders_sent = "<?= _l("appointly_reminders_sent") ?>";
     var appointly_lang_approved = "<?= _l("appointment_marked_as_approved"); ?>";
     var edit_from_view = "<?= $edit_appointment_id; ?>";
+    var appointly_auto_open_new = <?= isset($auto_open_new) && $auto_open_new ? 'true' : 'false'; ?>;
+    var appointly_client_id = "<?= isset($client_id) ? (int)$client_id : 0; ?>";
 
     var filters = <?php echo json_encode($filters); ?>;
 
@@ -54,6 +56,28 @@
                 }
             });
         });
+
+        // Auto-open modal quando vem do botão Book Appointment de um cliente
+        if (appointly_auto_open_new && appointly_client_id > 0) {
+            $("#modal_wrapper").load("<?php echo admin_url('appointly/appointments/modal'); ?>", {
+                slug: "create",
+                client_id: appointly_client_id
+            }, function () {
+                if ($(".modal-backdrop.fade").hasClass("in")) {
+                    $(".modal-backdrop.fade").remove();
+                }
+                if ($("#newAppointmentModal").is(":hidden")) {
+                    $("#newAppointmentModal").modal({ show: true });
+                }
+                // Pré-seleccionar rel_type como external (cliente externo)
+                setTimeout(function() {
+                    if ($("#rel_type").length) {
+                        $("#rel_type").val("external").trigger("change");
+                        try { $("#rel_type").selectpicker("refresh"); } catch(e) {}
+                    }
+                }, 300);
+            });
+        }
     });
 
     function appointmentUpdateModal(el) {

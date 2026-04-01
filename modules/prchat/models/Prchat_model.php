@@ -306,14 +306,33 @@ class Prchat_model extends App_Model
             }
 
             $newQuery['messages'] = $query;
-
             $this->db->select('member_id,  group_id, lastname, firstname, created_by_id');
             $this->db->from(TABLE_CHATGROUPMEMBERS);
             $this->db->where('group_id', $group_id);
             $this->db->join(TABLE_STAFF, '' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id');
             $this->db->join(TABLE_CHATGROUPS, '' . TABLE_CHATGROUPS . '.id=' . TABLE_CHATGROUPMEMBERS . '.group_id');
             $result = $this->db->get();
-            $newQuery['users'] = $result->result_array();
+            $users = $result->result_array();
+            // Se o utilizador actual é admin e não é membro do grupo, adicionar entrada virtual
+            $current_user_id = get_staff_user_id();
+            $is_member = false;
+            foreach ($users as $u) {
+                if ($u['member_id'] == $current_user_id) {
+                    $is_member = true;
+                    break;
+                }
+            }
+            if (!$is_member && is_admin($current_user_id)) {
+                $staff_info = $this->db->get_where(db_prefix() . 'staff', ['staffid' => $current_user_id])->row_array();
+                $users[] = [
+                    'member_id'    => $current_user_id,
+                    'group_id'     => $group_id,
+                    'firstname'    => $staff_info['firstname'] ?? '',
+                    'lastname'     => $staff_info['lastname'] ?? '',
+                    'created_by_id' => $created_by,
+                ];
+            }
+            $newQuery['users'] = $users;
 
             $group_name = $this->db->get_where(TABLE_CHATGROUPS, ['id' => $group_id])->row('group_name');
 
@@ -1162,13 +1181,32 @@ class Prchat_model extends App_Model
     public function getMyGroups()
     {
         $id = get_staff_user_id();
+        $is_admin = is_admin($id);
 
         $groups = $this->db->query('SELECT * from ' . TABLE_CHATGROUPS . ' ORDER BY id ASC')->result_array();
 
         $this->db->trans_start();
 
         foreach ($groups as $key => $group) {
-            $groups[$key]['members'] = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+            // Para admins, incluir sempre o grupo (member_id = id ou admin)
+            if ($is_admin) {
+                // Verificar se o admin é membro; se não, adicionar um registo fictício para que o grupo apareça
+                $members = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+                if (empty($members)) {
+                    // Admin não é membro: criar entrada virtual para que o JS renderize o grupo
+                    $staff_info = $this->db->get_where(db_prefix() . 'staff', ['staffid' => $id])->row_array();
+                    $members = [[
+                        'member_id' => $id,
+                        'firstname' => $staff_info['firstname'] ?? '',
+                        'lastname'  => $staff_info['lastname'] ?? '',
+                        'group_id'  => $group['id'],
+                        'is_admin_virtual' => true,
+                    ]];
+                }
+                $groups[$key]['members'] = $members;
+            } else {
+                $groups[$key]['members'] = $this->db->query('SELECT member_id, firstname, lastname, group_id FROM ' . TABLE_CHATGROUPMEMBERS . ' JOIN ' . TABLE_STAFF . ' ON ' . TABLE_STAFF . '.staffid=' . TABLE_CHATGROUPMEMBERS . '.member_id WHERE group_id=' . $group['id'] . ' AND member_id=' . $id . '')->result_array();
+            }
         }
 
         if ($this->db->trans_complete()) {
