@@ -2,11 +2,13 @@
 /**
  * Página de Equipa - DPS Imobiliário
  * URL: dpsimobiliario.pt/equipa.php
- * 
- * Correcções:
- * - get_foto_url usa curl HEAD em vez de file_exists() (SERVER_BASE estava errado)
- * - SQL de equipas sem coluna parent_id (não existe na tabela tbldps_teams)
- * - Lógica de sub-equipas: todas as equipas com area='imo' são mercados
+ *
+ * Correcções v3:
+ * - Removido s.is_admin (não existe na tabela tblstaff do Hostinger)
+ * - Removido LEFT JOIN tblcustomfieldsvalues (pode não existir)
+ * - Removido url_exists() / curl_init() que causavam timeout
+ * - get_foto_url constrói URL directamente sem verificar existência
+ * - Agentes sem foto são mostrados com placeholder em vez de serem excluídos
  */
 
 define('DB_HOST', 'localhost');
@@ -17,77 +19,59 @@ define('CRM_URL', 'https://crm.grupo-dps.com');
 
 function db_connect() {
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-    if ($conn->connect_error) die("Erro de ligação");
+    if ($conn->connect_error) die("Erro de ligação: " . $conn->connect_error);
     $conn->set_charset('utf8mb4');
     return $conn;
 }
 
 /**
- * Determina a melhor URL de foto para um agente/staff.
- * Usa curl HEAD para verificar existência (sem depender de file_exists com caminho errado).
- * Prioridade: landing_foto > small_profile > flat_profile > thumb_profile
+ * Constrói URL de foto directamente sem curl/file_exists.
+ * Prioridade: landing_foto > small_profile_image
  */
 function get_foto_url($staffid, $landing_foto, $profile_image) {
     $base = CRM_URL . '/';
 
-    // 1. Prioridade: landing_foto
     if (!empty($landing_foto)) {
-        $url = $base . 'uploads/landing_fotos/' . $staffid . '/' . $landing_foto;
-        if (url_exists($url)) return $url;
+        return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . $landing_foto;
     }
-
-    // 2. Fallback: foto de perfil
     if (!empty($profile_image)) {
-        $candidates = [
-            $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image,
-            $base . 'uploads/staff_profile_images/' . $profile_image,
-            $base . 'uploads/staff_profile_images/' . $staffid . '/thumb_' . $profile_image,
-        ];
-        foreach ($candidates as $url) {
-            if (url_exists($url)) return $url;
-        }
+        return $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
     }
-
     return null;
-}
-
-function url_exists($url) {
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_NOBODY         => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 4,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,
-    ]);
-    curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    return $code === 200;
 }
 
 $conn = db_connect();
 
 // Buscar todos os staff activos
-$staff_sql = "SELECT s.staffid AS id, s.firstname AS nome, s.lastname AS apelido,
-    s.email, s.phonenumber AS telefone, s.profile_image AS foto, s.landing_foto,
-    s.landing_slug, s.is_admin,
-    cfv_wa.value AS whatsapp
+// NOTA: sem s.is_admin (não existe), sem JOIN customfieldsvalues (pode não existir)
+$staff_sql = "SELECT
+    s.staffid AS id,
+    s.firstname AS nome,
+    s.lastname AS apelido,
+    s.email,
+    s.phonenumber AS telefone,
+    s.profile_image AS foto,
+    s.landing_foto,
+    s.landing_slug
 FROM tblstaff s
-LEFT JOIN tblcustomfieldsvalues cfv_wa ON (cfv_wa.relid = s.staffid AND cfv_wa.fieldid = 19)
 WHERE s.active = 1
 ORDER BY s.staffid ASC";
 
 $staff_result = $conn->query($staff_sql);
+if (!$staff_result) {
+    die("Erro na query staff: " . $conn->error);
+}
+
 $staff_map = [];
 while ($row = $staff_result->fetch_assoc()) {
     $foto_url = get_foto_url($row['id'], $row['landing_foto'], $row['foto']);
     $row['foto_url'] = $foto_url;
     $row['has_foto'] = !empty($foto_url);
+    $row['whatsapp'] = $row['telefone'] ?? '';
     $staff_map[(int)$row['id']] = $row;
 }
 
-// Buscar equipas imobiliárias (SEM coluna parent_id - não existe na tabela)
+// Buscar equipas imobiliárias
 $teams_sql = "SELECT t.id, t.name, t.area,
     m.staff_id, m.role
 FROM tbldps_teams t
@@ -118,9 +102,6 @@ if ($teams_result) {
 }
 $conn->close();
 
-// Todas as equipas com area='imo' são mercados (não há hierarquia parent_id)
-$all_teams = array_values($teams);
-
 $market_map = [
     'IMO BRASIL & BSX' => ['flag' => '🇧🇷', 'label' => 'Brasil'],
     'IMO BRASIL'       => ['flag' => '🇧🇷', 'label' => 'Brasil'],
@@ -131,7 +112,7 @@ $market_map = [
 $ceo_id    = 1;   // Ricardo Magalhães
 $gestor_id = 46;  // Cláudio Carvalho
 
-// Ordenar: Portugal primeiro, depois Brasil, depois Dubai
+$all_teams = array_values($teams);
 $order = ['IMO PORTUGAL' => 1, 'IMO BRASIL & BSX' => 2, 'IMO BRASIL' => 2, 'IMO DUBAI' => 3];
 usort($all_teams, function($a, $b) use ($order) {
     $oa = $order[strtoupper(trim($a['name']))] ?? 99;
@@ -164,6 +145,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
 .card-gestor { width: 220px; }
 .card-comercial { width: 180px; }
 .member-photo { width: 100%; aspect-ratio: 1/1; object-fit: cover; object-position: top center; display: block; background: #0A1628; }
+.member-photo-placeholder { width: 100%; aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; background: #0A1628; }
+.member-photo-placeholder svg { opacity: 0.3; }
 .member-info { padding: 14px 12px 16px; }
 .member-name { font-size: 0.95rem; font-weight: 600; color: #F5F2ED; margin-bottom: 4px; line-height: 1.3; }
 .member-role { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #C5A55A; margin-bottom: 10px; }
@@ -204,15 +187,20 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
     <?php
     $icons_email = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>';
     $icons_wa = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>';
+    $placeholder_svg = '<svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#C5A55A" stroke-width="1"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>';
 
-    function render_member_card($m, $role, $css_class, $icons_email, $icons_wa) {
-        if (!$m || !$m['has_foto']) return;
-        $name = htmlspecialchars($m['nome'] . ' ' . $m['apelido']);
-        $foto = htmlspecialchars($m['foto_url']);
+    function render_member_card($m, $role, $css_class, $icons_email, $icons_wa, $placeholder_svg) {
+        if (!$m) return;
+        $name = htmlspecialchars(trim($m['nome'] . ' ' . $m['apelido']));
         $email = htmlspecialchars($m['email'] ?? '');
         $wa = preg_replace('/[^0-9]/', '', $m['whatsapp'] ?? $m['telefone'] ?? '');
         echo "<div class=\"member-card {$css_class}\">";
-        echo "<img class=\"member-photo\" src=\"{$foto}\" alt=\"{$name}\" loading=\"lazy\">";
+        if ($m['has_foto']) {
+            $foto = htmlspecialchars($m['foto_url']);
+            echo "<img class=\"member-photo\" src=\"{$foto}\" alt=\"{$name}\" loading=\"lazy\">";
+        } else {
+            echo "<div class=\"member-photo-placeholder\">{$placeholder_svg}</div>";
+        }
         echo "<div class=\"member-info\">";
         echo "<div class=\"member-name\">{$name}</div>";
         echo "<div class=\"member-role\">" . htmlspecialchars($role) . "</div>";
@@ -222,8 +210,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
         echo "</div></div></div>";
     }
 
-    render_member_card($staff_map[$ceo_id] ?? null, 'CEO', 'card-ceo', $icons_email, $icons_wa);
-    render_member_card($staff_map[$gestor_id] ?? null, 'Gestor de Equipa', 'card-gestor', $icons_email, $icons_wa);
+    render_member_card($staff_map[$ceo_id] ?? null, 'CEO', 'card-ceo', $icons_email, $icons_wa, $placeholder_svg);
+    render_member_card($staff_map[$gestor_id] ?? null, 'Gestor de Equipa', 'card-gestor', $icons_email, $icons_wa, $placeholder_svg);
     ?>
   </div>
 </section>
@@ -235,26 +223,26 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #060E1C; colo
       $team_name_upper = strtoupper(trim($team['name']));
       $market_info = $market_map[$team_name_upper] ?? ['flag' => '🌍', 'label' => $team['name']];
       $all_ids = array_unique(array_merge($team['managers'], $team['members']));
-      $members_with_photo = [];
+      $membros = [];
       foreach ($all_ids as $sid) {
           if ($sid == $ceo_id || $sid == $gestor_id) continue;
-          if (isset($staff_map[$sid]) && $staff_map[$sid]['has_foto']) {
+          if (isset($staff_map[$sid])) {
               $m = $staff_map[$sid];
               $m['role_label'] = in_array($sid, $team['managers']) ? 'Coordenador' : 'Consultor';
-              $members_with_photo[] = $m;
+              $membros[] = $m;
           }
       }
-      if (empty($members_with_photo)) continue;
+      if (empty($membros)) continue;
   ?>
   <div class="market-block">
     <div class="market-header">
       <span class="market-flag"><?= $market_info['flag'] ?></span>
       <span class="market-name"><?= htmlspecialchars($market_info['label']) ?></span>
-      <span class="market-count"><?= count($members_with_photo) ?> membro<?= count($members_with_photo) != 1 ? 's' : '' ?></span>
+      <span class="market-count"><?= count($membros) ?> membro<?= count($membros) != 1 ? 's' : '' ?></span>
     </div>
     <div class="market-grid">
-      <?php foreach ($members_with_photo as $m):
-          render_member_card($m, $m['role_label'], 'card-comercial', $icons_email, $icons_wa);
+      <?php foreach ($membros as $m):
+          render_member_card($m, $m['role_label'], 'card-comercial', $icons_email, $icons_wa, $placeholder_svg);
       endforeach; ?>
     </div>
   </div>

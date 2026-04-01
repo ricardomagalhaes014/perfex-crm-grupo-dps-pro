@@ -261,11 +261,10 @@ function get_equipa($conn) {
         s.profile_image AS foto,
         s.landing_foto,
         s.landing_slug,
-        s.landing_whatsapp AS whatsapp,
-        s.is_admin
+        s.landing_whatsapp AS whatsapp
     FROM " . TBL_PREFIX . "staff s
     WHERE s.active = 1
-    ORDER BY s.is_admin DESC, s.staffid ASC";
+    ORDER BY s.staffid ASC";
     
     $result = $conn->query($sql);
     if (!$result) {
