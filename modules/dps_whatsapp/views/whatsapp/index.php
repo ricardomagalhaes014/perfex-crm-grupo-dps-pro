@@ -194,6 +194,12 @@
                                                 <?php echo $a['is_active'] ? 'checked' : ''; ?>>
                                         </td>
                                         <td style="white-space:nowrap;">
+                                            <button class="btn btn-xs btn-success btn-send-now"
+                                                title="Enviar agora"
+                                                data-id="<?php echo $a['id']; ?>"
+                                                data-message="<?php echo htmlspecialchars($a['message'], ENT_QUOTES); ?>">
+                                                <i class="fa fa-paper-plane"></i> Enviar
+                                            </button>
                                             <button class="btn btn-xs btn-default btn-edit-automation"
                                                 data-id="<?php echo $a['id']; ?>"
                                                 data-name="<?php echo htmlspecialchars($a['name'], ENT_QUOTES); ?>"
@@ -544,6 +550,103 @@ function initWA() {
 
 // Inicializar após 500ms para garantir que o DOM está completamente pronto
 setTimeout(initWA, 500);
+</script>
+
+<!-- Modal: Enviar Agora -->
+<div class="modal fade" id="modal-send-now" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document" style="max-width:420px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">
+                    <i class="fa fa-paper-plane" style="color:#25D366;"></i>
+                    Enviar Mensagem Agora
+                </h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-automation-id">
+                <div class="form-group">
+                    <label style="font-size:13px;font-weight:600;">Número de destino</label>
+                    <div class="input-group">
+                        <span class="input-group-addon"><i class="fa fa-phone"></i></span>
+                        <input type="text" id="modal-send-phone" class="form-control"
+                            placeholder="Ex: 351912345678 (sem + ou espaços)">
+                    </div>
+                    <p style="font-size:11px;color:#999;margin-top:3px;margin-bottom:0;">
+                        Código do país + número, sem espaços. Ex: Portugal = 351912345678
+                    </p>
+                </div>
+                <div class="form-group">
+                    <label style="font-size:13px;font-weight:600;">Mensagem</label>
+                    <textarea id="modal-send-message" class="form-control" rows="5" readonly
+                        style="background:#f8f9fa;color:#333;"></textarea>
+                    <p style="font-size:11px;color:#999;margin-top:3px;margin-bottom:0;">
+                        Pode editar a mensagem antes de enviar.
+                    </p>
+                </div>
+                <div id="modal-send-result" style="display:none;padding:8px;border-radius:4px;margin-top:5px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-modal-send">
+                    <i class="fa fa-paper-plane"></i> Enviar Agora
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Enviar Agora (por automação) ──────────────────────────────────────────
+$(document).on('click', '.btn-send-now', function() {
+    var message = $(this).data('message');
+    $('#modal-automation-id').val($(this).data('id'));
+    $('#modal-send-message').val(message).prop('readonly', false);
+    $('#modal-send-phone').val('');
+    $('#modal-send-result').hide();
+    $('#modal-send-now').modal('show');
+    setTimeout(function() { $('#modal-send-phone').focus(); }, 400);
+});
+
+$('#btn-modal-send').on('click', function() {
+    var phone   = $.trim($('#modal-send-phone').val()).replace(/\D/g, '');
+    var message = $.trim($('#modal-send-message').val());
+    var $result = $('#modal-send-result');
+
+    if (!phone) {
+        $result.show().css({'background':'#fef2f2','color':'#dc2626','border':'1px solid #fca5a5'}).text('Por favor insira um número de telefone.');
+        return;
+    }
+    if (!message) {
+        $result.show().css({'background':'#fef2f2','color':'#dc2626','border':'1px solid #fca5a5'}).text('A mensagem não pode estar vazia.');
+        return;
+    }
+
+    var $btn = $(this);
+    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A enviar...');
+    $result.hide();
+
+    $.ajax({
+        url: WA_SEND_URL,
+        type: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        data: { phone: phone, message: message },
+        success: function(data) {
+            if (data.success) {
+                $result.show().css({'background':'#f0fdf4','color':'#16a34a','border':'1px solid #bbf7d0'}).html('<i class="fa fa-check"></i> Mensagem enviada com sucesso!');
+                setTimeout(function() { $('#modal-send-now').modal('hide'); }, 1500);
+            } else {
+                $result.show().css({'background':'#fef2f2','color':'#dc2626','border':'1px solid #fca5a5'}).text(data.error || 'Erro ao enviar mensagem.');
+            }
+        },
+        error: function() {
+            $result.show().css({'background':'#fef2f2','color':'#dc2626','border':'1px solid #fca5a5'}).text('Erro de comunicação com o servidor.');
+        },
+        complete: function() {
+            $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar Agora');
+        }
+    });
+});
 </script>
 
 <?php init_tail(); ?>
