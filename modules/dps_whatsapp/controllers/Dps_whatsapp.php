@@ -154,6 +154,41 @@ class Dps_whatsapp extends AdminController
         exit;
     }
 
+    // AJAX: enviar automação imediatamente a todos os leads do estado configurado
+    public function ajax_send_automation_now()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+        $staff_id     = get_staff_user_id();
+        $automation_id = (int)$this->input->post('automation_id');
+
+        if (!$automation_id) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'ID da automação inválido.']);
+            exit;
+        }
+
+        // Verificar que a automação pertence ao staff
+        $automation = $this->Dps_whatsapp_model->get_automation($automation_id, $staff_id);
+        if (!$automation) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Automação não encontrada.']);
+            exit;
+        }
+
+        // Verificar se o WhatsApp está ligado
+        $status = $this->Dps_whatsapp_model->get_wa_status($staff_id);
+        if (empty($status['connected'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'WhatsApp não está ligado. Ligue primeiro.']);
+            exit;
+        }
+
+        $result = $this->Dps_whatsapp_model->send_automation_to_all_leads($staff_id, $automation);
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
+
     // AJAX: envio manual de mensagem
     public function ajax_send_message()
     {

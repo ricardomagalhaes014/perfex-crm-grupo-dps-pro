@@ -296,6 +296,68 @@ class Dps_whatsapp_model extends CI_Model
         return $this->db->get()->result_array();
     }
 
+    // ─── Envio imediato de automação a todos os leads do estado ─────────────────
+
+    public function send_automation_to_all_leads($staff_id, $automation)
+    {
+        $lead_status_id = (int)$automation['lead_status_id'];
+        $message_tpl    = $automation['message'];
+
+        // Buscar todos os leads no estado configurado, atribuídos a este staff, com telefone
+        $leads = $this->db
+            ->where('assigned', (int)$staff_id)
+            ->where('status', $lead_status_id)
+            ->where('phonenumber !=', '')
+            ->get(db_prefix() . 'leads')
+            ->result_array();
+
+        if (empty($leads)) {
+            return ['success' => false, 'error' => 'Nenhum lead encontrado no estado configurado com número de telefone.'];
+        }
+
+        $sent    = 0;
+        $failed  = 0;
+        $skipped = 0;
+
+        foreach ($leads as $lead) {
+            $phone = trim($lead['phonenumber'] ?? '');
+            if (empty($phone)) { $skipped++; continue; }
+
+            // Substituir variáveis
+            $message = str_replace('{{nome}}', $lead['name'] ?? '', $message_tpl);
+
+            $result = $this->wa_send($staff_id, $phone, $message);
+
+            if (!empty($result['success'])) {
+                $sent++;
+                // Registar como follow-up enviado
+                $this->db->insert(db_prefix() . 'dps_whatsapp_followups', [
+                    'lead_id'        => (int)$lead['id'],
+                    'staff_id'       => (int)$staff_id,
+                    'scheduled_at'   => date('Y-m-d H:i:s'),
+                    'sent_at'        => date('Y-m-d H:i:s'),
+                    'status'         => 'sent',
+                    'lead_status_id' => $lead_status_id,
+                    'automation_id'  => (int)$automation['id'],
+                ]);
+            } else {
+                $failed++;
+            }
+
+            // Pequena pausa para não sobrecarregar o WhatsApp (500ms entre mensagens)
+            usleep(500000);
+        }
+
+        return [
+            'success' => true,
+            'sent'    => $sent,
+            'failed'  => $failed,
+            'skipped' => $skipped,
+            'total'   => count($leads),
+            'message' => "Enviado para {$sent} lead(s). Falhou: {$failed}. Sem telefone: {$skipped}.",
+        ];
+    }
+
     // ─── Estados de leads ─────────────────────────────────────────────────────
 
     public function get_lead_statuses()
