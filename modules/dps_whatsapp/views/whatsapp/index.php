@@ -66,6 +66,15 @@
                         <div class="alert alert-warning" style="margin-bottom:0;font-size:12px;">
                             <strong>Atenção:</strong> A Evolution API ainda não está configurada. Siga o guia de instalação no Railway e insira a URL e API Key acima.
                         </div>
+                        <?php else: ?>
+                        <div style="margin-top:10px;">
+                            <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                               target="_blank" 
+                               class="btn btn-info btn-sm">
+                                <i class="fa fa-external-link"></i> Abrir Evolution API Manager
+                            </a>
+                            <span style="font-size:11px;color:#888;margin-left:8px;">Aceda à interface da Evolution API para gerir instâncias e fazer scan do QR code.</span>
+                        </div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -104,16 +113,27 @@
                                 <p style="margin:8px 0 0;color:#666;font-size:13px;">
                                     Ligue o seu WhatsApp Business para activar as automações.
                                 </p>
-                                <button id="btn-connect" class="btn btn-success btn-sm" style="margin-top:10px;">
-                                    <i class="fa fa-qrcode"></i> Ligar WhatsApp
-                                </button>
+                                <div style="margin-top:10px;">
+                                    <button id="btn-connect" class="btn btn-success btn-sm">
+                                        <i class="fa fa-qrcode"></i> Ligar WhatsApp
+                                    </button>
+                                    <?php if (get_option('dps_whatsapp_evolution_url')): ?>
+                                    <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                                       target="_blank" 
+                                       class="btn btn-info btn-sm" 
+                                       style="margin-left:5px;"
+                                       title="Abrir Evolution API Manager para fazer scan do QR code">
+                                        <i class="fa fa-external-link"></i> Evolution API Manager
+                                    </a>
+                                    <?php endif; ?>
+                                </div>
                             </div>
                         </div>
 
                         <!-- QR Code -->
                         <div id="wa-qr-box" class="wa-qr-box" style="display:none;">
                             <p style="font-size:13px;font-weight:600;margin-bottom:12px;">
-                                Abra o WhatsApp no telemóvel &rarr; <strong>Dispositivos Ligados</strong> &rarr; <strong>Ligar um dispositivo</strong>
+                                Abra o WhatsApp no telemovel &rarr; <strong>Dispositivos Ligados</strong> &rarr; <strong>Ligar um dispositivo</strong>
                             </p>
                             <div id="qr-image-container">
                                 <i class="fa fa-spinner fa-spin fa-3x" style="color:#ccc;"></i>
@@ -122,6 +142,16 @@
                             <p style="font-size:11px;color:#999;margin-top:10px;margin-bottom:0;">
                                 O QR code expira em 60 segundos. Se expirar, clique em "Ligar WhatsApp" novamente.
                             </p>
+                            <?php if (get_option('dps_whatsapp_evolution_url')): ?>
+                            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
+                                <p style="font-size:12px;color:#666;margin-bottom:6px;">Em alternativa, faça o scan directamente na Evolution API:</p>
+                                <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                                   target="_blank" 
+                                   class="btn btn-info btn-sm btn-block">
+                                    <i class="fa fa-external-link"></i> Abrir Evolution API Manager
+                                </a>
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                     </div>
