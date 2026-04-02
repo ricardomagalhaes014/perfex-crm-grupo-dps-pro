@@ -377,7 +377,7 @@ function showStatus(connected, phone) {
 function checkStatus() {
     $.ajax({
         url: WA_STATUS_URL,
-        type: 'GET',
+        type: 'POST',
         headers: {'X-Requested-With': 'XMLHttpRequest'},
         success: function(data) {
             showStatus(data.connected, data.phone);
@@ -393,7 +393,7 @@ function checkStatus() {
 function pollQR() {
     $.ajax({
         url: WA_QR_URL,
-        type: 'GET',
+        type: 'POST',
         headers: {'X-Requested-With': 'XMLHttpRequest'},
         success: function(data) {
             if (data.connected) {
