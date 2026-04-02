@@ -67,14 +67,7 @@
                             <strong>Atenção:</strong> A Evolution API ainda não está configurada. Siga o guia de instalação no Railway e insira a URL e API Key acima.
                         </div>
                         <?php else: ?>
-                        <div style="margin-top:10px;">
-                            <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
-                               target="_blank" 
-                               class="btn btn-info btn-sm">
-                                <i class="fa fa-external-link"></i> Abrir Evolution API Manager
-                            </a>
-                            <span style="font-size:11px;color:#888;margin-left:8px;">Aceda à interface da Evolution API para gerir instâncias e fazer scan do QR code.</span>
-                        </div>
+                        <!-- Botões de acesso ao Evolution API Manager removidos a pedido do utilizador -->
                         <?php endif; ?>
                     </div>
                 </div>
@@ -117,15 +110,7 @@
                                     <button id="btn-connect" class="btn btn-success btn-sm">
                                         <i class="fa fa-qrcode"></i> Ligar WhatsApp
                                     </button>
-                                    <?php if (get_option('dps_whatsapp_evolution_url')): ?>
-                                    <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
-                                       target="_blank" 
-                                       class="btn btn-info btn-sm" 
-                                       style="margin-left:5px;"
-                                       title="Abrir Evolution API Manager para fazer scan do QR code">
-                                        <i class="fa fa-external-link"></i> Evolution API Manager
-                                    </a>
-                                    <?php endif; ?>
+                                    <?php /* Botão para Evolution API Manager removido a pedido do utilizador */ ?>
                                 </div>
                             </div>
                         </div>
@@ -142,16 +127,7 @@
                             <p style="font-size:11px;color:#999;margin-top:10px;margin-bottom:0;">
                                 O QR code expira em 60 segundos. Se expirar, clique em "Ligar WhatsApp" novamente.
                             </p>
-                            <?php if (get_option('dps_whatsapp_evolution_url')): ?>
-                            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
-                                <p style="font-size:12px;color:#666;margin-bottom:6px;">Em alternativa, faça o scan directamente na Evolution API:</p>
-                                <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
-                                   target="_blank" 
-                                   class="btn btn-info btn-sm btn-block">
-                                    <i class="fa fa-external-link"></i> Abrir Evolution API Manager
-                                </a>
-                            </div>
-                            <?php endif; ?>
+                            <?php /* Opção de scan alternativo removida (Evolution API Manager) */ ?>
                         </div>
 
                     </div>
@@ -426,7 +402,19 @@ function pollQR() {
                 return;
             }
             if (data.qr) {
-                $('#qr-image-container').html('<img src="' + data.qr + '">');
+                // Se for uma string base64 (imagem), apresentar imagem. Caso contrário, apresentar o código
+                if (typeof data.qr === 'string' && data.qr.match(/^data:image\//)) {
+                    $('#qr-image-container').html('<img src="' + data.qr + '">');
+                } else {
+                    // Quando a Evolution API devolve apenas um código (ex: pairing code), mostrar texto explicativo
+                    $('#qr-image-container').html(
+                        '<div style="padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;">' +
+                        '<p style="margin:0; font-size:14px;">Código de emparelhamento:</p>' +
+                        '<p style="margin:5px 0; font-weight:bold; font-size:20px;">' + data.qr + '</p>' +
+                        '<p style="font-size:11px; color:#666;">Introduza este código na aplicação Evolution Manager, se aplicável.</p>' +
+                        '</div>'
+                    );
+                }
             }
         }
     });

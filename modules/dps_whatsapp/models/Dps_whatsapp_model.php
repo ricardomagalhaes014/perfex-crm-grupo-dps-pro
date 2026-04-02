@@ -181,26 +181,84 @@ class Dps_whatsapp_model extends CI_Model
         // Aguardar 2 segundos para o QR ser gerado
         sleep(2);
         
-        // Obter o QR code
+        // Obter o QR code (a API devolve objecto com informações do QR)
         $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
-        
+
+        // Se houve erro na chamada, devolver o erro imediatamente
         if (!empty($result['error'])) {
             return ['error' => $result['error']];
         }
-        
-        // Evolution API retorna o QR em base64 no campo 'base64' ou 'qrcode'
-        $qr_base64 = $result['base64'] ?? $result['qrcode'] ?? $result['pairingCode'] ?? null;
-        
+
+        $qr_base64 = null;
+
+        /*
+         * A partir da versão 2.x da Evolution API, o endpoint /instance/connect
+         * retorna um objecto "qrcode" com várias propriedades (ex: base64, code,
+         * pairingCode, count). Para manter compatibilidade com versões mais
+         * antigas que devolviam directamente uma string em "qrcode" ou
+         * "base64", verificamos todas as possibilidades e extraímos o valor
+         * correcto.
+         */
+        if (isset($result['base64']) && is_string($result['base64'])) {
+            // Versões antigas devolviam o base64 directamente neste campo
+            $qr_base64 = $result['base64'];
+        } elseif (isset($result['qrcode'])) {
+            // O campo qrcode pode ser uma string ou um array
+            if (is_string($result['qrcode'])) {
+                $qr_base64 = $result['qrcode'];
+            } elseif (is_array($result['qrcode'])) {
+                // Nova estrutura: procurar pelo campo base64 dentro do objecto
+                if (!empty($result['qrcode']['base64'])) {
+                    // Preferir a imagem base64, se estiver disponível
+                    $qr_base64 = $result['qrcode']['base64'];
+                } elseif (!empty($result['qrcode']['code'])) {
+                    /*
+                     * Alguns provedores devolvem o código no campo "code". Este valor pode ser uma imagem
+                     * em base64 (com prefixo data:image/...)
+                     * ou um código de emparelhamento (ex: "2@abc123...").
+                     * Neste último caso devemos devolver o código mesmo sem o prefixo para que o frontend
+                     * mostre como pairing code. O JavaScript decide se desenha a imagem ou apresenta
+                     * o texto consoante o prefixo.
+                     */
+                    $qr_base64 = $result['qrcode']['code'];
+                } elseif (!empty($result['qrcode']['pairingCode'])) {
+                    // Alguns retornam explicitamente "pairingCode"
+                    $qr_base64 = $result['qrcode']['pairingCode'];
+                }
+            }
+        } elseif (isset($result['pairingCode'])) {
+            // Para as versões mais recentes, pode ser devolvido apenas o código de emparelhamento
+            $qr_base64 = $result['pairingCode'];
+        }
+
+        // Se ainda não temos base64, tentar o endpoint /instance/qrcode/{instance}
         if (!$qr_base64) {
-            // Tentar obter via endpoint específico de QR
             $qr_result = $this->evolution_request('GET', "/instance/qrcode/{$instance_name}");
-            $qr_base64 = $qr_result['base64'] ?? $qr_result['qrcode'] ?? null;
+            if (!empty($qr_result['base64']) && is_string($qr_result['base64'])) {
+                // Versões antigas podem devolver directamente o base64 neste campo
+                $qr_base64 = $qr_result['base64'];
+            } elseif (!empty($qr_result['qrcode'])) {
+                if (is_string($qr_result['qrcode'])) {
+                    // O campo "qrcode" sozinho pode ser uma imagem ou um código
+                    $qr_base64 = $qr_result['qrcode'];
+                } elseif (is_array($qr_result['qrcode'])) {
+                    // Nova estrutura: extrair base64, code ou pairingCode
+                    if (!empty($qr_result['qrcode']['base64'])) {
+                        $qr_base64 = $qr_result['qrcode']['base64'];
+                    } elseif (!empty($qr_result['qrcode']['code'])) {
+                        $qr_base64 = $qr_result['qrcode']['code'];
+                    } elseif (!empty($qr_result['qrcode']['pairingCode'])) {
+                        $qr_base64 = $qr_result['qrcode']['pairingCode'];
+                    }
+                }
+            }
         }
-        
+
+        // Se ainda não conseguimos obter o QR, a instância poderá já estar ligada ou ocorreu erro
         if (!$qr_base64) {
-            return ['error' => 'QR code não disponível. A instância pode já estar conectada.'];
+            return ['error' => 'QR code não disponível. A instância pode já estar conectada ou a API não retornou um código.'];
         }
-        
+
         return [
             'success' => true,
             'qr' => $qr_base64
