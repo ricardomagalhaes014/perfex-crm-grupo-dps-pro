@@ -629,45 +629,44 @@ function initWA() {
             }
         });
     });
-}
 
-// Configuração da Evolution API (admin)
-$('#btn-save-evolution-config').on('click', function() {
-    var url     = $.trim($('#evolution-url').val());
-    var api_key = $.trim($('#evolution-api-key').val());
-    var $result = $('#evolution-config-result');
+    // Configuração da Evolution API (admin)
+    $('#btn-save-evolution-config').off('click').on('click', function() {
+        var url     = $.trim($('#evolution-url').val());
+        var api_key = $.trim($('#evolution-api-key').val());
+        var $result = $('#evolution-config-result');
 
-    if (!url || !api_key) {
-        $result.show().css('color','#dc2626').text('URL e API Key são obrigatórios.');
-        return;
-    }
-
-    var $btn = $(this);
-    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
-    $result.hide();
-
-    $.ajax({
-        url: WA_SAVE_EVOL_URL,
-        type: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'},
-        data: { evolution_url: url, evolution_api_key: api_key },
-        success: function(data) {
-            if (data.success) {
-                $result.show().css('color','#16a34a').html('<i class="fa fa-check"></i> ' + data.message);
-                // Remover aviso de não configurado
-                $('.alert-warning').fadeOut();
-            } else {
-                $result.show().css('color','#dc2626').text(data.error || 'Erro ao guardar.');
-            }
-        },
-        error: function() {
-            $result.show().css('color','#dc2626').text('Erro de comunicação com o servidor.');
-        },
-        complete: function() {
-            $btn.prop('disabled', false).html('<i class="fa fa-save"></i> Guardar');
+        if (!url || !api_key) {
+            $result.show().css('color','#dc2626').text('URL e API Key são obrigatórios.');
+            return;
         }
+
+        var $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
+        $result.hide();
+
+        $.ajax({
+            url: WA_SAVE_EVOL_URL,
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { evolution_url: url, evolution_api_key: api_key },
+            success: function(data) {
+                if (data.success) {
+                    $result.show().css('color','#16a34a').html('<i class="fa fa-check"></i> ' + data.message);
+                    $('.alert-warning').fadeOut();
+                } else {
+                    $result.show().css('color','#dc2626').text(data.error || 'Erro ao guardar.');
+                }
+            },
+            error: function() {
+                $result.show().css('color','#dc2626').text('Erro de comunicação com o servidor.');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html('<i class="fa fa-save"></i> Guardar');
+            }
+        });
     });
-});
+}
 
 // Inicializar após 500ms para garantir que o DOM está completamente pronto
 setTimeout(initWA, 500);
