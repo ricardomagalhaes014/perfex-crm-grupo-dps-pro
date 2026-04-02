@@ -3,8 +3,20 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Dps_whatsapp_model extends CI_Model
 {
-    const WA_SERVICE_URL = 'http://127.0.0.1:3001';
-    const WA_API_KEY     = 'dps-wa-secret-2026';
+    // Evolution API Configuration
+    // Será configurado via variáveis de ambiente ou config do módulo
+    private function get_evolution_url()
+    {
+        // Pode ser configurado no painel do módulo ou via env
+        $url = get_option('dps_whatsapp_evolution_url');
+        return $url ?: 'https://your-evolution-api.railway.app';
+    }
+
+    private function get_evolution_api_key()
+    {
+        $key = get_option('dps_whatsapp_evolution_api_key');
+        return $key ?: '';
+    }
 
     // ─── Configuração do staff ────────────────────────────────────────────────
 
@@ -26,58 +38,225 @@ class Dps_whatsapp_model extends CI_Model
         }
     }
 
-    // ─── Comunicação com o microserviço ──────────────────────────────────────
+    // ─── Comunicação com a Evolution API ──────────────────────────────────────
 
-    public function wa_request($method, $endpoint, $body = [])
+    /**
+     * Faz um pedido HTTP à Evolution API
+     */
+    private function evolution_request($method, $endpoint, $body = [], $instance_name = null)
     {
-        $url = self::WA_SERVICE_URL . $endpoint;
+        $base_url = rtrim($this->get_evolution_url(), '/');
+        $api_key  = $this->get_evolution_api_key();
+        
+        // Se o endpoint não começa com /, adiciona
+        if (substr($endpoint, 0, 1) !== '/') {
+            $endpoint = '/' . $endpoint;
+        }
+        
+        $url = $base_url . $endpoint;
         $ch  = curl_init($url);
+        
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        
+        $headers = [
             'Content-Type: application/json',
-            'x-api-key: ' . self::WA_API_KEY,
-        ]);
+            'apikey: ' . $api_key,
+        ];
+        
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        } elseif ($method === 'PUT') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
+        } elseif ($method === 'DELETE') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
         }
+        
         $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err      = curl_error($ch);
         curl_close($ch);
-        if ($err) return ['error' => $err];
-        return json_decode($response, true) ?: ['error' => 'Resposta inválida'];
+        
+        if ($err) {
+            return ['error' => $err, 'http_code' => $http_code];
+        }
+        
+        $decoded = json_decode($response, true);
+        if ($decoded === null) {
+            return ['error' => 'Resposta inválida da API', 'raw' => $response, 'http_code' => $http_code];
+        }
+        
+        return array_merge($decoded, ['http_code' => $http_code]);
     }
 
-    public function get_wa_status($staff_id)
+    /**
+     * Obtém o nome da instância para um staff_id
+     * Formato: staff-{id}
+     */
+    private function get_instance_name($staff_id)
     {
-        return $this->wa_request('GET', '/status?staff_id=' . (int)$staff_id . '&api_key=' . self::WA_API_KEY);
+        return 'staff-' . (int)$staff_id;
     }
 
-    public function get_wa_qr($staff_id)
-    {
-        return $this->wa_request('GET', '/qr?staff_id=' . (int)$staff_id . '&api_key=' . self::WA_API_KEY);
-    }
-
+    /**
+     * Cria ou obtém uma instância Evolution para o staff
+     */
     public function wa_connect($staff_id)
     {
-        return $this->wa_request('POST', '/connect', ['staff_id' => (int)$staff_id]);
+        $instance_name = $this->get_instance_name($staff_id);
+        
+        // Verificar se a instância já existe
+        $status = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
+        
+        // Se a instância não existe (404) ou está desconectada, criar/reconectar
+        if (!empty($status['error']) || empty($status['instance'])) {
+            // Criar nova instância
+            $create_result = $this->evolution_request('POST', '/instance/create', [
+                'instanceName' => $instance_name,
+                'qrcode' => true,
+                'integration' => 'WHATSAPP-BAILEYS'
+            ]);
+            
+            if (!empty($create_result['error'])) {
+                return ['error' => 'Erro ao criar instância: ' . ($create_result['error'] ?? 'Desconhecido')];
+            }
+            
+            return ['success' => true, 'instance' => $instance_name, 'message' => 'Instância criada. Aguarde o QR code.'];
+        }
+        
+        // Instância já existe
+        $state = $status['instance']['state'] ?? 'close';
+        
+        if ($state === 'open') {
+            return ['success' => true, 'connected' => true, 'instance' => $instance_name];
+        }
+        
+        // Conectar instância existente
+        $connect_result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
+        
+        return [
+            'success' => true,
+            'instance' => $instance_name,
+            'message' => 'A conectar... Aguarde o QR code.'
+        ];
     }
 
+    /**
+     * Obtém o estado de ligação do WhatsApp
+     */
+    public function get_wa_status($staff_id)
+    {
+        $instance_name = $this->get_instance_name($staff_id);
+        $result = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
+        
+        if (!empty($result['error'])) {
+            return ['connected' => false, 'error' => $result['error']];
+        }
+        
+        $state = $result['instance']['state'] ?? 'close';
+        $phone = $result['instance']['owner'] ?? null;
+        
+        return [
+            'connected' => ($state === 'open'),
+            'connecting' => ($state === 'connecting'),
+            'phone' => $phone,
+            'state' => $state
+        ];
+    }
+
+    /**
+     * Obtém o QR code para ligar o WhatsApp
+     */
+    public function get_wa_qr($staff_id)
+    {
+        $instance_name = $this->get_instance_name($staff_id);
+        
+        // Primeiro conectar (se não estiver)
+        $this->wa_connect($staff_id);
+        
+        // Aguardar 2 segundos para o QR ser gerado
+        sleep(2);
+        
+        // Obter o QR code
+        $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
+        
+        if (!empty($result['error'])) {
+            return ['error' => $result['error']];
+        }
+        
+        // Evolution API retorna o QR em base64 no campo 'base64' ou 'qrcode'
+        $qr_base64 = $result['base64'] ?? $result['qrcode'] ?? $result['pairingCode'] ?? null;
+        
+        if (!$qr_base64) {
+            // Tentar obter via endpoint específico de QR
+            $qr_result = $this->evolution_request('GET', "/instance/qrcode/{$instance_name}");
+            $qr_base64 = $qr_result['base64'] ?? $qr_result['qrcode'] ?? null;
+        }
+        
+        if (!$qr_base64) {
+            return ['error' => 'QR code não disponível. A instância pode já estar conectada.'];
+        }
+        
+        return [
+            'success' => true,
+            'qr' => $qr_base64
+        ];
+    }
+
+    /**
+     * Desconecta o WhatsApp
+     */
     public function wa_disconnect($staff_id)
     {
-        $result = $this->wa_request('POST', '/disconnect', ['staff_id' => (int)$staff_id]);
+        $instance_name = $this->get_instance_name($staff_id);
+        
+        // Logout da instância
+        $result = $this->evolution_request('DELETE', "/instance/logout/{$instance_name}");
+        
+        // Actualizar config local
         $this->save_config($staff_id, ['is_connected' => 0, 'phone_number' => null]);
-        return $result;
+        
+        if (!empty($result['error'])) {
+            return ['error' => $result['error']];
+        }
+        
+        return ['success' => true, 'message' => 'WhatsApp desconectado com sucesso.'];
     }
 
+    /**
+     * Envia uma mensagem via WhatsApp
+     */
     public function wa_send($staff_id, $to, $message)
     {
-        return $this->wa_request('POST', '/send', [
-            'staff_id' => (int)$staff_id,
-            'to'       => $to,
-            'message'  => $message,
+        $instance_name = $this->get_instance_name($staff_id);
+        
+        // Normalizar número de telefone (remover espaços, traços, etc.)
+        $to = preg_replace('/[^0-9]/', '', $to);
+        
+        // Adicionar @s.whatsapp.net se não tiver
+        if (strpos($to, '@') === false) {
+            $to = $to . '@s.whatsapp.net';
+        }
+        
+        $result = $this->evolution_request('POST', "/message/sendText/{$instance_name}", [
+            'number' => $to,
+            'text' => $message
         ]);
+        
+        if (!empty($result['error'])) {
+            return ['success' => false, 'error' => $result['error']];
+        }
+        
+        // Evolution API retorna diferentes formatos de sucesso
+        if (!empty($result['key']) || !empty($result['message'])) {
+            return ['success' => true, 'message' => 'Mensagem enviada'];
+        }
+        
+        return ['success' => false, 'error' => 'Resposta inesperada da API'];
     }
 
     // ─── Automações personalizadas ────────────────────────────────────────────

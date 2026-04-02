@@ -25,6 +25,53 @@
                 </h4>
             </div>
 
+            <!-- Painel de Configuração da Evolution API (apenas admin) -->
+            <?php if (is_admin()): ?>
+            <div class="col-md-12">
+                <div class="panel_s" id="panel-evolution-config">
+                    <div class="panel-body">
+                        <h5 style="font-weight:600;margin-bottom:5px;">
+                            <i class="fa fa-cog" style="color:#6366f1;margin-right:5px;"></i>
+                            Configuração da Evolution API
+                        </h5>
+                        <p style="font-size:12px;color:#888;margin-bottom:15px;">Configure a URL e API Key da sua Evolution API hospedada no Railway (ou outro servidor).</p>
+                        <div class="row">
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label style="font-size:13px;font-weight:600;">URL da Evolution API</label>
+                                    <input type="text" id="evolution-url" class="form-control input-sm"
+                                        placeholder="https://your-app.railway.app"
+                                        value="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url') ?: ''); ?>">
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="form-group">
+                                    <label style="font-size:13px;font-weight:600;">API Key (Global API Key)</label>
+                                    <input type="text" id="evolution-api-key" class="form-control input-sm"
+                                        placeholder="a-sua-api-key-secreta"
+                                        value="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_api_key') ?: ''); ?>">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-group">
+                                    <label style="font-size:13px;font-weight:600;">&nbsp;</label><br>
+                                    <button id="btn-save-evolution-config" class="btn btn-primary btn-sm">
+                                        <i class="fa fa-save"></i> Guardar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="evolution-config-result" style="display:none;font-size:13px;"></div>
+                        <?php if (!get_option('dps_whatsapp_evolution_url')): ?>
+                        <div class="alert alert-warning" style="margin-bottom:0;font-size:12px;">
+                            <strong>Atenção:</strong> A Evolution API ainda não está configurada. Siga o guia de instalação no Railway e insira a URL e API Key acima.
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Coluna esquerda: Ligação + Envio Manual + Automações -->
             <div class="col-md-5">
 
@@ -296,6 +343,7 @@ var WA_DELETE_AUTO_URL = '<?php echo admin_url("dps_whatsapp/ajax_delete_automat
 var WA_TOGGLE_AUTO_URL = '<?php echo admin_url("dps_whatsapp/ajax_toggle_automation"); ?>';
 var WA_SEND_URL        = '<?php echo admin_url("dps_whatsapp/ajax_send_message"); ?>';
 var WA_SEND_NOW_URL    = '<?php echo admin_url("dps_whatsapp/ajax_send_automation_now"); ?>';
+var WA_SAVE_EVOL_URL   = '<?php echo admin_url("dps_whatsapp/ajax_save_evolution_config"); ?>';
 
 var qrPollInterval     = null;
 var statusPollInterval = null;
@@ -582,6 +630,44 @@ function initWA() {
         });
     });
 }
+
+// Configuração da Evolution API (admin)
+$('#btn-save-evolution-config').on('click', function() {
+    var url     = $.trim($('#evolution-url').val());
+    var api_key = $.trim($('#evolution-api-key').val());
+    var $result = $('#evolution-config-result');
+
+    if (!url || !api_key) {
+        $result.show().css('color','#dc2626').text('URL e API Key são obrigatórios.');
+        return;
+    }
+
+    var $btn = $(this);
+    $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
+    $result.hide();
+
+    $.ajax({
+        url: WA_SAVE_EVOL_URL,
+        type: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        data: { evolution_url: url, evolution_api_key: api_key },
+        success: function(data) {
+            if (data.success) {
+                $result.show().css('color','#16a34a').html('<i class="fa fa-check"></i> ' + data.message);
+                // Remover aviso de não configurado
+                $('.alert-warning').fadeOut();
+            } else {
+                $result.show().css('color','#dc2626').text(data.error || 'Erro ao guardar.');
+            }
+        },
+        error: function() {
+            $result.show().css('color','#dc2626').text('Erro de comunicação com o servidor.');
+        },
+        complete: function() {
+            $btn.prop('disabled', false).html('<i class="fa fa-save"></i> Guardar');
+        }
+    });
+});
 
 // Inicializar após 500ms para garantir que o DOM está completamente pronto
 setTimeout(initWA, 500);

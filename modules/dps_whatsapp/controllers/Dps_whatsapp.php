@@ -189,6 +189,28 @@ class Dps_whatsapp extends AdminController
         exit;
     }
 
+    // AJAX: guardar configuração da Evolution API
+    public function ajax_save_evolution_config()
+    {
+        if (!$this->input->is_ajax_request() || !is_admin()) show_404();
+
+        $url     = trim($this->input->post('evolution_url'));
+        $api_key = trim($this->input->post('evolution_api_key'));
+
+        if (!$url || !$api_key) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'URL e API Key são obrigatórios.']);
+            exit;
+        }
+
+        update_option('dps_whatsapp_evolution_url', $url);
+        update_option('dps_whatsapp_evolution_api_key', $api_key);
+
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'message' => 'Configuração guardada com sucesso.']);
+        exit;
+    }
+
     // AJAX: envio manual de mensagem
     public function ajax_send_message()
     {
