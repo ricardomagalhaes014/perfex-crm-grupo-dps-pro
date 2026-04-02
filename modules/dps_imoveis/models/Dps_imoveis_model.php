@@ -91,6 +91,10 @@ class Dps_imoveis_model extends CI_Model
             $data[$campo] = $path;
         }
 
+        // Garantir que só se gravam colunas que existem na tabela
+        $existing_cols = $this->db->list_fields($this->table);
+        $data = array_intersect_key($data, array_flip($existing_cols));
+
         $this->db->insert($this->table, $data);
         $id = $this->db->insert_id();
         if ($id) {
@@ -124,6 +128,10 @@ class Dps_imoveis_model extends CI_Model
         foreach ($docs as $campo => $path) {
             $data[$campo] = $path;
         }
+
+        // Garantir que só se gravam colunas que existem na tabela (evita erro 500 se colunas novas ainda não existem)
+        $existing_cols = $this->db->list_fields($this->table);
+        $data = array_intersect_key($data, array_flip($existing_cols));
 
         $this->db->where('id', $id);
         $this->db->update($this->table, $data);

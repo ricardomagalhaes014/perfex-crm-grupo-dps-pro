@@ -56,10 +56,26 @@ if (!$CI->db->table_exists(db_prefix() . 'dps_imoveis')) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
 }
 
-// Adicionar coluna descricao_curta se ainda não existir (para instalações existentes)
+// Adicionar colunas em falta para instalações existentes
 if ($CI->db->table_exists(db_prefix() . 'dps_imoveis')) {
     $fields = $CI->db->list_fields(db_prefix() . 'dps_imoveis');
+
     if (!in_array('descricao_curta', $fields)) {
         $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `descricao_curta` VARCHAR(600) NULL DEFAULT NULL COMMENT 'Descrição curta (máx 600 chars) — aparece no site' AFTER `equipamento`");
+    }
+    if (!in_array('areas_quartos_json', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `areas_quartos_json` TEXT NULL DEFAULT NULL COMMENT 'JSON array com áreas individuais dos quartos' AFTER `area_quartos`");
+    }
+    if (!in_array('areas_suites_json', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `areas_suites_json` TEXT NULL DEFAULT NULL COMMENT 'JSON array com áreas individuais das suítes' AFTER `area_suites`");
+    }
+    if (!in_array('areas_salas_json', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `areas_salas_json` TEXT NULL DEFAULT NULL COMMENT 'JSON array com áreas individuais das salas' AFTER `area_salas`");
+    }
+    if (!in_array('areas_casasbanho_json', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `areas_casasbanho_json` TEXT NULL DEFAULT NULL COMMENT 'JSON array com áreas individuais das casas de banho' AFTER `area_casas_banho`");
+    }
+    if (!in_array('areas_cozinhas_json', $fields)) {
+        $CI->db->query("ALTER TABLE `" . db_prefix() . "dps_imoveis` ADD COLUMN `areas_cozinhas_json` TEXT NULL DEFAULT NULL COMMENT 'JSON array com áreas individuais das cozinhas' AFTER `area_cozinha`");
     }
 }
