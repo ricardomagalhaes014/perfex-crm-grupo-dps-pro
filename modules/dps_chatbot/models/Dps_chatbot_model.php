@@ -35,6 +35,27 @@ class Dps_chatbot_model extends App_Model
         ]);
     }
 
+    public function is_group_member($group_id, $staff_id)
+    {
+        return $this->db->where('group_id', $group_id)->where('staff_id', $staff_id)
+            ->count_all_results(db_prefix() . 'dps_chat_group_members') > 0;
+    }
+
+    public function get_group_members($group_id)
+    {
+        $this->db->select(db_prefix() . 'dps_chat_group_members.staff_id, CONCAT(' . db_prefix() . 'staff.firstname, " ", ' . db_prefix() . 'staff.lastname) as name');
+        $this->db->from(db_prefix() . 'dps_chat_group_members');
+        $this->db->join(db_prefix() . 'staff', db_prefix() . 'staff.staffid = ' . db_prefix() . 'dps_chat_group_members.staff_id', 'left');
+        $this->db->where('group_id', $group_id);
+        return $this->db->get()->result_array();
+    }
+
+    public function remove_group_member($group_id, $staff_id)
+    {
+        $this->db->where('group_id', $group_id)->where('staff_id', $staff_id)
+            ->delete(db_prefix() . 'dps_chat_group_members');
+    }
+
     // --- Mensagens ---
     public function send_message($data)
     {

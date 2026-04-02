@@ -14,9 +14,14 @@
                                     <a href="#" class="group-chat-link" data-group-id="<?php echo $group['id']; ?>">
                                         <?php echo html_escape($group['name']); ?>
                                         <?php if ($group['is_public']) { ?>
-                                            <span class="label label-info pull-right"><?php echo _l('dps_chatbot_public'); ?></span>
+                                            <span class="label label-info"><?php echo _l('dps_chatbot_public'); ?></span>
                                         <?php } ?>
                                     </a>
+                                    <?php if (is_admin() || staff_can('manage_groups', 'dps_chatbot')) { ?>
+                                    <button class="btn btn-xs btn-default pull-right btn-manage-members" data-group-id="<?php echo $group['id']; ?>" data-group-name="<?php echo html_escape($group['name']); ?>" title="Gerir Membros">
+                                        <i class="fa fa-users"></i>
+                                    </button>
+                                    <?php } ?>
                                 </li>
                             <?php } ?>
                         </ul>
@@ -55,6 +60,41 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Gerir Membros -->
+<div class="modal fade" id="manage_members_modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title">Gerir Membros: <span id="modal-group-name"></span></h4>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-group-id" value="">
+                <h5><strong>Membros actuais:</strong></h5>
+                <ul class="list-group" id="current-members-list">
+                    <li class="list-group-item text-muted">A carregar...</li>
+                </ul>
+                <hr>
+                <h5><strong>Adicionar membro:</strong></h5>
+                <div class="input-group">
+                    <select class="form-control" id="add-member-select">
+                        <option value="">-- Seleccionar colaborador --</option>
+                        <?php foreach ($staff as $member) { ?>
+                        <option value="<?php echo $member['staffid']; ?>"><?php echo html_escape($member['firstname'] . ' ' . $member['lastname']); ?></option>
+                        <?php } ?>
+                    </select>
+                    <span class="input-group-btn">
+                        <button class="btn btn-primary" id="btn-add-member"><i class="fa fa-plus"></i> Adicionar</button>
+                    </span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>
@@ -144,6 +184,60 @@
             loadMessages();
         }
     }, 5000);
+
+    // Gerir membros do grupo
+    $(document).on('click', '.btn-manage-members', function(e) {
+        e.stopPropagation();
+        var groupId = $(this).data('group-id');
+        var groupName = $(this).data('group-name');
+        $('#modal-group-id').val(groupId);
+        $('#modal-group-name').text(groupName);
+        loadGroupMembers(groupId);
+        $('#manage_members_modal').modal('show');
+    });
+
+    function loadGroupMembers(groupId) {
+        $('#current-members-list').html('<li class="list-group-item text-muted">A carregar...</li>');
+        $.get(admin_url + 'dps_chatbot/get_group_members', { group_id: groupId }, function(data) {
+            var members = JSON.parse(data);
+            if (members.length === 0) {
+                $('#current-members-list').html('<li class="list-group-item text-muted">Sem membros adicionados.</li>');
+                return;
+            }
+            var html = '';
+            members.forEach(function(m) {
+                html += '<li class="list-group-item"><span>' + m.name + '</span>' +
+                    '<button class="btn btn-xs btn-danger pull-right btn-remove-member" data-staff-id="' + m.staff_id + '"><i class="fa fa-times"></i> Remover</button></li>';
+            });
+            $('#current-members-list').html(html);
+        });
+    }
+
+    $('#btn-add-member').on('click', function() {
+        var groupId = $('#modal-group-id').val();
+        var staffId = $('#add-member-select').val();
+        if (!staffId) { alert('Seleccione um colaborador.'); return; }
+        $.post(admin_url + 'dps_chatbot/add_member', { group_id: groupId, staff_id: staffId }, function(data) {
+            var res = JSON.parse(data);
+            if (res.status === 'success') {
+                $('#add-member-select').val('');
+                loadGroupMembers(groupId);
+            } else {
+                alert(res.message || 'Erro ao adicionar membro.');
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-remove-member', function() {
+        var groupId = $('#modal-group-id').val();
+        var staffId = $(this).data('staff-id');
+        $.post(admin_url + 'dps_chatbot/remove_member', { group_id: groupId, staff_id: staffId }, function(data) {
+            var res = JSON.parse(data);
+            if (res.status === 'success') {
+                loadGroupMembers(groupId);
+            }
+        });
+    });
 </script>
 </body>
 </html>

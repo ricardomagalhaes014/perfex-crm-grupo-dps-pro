@@ -43,6 +43,45 @@ class Dps_chatbot extends AdminController
         redirect(admin_url('dps_chatbot'));
     }
 
+    public function add_member()
+    {
+        if (!is_admin() && !staff_can('manage_groups', DPS_CHATBOT_MODULE_NAME)) {
+            echo json_encode(['status' => 'error', 'message' => 'Sem permissão']);
+            return;
+        }
+        $group_id = $this->input->post('group_id');
+        $staff_id = $this->input->post('staff_id');
+        if (!$group_id || !$staff_id) {
+            echo json_encode(['status' => 'error', 'message' => 'Dados inválidos']);
+            return;
+        }
+        if ($this->dps_chatbot_model->is_group_member($group_id, $staff_id)) {
+            echo json_encode(['status' => 'error', 'message' => 'Já é membro do grupo']);
+            return;
+        }
+        $this->dps_chatbot_model->add_group_member($group_id, $staff_id);
+        echo json_encode(['status' => 'success']);
+    }
+
+    public function remove_member()
+    {
+        if (!is_admin() && !staff_can('manage_groups', DPS_CHATBOT_MODULE_NAME)) {
+            echo json_encode(['status' => 'error', 'message' => 'Sem permissão']);
+            return;
+        }
+        $group_id = $this->input->post('group_id');
+        $staff_id = $this->input->post('staff_id');
+        $this->dps_chatbot_model->remove_group_member($group_id, $staff_id);
+        echo json_encode(['status' => 'success']);
+    }
+
+    public function get_group_members()
+    {
+        $group_id = $this->input->get('group_id');
+        $members = $this->dps_chatbot_model->get_group_members($group_id);
+        echo json_encode($members);
+    }
+
     public function send_message()
     {
         $payload = [
