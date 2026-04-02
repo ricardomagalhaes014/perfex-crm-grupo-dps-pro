@@ -36,10 +36,8 @@ class Dps_imoveis_model extends CI_Model
             $this->db->where('i.published_website', 1);
         }
 
-        // Não-admin e não-aprovadores só vêem os seus próprios imóveis
-        if (!is_admin() && !has_permission('dps_imoveis', '', 'approve')) {
-            $this->db->where('i.agente_id', get_staff_user_id());
-        }
+        // Todos os utilizadores autenticados podem ver todos os imóveis
+        // (restrição de edição/apagamento é feita no controller)
 
         $this->db->order_by('i.datecreated', 'DESC');
         return $this->db->get()->result_array();
