@@ -68,7 +68,7 @@
                         </div>
                         <?php else: ?>
                         <div style="margin-top:10px;">
-                            <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                            <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
                                target="_blank" 
                                class="btn btn-info btn-sm">
                                 <i class="fa fa-external-link"></i> Abrir Evolution API Manager
@@ -118,7 +118,7 @@
                                         <i class="fa fa-qrcode"></i> Ligar WhatsApp
                                     </button>
                                     <?php if (get_option('dps_whatsapp_evolution_url')): ?>
-                                    <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                                    <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
                                        target="_blank" 
                                        class="btn btn-info btn-sm" 
                                        style="margin-left:5px;"
@@ -145,7 +145,7 @@
                             <?php if (get_option('dps_whatsapp_evolution_url')): ?>
                             <div style="margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb;">
                                 <p style="font-size:12px;color:#666;margin-bottom:6px;">Em alternativa, faça o scan directamente na Evolution API:</p>
-                                <a href="<?php echo htmlspecialchars(get_option('dps_whatsapp_evolution_url')); ?>" 
+                                <a href="<?php echo rtrim(htmlspecialchars(get_option('dps_whatsapp_evolution_url')), '/'); ?>/manager" 
                                    target="_blank" 
                                    class="btn btn-info btn-sm btn-block">
                                     <i class="fa fa-external-link"></i> Abrir Evolution API Manager
