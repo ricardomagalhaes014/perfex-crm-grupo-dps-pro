@@ -24,6 +24,7 @@ $CI->db->query("CREATE TABLE IF NOT EXISTS `" . db_prefix() . "dps_whatsapp_foll
     `status` enum('pending','sent','cancelled','failed') NOT NULL DEFAULT 'pending',
     `lead_status_id` int(11) DEFAULT NULL,
     `sent_at` datetime DEFAULT NULL,
+    `automation_id` int(11) DEFAULT NULL,
     `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `lead_id` (`lead_id`),
@@ -31,3 +32,6 @@ $CI->db->query("CREATE TABLE IF NOT EXISTS `" . db_prefix() . "dps_whatsapp_foll
     KEY `scheduled_at` (`scheduled_at`),
     KEY `status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+// Adicionar coluna automation_id se não existir (migração)
+$CI->db->query("ALTER TABLE `" . db_prefix() . "dps_whatsapp_followups` ADD COLUMN IF NOT EXISTS `automation_id` int(11) DEFAULT NULL");

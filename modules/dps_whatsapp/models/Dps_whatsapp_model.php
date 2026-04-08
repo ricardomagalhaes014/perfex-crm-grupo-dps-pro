@@ -288,22 +288,27 @@ class Dps_whatsapp_model extends CI_Model
             'textMessage' => ['text' => $message]
         ]);
         
-        // Erro de rede/curl
+        // Erro de rede/curl (sem http_code)
         if (!empty($result['error']) && empty($result['http_code'])) {
             return ['success' => false, 'error' => $result['error']];
         }
         
-        $http_code = $result['http_code'] ?? 0;
+        $http_code = (int)($result['http_code'] ?? 0);
         
-        // Sucesso: HTTP 200 ou 201 com key na resposta
-        if (($http_code === 200 || $http_code === 201) && !empty($result['key'])) {
+        // Sucesso: HTTP 2xx (200 ou 201) — a v1.8.4 retorna 201 com key.id
+        if ($http_code >= 200 && $http_code < 300) {
+            // Verificar se a resposta tem key (mensagem enviada)
+            if (!empty($result['key'])) {
+                return ['success' => true, 'message' => 'Mensagem enviada'];
+            }
+            // HTTP 2xx mas sem key — considerar sucesso mesmo assim
             return ['success' => true, 'message' => 'Mensagem enviada'];
         }
         
         // Erro: número não existe no WhatsApp
         if ($http_code === 400 && !empty($result['response']['message'])) {
             $msgs = $result['response']['message'];
-            if (is_array($msgs) && !empty($msgs[0]['exists']) === false && isset($msgs[0]['exists'])) {
+            if (is_array($msgs) && isset($msgs[0]) && is_array($msgs[0]) && isset($msgs[0]['exists']) && $msgs[0]['exists'] === false) {
                 return ['success' => false, 'error' => 'Número não registado no WhatsApp'];
             }
             $err_text = is_array($msgs) ? json_encode($msgs) : (string)$msgs;
@@ -312,8 +317,16 @@ class Dps_whatsapp_model extends CI_Model
         
         // Outros erros HTTP
         if ($http_code >= 400) {
-            $err = $result['error'] ?? $result['message'] ?? 'Erro HTTP ' . $http_code;
-            return ['success' => false, 'error' => (string)$err];
+            $err_msg = '';
+            if (!empty($result['response']['message'])) {
+                $m = $result['response']['message'];
+                $err_msg = is_array($m) ? json_encode($m) : (string)$m;
+            } elseif (!empty($result['error'])) {
+                $err_msg = (string)$result['error'];
+            } else {
+                $err_msg = 'Erro HTTP ' . $http_code;
+            }
+            return ['success' => false, 'error' => $err_msg];
         }
         
         return ['success' => false, 'error' => 'Resposta inesperada da API (HTTP ' . $http_code . ')'];
@@ -539,6 +552,9 @@ class Dps_whatsapp_model extends CI_Model
 
     public function send_automation_to_all_leads($staff_id, $automation)
     {
+        // Migração: garantir que a coluna automation_id existe
+        $this->db->query("ALTER TABLE `" . db_prefix() . "dps_whatsapp_followups` ADD COLUMN IF NOT EXISTS `automation_id` int(11) DEFAULT NULL");
+
         $lead_status_id = (int)$automation['lead_status_id'];
         $message_tpl    = $automation['message'];
 
