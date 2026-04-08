@@ -280,29 +280,43 @@ class Dps_whatsapp_model extends CI_Model
     {
         $instance_name = $this->get_instance_name($staff_id);
         
-        // Normalizar número de telefone (remover espaços, traços, etc.)
+        // Normalizar número de telefone (remover espaços, traços, +, etc.)
         $to = preg_replace('/[^0-9]/', '', $to);
-        
-        // Adicionar @s.whatsapp.net se não tiver
-        if (strpos($to, '@') === false) {
-            $to = $to . '@s.whatsapp.net';
-        }
         
         $result = $this->evolution_request('POST', "/message/sendText/{$instance_name}", [
             'number' => $to,
-            'text' => $message
+            'textMessage' => ['text' => $message]
         ]);
         
-        if (!empty($result['error'])) {
+        // Erro de rede/curl
+        if (!empty($result['error']) && empty($result['http_code'])) {
             return ['success' => false, 'error' => $result['error']];
         }
         
-        // Evolution API retorna diferentes formatos de sucesso
-        if (!empty($result['key']) || !empty($result['message'])) {
+        $http_code = $result['http_code'] ?? 0;
+        
+        // Sucesso: HTTP 200 ou 201 com key na resposta
+        if (($http_code === 200 || $http_code === 201) && !empty($result['key'])) {
             return ['success' => true, 'message' => 'Mensagem enviada'];
         }
         
-        return ['success' => false, 'error' => 'Resposta inesperada da API'];
+        // Erro: número não existe no WhatsApp
+        if ($http_code === 400 && !empty($result['response']['message'])) {
+            $msgs = $result['response']['message'];
+            if (is_array($msgs) && !empty($msgs[0]['exists']) === false && isset($msgs[0]['exists'])) {
+                return ['success' => false, 'error' => 'Número não registado no WhatsApp'];
+            }
+            $err_text = is_array($msgs) ? json_encode($msgs) : (string)$msgs;
+            return ['success' => false, 'error' => 'Erro API: ' . $err_text];
+        }
+        
+        // Outros erros HTTP
+        if ($http_code >= 400) {
+            $err = $result['error'] ?? $result['message'] ?? 'Erro HTTP ' . $http_code;
+            return ['success' => false, 'error' => (string)$err];
+        }
+        
+        return ['success' => false, 'error' => 'Resposta inesperada da API (HTTP ' . $http_code . ')'];
     }
 
     // ─── Automações personalizadas ────────────────────────────────────────────
@@ -538,6 +552,12 @@ class Dps_whatsapp_model extends CI_Model
 
         if (empty($leads)) {
             return ['success' => false, 'error' => 'Nenhum lead encontrado no estado configurado com número de telefone.'];
+        }
+
+        // Verificar se o WhatsApp está ligado antes de enviar
+        $wa_status = $this->get_wa_status($staff_id);
+        if (empty($wa_status['connected'])) {
+            return ['success' => false, 'error' => 'WhatsApp não está ligado. Por favor ligue o WhatsApp primeiro.'];
         }
 
         $sent    = 0;
