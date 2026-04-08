@@ -104,6 +104,7 @@ class Dps_whatsapp_model extends CI_Model
 
     /**
      * Cria ou obtém uma instância Evolution para o staff
+     * Retorna o QR code se disponível na resposta
      */
     public function wa_connect($staff_id)
     {
@@ -114,7 +115,7 @@ class Dps_whatsapp_model extends CI_Model
         
         // Se a instância não existe (404) ou está desconectada, criar/reconectar
         if (!empty($status['error']) || empty($status['instance'])) {
-            // Criar nova instância
+            // Criar nova instância — v1.8.4 retorna o QR code directamente na resposta
             $create_result = $this->evolution_request('POST', '/instance/create', [
                 'instanceName' => $instance_name,
                 'qrcode' => true,
@@ -125,7 +126,15 @@ class Dps_whatsapp_model extends CI_Model
                 return ['error' => 'Erro ao criar instância: ' . ($create_result['error'] ?? 'Desconhecido')];
             }
             
-            return ['success' => true, 'instance' => $instance_name, 'message' => 'Instância criada. Aguarde o QR code.'];
+            // Extrair QR code da resposta de criação (v1.8.4 retorna em qrcode.base64)
+            $qr = $this->extract_qr_from_response($create_result);
+            
+            return [
+                'success' => true,
+                'instance' => $instance_name,
+                'qr' => $qr,
+                'message' => 'Instância criada. Aguarde o QR code.'
+            ];
         }
         
         // Instância já existe
@@ -135,12 +144,14 @@ class Dps_whatsapp_model extends CI_Model
             return ['success' => true, 'connected' => true, 'instance' => $instance_name];
         }
         
-        // Conectar instância existente
+        // Instância existe mas não está ligada — obter QR code
         $connect_result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
+        $qr = $this->extract_qr_from_response($connect_result);
         
         return [
             'success' => true,
             'instance' => $instance_name,
+            'qr' => $qr,
             'message' => 'A conectar... Aguarde o QR code.'
         ];
     }
@@ -207,44 +218,39 @@ class Dps_whatsapp_model extends CI_Model
 
     /**
      * Obtém o QR code para ligar o WhatsApp
-     * Faz polling até 5 tentativas (3s cada) para aguardar a geração assíncrona do QR
+     * Retorna imediatamente - o polling é feito pelo JavaScript no frontend
+     * Compatível com Evolution API v1.8.4 (HTTP polling)
      */
     public function get_wa_qr($staff_id)
     {
         $instance_name = $this->get_instance_name($staff_id);
 
-        // Garantir que a instância existe e está em modo connecting
-        $this->wa_connect($staff_id);
-
-        // Polling: até 5 tentativas com 3 segundos de intervalo
-        $max_attempts = 5;
-        $wait_seconds = 3;
-
-        for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
-            sleep($wait_seconds);
-
-            $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
-
-            // Verificar se a instância já está conectada
-            $state_check = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
-            if (!empty($state_check['instance']['state']) && $state_check['instance']['state'] === 'open') {
-                return ['success' => true, 'connected' => true, 'qr' => null];
-            }
-
-            $qr_base64 = $this->extract_qr_from_response($result);
-
-            if ($qr_base64) {
-                return ['success' => true, 'qr' => $qr_base64];
-            }
-        }
-
-        // Última tentativa: verificar se ficou conectado entretanto
-        $final_state = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
-        if (!empty($final_state['instance']['state']) && $final_state['instance']['state'] === 'open') {
+        // Verificar se já está conectado
+        $state_check = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
+        if (!empty($state_check['instance']['state']) && $state_check['instance']['state'] === 'open') {
             return ['success' => true, 'connected' => true, 'qr' => null];
         }
 
-        return ['error' => 'QR code não disponível após várias tentativas. Tente novamente.'];
+        // Se a instância não existe, criar e retornar o QR da resposta de criação
+        if (!empty($state_check['error']) || empty($state_check['instance'])) {
+            $connect_result = $this->wa_connect($staff_id);
+            if (!empty($connect_result['qr'])) {
+                return ['success' => true, 'qr' => $connect_result['qr']];
+            }
+            return ['success' => true, 'qr' => null, 'pending' => true];
+        }
+
+        // Instância existe mas não está ligada — obter QR via /instance/connect
+        // v1.8.4: GET /instance/connect/{name} retorna {base64, code, count}
+        $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
+        $qr_base64 = $this->extract_qr_from_response($result);
+
+        if ($qr_base64) {
+            return ['success' => true, 'qr' => $qr_base64];
+        }
+
+        // QR ainda não disponível - o JS vai tentar novamente em 3 segundos
+        return ['success' => true, 'qr' => null, 'pending' => true];
     }
 
     /**

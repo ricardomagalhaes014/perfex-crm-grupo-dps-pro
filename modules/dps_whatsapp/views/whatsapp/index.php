@@ -403,19 +403,25 @@ function pollQR() {
             }
             if (data.qr) {
                 // Se for uma string base64 (imagem), apresentar imagem. Caso contrário, apresentar o código
-                if (typeof data.qr === 'string' && data.qr.match(/^data:image\//)) {
+                if (typeof data.qr === 'string' && data.qr.match(/^data:image//)) {
                     $('#qr-image-container').html('<img src="' + data.qr + '">');
                 } else {
                     // Quando a Evolution API devolve apenas um código (ex: pairing code), mostrar texto explicativo
                     $('#qr-image-container').html(
-                        '<div style="padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;">' +
-                        '<p style="margin:0; font-size:14px;">Código de emparelhamento:</p>' +
-                        '<p style="margin:5px 0; font-weight:bold; font-size:20px;">' + data.qr + '</p>' +
-                        '<p style="font-size:11px; color:#666;">Introduza este código na aplicação Evolution Manager, se aplicável.</p>' +
-                        '</div>'
+                        '<div style="padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;">'
+                        + '<p style="margin:0; font-size:14px;">Código de emparelhamento:</p>'
+                        + '<p style="margin:5px 0; font-weight:bold; font-size:20px;">' + data.qr + '</p>'
+                        + '<p style="font-size:11px; color:#666;">Introduza este código na aplicação Evolution Manager, se aplicável.</p>'
+                        + '</div>'
                     );
                 }
+            } else if (data.pending) {
+                // QR ainda não disponível - aguardar próxima tentativa (3s)
+                $('#qr-image-container').html('<div style="text-align:center;padding:20px;"><i class="fa fa-spinner fa-spin fa-2x"></i><br><small style="color:#888;margin-top:8px;display:block;">A gerar QR code...</small></div>');
             }
+        },
+        error: function() {
+            // Em caso de erro, continuar a tentar
         }
     });
 }
@@ -436,12 +442,29 @@ function initWA() {
             url: WA_CONNECT_URL,
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            success: function() {
+            success: function(data) {
                 $('#wa-qr-box').show();
                 $('#wa-status-disconnected').hide();
+                // Se o QR code já veio na resposta (Evolution API v1.8.4), mostrar imediatamente
+                if (data && data.qr) {
+                    if (typeof data.qr === 'string' && data.qr.match(/^data:image\//)) {
+                        $('#qr-image-container').html('<img src="' + data.qr + '">');
+                    } else {
+                        $('#qr-image-container').html(
+                            '<div style="padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;">'
+                            + '<p style="margin:0; font-size:14px;">Código de emparelhamento:</p>'
+                            + '<p style="margin:5px 0; font-weight:bold; font-size:20px;">' + data.qr + '</p>'
+                            + '</div>'
+                        );
+                    }
+                }
+                // Iniciar polling para actualizar o QR e detectar ligação
                 clearInterval(qrPollInterval);
                 qrPollInterval = setInterval(pollQR, 3000);
-                pollQR();
+                // Se o QR ainda não chegou, pedir imediatamente
+                if (!data || !data.qr) {
+                    pollQR();
+                }
             },
             complete: function() {
                 $btn.prop('disabled', false).html('<i class="fa fa-qrcode"></i> Ligar WhatsApp');

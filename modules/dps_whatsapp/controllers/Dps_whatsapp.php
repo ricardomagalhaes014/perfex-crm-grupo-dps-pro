@@ -45,6 +45,7 @@ class Dps_whatsapp extends AdminController
     }
 
     // AJAX: iniciar ligação
+    // Retorna o QR code imediatamente se disponível (Evolution API v1.8.4)
     public function ajax_connect()
     {
         if (!$this->input->is_ajax_request()) show_404();
