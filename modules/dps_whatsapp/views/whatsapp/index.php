@@ -653,17 +653,22 @@ function initWA() {
         $.ajax({
             url: WA_SEND_NOW_URL,
             type: 'POST',
+            timeout: 300000, // 5 minutos (para envios em lote com muitos leads)
             headers: {'X-Requested-With': 'XMLHttpRequest'},
             data: { automation_id: automation_id },
             success: function(data) {
                 if (data.success) {
-                    alert('✅ ' + data.message);
+                    alert('\u2705 ' + data.message);
                 } else {
-                    alert('❌ Erro: ' + (data.error || 'Não foi possível enviar.'));
+                    alert('\u274c Erro: ' + (data.error || 'N\u00e3o foi poss\u00edvel enviar.'));
                 }
             },
-            error: function() {
-                alert('❌ Erro de comunicação com o servidor.');
+            error: function(xhr, status) {
+                if (status === 'timeout') {
+                    alert('\u26a0\ufe0f O envio est\u00e1 a demorar mais que o esperado. As mensagens podem ter sido enviadas. Verifique os Follow-ups Agendados.');
+                } else {
+                    alert('\u274c Erro de comunica\u00e7\u00e3o com o servidor. (HTTP ' + xhr.status + ')');
+                }
             },
             complete: function() {
                 $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar');

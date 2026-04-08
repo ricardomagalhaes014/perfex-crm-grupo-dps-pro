@@ -184,6 +184,11 @@ class Dps_whatsapp extends AdminController
             exit;
         }
 
+        // Remover limite de tempo para envios em lote (pode demorar consoante número de leads)
+        @set_time_limit(300);
+        @ini_set('max_execution_time', 300);
+        ignore_user_abort(true);
+
         $result = $this->Dps_whatsapp_model->send_automation_to_all_leads($staff_id, $automation);
         header('Content-Type: application/json');
         echo json_encode($result);

@@ -57,7 +57,7 @@ class Dps_whatsapp_model extends CI_Model
         $ch  = curl_init($url);
         
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
         
         $headers = [
             'Content-Type: application/json',
@@ -605,8 +605,8 @@ class Dps_whatsapp_model extends CI_Model
                 $failed++;
             }
 
-            // Pequena pausa para não sobrecarregar o WhatsApp (500ms entre mensagens)
-            usleep(500000);
+            // Pequena pausa para não sobrecarregar o WhatsApp (200ms entre mensagens)
+            usleep(200000);
         }
 
         return [
