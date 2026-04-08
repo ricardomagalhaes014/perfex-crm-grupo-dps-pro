@@ -169,100 +169,82 @@ class Dps_whatsapp_model extends CI_Model
     }
 
     /**
+     * Extrai o QR base64 de uma resposta da Evolution API
+     */
+    private function extract_qr_from_response($result)
+    {
+        if (empty($result) || !empty($result['error'])) {
+            return null;
+        }
+        // Verificar count:0 (QR ainda não gerado)
+        if (isset($result['count']) && $result['count'] === 0 && count($result) === 1) {
+            return null;
+        }
+        if (isset($result['base64']) && is_string($result['base64']) && strlen($result['base64']) > 50) {
+            return $result['base64'];
+        }
+        if (isset($result['qrcode'])) {
+            if (is_string($result['qrcode']) && strlen($result['qrcode']) > 50) {
+                return $result['qrcode'];
+            }
+            if (is_array($result['qrcode'])) {
+                if (!empty($result['qrcode']['base64']) && strlen($result['qrcode']['base64']) > 50) {
+                    return $result['qrcode']['base64'];
+                }
+                if (!empty($result['qrcode']['code']) && strlen($result['qrcode']['code']) > 10) {
+                    return $result['qrcode']['code'];
+                }
+                if (!empty($result['qrcode']['pairingCode'])) {
+                    return $result['qrcode']['pairingCode'];
+                }
+            }
+        }
+        if (isset($result['pairingCode']) && !empty($result['pairingCode'])) {
+            return $result['pairingCode'];
+        }
+        return null;
+    }
+
+    /**
      * Obtém o QR code para ligar o WhatsApp
+     * Faz polling até 5 tentativas (3s cada) para aguardar a geração assíncrona do QR
      */
     public function get_wa_qr($staff_id)
     {
         $instance_name = $this->get_instance_name($staff_id);
-        
-        // Primeiro conectar (se não estiver)
+
+        // Garantir que a instância existe e está em modo connecting
         $this->wa_connect($staff_id);
-        
-        // Aguardar 2 segundos para o QR ser gerado
-        sleep(2);
-        
-        // Obter o QR code (a API devolve objecto com informações do QR)
-        $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
 
-        // Se houve erro na chamada, devolver o erro imediatamente
-        if (!empty($result['error'])) {
-            return ['error' => $result['error']];
-        }
+        // Polling: até 5 tentativas com 3 segundos de intervalo
+        $max_attempts = 5;
+        $wait_seconds = 3;
 
-        $qr_base64 = null;
+        for ($attempt = 1; $attempt <= $max_attempts; $attempt++) {
+            sleep($wait_seconds);
 
-        /*
-         * A partir da versão 2.x da Evolution API, o endpoint /instance/connect
-         * retorna um objecto "qrcode" com várias propriedades (ex: base64, code,
-         * pairingCode, count). Para manter compatibilidade com versões mais
-         * antigas que devolviam directamente uma string em "qrcode" ou
-         * "base64", verificamos todas as possibilidades e extraímos o valor
-         * correcto.
-         */
-        if (isset($result['base64']) && is_string($result['base64'])) {
-            // Versões antigas devolviam o base64 directamente neste campo
-            $qr_base64 = $result['base64'];
-        } elseif (isset($result['qrcode'])) {
-            // O campo qrcode pode ser uma string ou um array
-            if (is_string($result['qrcode'])) {
-                $qr_base64 = $result['qrcode'];
-            } elseif (is_array($result['qrcode'])) {
-                // Nova estrutura: procurar pelo campo base64 dentro do objecto
-                if (!empty($result['qrcode']['base64'])) {
-                    // Preferir a imagem base64, se estiver disponível
-                    $qr_base64 = $result['qrcode']['base64'];
-                } elseif (!empty($result['qrcode']['code'])) {
-                    /*
-                     * Alguns provedores devolvem o código no campo "code". Este valor pode ser uma imagem
-                     * em base64 (com prefixo data:image/...)
-                     * ou um código de emparelhamento (ex: "2@abc123...").
-                     * Neste último caso devemos devolver o código mesmo sem o prefixo para que o frontend
-                     * mostre como pairing code. O JavaScript decide se desenha a imagem ou apresenta
-                     * o texto consoante o prefixo.
-                     */
-                    $qr_base64 = $result['qrcode']['code'];
-                } elseif (!empty($result['qrcode']['pairingCode'])) {
-                    // Alguns retornam explicitamente "pairingCode"
-                    $qr_base64 = $result['qrcode']['pairingCode'];
-                }
+            $result = $this->evolution_request('GET', "/instance/connect/{$instance_name}");
+
+            // Verificar se a instância já está conectada
+            $state_check = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
+            if (!empty($state_check['instance']['state']) && $state_check['instance']['state'] === 'open') {
+                return ['success' => true, 'connected' => true, 'qr' => null];
             }
-        } elseif (isset($result['pairingCode'])) {
-            // Para as versões mais recentes, pode ser devolvido apenas o código de emparelhamento
-            $qr_base64 = $result['pairingCode'];
-        }
 
-        // Se ainda não temos base64, tentar o endpoint /instance/qrcode/{instance}
-        if (!$qr_base64) {
-            $qr_result = $this->evolution_request('GET', "/instance/qrcode/{$instance_name}");
-            if (!empty($qr_result['base64']) && is_string($qr_result['base64'])) {
-                // Versões antigas podem devolver directamente o base64 neste campo
-                $qr_base64 = $qr_result['base64'];
-            } elseif (!empty($qr_result['qrcode'])) {
-                if (is_string($qr_result['qrcode'])) {
-                    // O campo "qrcode" sozinho pode ser uma imagem ou um código
-                    $qr_base64 = $qr_result['qrcode'];
-                } elseif (is_array($qr_result['qrcode'])) {
-                    // Nova estrutura: extrair base64, code ou pairingCode
-                    if (!empty($qr_result['qrcode']['base64'])) {
-                        $qr_base64 = $qr_result['qrcode']['base64'];
-                    } elseif (!empty($qr_result['qrcode']['code'])) {
-                        $qr_base64 = $qr_result['qrcode']['code'];
-                    } elseif (!empty($qr_result['qrcode']['pairingCode'])) {
-                        $qr_base64 = $qr_result['qrcode']['pairingCode'];
-                    }
-                }
+            $qr_base64 = $this->extract_qr_from_response($result);
+
+            if ($qr_base64) {
+                return ['success' => true, 'qr' => $qr_base64];
             }
         }
 
-        // Se ainda não conseguimos obter o QR, a instância poderá já estar ligada ou ocorreu erro
-        if (!$qr_base64) {
-            return ['error' => 'QR code não disponível. A instância pode já estar conectada ou a API não retornou um código.'];
+        // Última tentativa: verificar se ficou conectado entretanto
+        $final_state = $this->evolution_request('GET', "/instance/connectionState/{$instance_name}");
+        if (!empty($final_state['instance']['state']) && $final_state['instance']['state'] === 'open') {
+            return ['success' => true, 'connected' => true, 'qr' => null];
         }
 
-        return [
-            'success' => true,
-            'qr' => $qr_base64
-        ];
+        return ['error' => 'QR code não disponível após várias tentativas. Tente novamente.'];
     }
 
     /**
