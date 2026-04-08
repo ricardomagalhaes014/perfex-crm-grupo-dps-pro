@@ -403,7 +403,7 @@ function pollQR() {
             }
             if (data.qr) {
                 // Se for uma string base64 (imagem), apresentar imagem. Caso contrário, apresentar o código
-                if (typeof data.qr === 'string' && data.qr.match(/^data:image//)) {
+                if (typeof data.qr === 'string' && data.qr.indexOf('data:image') === 0) {
                     $('#qr-image-container').html('<img src="' + data.qr + '">');
                 } else {
                     // Quando a Evolution API devolve apenas um código (ex: pairing code), mostrar texto explicativo
@@ -447,7 +447,7 @@ function initWA() {
                 $('#wa-status-disconnected').hide();
                 // Se o QR code já veio na resposta (Evolution API v1.8.4), mostrar imediatamente
                 if (data && data.qr) {
-                    if (typeof data.qr === 'string' && data.qr.match(/^data:image\//)) {
+                    if (typeof data.qr === 'string' && data.qr.indexOf('data:image') === 0) {
                         $('#qr-image-container').html('<img src="' + data.qr + '">');
                     } else {
                         $('#qr-image-container').html(
