@@ -20,7 +20,7 @@ define('VERIFY_TOKEN', 'dps-meta-webhook-2026');
 
 // App Secret da Meta (para validar assinatura dos payloads)
 // Preencher após criar a Meta App em developers.facebook.com
-define('META_APP_SECRET', '');  // ex: 'abc123def456...'
+define('META_APP_SECRET', 'eca5f81d64c53aed0ff527bd1b5682d3');
 
 // Token de acesso da página (Page Access Token) para chamar a Graph API
 // Obter em Meta for Developers > Tools > Graph API Explorer
