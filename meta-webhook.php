@@ -30,7 +30,7 @@ define('META_PAGE_ACCESS_TOKEN', 'EAAMrr8bw7ZCUBRGSCm6jzJkrL4ISvFCPZB1QpkXaqOWZB
 define('PERFEX_URL', 'https://crm.grupo-dps.com');
 
 // Token de autenticação da API do Perfex
-define('PERFEX_API_TOKEN', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiTm92byBtYWtlIiwibmFtZSI6ImludGVncmFjYW8iLCJBUElfVElNRSI6MTc2NDQzMzE5NX0.11YaaygGbzoZqdTYSEOG7TEZsi7TheKfHKRq_svJm14');
+define('PERFEX_API_TOKEN', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiUmljYXJkbyBNYWdhbGhhZXMiLCJuYW1lIjoiV0VCSE9PSyBNRVRBIiwiQVBJX1RJTUUiOjE3NzYwMDIxODR9.g9wEzwauRwyVBh8W7OPPi5ls5Y84DXDcPkxcNEWkfOw');
 
 // Mapeamento: form_id → configuração do comercial
 // Adicionar mais entradas para outros comerciais/formulários
@@ -64,15 +64,17 @@ function log_msg($msg) {
 }
 
 function http_post($url, $data, $headers = []) {
+    $post_body = http_build_query($data);
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post_body);
     curl_setopt($ch, CURLOPT_TIMEOUT, 15);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-    if (!empty($headers)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    }
+    // Garantir Content-Type correcto para a API do Perfex
+    $default_headers = ['Content-Type: application/x-www-form-urlencoded'];
+    $all_headers = array_merge($default_headers, $headers);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $all_headers);
     $response  = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err       = curl_error($ch);
