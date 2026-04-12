@@ -24,7 +24,7 @@ define('META_APP_SECRET', 'eca5f81d64c53aed0ff527bd1b5682d3');
 
 // Token de acesso da página (Page Access Token) para chamar a Graph API
 // Obter em Meta for Developers > Tools > Graph API Explorer
-define('META_PAGE_ACCESS_TOKEN', 'EAAMrr8bw7ZCUBRL4ZCyMp2DnNLBKasP2sXsOLzmRmRHexNxtnwRHglpZAO4ZAOzjRbayc0iWkzuZCiv6ZBZA0g8WGsYaPHHH6qFMH1tcZBNClm7vIen9ZCAZAyNUDuW0ZBT9KumMwXkQ41YHdZCe0NUZCeKncqEX3TyyFRobQ4BXEd5ruSXcmwhABZBn1SIXj4OLVtAGgxk8ix9s78yWuHNGtOHelgp6VfFXlLIthfYse5wyipbZAekgt175XEQumB6M5EZD');
+define('META_PAGE_ACCESS_TOKEN', 'EAAMrr8bw7ZCUBRL99giOSBa5ZAmHRZC34vhQ09yVndjtoxiFgBrVDq39xSxOlZCnbWhwDQM8SQbyki46Ogg03xnwL1m6QWiCbW5n24HCvVvTQvZB9MefFTkBGP8kK86Pl03sb1uvZAJzjJJr8UUD9IEX7P3svlhtb76YZChqk8QFq2LCBU3bI8fi5mYUcvdsHuVQQoLcljn1ZCKadqin5Dyc6sOT');
 
 // URL base do Perfex CRM
 define('PERFEX_URL', 'https://crm.grupo-dps.com');
