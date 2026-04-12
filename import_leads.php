@@ -12,11 +12,29 @@ if ($secret !== 'dps-import-2026') {
     die('Acesso negado');
 }
 
-// Configuração da base de dados (mesma do Perfex CRM)
+// Ler credenciais directamente do ficheiro de configuração do Perfex CRM
 $db_host = 'localhost';
-$db_name = 'u329571597_perfex';
-$db_user = 'u329571597_perfex';
-$db_pass = 'Dps2026#';
+$db_name = '';
+$db_user = '';
+$db_pass = '';
+
+$config_files = [
+    __DIR__ . '/application/config/app.php',
+    __DIR__ . '/application/config/database.php',
+];
+foreach ($config_files as $cf) {
+    if (file_exists($cf)) {
+        $content = file_get_contents($cf);
+        if (preg_match("/['\"]hostname['\"]\s*=>\s*['\"]([^'\"]+)['\"]/", $content, $m)) $db_host = $m[1];
+        if (preg_match("/['\"]database['\"]\s*=>\s*['\"]([^'\"]+)['\"]/", $content, $m)) $db_name = $m[1];
+        if (preg_match("/['\"]username['\"]\s*=>\s*['\"]([^'\"]+)['\"]/", $content, $m)) $db_user = $m[1];
+        if (preg_match("/['\"]password['\"]\s*=>\s*['\"]([^'\"]+)['\"]/", $content, $m)) $db_pass = $m[1];
+        if (!empty($db_name)) break;
+    }
+}
+if (empty($db_name)) {
+    die('ERRO: Não foi possível ler as credenciais da BD do ficheiro de configuração.');
+}
 
 // Leads do CSV para importar
 $leads = [
