@@ -55,6 +55,9 @@
         <a href="<?php echo admin_url('dps_imoveis/nova_necessidade'); ?>" class="btn btn-default btn-block mtop5">
           <i class="fa fa-search"></i> Nova Necessidade
         </a>
+        <a href="<?php echo base_url('modules/dps_imoveis/assets/CMI_Contrato_Mediacao_Imobiliaria.pdf'); ?>" class="btn btn-warning btn-block mtop5" target="_blank" download>
+          <i class="fa fa-file-pdf-o"></i> Contrato CMI
+        </a>
       </div>
     </div>
 
@@ -202,3 +205,4 @@
 </div>
 </div>
 <?php init_tail(); ?>
+
