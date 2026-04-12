@@ -24,7 +24,7 @@ define('META_APP_SECRET', 'eca5f81d64c53aed0ff527bd1b5682d3');
 
 // Token de acesso da página (Page Access Token) para chamar a Graph API
 // Obter em Meta for Developers > Tools > Graph API Explorer
-define('META_PAGE_ACCESS_TOKEN', 'EAAMrr8bw7ZCUBRL99giOSBa5ZAmHRZC34vhQ09yVndjtoxiFgBrVDq39xSxOlZCnbWhwDQM8SQbyki46Ogg03xnwL1m6QWiCbW5n24HCvVvTQvZB9MefFTkBGP8kK86Pl03sb1uvZAJzjJJr8UUD9IEX7P3svlhtb76YZChqk8QFq2LCBU3bI8fi5mYUcvdsHuVQQoLcljn1ZCKadqin5Dyc6sOT');
+define('META_PAGE_ACCESS_TOKEN', 'EAAMrr8bw7ZCUBRGSCm6jzJkrL4ISvFCPZB1QpkXaqOWZBTU61ndKoE7LHWYmVAflAWZBzBaRrz5H9suiEEv8TcVpet0KXGXiOQKhuGhyQ3K0ViZBFii4ijlO8rlglsWgnDZA03SZBoO5YLxRZABbcA97yZACfEuOvMyTkapJZB3XSnaQtUXkLsmZCER17EY42R6JeIqweipx3EKkd12tCloscGdMjSx');
 
 // URL base do Perfex CRM
 define('PERFEX_URL', 'https://crm.grupo-dps.com');
@@ -94,6 +94,7 @@ function http_get($url) {
 
 /**
  * Obtém os dados completos de uma lead via Meta Graph API
+ * Tenta múltiplos endpoints para contornar limitações de permissões
  */
 function get_lead_data($leadgen_id) {
     $token = META_PAGE_ACCESS_TOKEN;
@@ -101,18 +102,33 @@ function get_lead_data($leadgen_id) {
         log_msg("ERRO: META_PAGE_ACCESS_TOKEN não configurado");
         return null;
     }
-    $url = "https://graph.facebook.com/v19.0/{$leadgen_id}?fields=field_data,form_id,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,created_time&access_token={$token}";
+
+    // Endpoint 1: campo field_data directo (requer leads_retrieval)
+    $url = "https://graph.facebook.com/v19.0/{$leadgen_id}?fields=field_data,form_id,ad_id,ad_name,created_time&access_token={$token}";
     $res = http_get($url);
-    if ($res['error'] || $res['code'] !== 200) {
-        log_msg("ERRO ao obter lead {$leadgen_id}: HTTP {$res['code']} - {$res['error']} - {$res['body']}");
-        return null;
+    if (!$res['error'] && $res['code'] === 200) {
+        $data = json_decode($res['body'], true);
+        if (!empty($data) && !isset($data['error'])) {
+            log_msg("Lead obtida via endpoint principal: {$leadgen_id}");
+            return $data;
+        }
     }
-    $data = json_decode($res['body'], true);
-    if (empty($data)) {
-        log_msg("ERRO: resposta inválida da Meta Graph API para lead {$leadgen_id}");
-        return null;
+    log_msg("Endpoint principal falhou para {$leadgen_id}: HTTP {$res['code']} - {$res['body']}");
+
+    // Endpoint 2: acesso via página (requer pages_manage_ads)
+    $page_id = '294945163693663';
+    $url2 = "https://graph.facebook.com/v19.0/{$page_id}/leadgen_forms/{$leadgen_id}?access_token={$token}";
+    $res2 = http_get($url2);
+    if (!$res2['error'] && $res2['code'] === 200) {
+        $data2 = json_decode($res2['body'], true);
+        if (!empty($data2) && !isset($data2['error'])) {
+            log_msg("Lead obtida via endpoint página: {$leadgen_id}");
+            return $data2;
+        }
     }
-    return $data;
+    log_msg("Endpoint página falhou para {$leadgen_id}: HTTP {$res2['code']} - {$res2['body']}");
+
+    return null;
 }
 
 /**
