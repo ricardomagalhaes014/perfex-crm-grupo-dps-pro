@@ -168,8 +168,11 @@ function get_imoveis($conn, $filters = []) {
         // Galeria - corrigir URLs duplicados se existirem
         if (!empty($row['fotos'])) {
             $fotos_arr = json_decode($row['fotos'], true) ?: [];
-            $row['fotos_urls'] = array_map(function($f) { return fix_image_url($f); }, $fotos_arr);
+            $fotos_fixed = array_map(function($f) { return fix_image_url($f); }, $fotos_arr);
+            $row['fotos'] = $fotos_fixed;      // campo 'fotos' usado pelo frontend React
+            $row['fotos_urls'] = $fotos_fixed; // alias para compatibilidade
         } else {
+            $row['fotos'] = [];
             $row['fotos_urls'] = [];
         }
         // Foto do agente com fallback
@@ -180,7 +183,7 @@ function get_imoveis($conn, $filters = []) {
         );
         // Formatar preço
         $row['preco_formatado'] = number_format((float)$row['preco'], 0, ',', '.') . ' €';
-        unset($row['fotos'], $row['agente_foto'], $row['agente_landing_foto']);
+        unset($row['agente_foto'], $row['agente_landing_foto']); // 'fotos' mantido para o frontend React
         $imoveis[] = $row;
     }
     return $imoveis;
