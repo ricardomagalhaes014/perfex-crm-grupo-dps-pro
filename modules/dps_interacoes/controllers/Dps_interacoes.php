@@ -54,85 +54,71 @@ class Dps_interacoes extends AdminController
                 $label     = 'Últimos 7 dias';
         }
 
-        // Filtro de status
+        // Filtro de status (cláusula SQL segura)
         $status_clause = '';
         if ($status_id > 0) {
-            $status_clause = "AND l.status = " . (int)$status_id;
+            $status_clause = 'AND l.status = ' . (int)$status_id;
         }
 
         // Obter todos os status de leads
         $statuses = $this->db->get($p . 'leads_status')->result_array();
 
-        // Obter staff activo
-        $staff_list = $this->db
-            ->select('staffid, CONCAT(firstname, " ", lastname) as full_name')
-            ->where('active', 1)
-            ->order_by('firstname', 'asc')
-            ->get($p . 'staff')
-            ->result_array();
+        // Query única: agrupa interacções por comercial
+        // Conta notas manuais (description LIKE '? Nota%') no período
+        $sql = "
+            SELECT
+                s.staffid,
+                CONCAT(s.firstname, ' ', s.lastname) AS nome,
+                COUNT(al.id) AS total_interacoes
+            FROM {$p}staff s
+            LEFT JOIN {$p}leads l ON l.assigned = s.staffid {$status_clause}
+            LEFT JOIN {$p}lead_activity_log al
+                ON al.leadid = l.id
+                AND al.description LIKE '? Nota%'
+                AND al.date_created BETWEEN '{$date_from}' AND '{$date_to}'
+            WHERE s.active = 1
+            GROUP BY s.staffid, s.firstname, s.lastname
+            ORDER BY total_interacoes DESC, s.firstname ASC
+        ";
 
-        // Para cada comercial: contar interacções e obter leads
+        $result = $this->db->query($sql);
+        $comerciais_raw = $result ? $result->result_array() : [];
+
+        // Para cada comercial com interacções, obter as leads com interacção
         $comerciais = [];
-        foreach ($staff_list as $staff) {
-            $sid = (int)$staff['staffid'];
-
-            // Leads atribuídas a este comercial
-            $leads_sql = "SELECT l.id, l.name, l.email, l.phonenumber, l.status
-                          FROM {$p}leads l
-                          WHERE l.assigned = {$sid}
-                          {$status_clause}";
-            $leads_raw = $this->db->query($leads_sql)->result_array();
-
-            if (empty($leads_raw)) {
-                $comerciais[] = [
-                    'staff_id'         => $sid,
-                    'nome'             => $staff['full_name'],
-                    'total_interacoes' => 0,
-                    'leads'            => [],
-                ];
-                continue;
-            }
-
-            $lead_ids = array_column($leads_raw, 'id');
-            $ids_str  = implode(',', array_map('intval', $lead_ids));
-
-            // Contar interacções no período
-            $int_sql = "SELECT leadid, COUNT(*) as cnt
-                        FROM {$p}lead_activity_log
-                        WHERE leadid IN ({$ids_str})
-                          AND date_created BETWEEN '{$date_from}' AND '{$date_to}'
-                        GROUP BY leadid";
-            $int_rows = $this->db->query($int_sql)->result_array();
-
-            $int_map = [];
-            $total   = 0;
-            foreach ($int_rows as $row) {
-                $int_map[(int)$row['leadid']] = (int)$row['cnt'];
-                $total += (int)$row['cnt'];
-            }
-
-            // Montar lista de leads com interacções
+        foreach ($comerciais_raw as $c) {
+            $sid = (int)$c['staffid'];
             $leads_com_int = [];
-            foreach ($leads_raw as $lead) {
-                $cnt = $int_map[(int)$lead['id']] ?? 0;
-                if ($cnt > 0) {
-                    $lead['interacoes'] = $cnt;
-                    $leads_com_int[]    = $lead;
-                }
+
+            if ((int)$c['total_interacoes'] > 0) {
+                $leads_sql = "
+                    SELECT
+                        l.id, l.name, l.email, l.phonenumber,
+                        ls.name AS status_name,
+                        COUNT(al.id) AS interacoes
+                    FROM {$p}leads l
+                    LEFT JOIN {$p}leads_status ls ON ls.id = l.status
+                    LEFT JOIN {$p}lead_activity_log al
+                        ON al.leadid = l.id
+                        AND al.description LIKE '? Nota%'
+                        AND al.date_created BETWEEN '{$date_from}' AND '{$date_to}'
+                    WHERE l.assigned = {$sid}
+                    {$status_clause}
+                    GROUP BY l.id, l.name, l.email, l.phonenumber, ls.name
+                    HAVING interacoes > 0
+                    ORDER BY interacoes DESC
+                ";
+                $lr = $this->db->query($leads_sql);
+                $leads_com_int = $lr ? $lr->result_array() : [];
             }
 
             $comerciais[] = [
                 'staff_id'         => $sid,
-                'nome'             => $staff['full_name'],
-                'total_interacoes' => $total,
+                'nome'             => $c['nome'],
+                'total_interacoes' => (int)$c['total_interacoes'],
                 'leads'            => $leads_com_int,
             ];
         }
-
-        // Ordenar por total de interacções (desc)
-        usort($comerciais, function($a, $b) {
-            return $b['total_interacoes'] - $a['total_interacoes'];
-        });
 
         $data['title']      = 'Interacções por Comercial';
         $data['comerciais'] = $comerciais;
