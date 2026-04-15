@@ -77,4 +77,38 @@ if ($action === 'check') {
     }
     
     echo json_encode(['success' => false, 'error' => 'index.html not found']);
+} elseif ($action === 'write_file') {
+    $content = base64_decode($_POST['content'] ?? '');
+    $path = $_POST['path'] ?? '';
+    if (empty($content) || empty($path)) die(json_encode(['success' => false, 'error' => 'Missing params']));
+    if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
+    $dir = dirname($path);
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $result = file_put_contents($path, $content);
+    echo json_encode(['success' => $result !== false, 'bytes' => $result, 'path' => $path]);
+} elseif ($action === 'read_file') {
+    $path = $_POST['path'] ?? '';
+    if (empty($path)) die(json_encode(['success' => false, 'error' => 'Missing path']));
+    if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
+    if (!file_exists($path)) die(json_encode(['success' => false, 'error' => 'File not found: ' . $path]));
+    $content = file_get_contents($path);
+    echo json_encode(['success' => true, 'content' => base64_encode($content), 'size' => strlen($content)]);
+} elseif ($action === 'list_dir') {
+    $path = $_POST['path'] ?? '/home/u172337921/domains/';
+    if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
+    $files = is_dir($path) ? scandir($path) : [];
+    echo json_encode(['success' => true, 'files' => $files, 'path' => $path]);
+} elseif ($action === 'check') {
+    // Also list domains
+    $domains_dir = '/home/u172337921/domains/';
+    $domains = is_dir($domains_dir) ? scandir($domains_dir) : [];
+    $paths = [
+        '/home/u172337921/domains/dpsimobiliario.pt/public_html/assets/',
+        '/home/u172337921/public_html/assets/',
+    ];
+    $results = ['domains' => $domains, '__DIR__' => __DIR__];
+    foreach ($paths as $p) {
+        $results[$p] = ['exists' => file_exists($p), 'writable' => is_writable($p)];
+    }
+    echo json_encode($results, JSON_PRETTY_PRINT);
 }
