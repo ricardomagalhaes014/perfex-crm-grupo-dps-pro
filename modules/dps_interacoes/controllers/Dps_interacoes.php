@@ -64,7 +64,7 @@ class Dps_interacoes extends AdminController
         $statuses = $this->db->get($p . 'leads_status')->result_array();
 
         // Query única: agrupa interacções por comercial
-        // Conta notas manuais (description LIKE '? Nota%') no período
+        // O campo de data na tabela lead_activity_log é 'date'
         $sql = "
             SELECT
                 s.staffid,
@@ -75,7 +75,7 @@ class Dps_interacoes extends AdminController
             LEFT JOIN {$p}lead_activity_log al
                 ON al.leadid = l.id
                 AND al.description LIKE '? Nota%'
-                AND al.date_created BETWEEN '{$date_from}' AND '{$date_to}'
+                AND al.date BETWEEN '{$date_from}' AND '{$date_to}'
             WHERE s.active = 1
             GROUP BY s.staffid, s.firstname, s.lastname
             ORDER BY total_interacoes DESC, s.firstname ASC
@@ -101,7 +101,7 @@ class Dps_interacoes extends AdminController
                     LEFT JOIN {$p}lead_activity_log al
                         ON al.leadid = l.id
                         AND al.description LIKE '? Nota%'
-                        AND al.date_created BETWEEN '{$date_from}' AND '{$date_to}'
+                        AND al.date BETWEEN '{$date_from}' AND '{$date_to}'
                     WHERE l.assigned = {$sid}
                     {$status_clause}
                     GROUP BY l.id, l.name, l.email, l.phonenumber, ls.name
@@ -112,12 +112,12 @@ class Dps_interacoes extends AdminController
                 $leads_com_int = $lr ? $lr->result_array() : [];
             }
 
-            $comerciais[] = [
+            $comerciais[] = array(
                 'staff_id'         => $sid,
                 'nome'             => $c['nome'],
                 'total_interacoes' => (int)$c['total_interacoes'],
                 'leads'            => $leads_com_int,
-            ];
+            );
         }
 
         $data['title']      = 'Interacções por Comercial';
