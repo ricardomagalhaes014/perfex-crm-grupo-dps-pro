@@ -8,16 +8,32 @@
 .ic-filters .btn-filter { height:36px; padding:0 18px; background:#f97316; color:#fff; border:none; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; }
 .ic-filters .btn-filter:hover { background:#ea6c0a; }
 .ic-period-label { font-size:13px; color:#888; margin-bottom:12px; }
+.ic-obj-info { font-size:12px; color:#666; margin-bottom:16px; background:#fff8f0; border-left:3px solid #f97316; padding:8px 14px; border-radius:0 6px 6px 0; display:inline-block; }
 .ic-table { width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 .ic-table th { background:#f5f5f5; padding:12px 16px; text-align:left; font-size:13px; font-weight:700; color:#333; border-bottom:2px solid #e8e8e8; }
 .ic-table td { padding:12px 16px; font-size:13px; color:#444; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
 .ic-table tr:last-child td { border-bottom:none; }
 .ic-table tr:hover td { background:#fafafa; }
+/* Badge de interacções */
 .ic-badge { display:inline-block; background:#f97316; color:#fff; border-radius:20px; padding:3px 12px; font-size:13px; font-weight:700; min-width:36px; text-align:center; }
 .ic-badge-zero { background:#e0e0e0; color:#999; }
+/* Célula de progresso */
+.ic-progress-cell { display:flex; align-items:center; gap:10px; min-width:220px; }
+.ic-progress-wrap { flex:1; background:#f0f0f0; border-radius:20px; height:10px; overflow:hidden; min-width:80px; }
+.ic-progress-bar { height:10px; border-radius:20px; transition:width .3s; }
+.ic-progress-bar.green  { background:#22c55e; }
+.ic-progress-bar.orange { background:#f97316; }
+.ic-progress-bar.red    { background:#ef4444; }
+.ic-pct-label { font-size:12px; font-weight:700; white-space:nowrap; min-width:48px; }
+.ic-pct-label.green  { color:#16a34a; }
+.ic-pct-label.orange { color:#ea6c0a; }
+.ic-pct-label.red    { color:#dc2626; }
+.ic-obj-label { font-size:11px; color:#aaa; white-space:nowrap; }
+/* Botões */
 .ic-btn-detail { background:#1976d2; color:#fff; border:none; border-radius:4px; padding:5px 14px; font-size:12px; font-weight:600; cursor:pointer; }
 .ic-btn-detail:hover { background:#1565c0; }
 .ic-btn-close { background:#757575; color:#fff; border:none; border-radius:4px; padding:5px 14px; font-size:12px; font-weight:600; cursor:pointer; }
+/* Detalhe */
 .ic-detail-row { display:none; }
 .ic-detail-row td { padding:0 !important; }
 .ic-detail-inner { padding:12px 24px 16px 24px; background:#f9f9f9; border-top:1px solid #eee; }
@@ -73,27 +89,38 @@
                     </form>
                 </div>
 
-                <!-- Período activo -->
+                <!-- Período activo + objectivo -->
                 <p class="ic-period-label">
                     <strong><?php echo htmlspecialchars($label); ?></strong>
                     &nbsp;|&nbsp; <?php echo date('d/m/Y', strtotime($date_from)); ?> a <?php echo date('d/m/Y', strtotime($date_to)); ?>
                 </p>
+                <div class="ic-obj-info">
+                    🎯 Objectivo para este período: <strong><?php echo number_format($objectivo, 1, ',', '.'); ?> interacções</strong>
+                    &nbsp;·&nbsp; Base: 200/semana · 800/mês
+                </div>
 
                 <!-- Tabela -->
-                <table class="ic-table">
+                <table class="ic-table" style="margin-top:16px;">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Comercial</th>
-                            <th>Total Interacções</th>
+                            <th>Interacções</th>
+                            <th>Objectivo / Concretizado</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($comerciais)): ?>
-                        <tr><td colspan="4" style="text-align:center;color:#aaa;padding:30px;">Sem dados para o período seleccionado.</td></tr>
+                        <tr><td colspan="5" style="text-align:center;color:#aaa;padding:30px;">Sem dados para o período seleccionado.</td></tr>
                         <?php else: ?>
-                        <?php $i = 1; foreach ($comerciais as $c): ?>
+                        <?php $i = 1; foreach ($comerciais as $c):
+                            $pct      = $c['pct'];
+                            $pct_disp = min($pct, 100); // barra máx 100%
+                            if ($pct >= 100)      { $color = 'green'; }
+                            elseif ($pct >= 50)   { $color = 'orange'; }
+                            else                  { $color = 'red'; }
+                        ?>
                         <tr id="row-<?php echo $c['staff_id']; ?>">
                             <td><?php echo $i++; ?></td>
                             <td><strong><?php echo htmlspecialchars($c['nome']); ?></strong></td>
@@ -101,6 +128,18 @@
                                 <span class="ic-badge <?php echo $c['total_interacoes']==0?'ic-badge-zero':''; ?>">
                                     <?php echo $c['total_interacoes']; ?>
                                 </span>
+                            </td>
+                            <td>
+                                <div class="ic-progress-cell">
+                                    <div class="ic-progress-wrap">
+                                        <div class="ic-progress-bar <?php echo $color; ?>"
+                                             style="width:<?php echo $pct_disp; ?>%"></div>
+                                    </div>
+                                    <span class="ic-pct-label <?php echo $color; ?>">
+                                        <?php echo number_format($pct, 1, ',', '.'); ?>%
+                                    </span>
+                                    <span class="ic-obj-label">/ <?php echo number_format($c['objectivo'], 1, ',', '.'); ?></span>
+                                </div>
                             </td>
                             <td>
                                 <?php if (!empty($c['leads'])): ?>
@@ -113,7 +152,7 @@
                                             btn.className='ic-btn-detail';
                                         } else {
                                             row.style.display='table-row';
-                                            btn.textContent='✕ Fechar';
+                                            btn.textContent='\u2715 Fechar';
                                             btn.className='ic-btn-close';
                                         }
                                     })(this, <?php echo $c['staff_id']; ?>)">Detalhe</button>
@@ -124,7 +163,7 @@
                         </tr>
                         <?php if (!empty($c['leads'])): ?>
                         <tr id="detail-<?php echo $c['staff_id']; ?>" class="ic-detail-row">
-                            <td colspan="4">
+                            <td colspan="5">
                                 <div class="ic-detail-inner">
                                     <div class="ic-detail-title">Leads com interacção — <?php echo htmlspecialchars($c['nome']); ?></div>
                                     <table class="ic-detail-table">
@@ -147,8 +186,8 @@
                                                 </td>
                                                 <td><?php echo htmlspecialchars($lead['email'] ?: '—'); ?></td>
                                                 <td><?php echo htmlspecialchars($lead['phonenumber'] ?: '—'); ?></td>
-                                                <td><?php echo htmlspecialchars($lead['status'] ?: '—'); ?></td>
-                                                <td><strong><?php echo $lead['interacoes']; ?></strong></td>
+                                                <td><?php echo htmlspecialchars($lead['status_name'] ?: '—'); ?></td>
+                                                <td><strong><?php echo $lead['num_interacoes']; ?></strong></td>
                                             </tr>
                                             <?php endforeach; ?>
                                         </tbody>

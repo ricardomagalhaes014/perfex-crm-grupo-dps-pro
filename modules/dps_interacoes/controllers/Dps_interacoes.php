@@ -3,6 +3,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Dps_interacoes extends AdminController
 {
+    // Objectivos base
+    const OBJ_SEMANA = 200;  // 200 interacções por semana (7 dias)
+    const OBJ_MES    = 800;  // 800 interacções por mês (30 dias)
+
     public function __construct()
     {
         parent::__construct();
@@ -16,38 +20,47 @@ class Dps_interacoes extends AdminController
         $periodo   = $this->input->get('periodo') ?: 'last_7';
         $status_id = (int)$this->input->get('status_id');
 
-        // Calcular datas do período
+        // Calcular datas do período e objectivo proporcional
         switch ($periodo) {
             case 'today':
                 $date_from = date('Y-m-d 00:00:00');
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Hoje';
+                // Proporcional: 200 / 7 dias
+                $objectivo = round(self::OBJ_SEMANA / 7, 1);
                 break;
             case 'today_yesterday':
                 $date_from = date('Y-m-d 00:00:00', strtotime('-1 day'));
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Hoje e Ontem';
+                // Proporcional: 200 / 7 * 2 dias
+                $objectivo = round(self::OBJ_SEMANA / 7 * 2, 1);
                 break;
             case 'last_15':
                 $date_from = date('Y-m-d 00:00:00', strtotime('-14 days'));
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Últimos 15 dias';
+                // Proporcional: 800 / 30 * 15 dias
+                $objectivo = round(self::OBJ_MES / 30 * 15, 1);
                 break;
             case 'last_30':
                 $date_from = date('Y-m-d 00:00:00', strtotime('-29 days'));
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Últimos 30 dias';
+                $objectivo = self::OBJ_MES;
                 break;
             case 'last_3m':
                 $date_from = date('Y-m-d 00:00:00', strtotime('-3 months'));
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Últimos 3 meses';
+                $objectivo = self::OBJ_MES * 3;
                 break;
             default: // last_7
                 $periodo   = 'last_7';
                 $date_from = date('Y-m-d 00:00:00', strtotime('-6 days'));
                 $date_to   = date('Y-m-d 23:59:59');
                 $label     = 'Últimos 7 dias';
+                $objectivo = self::OBJ_SEMANA;
         }
 
         // Filtro de status
@@ -69,7 +82,6 @@ class Dps_interacoes extends AdminController
             $sid = (int)$s['staffid'];
 
             // Contar interacções: notas manuais na tabela lead_activity_log
-            // O campo de data é 'date' e o campo de lead é 'leadid'
             $count_sql = "
                 SELECT COUNT(al.id) AS total
                 FROM {$p}lead_activity_log al
@@ -86,6 +98,9 @@ class Dps_interacoes extends AdminController
                 $row   = $count_res->row_array();
                 $total = (int)($row['total'] ?? 0);
             }
+
+            // Calcular percentagem do objectivo
+            $pct = ($objectivo > 0) ? round(($total / $objectivo) * 100, 1) : 0;
 
             // Obter leads com interacção (apenas se total > 0)
             $leads = [];
@@ -117,6 +132,8 @@ class Dps_interacoes extends AdminController
                 'staff_id'         => $sid,
                 'nome'             => $s['nome'],
                 'total_interacoes' => $total,
+                'objectivo'        => $objectivo,
+                'pct'              => $pct,
                 'leads'            => $leads,
             );
         }
@@ -134,6 +151,7 @@ class Dps_interacoes extends AdminController
         $data['label']      = $label;
         $data['date_from']  = $date_from;
         $data['date_to']    = $date_to;
+        $data['objectivo']  = $objectivo;
 
         $this->load->view('interacoes', $data);
     }
