@@ -98,6 +98,22 @@ if ($action === 'check') {
     if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
     $files = is_dir($path) ? scandir($path) : [];
     echo json_encode(['success' => true, 'files' => $files, 'path' => $path]);
+} elseif ($action === 'exec_sql') {
+    $host = $_POST['host'] ?? '127.0.0.1';
+    $db = $_POST['db'] ?? '';
+    $user = $_POST['user'] ?? '';
+    $pass = $_POST['pass'] ?? '';
+    $sql = $_POST['sql'] ?? '';
+    if (empty($sql) || empty($db)) die(json_encode(['success' => false, 'error' => 'Missing params']));
+    $conn = new mysqli($host, $user, $pass, $db);
+    if ($conn->connect_error) die(json_encode(['success' => false, 'error' => $conn->connect_error]));
+    $conn->set_charset('utf8mb4');
+    $r = $conn->query($sql);
+    if ($r === false) die(json_encode(['success' => false, 'error' => $conn->error]));
+    if ($r === true) { echo json_encode(['success' => true, 'affected' => $conn->affected_rows]); exit; }
+    $rows = [];
+    while ($row = $r->fetch_assoc()) $rows[] = $row;
+    echo json_encode(['success' => true, 'rows' => $rows, 'count' => count($rows)]);
 } elseif ($action === 'check') {
     // Also list domains
     $domains_dir = '/home/u172337921/domains/';
