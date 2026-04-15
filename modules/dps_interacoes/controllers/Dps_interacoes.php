@@ -143,6 +143,6 @@ class Dps_interacoes extends AdminController
         $data['date_from']  = $date_from;
         $data['date_to']    = $date_to;
 
-        $this->load->view('dps_interacoes/views/interacoes', $data);
+        $this->load->view('interacoes', $data);
     }
 }
