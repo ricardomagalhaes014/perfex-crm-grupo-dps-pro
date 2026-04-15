@@ -71,12 +71,6 @@ function si_lead_filters_init_menu_items()
 			'href'		=> admin_url('si_lead_filters/list_filters'),
 			'position'	=> 10,
 		]);
-		$CI->app_menu->add_sidebar_children_item('lead-filters', [
-			'slug'		=> 'si-lead-interacoes-comercial',
-			'name'		=> 'Interacções por Comercial',
-			'href'		=> admin_url('si_lead_filters/interacoes_comercial'),
-			'position'	=> 15,
-		]);
 	}
 }
 function si_lead_filters_permissions()
