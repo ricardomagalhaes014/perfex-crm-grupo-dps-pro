@@ -137,6 +137,7 @@ function get_imoveis($conn, $filters = []) {
         i.ano_construcao,
         i.equipamento,
         i.texto_livre,
+        i.texto_livre AS descricao,
         i.foto_principal,
         i.fotos,
         i.date_approval AS data_publicacao,
