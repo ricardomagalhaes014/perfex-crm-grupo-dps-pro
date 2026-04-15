@@ -16,7 +16,17 @@ class Si_lead_filters extends AdminController
 	{
 		$custom_date_select = '';
 		if ($months_report != '') {
-			if (is_numeric($months_report)) {
+			if ($months_report == 'today') {
+				$today = date('Y-m-d');
+				$custom_date_select = 'AND (DATE(' . $field . ') = "' . $today . '")';
+			} elseif ($months_report == 'yesterday') {
+				$yesterday = date('Y-m-d', strtotime('-1 day'));
+				$custom_date_select = 'AND (DATE(' . $field . ') = "' . $yesterday . '")';
+			} elseif ($months_report == 'last_7_days') {
+				$from = date('Y-m-d', strtotime('-6 days'));
+				$to   = date('Y-m-d');
+				$custom_date_select = 'AND (DATE(' . $field . ') BETWEEN "' . $from . '" AND "' . $to . '")';
+			} elseif (is_numeric($months_report)) {
 				// Last month
 				if ($months_report == '1') {
 					$beginMonth = date('Y-m-01', strtotime('first day of last month'));
@@ -27,7 +37,6 @@ class Si_lead_filters extends AdminController
 					$beginMonth = date('Y-m-01', strtotime("-$months_report MONTH"));
 					$endMonth   = date('Y-m-t');
 				}
-
 				$custom_date_select = 'AND (' . $field . ' BETWEEN "' . $beginMonth . '" AND "' . $endMonth . '")';
 			} elseif ($months_report == 'this_month') {
 				$custom_date_select = 'AND (' . $field . ' BETWEEN "' . date('Y-m-01') . '" AND "' . date('Y-m-t') . '")';
@@ -53,6 +62,60 @@ class Si_lead_filters extends AdminController
 		}
 		
 		 return $custom_date_select;
+	}
+
+	/**
+	 * Get interaction count for a lead within a date range
+	 */
+	private function get_interaction_counts($lead_ids, $report_months, $date_by)
+	{
+		if (empty($lead_ids)) return [];
+
+		// Build date condition for interactions
+		$date_condition = '';
+		if ($report_months != '') {
+			if ($report_months == 'today') {
+				$date_condition = ' AND DATE(date) = "' . date('Y-m-d') . '"';
+			} elseif ($report_months == 'yesterday') {
+				$date_condition = ' AND DATE(date) = "' . date('Y-m-d', strtotime('-1 day')) . '"';
+			} elseif ($report_months == 'last_7_days') {
+				$date_condition = ' AND DATE(date) BETWEEN "' . date('Y-m-d', strtotime('-6 days')) . '" AND "' . date('Y-m-d') . '"';
+			} elseif (is_numeric($report_months)) {
+				if ($report_months == '1') {
+					$b = date('Y-m-01', strtotime('first day of last month'));
+					$e = date('Y-m-t', strtotime('last day of last month'));
+				} else {
+					$m = (int)$report_months - 1;
+					$b = date('Y-m-01', strtotime("-$m MONTH"));
+					$e = date('Y-m-t');
+				}
+				$date_condition = ' AND (date BETWEEN "' . $b . '" AND "' . $e . '")';
+			} elseif ($report_months == 'this_month') {
+				$date_condition = ' AND (date BETWEEN "' . date('Y-m-01') . '" AND "' . date('Y-m-t') . '")';
+			} elseif ($report_months == 'this_year') {
+				$date_condition = ' AND (date BETWEEN "' . date('Y-01-01') . '" AND "' . date('Y-12-31') . '")';
+			} elseif ($report_months == 'last_year') {
+				$y = date('Y', strtotime('last year'));
+				$date_condition = ' AND (date BETWEEN "' . $y . '-01-01" AND "' . $y . '-12-31")';
+			} elseif ($report_months == 'custom') {
+				$from_date = to_sql_date($this->input->post('report_from'));
+				$to_date   = to_sql_date($this->input->post('report_to'));
+				if ($from_date == $to_date) {
+					$date_condition = ' AND date = "' . $from_date . '"';
+				} else {
+					$date_condition = ' AND (date BETWEEN "' . $from_date . '" AND "' . $to_date . '")';
+				}
+			}
+		}
+
+		$ids_str = implode(',', array_map('intval', $lead_ids));
+		$sql = 'SELECT leadid, COUNT(*) as cnt FROM ' . db_prefix() . 'leads_activity WHERE leadid IN (' . $ids_str . ')' . $date_condition . ' GROUP BY leadid';
+		$result = $this->db->query($sql)->result_array();
+		$counts = [];
+		foreach ($result as $row) {
+			$counts[$row['leadid']] = (int)$row['cnt'];
+		}
+		return $counts;
 	}
 	
 	public function leads_filter()
@@ -187,7 +250,19 @@ class Si_lead_filters extends AdminController
 		}
 
 		$this->db->order_by($fetch_month_from, 'DESC');
-		$overview[''] = $this->db->get(db_prefix() . 'leads')->result_array();
+		$leads_data = $this->db->get(db_prefix() . 'leads')->result_array();
+
+		// Get interaction counts for all leads
+		$lead_ids = array_column($leads_data, 'id');
+		$interaction_counts = $this->get_interaction_counts($lead_ids, $report_months, $date_by);
+
+		// Attach interaction count to each lead
+		foreach ($leads_data as &$lead) {
+			$lead['interaction_count'] = isset($interaction_counts[$lead['id']]) ? $interaction_counts[$lead['id']] : 0;
+		}
+		unset($lead);
+
+		$overview[''] = $leads_data;
 		
 		$data['title']    = _l('si_lf_submenu_lead_filters');
 		$data['lead_statuses'] = $this->leads_model->get_status();

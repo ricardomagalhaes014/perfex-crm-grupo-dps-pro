@@ -104,6 +104,7 @@ $report_heading = '';
 									<option value="is_public" <?php echo (in_array('is_public',$hide_columns)?'selected':'')?>><?php echo _l('lead_public'); ?></option>
 									<option value="assigned" <?php echo (in_array('assigned',$hide_columns)?'selected':'')?>><?php echo _l('leads_dt_assigned'); ?></option>
 									<option value="tags" <?php echo (in_array('tags',$hide_columns)?'selected':'')?>><?php echo _l('tags'); ?></option>
+									<option value="interactions" <?php echo (in_array('interactions',$hide_columns)?'selected':'')?>><?php echo 'Interacções'; ?></option>
 								</select>
 							</div>
 							<!--end hide_export_columns select-->
@@ -120,30 +121,36 @@ $report_heading = '';
 								<label for="months-report"><?php echo _l('period_datepicker'); ?></label><br />
 								<select class="selectpicker" name="report_months" id="report_months" data-width="100%" data-none-selected-text="<?php echo _l('dropdown_non_selected_tex'); ?>">
 									<option value=""><?php echo _l('report_sales_months_all_time'); ?></option>
-									<option value="this_month"><?php echo _l('this_month'); ?></option>
-									<option value="1"><?php echo _l('last_month'); ?></option>
-									<option value="this_year"><?php echo _l('this_year'); ?></option>
-									<option value="last_year"><?php echo _l('last_year'); ?></option>
-									<option value="3" data-subtext="<?php echo _d(date('Y-m-01', strtotime("-2 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_three_months'); ?></option>
-									<option value="6" data-subtext="<?php echo _d(date('Y-m-01', strtotime("-5 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_six_months'); ?></option>
-									<option value="12" data-subtext="<?php echo _d(date('Y-m-01', strtotime("-11 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_twelve_months'); ?></option>
-									<option value="custom"><?php echo _l('period_datepicker'); ?></option>
+									<option value="today" <?php echo ($report_months=='today'?'selected':'')?>><?php echo 'Hoje'; ?></option>
+									<option value="yesterday" <?php echo ($report_months=='yesterday'?'selected':'')?>><?php echo 'Ontem'; ?></option>
+									<option value="last_7_days" <?php echo ($report_months=='last_7_days'?'selected':'')?>><?php echo 'Últimos 7 dias'; ?></option>
+									<option value="this_month" <?php echo ($report_months=='this_month'?'selected':'')?>><?php echo _l('this_month'); ?></option>
+									<option value="1" <?php echo ($report_months=='1'?'selected':'')?>><?php echo _l('last_month'); ?></option>
+									<option value="3" <?php echo ($report_months=='3'?'selected':'')?> data-subtext="<?php echo _d(date('Y-m-01', strtotime("-2 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_three_months'); ?></option>
+									<option value="this_year" <?php echo ($report_months=='this_year'?'selected':'')?>><?php echo _l('this_year'); ?></option>
+									<option value="last_year" <?php echo ($report_months=='last_year'?'selected':'')?>><?php echo _l('last_year'); ?></option>
+									<option value="6" <?php echo ($report_months=='6'?'selected':'')?> data-subtext="<?php echo _d(date('Y-m-01', strtotime("-5 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_six_months'); ?></option>
+									<option value="12" <?php echo ($report_months=='12'?'selected':'')?> data-subtext="<?php echo _d(date('Y-m-01', strtotime("-11 MONTH"))); ?> - <?php echo _d(date('Y-m-t')); ?>"><?php echo _l('report_sales_months_twelve_months'); ?></option>
+									<option value="custom" <?php echo ($report_months=='custom'?'selected':'')?>><?php echo _l('period_datepicker'); ?></option>
 								</select>
 								<?php
 									if($report_months !== '')
 									{
-										$report_heading.=' for '._l('period_datepicker')." ";
+										$report_heading.=' para ';
 										switch($report_months)
 										{
-											case 'this_month':$report_heading.=date('01-m-Y')." To ".date('t-m-Y');break;
-											case '1'         :$report_heading.=date('01-m-Y',strtotime('-1 month'))." To ".date('t-m-Y',strtotime('-1 month'));break;
-											case 'this_year' :$report_heading.=date('01-01-Y')." To ".date('31-12-Y');break;
-											case 'last_year' :$report_heading.=date('01-01-Y',strtotime('-1 year'))." To ".date('31-12-Y',strtotime('-1 year'));break;
-											case '3'         :$report_heading.=date('01-m-Y',strtotime('-2 month'))." To ".date('t-m-Y');break;
-											case '6'         :$report_heading.=date('01-m-Y',strtotime('-5 month'))." To ".date('t-m-Y');break;
-											case '12'        :$report_heading.=date('01-m-Y',strtotime('-11 month'))." To ".date('t-m-Y');break;
-											case 'custom'    :$report_heading.=$report_from." To ".$report_to;break;
-											default          :$report_heading.='All Time';
+											case 'today'      :$report_heading.='Hoje ('.date('d-m-Y').')';break;
+											case 'yesterday'  :$report_heading.='Ontem ('.date('d-m-Y',strtotime('-1 day')).')';break;
+											case 'last_7_days':$report_heading.='Últimos 7 dias ('.date('d-m-Y',strtotime('-6 days')).' a '.date('d-m-Y').')';break;
+											case 'this_month' :$report_heading.=date('01-m-Y')." a ".date('t-m-Y');break;
+											case '1'          :$report_heading.=date('01-m-Y',strtotime('-1 month'))." a ".date('t-m-Y',strtotime('-1 month'));break;
+											case 'this_year'  :$report_heading.=date('01-01-Y')." a ".date('31-12-Y');break;
+											case 'last_year'  :$report_heading.=date('01-01-Y',strtotime('-1 year'))." a ".date('31-12-Y',strtotime('-1 year'));break;
+											case '3'          :$report_heading.=date('01-m-Y',strtotime('-2 month'))." a ".date('t-m-Y');break;
+											case '6'          :$report_heading.=date('01-m-Y',strtotime('-5 month'))." a ".date('t-m-Y');break;
+											case '12'         :$report_heading.=date('01-m-Y',strtotime('-11 month'))." a ".date('t-m-Y');break;
+											case 'custom'     :$report_heading.=$report_from." a ".$report_to;break;
+											default           :$report_heading.='Todo o tempo';
 										}
 									}
 								?>
@@ -176,7 +183,7 @@ $report_heading = '';
 									<div class="checkbox checkbox-success checklist-checkbox" data-toggle="tooltip" title="" data-original-title="<?php echo _l('si_lf_save_filter_template'); ?>">
 										<input type="checkbox" id="si_lf_save_filter" name="save_filter" value="1" title="<?php echo _l('si_lf_save_filter_template'); ?>" <?php echo ($this->input->get('filter_id')?'checked':'')?>>
 										<label for=""><span class="hide"><?php echo _l('si_lf_save_filter_template'); ?></span></label>
-										<textarea id="si_lf_filter_name" name="filter_name" rows="1" placeholder="<?php echo _l('si_lf_filter_template_name'); ?>" <?php echo ($this->input->get('filter_id')?'':'disabled="disabled"')?> maxlength='100'><?php echo ($this->input->get('filter_id')?$saved_filter_name:'');?></textarea>
+										<textarea id="si_lf_filter_name" name="filter_name" rows="1" placeholder="<?php echo _l('si_lf_filter_template_name'); ?>" <?php echo ($this->input->get('filter_id')?'':'disabled="disabled"')?> maxlength='100'><?php echo ($this->input->get('filter_id')?htmlspecialchars($saved_filter_name):'');?></textarea>
 									</div>
 								</div>
 							</div>
@@ -197,9 +204,9 @@ $report_heading = '';
 								
 									<th>#</th>
 									<th class="<?php echo (in_array('name',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_name'); ?></th>
+									<th class="<?php echo (in_array('phonenumber',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_phonenumber'); ?></th>
 									<th class="<?php echo (in_array('company',$hide_columns)?'not-export':'')?>"><?php echo _l('lead_company'); ?></th>
 									<th class="<?php echo (in_array('email',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_email'); ?></th>
-									<th class="<?php echo (in_array('phonenumber',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_phonenumber'); ?></th>
 									<th class="<?php echo (in_array('country',$hide_columns)?'not-export':'')?>"><?php echo _l('lead_country'); ?></th>
 								<?php
 									$custom_fields = get_custom_fields('leads', ['show_on_table' => 1,]);
@@ -215,6 +222,7 @@ $report_heading = '';
 									<th class="<?php echo (in_array('is_public',$hide_columns)?'not-export':'')?>"><?php echo _l('lead_public'); ?></th>
 									<th class="<?php echo (in_array('assigned',$hide_columns)?'not-export':'')?>"><?php echo _l('leads_dt_assigned'); ?></th>
 									<th class="<?php echo (in_array('tags',$hide_columns)?'not-export':'')?>"><?php echo _l('tags'); ?></th>
+									<th class="<?php echo (in_array('interactions',$hide_columns)?'not-export':'')?>">Interacções</th>
 								</tr>
 							</thead>
 						<tbody>
@@ -226,9 +234,15 @@ $report_heading = '';
 									<td><?php echo htmlspecialchars($no++);?></td>
 									<td data-order="<?php echo htmlspecialchars($lead['name']); ?>"><a href="<?php echo admin_url('leads/index/'.$lead['id']); ?>" onclick="init_lead(<?php echo htmlspecialchars($lead['id']); ?>); return false;"><?php echo htmlspecialchars($lead['name']); ?></a>
 									</td>
+									<td>
+										<?php if(!empty($lead['phonenumber'])){ ?>
+										<a href="<?php echo admin_url('leads/index/'.$lead['id']); ?>" onclick="init_lead(<?php echo htmlspecialchars($lead['id']); ?>); return false;" title="Ver detalhe da lead">
+											<strong><?php echo htmlspecialchars($lead['phonenumber']); ?></strong>
+										</a>
+										<?php } else { echo '—'; } ?>
+									</td>
 									<td><?php echo htmlspecialchars($lead['company']); ?></td>
 									<td><?php echo htmlspecialchars($lead['email']); ?></td>
-									<td><?php echo htmlspecialchars($lead['phonenumber']); ?></td>
 									<td><?php echo htmlspecialchars(get_country_name($lead['country'])); ?></td>
 								<?php
 									foreach($custom_fields as $field)
@@ -244,11 +258,22 @@ $report_heading = '';
 									<td data-order="<?php echo htmlspecialchars($lead['is_public']); ?>"><?php echo ($lead['is_public']?_l('lead_is_public_yes'):_l('lead_is_public_no')); ?></td>
 									<td>
 										<?php if($lead['assigned']>0){?>
-										<a data-toggle="tooltip" data-title="<?php echo htmlspecialchars($lead['staff_name']) ?>" href="<?php echo admin_url('profile/' . $lead['assigned']) ?>"><?php echo staff_profile_image($lead['assigned'], 
-										['staff-profile-image-small',]) ?></a>
-										<?php } ?>
+										<a data-toggle="tooltip" data-title="<?php echo htmlspecialchars($lead['staff_name']) ?>" href="<?php echo admin_url('profile/' . $lead['assigned']) ?>">
+											<?php echo staff_profile_image($lead['assigned'], ['staff-profile-image-small',]) ?>
+											<span class="mleft5"><?php echo htmlspecialchars($lead['staff_name']); ?></span>
+										</a>
+										<?php } else { echo '<span class="text-muted">—</span>'; } ?>
 									</td>
-									<td><?php echo  render_tags(prep_tags_input(get_tags_in($lead['id'],'lead'))); ?></td>	
+									<td><?php echo render_tags(prep_tags_input(get_tags_in($lead['id'],'lead'))); ?></td>
+									<td class="text-center">
+										<?php 
+										$cnt = isset($lead['interaction_count']) ? (int)$lead['interaction_count'] : 0;
+										$badge_class = $cnt == 0 ? 'label-default' : ($cnt < 3 ? 'label-warning' : 'label-success');
+										?>
+										<a href="<?php echo admin_url('leads/index/'.$lead['id']); ?>" onclick="init_lead(<?php echo htmlspecialchars($lead['id']); ?>); return false;" title="Ver interacções da lead">
+											<span class="label <?php echo $badge_class; ?>"><?php echo $cnt; ?></span>
+										</a>
+									</td>
 								</tr>
 								<?php } ?>
 							</tbody>
@@ -285,4 +310,3 @@ $report_heading = '';
 ?>
 })(jQuery);				  
 </script>
-
