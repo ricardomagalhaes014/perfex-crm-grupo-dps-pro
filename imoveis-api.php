@@ -9,6 +9,7 @@
  *   ?action=imovel&id=X      - Detalhe de um imóvel
  *   ?action=agente&slug=X    - Detalhe de um agente e os seus imóveis
  *   ?action=equipa           - Lista toda a equipa (para página /equipa)
+ *   ?action=cache_clear      - Limpar cache (uso interno)
  */
 // CORS - permitir acesso do site dpsimobiliario.pt
 header('Access-Control-Allow-Origin: *');
@@ -19,6 +20,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
+
+// ─── CACHE ───────────────────────────────────────────────────────────────────
+define('CACHE_DIR', __DIR__ . '/imoveis_cache/');
+define('CACHE_TTL', 300); // 5 minutos
+
+function cache_get($key) {
+    $file = CACHE_DIR . md5($key) . '.json';
+    if (!file_exists($file)) return null;
+    if ((time() - filemtime($file)) > CACHE_TTL) {
+        @unlink($file);
+        return null;
+    }
+    $data = @file_get_contents($file);
+    return $data ? json_decode($data, true) : null;
+}
+
+function cache_set($key, $data) {
+    if (!is_dir(CACHE_DIR)) {
+        @mkdir(CACHE_DIR, 0755, true);
+    }
+    $file = CACHE_DIR . md5($key) . '.json';
+    @file_put_contents($file, json_encode($data), LOCK_EX);
+}
+
+function cache_clear() {
+    if (!is_dir(CACHE_DIR)) return;
+    foreach (glob(CACHE_DIR . '*.json') as $f) {
+        @unlink($f);
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Configuração da BD
 define('DB_HOST', 'localhost');
 define('DB_USER', 'u172337921_crmgrupopds');
@@ -31,15 +64,12 @@ define('CRM_URL', 'https://crm.grupo-dps.com');
 // Corrigir URLs de imagens que possam ter o caminho duplicado na BD
 function fix_image_url($url) {
     if (empty($url)) return null;
-    // Remover duplicação do caminho se existir
     $dup = 'modules/dps_imoveis/uploads/fotos/modules/dps_imoveis/uploads/fotos/';
     $fix = 'modules/dps_imoveis/uploads/fotos/';
     if (strpos($url, $dup) !== false) {
         $url = str_replace($dup, $fix, $url);
     }
-    // Se o URL já começa com http, retornar directamente
     if (strpos($url, 'http') === 0) return $url;
-    // Caso contrário, construir URL completo
     return CRM_URL . '/' . ltrim($url, '/');
 }
 
@@ -54,25 +84,14 @@ function db_connect() {
     return $conn;
 }
 
-/**
- * Determina a melhor URL de foto para um agente/staff.
- * Constrói URLs directamente sem file_exists() (que falha com SERVER_BASE errado).
- * Prioridade: landing_foto > small_profile > flat_profile > thumb_profile
- */
 function get_foto_url($staffid, $landing_foto, $profile_image) {
     $base = CRM_URL . '/';
-
-    // 1. Prioridade: landing_foto (campo guardado no CRM na secção Landing Page)
     if (!empty($landing_foto)) {
         return $base . 'uploads/staff_landing_photos/' . $staffid . '/' . $landing_foto;
     }
-
-    // 2. Fallback: foto de perfil — construir URL directamente sem verificar existência
-    // (evitar curl HEAD requests que causam timeout em loop)
     if (!empty($profile_image)) {
         return $base . 'uploads/staff_profile_images/' . $staffid . '/small_' . $profile_image;
     }
-
     return null;
 }
 
@@ -85,7 +104,6 @@ function make_slug($firstname, $lastname) {
     return $name;
 }
 
-// Mapeamento de tipos EN->PT (para compatibilidade com o React)
 $TIPO_MAP = [
     'Apartment'  => 'Apartamento',
     'House'      => 'Moradia',
@@ -95,6 +113,12 @@ $TIPO_MAP = [
 
 function get_imoveis($conn, $filters = []) {
     global $TIPO_MAP;
+
+    // Chave de cache baseada nos filtros
+    $cache_key = 'imoveis_' . json_encode($filters);
+    $cached = cache_get($cache_key);
+    if ($cached !== null) return $cached;
+
     $where = ["i.published_website = 1", "i.status = 'aprovado'"];
     
     if (!empty($filters['tipo'])) {
@@ -114,6 +138,11 @@ function get_imoveis($conn, $filters = []) {
     if (!empty($filters['agente_slug'])) {
         $slug = $conn->real_escape_string($filters['agente_slug']);
         $where[] = "LOWER(REPLACE(REPLACE(CONCAT(s.firstname, '-', s.lastname), ' ', '-'), 'ã', 'a')) = '$slug'";
+    }
+    // Filtro por ID específico (optimização para action=imovel)
+    if (!empty($filters['id'])) {
+        $id = (int)$filters['id'];
+        $where[] = "i.id = $id";
     }
     
     $where_sql = implode(' AND ', $where);
@@ -159,38 +188,41 @@ function get_imoveis($conn, $filters = []) {
     $imoveis = [];
     
     while ($row = $result->fetch_assoc()) {
-        // Foto principal - corrigir URL duplicado se existir
         if (!empty($row['foto_principal'])) {
             $row['foto_principal'] = fix_image_url($row['foto_principal']);
         } else {
             $row['foto_principal'] = null;
         }
-
-        // Galeria - corrigir URLs duplicados se existirem
         if (!empty($row['fotos'])) {
             $fotos_arr = json_decode($row['fotos'], true) ?: [];
             $fotos_fixed = array_map(function($f) { return fix_image_url($f); }, $fotos_arr);
-            $row['fotos'] = $fotos_fixed;      // campo 'fotos' usado pelo frontend React
-            $row['fotos_urls'] = $fotos_fixed; // alias para compatibilidade
+            $row['fotos'] = $fotos_fixed;
+            $row['fotos_urls'] = $fotos_fixed;
         } else {
             $row['fotos'] = [];
             $row['fotos_urls'] = [];
         }
-        // Foto do agente com fallback
         $row['agente_foto_url'] = get_foto_url(
             $row['agente_id'],
             $row['agente_landing_foto'] ?? null,
             $row['agente_foto']
         );
-        // Formatar preço
         $row['preco_formatado'] = number_format((float)$row['preco'], 0, ',', '.') . ' €';
-        unset($row['agente_foto'], $row['agente_landing_foto']); // 'fotos' mantido para o frontend React
+        unset($row['agente_foto'], $row['agente_landing_foto']);
         $imoveis[] = $row;
     }
+
+    // Guardar em cache
+    cache_set($cache_key, $imoveis);
+
     return $imoveis;
 }
 
 function get_agentes($conn) {
+    $cache_key = 'agentes';
+    $cached = cache_get($cache_key);
+    if ($cached !== null) return $cached;
+
     $sql = "SELECT DISTINCT
         s.staffid AS id,
         s.firstname AS nome,
@@ -215,10 +247,16 @@ function get_agentes($conn) {
         unset($row['foto'], $row['landing_foto']);
         $agentes[] = $row;
     }
+
+    cache_set($cache_key, $agentes);
     return $agentes;
 }
 
 function get_agente_by_slug($conn, $slug) {
+    $cache_key = 'agente_' . $slug;
+    $cached = cache_get($cache_key);
+    if ($cached !== null) return $cached;
+
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
@@ -247,15 +285,16 @@ function get_agente_by_slug($conn, $slug) {
     $agente['foto_url'] = get_foto_url($agente['id'], $agente['landing_foto'], $agente['foto']);
     $agente['slug'] = $slug;
     unset($agente['foto'], $agente['landing_foto']);
+
+    cache_set($cache_key, $agente);
     return $agente;
 }
 
-/**
- * Endpoint para a página /equipa - retorna equipa por sector de mercado
- * Lê da tabela tbldps_teams (sem coluna parent_id)
- */
 function get_equipa($conn) {
-    // Buscar todos os staff activos (sem JOIN para evitar erros com tabelas opcionais)
+    $cache_key = 'equipa';
+    $cached = cache_get($cache_key);
+    if ($cached !== null) return $cached;
+
     $sql = "SELECT
         s.staffid AS id,
         s.firstname AS nome,
@@ -285,7 +324,6 @@ function get_equipa($conn) {
         $staff_map[(int)$row['id']] = $row;
     }
     
-    // Buscar equipas imobiliárias (sem coluna parent_id)
     $teams_sql = "SELECT t.id, t.name, t.area,
         m.staff_id, m.role
     FROM " . TBL_PREFIX . "dps_teams t
@@ -300,7 +338,6 @@ function get_equipa($conn) {
             $tid = (int)$tr['id'];
             if (!isset($teams[$tid])) {
                 $teams[$tid] = [
-                    'id'       => $tid,
                     'name'     => $tr['name'],
                     'area'     => $tr['area'],
                     'managers' => [],
@@ -318,7 +355,6 @@ function get_equipa($conn) {
         }
     }
     
-    // Liderança fixa: CEO (id=1) e Gestor de Equipa (id=46)
     $ceo_id    = 1;
     $gestor_id = 46;
     $lideranca = [];
@@ -332,7 +368,6 @@ function get_equipa($conn) {
         }
     }
     
-    // Mapear nomes de equipas para mercados
     $market_map = [
         'IMO BRASIL & BSX' => ['flag' => '🇧🇷', 'label' => 'Brasil'],
         'IMO BRASIL'       => ['flag' => '🇧🇷', 'label' => 'Brasil'],
@@ -340,7 +375,6 @@ function get_equipa($conn) {
         'IMO DUBAI'        => ['flag' => '🇦🇪', 'label' => 'Dubai'],
     ];
     
-    // Ordenar mercados: Portugal, Brasil, Dubai
     $order_map = ['IMO PORTUGAL' => 1, 'IMO BRASIL & BSX' => 2, 'IMO BRASIL' => 2, 'IMO DUBAI' => 3];
     $teams_arr = array_values($teams);
     usort($teams_arr, function($a, $b) use ($order_map) {
@@ -372,15 +406,19 @@ function get_equipa($conn) {
         ];
     }
     
-    return [
+    $result_data = [
         'lideranca' => $lideranca,
         'mercados'  => $mercados,
     ];
+
+    cache_set($cache_key, $result_data);
+    return $result_data;
 }
 
 // Router principal
 $action = isset($_GET['action']) ? $_GET['action'] : 'imoveis';
-$conn = db_connect();
+$conn = null;
+
 switch ($action) {
     case 'imoveis':
         $filters = [
@@ -388,6 +426,7 @@ switch ($action) {
             'distrito'  => $_GET['distrito'] ?? '',
             'tipologia' => $_GET['tipologia'] ?? '',
         ];
+        $conn = db_connect();
         $data = get_imoveis($conn, $filters);
         echo json_encode(['success' => true, 'data' => $data, 'total' => count($data)]);
         break;
@@ -398,16 +437,11 @@ switch ($action) {
             echo json_encode(['success' => false, 'error' => 'ID inválido']);
             break;
         }
-        $imoveis = get_imoveis($conn, []);
-        $imovel = null;
-        foreach ($imoveis as $i) {
-            if ((int)$i['id'] === $id) {
-                $imovel = $i;
-                break;
-            }
-        }
-        if ($imovel) {
-            echo json_encode(['success' => true, 'data' => $imovel]);
+        // Optimizado: filtrar directamente por ID em vez de carregar todos
+        $conn = db_connect();
+        $imoveis = get_imoveis($conn, ['id' => $id]);
+        if (!empty($imoveis)) {
+            echo json_encode(['success' => true, 'data' => $imoveis[0]]);
         } else {
             http_response_code(404);
             echo json_encode(['success' => false, 'error' => 'Imóvel não encontrado']);
@@ -415,6 +449,7 @@ switch ($action) {
         break;
         
     case 'agentes':
+        $conn = db_connect();
         $data = get_agentes($conn);
         echo json_encode(['success' => true, 'data' => $data]);
         break;
@@ -425,6 +460,7 @@ switch ($action) {
             echo json_encode(['success' => false, 'error' => 'Slug inválido']);
             break;
         }
+        $conn = db_connect();
         $agente = get_agente_by_slug($conn, $slug);
         if (!$agente) {
             http_response_code(404);
@@ -436,12 +472,19 @@ switch ($action) {
         break;
     
     case 'equipa':
+        $conn = db_connect();
         $data = get_equipa($conn);
         echo json_encode(['success' => true, 'data' => $data]);
+        break;
+
+    case 'cache_clear':
+        cache_clear();
+        echo json_encode(['success' => true, 'message' => 'Cache limpa']);
         break;
         
     default:
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Acção inválida']);
 }
-$conn->close();
+
+if ($conn) $conn->close();
