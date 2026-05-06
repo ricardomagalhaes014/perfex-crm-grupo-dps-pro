@@ -17,12 +17,15 @@ function dps_whatsapp_menu()
     ]);
 }
 
-// Hook: quando uma lead é criada → agendar follow-up de 7 dias
+// Hook: quando uma lead é criada → enviar mensagem de boas-vindas e agendar follow-up
 hooks()->add_action('lead_created', 'dps_whatsapp_lead_created');
 function dps_whatsapp_lead_created($lead_id)
 {
     $CI = &get_instance();
     $CI->load->model('dps_whatsapp/Dps_whatsapp_model');
+    // Enviar mensagem de boas-vindas imediatamente
+    $CI->Dps_whatsapp_model->send_welcome_message($lead_id);
+    // Agendar follow-up automático
     $CI->Dps_whatsapp_model->schedule_followup($lead_id);
 }
 

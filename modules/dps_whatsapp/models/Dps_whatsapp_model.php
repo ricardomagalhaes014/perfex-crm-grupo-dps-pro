@@ -619,6 +619,50 @@ class Dps_whatsapp_model extends CI_Model
         ];
     }
 
+    // ─── Mensagem de boas-vindas imediata ──────────────────────────────────────
+
+    /**
+     * Envia mensagem de boas-vindas imediatamente quando uma lead é criada.
+     * Usa a instância do staff atribuído à lead.
+     */
+    public function send_welcome_message($lead_id)
+    {
+        $lead = $this->db->where('id', (int)$lead_id)->get(db_prefix() . 'leads')->row_array();
+        if (!$lead) return;
+
+        $phone = trim($lead['phonenumber'] ?? '');
+        if (empty($phone)) return;
+
+        $staff_id = (int)($lead['assigned'] ?? 1);
+        if ($staff_id <= 0) $staff_id = 1;
+
+        // Verificar se o WhatsApp está ligado
+        $status = $this->get_wa_status($staff_id);
+        if (empty($status['connected'])) return;
+
+        $nome = $lead['name'] ?? '';
+
+        $message  = "Escrevo da DPS Imobiliário no seguimento do seu pedido de informações sobre o Belo Horizonte Residences, em Setúbal.\n\n";
+        $message .= "É uma oportunidade muito interessante, num empreendimento com localização diferenciada, vista rio, proximidade a Tróia e um forte potencial de valorização 📈\n\n";
+        $message .= "Além disso, a estrutura de pagamento faseado 30% até escritura com possibilidade de cedência após o CPCV e apenas 2% para reserva, além de posicionamento das unidades tornam esta proposta especialmente apelativa para quem procura entrar bem no mercado, com margem para crescimento.\n\n";
+        $message .= "👉 Pode ver todos os detalhes aqui:\n";
+        $message .= "www.Dpsimobiliario.pt/belohorizonte\n\n";
+        $message .= "Se fizer sentido para si, diga-me\n";
+        $message .= "Assim consigo enviar-lhe opções mais ajustadas";
+
+        $result = $this->wa_send($staff_id, $phone, $message);
+
+        // Registar nota na lead
+        if (!empty($result['success'])) {
+            $this->db->insert(db_prefix() . 'leads_notes', [
+                'leadid'      => (int)$lead_id,
+                'staffid'     => $staff_id,
+                'dateadded'   => date('Y-m-d H:i:s'),
+                'description' => '[WhatsApp Automático] Mensagem de boas-vindas enviada para ' . $phone,
+            ]);
+        }
+    }
+
     // ─── Estados de leads ─────────────────────────────────────────────────────
 
     public function get_lead_statuses()
