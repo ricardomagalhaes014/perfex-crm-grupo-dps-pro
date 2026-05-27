@@ -1,0 +1,39 @@
+# .htaccess - Raízes Fânzeres Gondomar
+# SEO & Performance Optimization
+
+# ===== CORS =====
+Header always set Access-Control-Allow-Origin "*"
+Header always set Access-Control-Allow-Methods "GET, POST, OPTIONS"
+Header always set Access-Control-Allow-Headers "Content-Type"
+
+# ===== SEO HEADERS =====
+Header always set X-Robots-Tag "index, follow"
+
+# ===== CACHE CONTROL =====
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/webp "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType text/html "access plus 1 week"
+</IfModule>
+
+# ===== COMPRESSION =====
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript
+</IfModule>
+
+# ===== CANONICAL REDIRECT =====
+RewriteEngine On
+RewriteCond %{REQUEST_URI} ^/raizes$
+RewriteRule ^(.*)$ /raizes/ [R=301,L]
+
+# ===== SECURITY HEADERS =====
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# ===== ERROR DOCUMENTS =====
+ErrorDocument 404 /raizes/
