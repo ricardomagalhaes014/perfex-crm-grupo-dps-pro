@@ -41,14 +41,24 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --gold: #C5A55A;
-      --gold-light: #d4b87a;
-      --dark: #0a0a0a;
-      --dark-2: #111111;
-      --dark-3: #1a1a1a;
-      --cream: #F5F2ED;
-      --cream-2: #EDE8E0;
-      --text-light: rgba(245,242,237,0.85);
+      --gold: #D7B46A;
+      --gold-light: #E8CF8D;
+      --copper: #B66A3C;
+      --copper-light: #D18A55;
+      --green-deep: #102418;
+      --green: #1E3A27;
+      --green-soft: #2F573A;
+      --brown: #3A2618;
+      --brown-soft: #5B3A24;
+      --earth: #2A1D13;
+      --dark: #07130C;
+      --dark-2: #0E1F15;
+      --dark-3: #172B1D;
+      --cream: #FFF8E9;
+      --cream-2: #F1E2C5;
+      --text-light: rgba(255,248,233,0.94);
+      --text-muted: rgba(255,248,233,0.78);
+      --border-earth: rgba(215,180,106,0.28);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -59,10 +69,10 @@
       position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
       display: flex; align-items: center; justify-content: space-between;
       padding: 18px 40px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+      background: linear-gradient(to bottom, rgba(7,19,12,0.92), rgba(7,19,12,0.18));
       transition: background 0.4s;
     }
-    nav.scrolled { background: rgba(10,10,10,0.97); box-shadow: 0 2px 20px rgba(0,0,0,0.5); }
+    nav.scrolled { background: rgba(7,19,12,0.98); box-shadow: 0 2px 24px rgba(0,0,0,0.55); border-bottom: 1px solid rgba(215,180,106,0.18); }
     .nav-logo { display: flex; align-items: center; gap: 12px; text-decoration: none; }
     .nav-logo img { height: 44px; }
     .nav-logo span { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; color: var(--gold); letter-spacing: 0.15em; text-transform: uppercase; }
@@ -89,7 +99,7 @@
     .hero-slide.active { opacity: 1; }
     .hero-slide::after {
       content: ''; position: absolute; inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.1) 100%);
+      background: linear-gradient(90deg, rgba(7,19,12,0.96) 0%, rgba(16,36,24,0.86) 36%, rgba(58,38,24,0.45) 68%, rgba(7,19,12,0.28) 100%), linear-gradient(to top, rgba(7,19,12,0.92) 0%, rgba(7,19,12,0.34) 56%, rgba(7,19,12,0.22) 100%);
     }
     .hero-content {
       position: relative; z-index: 2; padding: 0 60px 80px;
@@ -315,6 +325,102 @@
     .lightbox-close { position: absolute; top: 20px; right: 30px; color: var(--cream); font-size: 2rem; cursor: pointer; background: none; border: none; }
 
     /* RESPONSIVE */
+
+
+    /* PALETA RAÍZES — verdes, castanhos, cobre e dourado com maior contraste */
+    body {
+      background:
+        radial-gradient(circle at 15% 8%, rgba(47,87,58,0.22), transparent 36%),
+        radial-gradient(circle at 85% 20%, rgba(182,106,60,0.13), transparent 32%),
+        linear-gradient(180deg, var(--green-deep) 0%, var(--earth) 54%, var(--dark) 100%);
+      color: var(--cream);
+    }
+    .intro { background: linear-gradient(135deg, var(--green-deep), var(--brown)); }
+    .amenidades { background: linear-gradient(180deg, var(--dark), var(--green-deep)); }
+    .arquitectura { background: linear-gradient(135deg, var(--green), var(--earth)); }
+    .minibus { background: linear-gradient(135deg, var(--brown), var(--green-deep)); }
+    .localizacao { background: linear-gradient(180deg, var(--green-deep), var(--dark-2)); }
+    .setubal { background: linear-gradient(135deg, var(--dark-3), var(--brown)); }
+    .troia { background: linear-gradient(135deg, var(--earth), var(--green)); }
+    .natureza { background: linear-gradient(180deg, var(--green-deep), var(--brown)); }
+    .tipologias { background: linear-gradient(135deg, var(--green), var(--earth)); }
+    .galeria { background: linear-gradient(180deg, var(--dark-2), var(--brown)); }
+    .contacto { background: linear-gradient(135deg, var(--green-deep), var(--earth)); }
+
+    .section-title, .hero-title, .tipo-spec .spec-value, .arq-feature h4, .minibus-route-text h4 {
+      color: var(--cream);
+      text-shadow: 0 2px 14px rgba(0,0,0,0.42);
+    }
+    .section-label, .hero-tag, .nav-logo span, .nav-links a, .section-title em, .hero-title em,
+    .tipo-info h3, .troia-item h4, .contacto-info-item h4, .footer-col h5 {
+      color: var(--gold);
+      text-shadow: 0 1px 10px rgba(0,0,0,0.45);
+    }
+    .section-text, .hero-subtitle, .arq-feature p, .minibus-route-text p, .setubal-highlight p,
+    .troia-item p, .tipo-info .tipo-desc, .contacto-info-item p, .form-group label,
+    .loc-stat .label, .tipo-tab, .tipo-spec .spec-label, .footer-brand p, .footer-col ul li a,
+    .footer-bottom p {
+      color: var(--text-light);
+    }
+    .footer-brand p, .footer-col ul li a, .footer-bottom p { color: var(--text-muted); }
+
+    .btn-primary, .nav-cta, .tipo-tab.active, .tipo-tab:hover, .intro-image-badge, .unidades-float {
+      background: linear-gradient(135deg, var(--gold), var(--copper-light));
+      color: #07130C;
+      box-shadow: 0 8px 28px rgba(182,106,60,0.24);
+    }
+    .btn-primary:hover, .nav-cta:hover, .unidades-float:hover {
+      background: linear-gradient(135deg, var(--gold-light), var(--copper));
+      color: #07130C;
+    }
+    .btn-outline {
+      border-color: rgba(215,180,106,0.62);
+      color: var(--cream);
+      background: rgba(7,19,12,0.34);
+      backdrop-filter: blur(3px);
+    }
+    .btn-outline:hover {
+      border-color: var(--gold-light);
+      color: var(--gold-light);
+      background: rgba(47,87,58,0.38);
+    }
+
+    .amenidade-card-overlay {
+      background: linear-gradient(to top, rgba(7,19,12,0.94) 0%, rgba(16,36,24,0.48) 58%, rgba(58,38,24,0.16) 100%);
+    }
+    .amenidade-card-label {
+      color: var(--gold-light);
+      text-shadow: 0 2px 12px rgba(0,0,0,0.72);
+    }
+    .minibus-route, .loc-stat, .troia-item, .tipo-tab, .tipo-spec,
+    .form-group input, .form-group select, .form-group textarea, #google_translate_element {
+      border-color: var(--border-earth);
+    }
+    .loc-stat, .troia-item, .minibus-route {
+      background: rgba(255,248,233,0.045);
+      box-shadow: inset 0 1px 0 rgba(255,248,233,0.04);
+    }
+    .arq-feature { border-left-color: var(--copper-light); }
+    .setubal-highlight-dot, .minibus-route-icon { background: var(--copper-light); color: var(--dark); }
+    .form-group input, .form-group select, .form-group textarea {
+      background: rgba(7,19,12,0.68);
+      color: var(--cream);
+    }
+    .form-group input::placeholder, .form-group textarea::placeholder { color: rgba(255,248,233,0.58); }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--gold-light);
+      box-shadow: 0 0 0 3px rgba(215,180,106,0.10);
+    }
+    .contacto-info-item a, .footer-bottom a { color: var(--gold-light); }
+    .contacto-info-item a:hover, .footer-col ul li a:hover { color: var(--cream); }
+    footer { background: linear-gradient(180deg, #07130C, #050805); }
+    .gold-line { background: linear-gradient(90deg, var(--gold), var(--copper)); }
+
+    @keyframes pulse-gold {
+      0%, 100% { box-shadow: 0 4px 24px rgba(215,180,106,0.55); opacity: 1; }
+      50% { box-shadow: 0 4px 42px rgba(182,106,60,0.82); opacity: 0.92; }
+    }
+
     @media (max-width: 1024px) {
       .intro-grid, .arq-grid, .minibus-grid, .loc-grid, .setubal-grid, .troia-grid, .natureza-grid, .contacto-grid { grid-template-columns: 1fr; gap: 40px; }
       .tipologias-tabs { flex-wrap: wrap; }
@@ -504,11 +610,11 @@ function showTipo(tipo, evt){document.querySelectorAll('.tipo-content').forEach(
 function openLightbox(src){document.getElementById('lightbox-img').src=src; document.getElementById('lightbox').classList.add('open'); document.body.style.overflow='hidden';}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open'); document.body.style.overflow='';}
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeLightbox(); if(e.key==='ArrowRight') apresSlide(1); if(e.key==='ArrowLeft') apresSlide(-1);});
-function toggleMenu(){const links=document.querySelector('.nav-links'); const cta=document.querySelector('.nav-cta'); if(links.style.display==='flex'){links.style.display='none'; if(cta) cta.style.display='none';} else {links.style.display='flex'; links.style.flexDirection='column'; links.style.position='absolute'; links.style.top='70px'; links.style.left='0'; links.style.right='0'; links.style.background='rgba(10,10,10,0.98)'; links.style.padding='20px 40px'; links.style.gap='16px'; if(cta){cta.style.display='block'; cta.style.margin='0 40px 20px';}}}
+function toggleMenu(){const links=document.querySelector('.nav-links'); const cta=document.querySelector('.nav-cta'); if(links.style.display==='flex'){links.style.display='none'; if(cta) cta.style.display='none';} else {links.style.display='flex'; links.style.flexDirection='column'; links.style.position='absolute'; links.style.top='70px'; links.style.left='0'; links.style.right='0'; links.style.background='rgba(7,19,12,0.98)'; links.style.padding='20px 40px'; links.style.gap='16px'; if(cta){cta.style.display='block'; cta.style.margin='0 40px 20px';}}}
 let apresCurrent=0; const apresTotal=17;
 function goApres(n){document.getElementById('thumb-'+apresCurrent).style.borderColor='transparent'; apresCurrent=(n+apresTotal)%apresTotal; document.getElementById('apres-img').src='apresentacao/slide-'+String(apresCurrent+1).padStart(2,'0')+'.webp'; document.getElementById('apres-img').alt='Apresentação Raízes - Slide '+(apresCurrent+1); document.getElementById('apres-counter').textContent=(apresCurrent+1)+' / '+apresTotal; document.getElementById('thumb-'+apresCurrent).style.borderColor='var(--gold)'; document.getElementById('thumb-'+apresCurrent).scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});}
 function apresSlide(dir){goApres(apresCurrent+dir);}
-function submitForm(e){e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'); btn.textContent='Pedido Enviado!'; btn.style.background='#2d7a2d'; const nome=e.target.nome.value; const tipologia=e.target.tipologia.value; const msg=encodeURIComponent(`Olá, sou ${nome} e tenho interesse no Raízes Fânzeres${tipologia ? ' - Tipologia ' + tipologia : ''}. Gostaria de receber mais informações.`); setTimeout(()=>window.open(`https://wa.me/351925708456?text=${msg}`,'_blank'),500); setTimeout(()=>{btn.textContent='Enviar Pedido de Informação'; btn.style.background=''; e.target.reset();},3000);}
+function submitForm(e){e.preventDefault(); const btn=e.target.querySelector('button[type="submit"]'); btn.textContent='Pedido Enviado!'; btn.style.background='#2F573A'; const nome=e.target.nome.value; const tipologia=e.target.tipologia.value; const msg=encodeURIComponent(`Olá, sou ${nome} e tenho interesse no Raízes Fânzeres${tipologia ? ' - Tipologia ' + tipologia : ''}. Gostaria de receber mais informações.`); setTimeout(()=>window.open(`https://wa.me/351925708456?text=${msg}`,'_blank'),500); setTimeout(()=>{btn.textContent='Enviar Pedido de Informação'; btn.style.background=''; e.target.reset();},3000);}
 </script>
 </body>
 </html>
