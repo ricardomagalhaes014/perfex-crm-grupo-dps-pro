@@ -1,0 +1,27 @@
+name: Deploy Simulador via FTP
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'simuladorportugal/**'
+
+jobs:
+  deploy-simulador:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy simuladorportugal via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: <LaTex>${{ secrets.FTP_HOST_SIMULADOR }}
+          username: $</LaTex>{{ secrets.FTP_USER_SIMULADOR }}
+          password: ${{ secrets.FTP_PASS_SIMULADOR }}
+          local-dir: ./simuladorportugal/
+          server-dir: /public_html/simuladorportugal/
+          protocol: ftp
+          port: 21
+          timeout: 60000
