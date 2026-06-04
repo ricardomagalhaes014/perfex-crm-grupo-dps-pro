@@ -1,4 +1,4 @@
-name: Deploy Simulador via FTP
+name: Deploy Simulador via SSH
 
 on:
   push:
@@ -14,14 +14,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy simuladorportugal via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: <LaTex>${{ secrets.FTP_HOST_SIMULADOR }}
-          username: $</LaTex>{{ secrets.FTP_USER_SIMULADOR }}
-          password: ${{ secrets.FTP_PASS_SIMULADOR }}
-          local-dir: ./simuladorportugal/
-          server-dir: /public_html/simuladorportugal/
-          protocol: ftp
-          port: 21
-          timeout: 60000
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "<LaTex>${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p "$</LaTex>{{ secrets.PORT }}" "<LaTex>${{ secrets.HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy simuladorportugal via rsync
+        run: |
+          rsync -avz \
+            --exclude='.git' \
+            --exclude='.github' \
+            -e "ssh -i ~/.ssh/id_ed25519 -p $</LaTex>{{ secrets.PORT }} -o StrictHostKeyChecking=no" \
+            ./simuladorportugal/ "<LaTex>${{ secrets.USER }}@$</LaTex>{{ secrets.HOST }}:/home/${{ secrets.USER }}/domains/dpsimobiliario.pt/public_html/simuladorportugal/"
