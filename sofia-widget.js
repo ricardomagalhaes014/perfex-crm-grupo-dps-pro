@@ -1,6 +1,6 @@
 /**
  * Sofia DPS Widget — Formulário Pré-Chamada ElevenLabs
- * Versão: 2.1
+ * Versão: 2.3
  * Posicionamento: acima do botão WhatsApp (bottom: 102px)
  * Formulário: Nome, Email, Telemóvel, Gestor (opcional)
  * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com, skymarine.grupo-dps.com
@@ -72,35 +72,38 @@
           style="position:fixed;bottom:102px;right:28px;z-index:99990;display:none;">
         </elevenlabs-convai>
 
-        <!-- Botão flutuante Sofia — posicionado acima do WhatsApp -->
+        <!-- Botão flutuante Sofia — pill horizontal estilo "Need help?" -->
         <div id="dps-sofia-btn"
-          style="position:fixed;bottom:102px;right:28px;z-index:99995;
-                 width:60px;height:60px;border-radius:50%;
-                 background:#C5A55A;
-                 box-shadow:0 4px 18px rgba(0,0,0,0.4);
-                 cursor:pointer;display:flex;align-items:center;justify-content:center;
-                 overflow:hidden;border:2px solid rgba(255,255,255,0.8);
-                 transition:transform 0.2s,box-shadow 0.2s;"
-          onmouseover="this.style.transform='scale(1.1)';this.style.boxShadow='0 6px 24px rgba(0,0,0,0.5)'"
-          onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 18px rgba(0,0,0,0.4)'"
+          style="position:fixed;bottom:102px;right:18px;z-index:99995;
+                 display:flex;align-items:center;gap:12px;
+                 background:#fff;border-radius:50px;
+                 padding:8px 16px 8px 8px;
+                 box-shadow:0 4px 20px rgba(0,0,0,0.18);
+                 cursor:pointer;
+                 transition:box-shadow 0.2s,transform 0.2s;
+                 font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+          onmouseover="this.style.boxShadow='0 6px 28px rgba(0,0,0,0.26)';this.style.transform='translateY(-2px)'"
+          onmouseout="this.style.boxShadow='0 4px 20px rgba(0,0,0,0.18)';this.style.transform='translateY(0)'"
           onclick="document.getElementById('dps-sofia-modal').style.display='flex'">
-          <img src="${AVATAR_URL}" alt="Sofia"
-               style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
-               onerror="this.style.display='none';document.getElementById('dps-sofia-fallback').style.display='flex'">
-          <div id="dps-sofia-fallback" style="display:none;width:100%;height:100%;align-items:center;justify-content:center;position:absolute;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
-          </div>
-        </div>
 
-        <!-- Tooltip -->
-        <div id="dps-sofia-tooltip"
-          style="position:fixed;bottom:170px;right:18px;z-index:99994;
-                 background:#1a1a1a;color:#C5A55A;
-                 padding:8px 14px;border-radius:20px;font-size:13px;font-weight:600;
-                 border:1px solid #C5A55A;white-space:nowrap;
-                 box-shadow:0 4px 12px rgba(0,0,0,0.3);
-                 opacity:0;transition:opacity 0.3s;pointer-events:none;">
-          💬 Falar com a Sofia
+          <!-- Foto da Sofia -->
+          <div style="width:46px;height:46px;border-radius:50%;overflow:hidden;flex-shrink:0;background:#C5A55A;">
+            <img src="${AVATAR_URL}" alt="Sofia"
+                 style="width:100%;height:100%;object-fit:cover;"
+                 onerror="this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;font-size:22px;\'>👩</div>'">
+          </div>
+
+          <!-- Texto + botão -->
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <span style="color:#222;font-size:13px;font-weight:600;white-space:nowrap;line-height:1.2;">Sou a Sofia, posso ajudar?</span>
+            <div style="display:flex;align-items:center;gap:6px;
+                        background:#111;border-radius:30px;
+                        padding:5px 12px;
+                        color:#fff;font-size:12px;font-weight:700;white-space:nowrap;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="white" style="flex-shrink:0;"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+              Pressione aqui
+            </div>
+          </div>
         </div>
 
         <!-- Modal do formulário -->
@@ -206,12 +209,7 @@
     document.body.appendChild(container);
 
     // Mostrar tooltip ao hover
-    var btn = document.getElementById('dps-sofia-btn');
-    var tooltip = document.getElementById('dps-sofia-tooltip');
-    if (btn && tooltip) {
-      btn.addEventListener('mouseenter', function() { tooltip.style.opacity = '1'; });
-      btn.addEventListener('mouseleave', function() { tooltip.style.opacity = '0'; });
-    }
+    // sem tooltip separado — integrado no pill
   }
 
   // Função de submissão do formulário
