@@ -3,7 +3,7 @@
  * Versão: 2.1
  * Posicionamento: acima do botão WhatsApp (bottom: 102px)
  * Formulário: Nome, Email, Telemóvel, Gestor (opcional)
- * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com
+ * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com, skymarine.grupo-dps.com
  */
 (function() {
   'use strict';
@@ -14,6 +14,7 @@
   var DOMAIN_AGENTS = {
     'laketowers.grupo-dps.com': 'agent_2901kv39h680esb9wtrx6yk291sw',
     'brasil.grupo-dps.com':     'agent_9501kv39wjr4etjre7118p0ejncp',
+    'skymarine.grupo-dps.com':  'agent_9201kv3brmpcehrtyhahfq214bq8',
     'dpsbrasil.grupo-dps.com':  'agent_9501kv39wjr4etjre7118p0ejncp',
   };
 
