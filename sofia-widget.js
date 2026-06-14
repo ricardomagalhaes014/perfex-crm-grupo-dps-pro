@@ -1,13 +1,23 @@
 /**
  * Sofia DPS Widget — Formulário Pré-Chamada ElevenLabs
- * Versão: 2.0
+ * Versão: 2.1
  * Posicionamento: acima do botão WhatsApp (bottom: 102px)
  * Formulário: Nome, Email, Telemóvel, Gestor (opcional)
+ * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com
  */
 (function() {
   'use strict';
 
-  // Mapa de agentes por página
+  var hostname = window.location.hostname;
+
+  // Mapa de agentes por domínio
+  var DOMAIN_AGENTS = {
+    'laketowers.grupo-dps.com': 'agent_2901kv39h680esb9wtrx6yk291sw',
+    'brasil.grupo-dps.com':     'agent_9501kv39wjr4etjre7118p0ejncp',
+    'dpsbrasil.grupo-dps.com':  'agent_9501kv39wjr4etjre7118p0ejncp',
+  };
+
+  // Mapa de agentes por página (para dpsimobiliario.pt)
   var AGENTS = {
     '/raizes':        'agent_7501kv0dj084fmbahfdafsfmgcfv',
     '/raizes/':       'agent_7501kv0dj084fmbahfdafsfmgcfv',
@@ -16,7 +26,7 @@
   };
 
   var path = window.location.pathname;
-  var AGENT_ID = AGENTS[path] || 'agent_0901kv03vzc4eqnvzt5758mms6t8';
+  var AGENT_ID = DOMAIN_AGENTS[hostname] || AGENTS[path] || 'agent_0901kv03vzc4eqnvzt5758mms6t8';
   var WEBHOOK_URL = 'https://dpsimobiliario.pt/elevenlabs_webhook.php?action=register_user';
   var AVATAR_URL = 'https://storage.googleapis.com/eleven-public-prod/DJNwVMnFnDMoqZmJlWBBTKIAHe23/voices/agent_avatar/sofia_dps_avatar.jpg';
 
