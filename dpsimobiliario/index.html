@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DPS Imobiliário | Imóveis Porto, Itapema, Porto Belo, Santa Catarina e Dubai</title>
+    <meta name="description" content="DPS Imobiliário - Especialistas em imóveis de investimento em Portugal, Brasil e Dubai. Lançamentos exclusivos, venda em planta e gestão de patrimônio imobiliário." />
+    <link rel="stylesheet" crossorigin href="/assets/index-DPS-colors-1776278565.css">
+  
+<style id="dps-fix">
+/* DPS FIX v4: Forcar contraste nos badges azuis + textos hero em dourado */
+</style>
+<script id="dps-fix-js">
+(function() {
+  var GOLD = '#C5A55A';
+
+  function applyFix() {
+    // Fix 1: Forcar cor clara nos containers azuis (badges, etc.)
+    var els = document.querySelectorAll('[class*="bg-[#0D1F3C]"]');
+    els.forEach(function(el) {
+      el.style.color = 'rgba(245, 242, 237, 0.9)';
+      var children = el.querySelectorAll('*');
+      children.forEach(function(child) {
+        if (!child.className || !child.className.includes('text-[#C5A55A]')) {
+          child.style.color = 'rgba(245, 242, 237, 0.9)';
+        }
+      });
+    });
+
+    // Fix 2: Forcar textos do hero em dourado
+    var heroSection = document.getElementById('hero');
+    if (heroSection) {
+      // "INVESTIMENTOS IMOBILIÁRIOS PREMIUM" - já tem text-[#C5A55A] mas pode ser sobrescrito
+      var premiumEl = heroSection.querySelector('p[class*="tracking-"]');
+      if (premiumEl) premiumEl.style.color = GOLD;
+
+      // Título principal h1 - "Estruturamos investimento, não vendemos casas"
+      var h1 = heroSection.querySelector('h1');
+      if (h1) {
+        h1.style.color = GOLD;
+        // Garantir que todos os filhos também ficam dourados
+        var h1children = h1.querySelectorAll('*');
+        h1children.forEach(function(c) { c.style.color = GOLD; });
+      }
+
+      // Subtítulo p após h1
+      var paras = heroSection.querySelectorAll('p');
+      paras.forEach(function(p) {
+        // Só o subtítulo (não o "INVESTIMENTOS...")
+        if (p.className && p.className.includes('text-lg')) {
+          p.style.color = 'rgba(197, 165, 90, 0.85)';
+        }
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', applyFix);
+  setTimeout(applyFix, 300);
+  setTimeout(applyFix, 800);
+  setTimeout(applyFix, 1500);
+  var observer = new MutationObserver(function() { setTimeout(applyFix, 100); });
+  document.addEventListener('DOMContentLoaded', function() {
+    observer.observe(document.body, {childList: true, subtree: true});
+  });
+})();
+</script>
+<script id="dps-bh-inject">
+(function() {
+  function injectBH() {
+    // 1. Adicionar card Belo Horizonte ao lado do Lake Towers
+    var allLinks = Array.from(document.querySelectorAll('a'));
+    var lakeLink = allLinks.find(function(a) { return a.textContent.includes('Lake Towers'); });
+    if (lakeLink && !document.getElementById('bh-card-injected')) {
+      var container = lakeLink.parentElement;
+      var bhCard = document.createElement('a');
+      bhCard.id = 'bh-card-injected';
+      bhCard.href = 'https://dpsimobiliario.pt/belohorizonte';
+      bhCard.target = '_blank';
+      bhCard.rel = 'noopener noreferrer';
+      bhCard.className = lakeLink.className;
+      bhCard.style.textDecoration = 'none';
+      bhCard.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="Belo Horizonte Residences" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">Belo Horizonte Residences</h4><p class="text-[#666] text-xs mb-2">Setubal, Portugal</p><p class="text-[#C5A55A] font-semibold text-sm">Desde 179.900 \u20ac</p></div></div>';
+      container.appendChild(bhCard);
+    }
+
+    // 2. Tornar o banner Portugal clicável para portugal.php
+    var ptHeadings = Array.from(document.querySelectorAll('h2, h3, h4'));
+    var ptH = ptHeadings.find(function(h) { return h.textContent.includes('\uD83C\uDDF5\uD83C\uDDF9'); });
+    if (ptH) {
+      var banner = ptH.closest('.relative.h-64, .relative.h-80, [class*="relative h-64"], [class*="relative h-80"]');
+      if (!banner) banner = ptH.closest('[class*="relative"][class*="overflow-hidden"]');
+      if (banner && !banner.dataset.bhLinked) {
+        banner.dataset.bhLinked = '1';
+        banner.style.cursor = 'pointer';
+        banner.addEventListener('click', function() {
+          window.open('https://dpsimobiliario.pt/portugal.php', '_blank');
+        });
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(injectBH, 800);
+    setTimeout(injectBH, 1500);
+    setTimeout(injectBH, 3000);
+  });
+  setTimeout(injectBH, 1000);
+  setTimeout(injectBH, 2000);
+  setTimeout(injectBH, 4000);
+})();
+</script>
+<!-- DPS FIX: Menu dourado inline -->
+<style>
+/* Todos os links do menu de navegação em dourado */
+nav[class*="fixed"] a[class*="text-gray-900"],
+nav[class*="fixed"] a[class*="text-[#F5F2ED]"] {
+  color: #c5a55a !important;
+}
+nav[class*="fixed"] a[class*="text-gray-900"]:hover,
+nav[class*="fixed"] a[class*="text-[#F5F2ED]"]:hover {
+  color: #e8d5a0 !important;
+}
+</style>
+<!-- FIM DPS FIX: Menu dourado inline -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" crossorigin src="/assets/index-DPS-v5-1776373017.js"></script>
+<!-- Assistente Virtual Sofia - Agente Geral DPS -->
+<script src="https://cdn.jsdelivr.net/gh/ricardomagalhaes014/perfex-crm-grupo-dps-pro@main/sofia-widget.js"></script>
+  </body>
+</html>
