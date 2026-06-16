@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sofia Outbound — Histórico de Chamadas</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f4f6f9;
+            color: #333;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #fff;
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header-icon {
+            width: 48px; height: 48px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+        }
+        .header h1 { font-size: 22px; font-weight: 700; }
+        .header p  { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+        .header-right { margin-left: auto; font-size: 12px; opacity: 0.6; text-align: right; }
+
+        .stats {
+            display: flex; gap: 16px;
+            padding: 20px 32px;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px 24px;
+            min-width: 160px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            border-left: 4px solid #0f3460;
+        }
+        .stat-card.green  { border-left-color: #28a745; }
+        .stat-card.orange { border-left-color: #fd7e14; }
+        .stat-card .num { font-size: 28px; font-weight: 700; color: #0f3460; }
+        .stat-card.green  .num { color: #28a745; }
+        .stat-card.orange .num { color: #fd7e14; }
+        .stat-card .lbl { font-size: 12px; color: #888; margin-top: 2px; }
+
+        .container { padding: 0 32px 32px; }
+
+        .filters {
+            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+        }
+        .filters input, .filters select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .filters input { width: 240px; }
+        .btn-refresh {
+            margin-left: auto;
+            background: #0f3460; color: #fff;
+            border: none; border-radius: 6px;
+            padding: 8px 16px; font-size: 13px;
+            cursor: pointer;
+        }
+        .btn-refresh:hover { background: #16213e; }
+
+        table {
+            width: 100%; border-collapse: collapse;
+            background: #fff; border-radius: 10px;
+            overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        thead th {
+            background: #0f3460; color: #fff;
+            padding: 12px 14px; font-size: 12px;
+            text-align: left; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        tbody tr { border-bottom: 1px solid #f0f0f0; }
+        tbody tr:hover { background: #f8f9ff; }
+        tbody td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
+        .conv-id { font-family: monospace; font-size: 11px; color: #888; }
+        .agent-badge {
+            display: inline-block;
+            padding: 2px 8px; border-radius: 12px;
+            font-size: 11px; font-weight: 600;
+        }
+        .agent-bh     { background: #e3f2fd; color: #1565c0; }
+        .agent-raizes { background: #f3e5f5; color: #6a1b9a; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px; border-radius: 12px;
+            font-size: 12px; font-weight: 600; color: #fff;
+        }
+
+        .loading {
+            text-align: center; padding: 48px; color: #888; font-size: 14px;
+        }
+        .loading .spinner {
+            display: inline-block; width: 32px; height: 32px;
+            border: 3px solid #ddd; border-top-color: #0f3460;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-box {
+            background: #fff3cd; border: 1px solid #ffc107;
+            border-radius: 8px; padding: 16px; margin-bottom: 16px;
+            font-size: 13px; color: #856404;
+        }
+
+        .footer { text-align: center; padding: 16px; font-size: 11px; color: #bbb; }
+
+        @media (max-width: 768px) {
+            .header, .stats, .container { padding-left: 16px; padding-right: 16px; }
+            .filters input { width: 100%; }
+            table { font-size: 12px; }
+            thead th:nth-child(8) { display: none; }
+            tbody td:nth-child(8) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-icon">📞</div>
+    <div>
+        <h1>Sofia Outbound — Histórico de Chamadas</h1>
+        <p>Chamadas automáticas realizadas pelos agentes Sofia</p>
+    </div>
+    <div class="header-right" id="updateTime">A carregar...</div>
+</div>
+
+<div class="stats">
+    <div class="stat-card">
+        <div class="num" id="statTotal">—</div>
+        <div class="lbl">Total de Chamadas</div>
+    </div>
+    <div class="stat-card green">
+        <div class="num" id="statConcluidas">—</div>
+        <div class="lbl">Concluídas</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="num" id="statHoje">—</div>
+        <div class="lbl">Hoje</div>
+    </div>
+    <div class="stat-card">
+        <div class="num" id="statOutras">—</div>
+        <div class="lbl">Não Atendidas / Outras</div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="filters">
+        <input type="text" id="searchInput" placeholder="🔍  Pesquisar cliente, telefone..." oninput="filterTable()">
+        <select id="agentFilter" onchange="filterTable()">
+            <option value="">Todos os Agentes</option>
+            <option value="Belo Horizonte">Belo Horizonte</option>
+            <option value="Raízes">Raízes</option>
+        </select>
+        <select id="statusFilter" onchange="filterTable()">
+            <option value="">Todos os Status</option>
+            <option value="done">Concluída</option>
+            <option value="initiated">Iniciada</option>
+            <option value="failed">Falhou</option>
+        </select>
+        <button class="btn-refresh" onclick="loadData()">↻ Atualizar</button>
+    </div>
+
+    <div id="tableArea">
+        <div class="loading">
+            <div class="spinner"></div><br>
+            A carregar chamadas...
+        </div>
+    </div>
+</div>
+
+<div class="footer">Sofia Outbound System — Grupo DPS &copy; 2026</div>
+
+<script>
+const API_KEY = "sk_c414c588b881d8e7a802ff9d9192ab671392c51eeb0e7afc";
+const AGENT_BH     = "agent_9901kv1pvewveh9s9ebs1rys274k";
+const AGENT_RAIZES = "agent_4301kv1pv8g8e259bbdyfk7mrefb";
+
+let allCalls = [];
+
+function formatDate(ts) {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleDateString('pt-PT') + ' ' + d.toLocaleTimeString('pt-PT');
+}
+
+function formatDuration(secs) {
+    if (!secs || secs === 0) return '—';
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function statusBadge(status) {
+    const map = {
+        'done':      { label: 'Concluída',    color: '#28a745' },
+        'processing':{ label: 'Em curso',     color: '#007bff' },
+        'failed':    { label: 'Falhou',       color: '#dc3545' },
+        'initiated': { label: 'Iniciada',     color: '#6c757d' },
+        'no-answer': { label: 'Não Atendeu',  color: '#fd7e14' },
+        'busy':      { label: 'Ocupado',      color: '#ffc107' },
+    };
+    const s = (status || '').toLowerCase();
+    const info = map[s] || { label: status || '—', color: '#6c757d' };
+    return `<span class="status-badge" style="background:${info.color}">${info.label}</span>`;
+}
+
+async function fetchConversations(agentId, agentLabel) {
+    try {
+        const res = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversations?agent_id=${agentId}&page_size=100`,
+            { headers: { 'xi-api-key': API_KEY } }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.conversations || []).map(c => ({ ...c, agent_label: agentLabel }));
+    } catch(e) {
+        console.error('Erro ao carregar conversas:', e);
+        return [];
+    }
+}
+
+function renderTable(calls) {
+    if (calls.length === 0) {
+        return '<div class="loading">Nenhuma chamada registada ainda.</div>';
+    }
+
+    const today = new Date().toLocaleDateString('pt-PT');
+    let total = calls.length;
+    let concluidas = calls.filter(c => (c.status||'').toLowerCase() === 'done').length;
+    let hoje = calls.filter(c => {
+        const ts = c.start_time_unix_secs || (c.metadata && c.metadata.start_time_unix_secs) || 0;
+        return new Date(ts * 1000).toLocaleDateString('pt-PT') === today;
+    }).length;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statConcluidas').textContent = concluidas;
+    document.getElementById('statHoje').textContent = hoje;
+    document.getElementById('statOutras').textContent = total - concluidas;
+
+    let rows = '';
+    calls.forEach((conv, i) => {
+        const ts       = conv.start_time_unix_secs || (conv.metadata && conv.metadata.start_time_unix_secs) || 0;
+        const duration = conv.call_duration_secs || (conv.metadata && conv.metadata.call_duration_secs) || 0;
+        const phone    = (conv.metadata && conv.metadata.phone_call && conv.metadata.phone_call.external_number)
+                      || (conv.conversation_initiation_client_data && conv.conversation_initiation_client_data.dynamic_variables && conv.conversation_initiation_client_data.dynamic_variables.lead_phone)
+                      || (conv.user_id && conv.user_id.startsWith('+') ? conv.user_id : '—');
+        const name     = (conv.conversation_initiation_client_data && conv.conversation_initiation_client_data.dynamic_variables && conv.conversation_initiation_client_data.dynamic_variables.lead_name)
+                      || '—';
+        const status   = conv.status || '—';
+        const agent    = conv.agent_label;
+        const convId   = conv.conversation_id || '';
+        const agentClass = agent === 'Raízes' ? 'agent-raizes' : 'agent-bh';
+
+        rows += `<tr data-agent="${agent}" data-status="${status.toLowerCase()}">
+            <td>${total - i}</td>
+            <td>${formatDate(ts)}</td>
+            <td><strong>${name}</strong></td>
+            <td>${phone}</td>
+            <td><span class="agent-badge ${agentClass}">${agent}</span></td>
+            <td>${formatDuration(duration)}</td>
+            <td>${statusBadge(status)}</td>
+            <td class="conv-id">${convId.substring(0,24)}...</td>
+        </tr>`;
+    });
+
+    return `<table id="callTable">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Data / Hora</th>
+                <th>Cliente</th>
+                <th>Telefone</th>
+                <th>Agente</th>
+                <th>Duração</th>
+                <th>Status</th>
+                <th>ID Conversa</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function loadData() {
+    document.getElementById('tableArea').innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div><br>
+            A carregar chamadas...
+        </div>`;
+
+    document.getElementById('statTotal').textContent = '—';
+    document.getElementById('statConcluidas').textContent = '—';
+    document.getElementById('statHoje').textContent = '—';
+    document.getElementById('statOutras').textContent = '—';
+
+    const [bhCalls, raizesCalls] = await Promise.all([
+        fetchConversations(AGENT_BH, 'Belo Horizonte'),
+        fetchConversations(AGENT_RAIZES, 'Raízes')
+    ]);
+
+    allCalls = [...bhCalls, ...raizesCalls].sort((a, b) => {
+        const ta = a.start_time_unix_secs || (a.metadata && a.metadata.start_time_unix_secs) || 0;
+        const tb = b.start_time_unix_secs || (b.metadata && b.metadata.start_time_unix_secs) || 0;
+        return tb - ta;
+    });
+
+    document.getElementById('tableArea').innerHTML = renderTable(allCalls);
+    document.getElementById('updateTime').innerHTML = `Atualizado em<br>${new Date().toLocaleString('pt-PT')}`;
+
+    filterTable();
+}
+
+function filterTable() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const agent  = document.getElementById('agentFilter').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value.toLowerCase();
+    const rows   = document.querySelectorAll('#callTable tbody tr');
+    rows.forEach(row => {
+        const text      = row.innerText.toLowerCase();
+        const rowAgent  = (row.dataset.agent || '').toLowerCase();
+        const rowStatus = (row.dataset.status || '').toLowerCase();
+        const show = (!search || text.includes(search))
+                  && (!agent  || rowAgent.includes(agent))
+                  && (!status || rowStatus.includes(status));
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// Carregar dados ao abrir a página
+loadData();
+
+// Auto-atualizar a cada 2 minutos
+setInterval(loadData, 120000);
+</script>
+
+</body>
+</html>
