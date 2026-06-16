@@ -471,54 +471,6 @@
       </div>
     </div>
 
-    <!-- GONDOMAR GREEN -->
-    <div class="emp-card" id="card-gg" onclick="selectEmp('gg')">
-      <div class="emp-card-badge" style="background:rgba(34,197,94,0.2);color:#4ade80;">Novo</div>
-      <div class="emp-card-name">Gondomar Green</div>
-      <div class="emp-card-loc">📍 Gondomar, Porto</div>
-      <div class="emp-card-stats">
-        <div class="emp-stat"><strong>T3–T4</strong> Tipologias</div>
-        <div class="emp-stat"><strong>5</strong> Pisos</div>
-        <div class="emp-stat"><strong id="gg-disp-count">26</strong> Disponíveis</div>
-      </div>
-    </div>
-
-    <!-- GAIA PREMIUM -->
-    <div class="emp-card" id="card-gp" onclick="selectEmp('gp')">
-      <div class="emp-card-badge" style="background:rgba(139,92,246,0.2);color:#a78bfa;">Novo</div>
-      <div class="emp-card-name">Gaia Premium</div>
-      <div class="emp-card-loc">📍 Gaia, Porto</div>
-      <div class="emp-card-stats">
-        <div class="emp-stat"><strong>T1–T3</strong> Tipologias</div>
-        <div class="emp-stat"><strong>7</strong> Pisos</div>
-        <div class="emp-stat"><strong id="gp-disp-count">42</strong> Disponíveis</div>
-      </div>
-    </div>
-
-    <!-- SÃO JOÃO PREMIUM -->
-    <div class="emp-card" id="card-sjp" onclick="selectEmp('sjp')">
-      <div class="emp-card-badge" style="background:rgba(251,191,36,0.2);color:#fbbf24;">Novo</div>
-      <div class="emp-card-name">São João Premium</div>
-      <div class="emp-card-loc">📍 São João da Madeira</div>
-      <div class="emp-card-stats">
-        <div class="emp-stat"><strong>T1–T4</strong> Tipologias</div>
-        <div class="emp-stat"><strong>6</strong> Pisos</div>
-        <div class="emp-stat"><strong id="sjp-disp-count">18</strong> Disponíveis</div>
-      </div>
-    </div>
-
-    <!-- TROFA PREMIUM -->
-    <div class="emp-card" id="card-tp" onclick="selectEmp('tp')">
-      <div class="emp-card-badge" style="background:rgba(239,68,68,0.2);color:#f87171;">Novo</div>
-      <div class="emp-card-name">Trofa Premium</div>
-      <div class="emp-card-loc">📍 Trofa, Braga</div>
-      <div class="emp-card-stats">
-        <div class="emp-stat"><strong>T1–T3</strong> Tipologias</div>
-        <div class="emp-stat"><strong>5</strong> Pisos</div>
-        <div class="emp-stat"><strong id="tp-disp-count">16</strong> Disponíveis</div>
-      </div>
-    </div>
-
     <!-- FILTROS RAÍZES -->
     <div class="filters" id="raizes-filters" style="display:none;">
       <h2>2. Filtros</h2>
@@ -574,154 +526,6 @@
           <button class="filter-btn" onclick="setRaizesFilter('orientacao','Nascente',this)">Nascente</button>
           <button class="filter-btn" onclick="setRaizesFilter('orientacao','Poente',this)">Poente</button>
         </div>
-      </div>
-    </div>
-
-    <!-- FILTROS GONDOMAR GREEN -->
-    <div class="filters" id="gg-filters" style="display:none;">
-      <h2>2. Filtros</h2>
-      <div class="filter-group">
-        <span class="filter-label">Tipologia</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setGgFilter('tipo','all',this)">Todas</button>
-          <button class="filter-btn" onclick="setGgFilter('tipo','T3',this)">T3</button>
-          <button class="filter-btn" onclick="setGgFilter('tipo','T4',this)">T4</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Estado</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setGgFilter('status','all',this)">Todos</button>
-          <button class="filter-btn" onclick="setGgFilter('status','Disponível',this)">Disponível</button>
-          <button class="filter-btn" onclick="setGgFilter('status','Reservado',this)">Reservado</button>
-          <button class="filter-btn" onclick="setGgFilter('status','Vendido',this)">Vendido</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Piso</span>
-        <select class="filter-select" id="ggFilterPiso" onchange="applyGgFilters()">
-          <option value="all">Todos os pisos</option>
-          <option value="1">Piso 1</option>
-          <option value="2">Piso 2</option>
-          <option value="3">Piso 3</option>
-          <option value="4">Piso 4</option>
-          <option value="5">Piso 5</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- FILTROS GAIA PREMIUM -->
-    <div class="filters" id="gp-filters" style="display:none;">
-      <h2>2. Filtros</h2>
-      <div class="filter-group">
-        <span class="filter-label">Bloco</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setGpFilter('bloco','all',this)">Todos</button>
-          <button class="filter-btn" onclick="setGpFilter('bloco','A',this)">Bloco A</button>
-          <button class="filter-btn" onclick="setGpFilter('bloco','B',this)">Bloco B</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Tipologia</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setGpFilter('tipo','all',this)">Todas</button>
-          <button class="filter-btn" onclick="setGpFilter('tipo','T1',this)">T1</button>
-          <button class="filter-btn" onclick="setGpFilter('tipo','T2',this)">T2</button>
-          <button class="filter-btn" onclick="setGpFilter('tipo','T3',this)">T3</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Estado</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setGpFilter('status','all',this)">Todos</button>
-          <button class="filter-btn" onclick="setGpFilter('status','Disponível',this)">Disponível</button>
-          <button class="filter-btn" onclick="setGpFilter('status','Reservado',this)">Reservado</button>
-          <button class="filter-btn" onclick="setGpFilter('status','Vendido',this)">Vendido</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Piso</span>
-        <select class="filter-select" id="gpFilterPiso" onchange="applyGpFilters()">
-          <option value="all">Todos os pisos</option>
-          <option value="0">R/C (0)</option>
-          <option value="1">Piso 1</option>
-          <option value="2">Piso 2</option>
-          <option value="3">Piso 3</option>
-          <option value="4">Piso 4</option>
-          <option value="5">Piso 5</option>
-          <option value="6">Piso 6</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- FILTROS SÃO JOÃO PREMIUM -->
-    <div class="filters" id="sjp-filters" style="display:none;">
-      <h2>2. Filtros</h2>
-      <div class="filter-group">
-        <span class="filter-label">Tipologia</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setSjpFilter('tipo','all',this)">Todas</button>
-          <button class="filter-btn" onclick="setSjpFilter('tipo','T1',this)">T1</button>
-          <button class="filter-btn" onclick="setSjpFilter('tipo','T2',this)">T2</button>
-          <button class="filter-btn" onclick="setSjpFilter('tipo','T3',this)">T3</button>
-          <button class="filter-btn" onclick="setSjpFilter('tipo','T4',this)">T4</button>
-          <button class="filter-btn" onclick="setSjpFilter('tipo','Loja',this)">Loja</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Estado</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setSjpFilter('status','all',this)">Todos</button>
-          <button class="filter-btn" onclick="setSjpFilter('status','Disponível',this)">Disponível</button>
-          <button class="filter-btn" onclick="setSjpFilter('status','Reservado',this)">Reservado</button>
-          <button class="filter-btn" onclick="setSjpFilter('status','Vendido',this)">Vendido</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Piso</span>
-        <select class="filter-select" id="sjpFilterPiso" onchange="applySjpFilters()">
-          <option value="all">Todos os pisos</option>
-          <option value="0">R/C (0)</option>
-          <option value="1">Piso 1</option>
-          <option value="2">Piso 2</option>
-          <option value="3">Piso 3</option>
-          <option value="4">Piso 4</option>
-          <option value="5">Piso 5</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- FILTROS TROFA PREMIUM -->
-    <div class="filters" id="tp-filters" style="display:none;">
-      <h2>2. Filtros</h2>
-      <div class="filter-group">
-        <span class="filter-label">Tipologia</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setTpFilter('tipo','all',this)">Todas</button>
-          <button class="filter-btn" onclick="setTpFilter('tipo','T1',this)">T1</button>
-          <button class="filter-btn" onclick="setTpFilter('tipo','T3',this)">T3</button>
-          <button class="filter-btn" onclick="setTpFilter('tipo','Loja',this)">Loja</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Estado</span>
-        <div class="filter-btns">
-          <button class="filter-btn all active" onclick="setTpFilter('status','all',this)">Todos</button>
-          <button class="filter-btn" onclick="setTpFilter('status','Disponível',this)">Disponível</button>
-          <button class="filter-btn" onclick="setTpFilter('status','Reservado',this)">Reservado</button>
-          <button class="filter-btn" onclick="setTpFilter('status','Vendido',this)">Vendido</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="filter-label">Piso</span>
-        <select class="filter-select" id="tpFilterPiso" onchange="applyTpFilters()">
-          <option value="all">Todos os pisos</option>
-          <option value="1">Piso 1</option>
-          <option value="2">Piso 2</option>
-          <option value="3">Piso 3</option>
-          <option value="4">Piso 4</option>
-          <option value="5">Piso 5</option>
-        </select>
       </div>
     </div>
 
@@ -890,263 +694,6 @@
         </div>
       </div>
     </div>
-    <!-- GONDOMAR GREEN TABLE -->
-    <div id="gg-section" style="display:none;">
-      <div class="stats-bar" id="ggStatsBar"></div>
-      <div class="table-header">
-        <div class="table-title" style="display:flex;align-items:center;gap:16px;">
-          <span>Gondomar Green — <strong id="ggCountLabel">0</strong> unidades</span>
-          <button class="edit-mode-btn" id="ggEditBtn" onclick="toggleEditMode('gg')">✏️ Modo Edição</button>
-        </div>
-        <input type="text" class="search-box" placeholder="🔍 Pesquisar fracção..." id="ggSearchBox" oninput="applyGgFilters()">
-      </div>
-      <div style="overflow-x:auto;">
-        <table id="ggTable">
-          <thead>
-            <tr>
-              <th>Fracção</th>
-              <th>Piso</th>
-              <th>Tipologia</th>
-              <th>ABC (m²)</th>
-              <th>Varanda (m²)</th>
-              <th>Área Total (m²)</th>
-              <th>Orientação</th>
-              <th>Preço (€)</th>
-              <th>Estado</th>
-              <th>Simular</th>
-            </tr>
-          </thead>
-          <tbody id="ggTableBody"></tbody>
-        </table>
-      </div>
-      <div id="ggDetailPanel" style="display:none;margin:24px;background:var(--dark);border:1px solid var(--border);padding:28px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-          <div>
-            <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#4ade80;margin-bottom:6px;">GONDOMAR GREEN — PLANO DE PAGAMENTO</div>
-            <div style="font-size:1.3rem;font-weight:700;" id="ggDetailTitle">Fracção —</div>
-            <div style="color:var(--gray);font-size:0.85rem;margin-top:4px;" id="ggDetailSubtitle">Gondomar · Porto</div>
-          </div>
-          <button onclick="closeGgDetail()" style="background:none;border:1px solid var(--border);color:var(--gray);padding:6px 14px;cursor:pointer;font-size:0.8rem;">✕ Fechar</button>
-        </div>
-        <div class="unit-info-grid" id="ggUnitInfoGrid" style="margin-bottom:24px;"></div>
-        <div class="sim-section" style="margin-bottom:24px;">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:#4ade80;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="ggPagamentoGrid"></div>
-        </div>
-        <div class="sim-section">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simulação de Cedência de Posição</h3>
-          <div class="sim-grid">
-            <div class="sim-field"><label>Preço de Compra (€)</label><input type="number" id="ggSimPreco" readonly style="opacity:0.7;"></div>
-            <div class="sim-field"><label>Valorização Anual Estimada (%)</label><input type="number" id="ggSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularGg()"></div>
-            <div class="sim-field"><label>Número de Meses para Venda</label><input type="number" id="ggSimMeses" value="12" min="1" max="120" oninput="calcularGg()"></div>
-            <div class="sim-field"><label>Regime Fiscal</label><select id="ggSimFiscal" onchange="calcularGg()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">Não Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
-          </div>
-          <div id="gg-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="ggResultGrid">
-            <div class="result-box"><div class="result-label">Preço de Compra</div><div class="result-val" id="gg-res-preco">—</div></div>
-            <div class="result-box"><div class="result-label">Valor de Cedência Estimado</div><div class="result-val" id="gg-res-cessao">—</div></div>
-            <div class="result-box"><div class="result-label">Mais-Valia Bruta</div><div class="result-val" id="gg-res-mais-valia">—</div></div>
-            <div class="result-box" style="border-color:rgba(197,165,90,0.4);"><div class="result-label">💰 Capital Investido até à Venda</div><div class="result-val" id="gg-res-investido" style="color:var(--gold)">—</div></div>
-            <div class="result-box"><div class="result-label">ROI (Retorno sobre Investimento)</div><div class="result-val" id="gg-res-roi">—</div></div>
-            <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="gg-res-meses">—</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- GAIA PREMIUM TABLE -->
-    <div id="gp-section" style="display:none;">
-      <div class="stats-bar" id="gpStatsBar"></div>
-      <div class="table-header">
-        <div class="table-title" style="display:flex;align-items:center;gap:16px;">
-          <span>Gaia Premium — <strong id="gpCountLabel">0</strong> unidades</span>
-          <button class="edit-mode-btn" id="gpEditBtn" onclick="toggleEditMode('gp')">✏️ Modo Edição</button>
-        </div>
-        <input type="text" class="search-box" placeholder="🔍 Pesquisar fracção..." id="gpSearchBox" oninput="applyGpFilters()">
-      </div>
-      <div style="overflow-x:auto;">
-        <table id="gpTable">
-          <thead>
-            <tr>
-              <th>Fracção</th>
-              <th>Bloco</th>
-              <th>Piso</th>
-              <th>Tipologia</th>
-              <th>ABC (m²)</th>
-              <th>Varanda (m²)</th>
-              <th>Área Total (m²)</th>
-              <th>Orientação</th>
-              <th>Preço (€)</th>
-              <th>Estado</th>
-              <th>Simular</th>
-            </tr>
-          </thead>
-          <tbody id="gpTableBody"></tbody>
-        </table>
-      </div>
-      <div id="gpDetailPanel" style="display:none;margin:24px;background:var(--dark);border:1px solid var(--border);padding:28px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-          <div>
-            <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#a78bfa;margin-bottom:6px;">GAIA PREMIUM — PLANO DE PAGAMENTO</div>
-            <div style="font-size:1.3rem;font-weight:700;" id="gpDetailTitle">Fracção —</div>
-            <div style="color:var(--gray);font-size:0.85rem;margin-top:4px;" id="gpDetailSubtitle">Gaia · Porto</div>
-          </div>
-          <button onclick="closeGpDetail()" style="background:none;border:1px solid var(--border);color:var(--gray);padding:6px 14px;cursor:pointer;font-size:0.8rem;">✕ Fechar</button>
-        </div>
-        <div class="unit-info-grid" id="gpUnitInfoGrid" style="margin-bottom:24px;"></div>
-        <div class="sim-section" style="margin-bottom:24px;">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:#a78bfa;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="gpPagamentoGrid"></div>
-        </div>
-        <div class="sim-section">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simulação de Cedência de Posição</h3>
-          <div class="sim-grid">
-            <div class="sim-field"><label>Preço de Compra (€)</label><input type="number" id="gpSimPreco" readonly style="opacity:0.7;"></div>
-            <div class="sim-field"><label>Valorização Anual Estimada (%)</label><input type="number" id="gpSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularGp()"></div>
-            <div class="sim-field"><label>Número de Meses para Venda</label><input type="number" id="gpSimMeses" value="12" min="1" max="120" oninput="calcularGp()"></div>
-            <div class="sim-field"><label>Regime Fiscal</label><select id="gpSimFiscal" onchange="calcularGp()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">Não Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
-          </div>
-          <div id="gp-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
-            <div class="result-box"><div class="result-label">Preço de Compra</div><div class="result-val" id="gp-res-preco">—</div></div>
-            <div class="result-box"><div class="result-label">Valor de Cedência Estimado</div><div class="result-val" id="gp-res-cessao">—</div></div>
-            <div class="result-box"><div class="result-label">Mais-Valia Bruta</div><div class="result-val" id="gp-res-mais-valia">—</div></div>
-            <div class="result-box" style="border-color:rgba(197,165,90,0.4);"><div class="result-label">💰 Capital Investido até à Venda</div><div class="result-val" id="gp-res-investido" style="color:var(--gold)">—</div></div>
-            <div class="result-box"><div class="result-label">ROI (Retorno sobre Investimento)</div><div class="result-val" id="gp-res-roi">—</div></div>
-            <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="gp-res-meses">—</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- SÃO JOÃO PREMIUM TABLE -->
-    <div id="sjp-section" style="display:none;">
-      <div class="stats-bar" id="sjpStatsBar"></div>
-      <div class="table-header">
-        <div class="table-title" style="display:flex;align-items:center;gap:16px;">
-          <span>São João Premium — <strong id="sjpCountLabel">0</strong> unidades</span>
-          <button class="edit-mode-btn" id="sjpEditBtn" onclick="toggleEditMode('sjp')">✏️ Modo Edição</button>
-        </div>
-        <input type="text" class="search-box" placeholder="🔍 Pesquisar fracção..." id="sjpSearchBox" oninput="applySjpFilters()">
-      </div>
-      <div style="overflow-x:auto;">
-        <table id="sjpTable">
-          <thead>
-            <tr>
-              <th>Fracção</th>
-              <th>Piso</th>
-              <th>Tipologia</th>
-              <th>ABC (m²)</th>
-              <th>Varanda (m²)</th>
-              <th>Área Total (m²)</th>
-              <th>Orientação</th>
-              <th>Preço (€)</th>
-              <th>Estado</th>
-              <th>Simular</th>
-            </tr>
-          </thead>
-          <tbody id="sjpTableBody"></tbody>
-        </table>
-      </div>
-      <div id="sjpDetailPanel" style="display:none;margin:24px;background:var(--dark);border:1px solid var(--border);padding:28px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-          <div>
-            <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#fbbf24;margin-bottom:6px;">SÃO JOÃO PREMIUM — PLANO DE PAGAMENTO</div>
-            <div style="font-size:1.3rem;font-weight:700;" id="sjpDetailTitle">Fracção —</div>
-            <div style="color:var(--gray);font-size:0.85rem;margin-top:4px;" id="sjpDetailSubtitle">São João da Madeira</div>
-          </div>
-          <button onclick="closeSjpDetail()" style="background:none;border:1px solid var(--border);color:var(--gray);padding:6px 14px;cursor:pointer;font-size:0.8rem;">✕ Fechar</button>
-        </div>
-        <div class="unit-info-grid" id="sjpUnitInfoGrid" style="margin-bottom:24px;"></div>
-        <div class="sim-section" style="margin-bottom:24px;">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:#fbbf24;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="sjpPagamentoGrid"></div>
-        </div>
-        <div class="sim-section">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simulação de Cedência de Posição</h3>
-          <div class="sim-grid">
-            <div class="sim-field"><label>Preço de Compra (€)</label><input type="number" id="sjpSimPreco" readonly style="opacity:0.7;"></div>
-            <div class="sim-field"><label>Valorização Anual Estimada (%)</label><input type="number" id="sjpSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularSjp()"></div>
-            <div class="sim-field"><label>Número de Meses para Venda</label><input type="number" id="sjpSimMeses" value="12" min="1" max="120" oninput="calcularSjp()"></div>
-            <div class="sim-field"><label>Regime Fiscal</label><select id="sjpSimFiscal" onchange="calcularSjp()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">Não Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
-          </div>
-          <div id="sjp-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
-            <div class="result-box"><div class="result-label">Preço de Compra</div><div class="result-val" id="sjp-res-preco">—</div></div>
-            <div class="result-box"><div class="result-label">Valor de Cedência Estimado</div><div class="result-val" id="sjp-res-cessao">—</div></div>
-            <div class="result-box"><div class="result-label">Mais-Valia Bruta</div><div class="result-val" id="sjp-res-mais-valia">—</div></div>
-            <div class="result-box" style="border-color:rgba(197,165,90,0.4);"><div class="result-label">💰 Capital Investido até à Venda</div><div class="result-val" id="sjp-res-investido" style="color:var(--gold)">—</div></div>
-            <div class="result-box"><div class="result-label">ROI (Retorno sobre Investimento)</div><div class="result-val" id="sjp-res-roi">—</div></div>
-            <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="sjp-res-meses">—</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TROFA PREMIUM TABLE -->
-    <div id="tp-section" style="display:none;">
-      <div class="stats-bar" id="tpStatsBar"></div>
-      <div class="table-header">
-        <div class="table-title" style="display:flex;align-items:center;gap:16px;">
-          <span>Trofa Premium — <strong id="tpCountLabel">0</strong> unidades</span>
-          <button class="edit-mode-btn" id="tpEditBtn" onclick="toggleEditMode('tp')">✏️ Modo Edição</button>
-        </div>
-        <input type="text" class="search-box" placeholder="🔍 Pesquisar fracção..." id="tpSearchBox" oninput="applyTpFilters()">
-      </div>
-      <div style="overflow-x:auto;">
-        <table id="tpTable">
-          <thead>
-            <tr>
-              <th>Fracção</th>
-              <th>Piso</th>
-              <th>Tipologia</th>
-              <th>ABC (m²)</th>
-              <th>Varanda (m²)</th>
-              <th>Área Total (m²)</th>
-              <th>Orientação</th>
-              <th>Preço (€)</th>
-              <th>Estado</th>
-              <th>Simular</th>
-            </tr>
-          </thead>
-          <tbody id="tpTableBody"></tbody>
-        </table>
-      </div>
-      <div id="tpDetailPanel" style="display:none;margin:24px;background:var(--dark);border:1px solid var(--border);padding:28px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
-          <div>
-            <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#f87171;margin-bottom:6px;">TROFA PREMIUM — PLANO DE PAGAMENTO</div>
-            <div style="font-size:1.3rem;font-weight:700;" id="tpDetailTitle">Fracção —</div>
-            <div style="color:var(--gray);font-size:0.85rem;margin-top:4px;" id="tpDetailSubtitle">Trofa · Braga</div>
-          </div>
-          <button onclick="closeTpDetail()" style="background:none;border:1px solid var(--border);color:var(--gray);padding:6px 14px;cursor:pointer;font-size:0.8rem;">✕ Fechar</button>
-        </div>
-        <div class="unit-info-grid" id="tpUnitInfoGrid" style="margin-bottom:24px;"></div>
-        <div class="sim-section" style="margin-bottom:24px;">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:#f87171;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="tpPagamentoGrid"></div>
-        </div>
-        <div class="sim-section">
-          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simulação de Cedência de Posição</h3>
-          <div class="sim-grid">
-            <div class="sim-field"><label>Preço de Compra (€)</label><input type="number" id="tpSimPreco" readonly style="opacity:0.7;"></div>
-            <div class="sim-field"><label>Valorização Anual Estimada (%)</label><input type="number" id="tpSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularTp()"></div>
-            <div class="sim-field"><label>Número de Meses para Venda</label><input type="number" id="tpSimMeses" value="12" min="1" max="120" oninput="calcularTp()"></div>
-            <div class="sim-field"><label>Regime Fiscal</label><select id="tpSimFiscal" onchange="calcularTp()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">Não Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
-          </div>
-          <div id="tp-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;">
-            <div class="result-box"><div class="result-label">Preço de Compra</div><div class="result-val" id="tp-res-preco">—</div></div>
-            <div class="result-box"><div class="result-label">Valor de Cedência Estimado</div><div class="result-val" id="tp-res-cessao">—</div></div>
-            <div class="result-box"><div class="result-label">Mais-Valia Bruta</div><div class="result-val" id="tp-res-mais-valia">—</div></div>
-            <div class="result-box" style="border-color:rgba(197,165,90,0.4);"><div class="result-label">💰 Capital Investido até à Venda</div><div class="result-val" id="tp-res-investido" style="color:var(--gold)">—</div></div>
-            <div class="result-box"><div class="result-label">ROI (Retorno sobre Investimento)</div><div class="result-val" id="tp-res-roi">—</div></div>
-            <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="tp-res-meses">—</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- BH TABLE (default) -->
     <div id="bh-section">
 
@@ -1485,27 +1032,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 function selectEmp(emp) {
   currentEmp = emp;
-  ['bh','lake','raizes','gg','gp','sjp','tp'].forEach(e => {
-    const card = document.getElementById('card-' + e);
-    if (card) card.classList.toggle('active', emp === e);
-    const sec = document.getElementById(e + '-section');
-    if (sec) sec.style.display = emp === e ? 'block' : 'none';
-  });
+  document.getElementById('card-bh').classList.toggle('active', emp === 'bh');
+  document.getElementById('card-lake').classList.toggle('active', emp === 'lake');
+  document.getElementById('card-raizes').classList.toggle('active', emp === 'raizes');
+  document.getElementById('bh-section').style.display = emp === 'bh' ? 'block' : 'none';
+  document.getElementById('lake-section').style.display = emp === 'lake' ? 'block' : 'none';
+  document.getElementById('raizes-section').style.display = emp === 'raizes' ? 'block' : 'none';
   document.getElementById('bh-filters').style.display = emp === 'bh' ? 'block' : 'none';
   document.getElementById('raizes-filters').style.display = emp === 'raizes' ? 'block' : 'none';
-  const ggF = document.getElementById('gg-filters');
-  if (ggF) ggF.style.display = emp === 'gg' ? 'block' : 'none';
-  const gpF = document.getElementById('gp-filters');
-  if (gpF) gpF.style.display = emp === 'gp' ? 'block' : 'none';
-  const sjpF = document.getElementById('sjp-filters');
-  if (sjpF) sjpF.style.display = emp === 'sjp' ? 'block' : 'none';
-  const tpF = document.getElementById('tp-filters');
-  if (tpF) tpF.style.display = emp === 'tp' ? 'block' : 'none';
-  if (emp === 'raizes') applyRaizesFilters();
-  if (emp === 'gg') applyGgFilters();
-  if (emp === 'gp') applyGpFilters();
-  if (emp === 'sjp') applySjpFilters();
-  if (emp === 'tp') applyTpFilters();
+  if (emp === 'raizes') { applyRaizesFilters(); }
 }
 
 // ============================================================
@@ -2161,21 +1696,13 @@ function loadSavedStates() {
           else if (raizesStates.hasOwnProperty(u.fraccao)) u.status = 'Disponível';
         });
       }
-      // Novos empreendimentos
-      const ggStates = data.gg_states || {};
-      const gpStates = data.gp_states || {};
-      const sjpStates = data.sjp_states || {};
-      const tpStates = data.tp_states || {};
-      if (typeof ggData !== 'undefined') ggData.forEach(u => { if (ggStates[u.fraccao]) u.status = ggStates[u.fraccao]; });
-      if (typeof gpData !== 'undefined') gpData.forEach(u => { if (gpStates[u.fraccao]) u.status = gpStates[u.fraccao]; });
-      if (typeof sjpData !== 'undefined') sjpData.forEach(u => { if (sjpStates[u.fraccao]) u.status = sjpStates[u.fraccao]; });
-      if (typeof tpData !== 'undefined') tpData.forEach(u => { if (tpStates[u.fraccao]) u.status = tpStates[u.fraccao]; });
       applyFilters();
       applyLakeFilters();
       if (typeof applyRaizesFilters === 'function') applyRaizesFilters();
       renderStats();
     })
     .catch(() => {
+      // Fallback para localStorage se servidor falhar
       try {
         const bhStates = JSON.parse(localStorage.getItem('bh_states') || '{}');
         const lakeStates = JSON.parse(localStorage.getItem('lake_states') || '{}');
@@ -2187,15 +1714,18 @@ function loadSavedStates() {
 }
 
 function toggleEditMode(table) {
-  const editBtnMap = {bh:'bhEditBtn',raizes:'raizesEditBtn',lake:'lakeEditBtn',gg:'ggEditBtn',gp:'gpEditBtn',sjp:'sjpEditBtn',tp:'tpEditBtn'};
-  const applyMap = {bh:applyFilters,raizes:applyRaizesFilters,lake:applyLakeFilters,gg:applyGgFilters,gp:applyGpFilters,sjp:applySjpFilters,tp:applyTpFilters};
-  const btnId = editBtnMap[table] || (table + 'EditBtn');
+  const btnId = table === 'bh' ? 'bhEditBtn' : table === 'raizes' ? 'raizesEditBtn' : 'lakeEditBtn';
   if (editMode[table]) {
+    // Desactivar modo edição
     editMode[table] = false;
     const btn = document.getElementById(btnId);
-    if (btn) { btn.classList.remove('active'); btn.textContent = '✏️ Modo Edição'; }
-    if (applyMap[table]) applyMap[table]();
+    btn.classList.remove('active');
+    btn.textContent = '✏️ Modo Edição';
+    if (table === 'bh') applyFilters();
+    else if (table === 'raizes') applyRaizesFilters();
+    else applyLakeFilters();
   } else {
+    // Pedir password
     pendingEditTable = table;
     document.getElementById('editPwdInput').value = '';
     document.getElementById('editPwdError').style.display = 'none';
@@ -2206,15 +1736,16 @@ function toggleEditMode(table) {
 
 function checkEditPwd() {
   const pwd = document.getElementById('editPwdInput').value;
-  const editBtnMap2 = {bh:'bhEditBtn',raizes:'raizesEditBtn',lake:'lakeEditBtn',gg:'ggEditBtn',gp:'gpEditBtn',sjp:'sjpEditBtn',tp:'tpEditBtn'};
-  const applyMap2 = {bh:applyFilters,raizes:applyRaizesFilters,lake:applyLakeFilters,gg:applyGgFilters,gp:applyGpFilters,sjp:applySjpFilters,tp:applyTpFilters};
   if (pwd === EDIT_PASSWORD) {
     document.getElementById('editPwdModal').classList.remove('open');
     editMode[pendingEditTable] = true;
-    const btnId = editBtnMap2[pendingEditTable] || (pendingEditTable + 'EditBtn');
+    const btnId = pendingEditTable === 'bh' ? 'bhEditBtn' : pendingEditTable === 'raizes' ? 'raizesEditBtn' : 'lakeEditBtn';
     const btn = document.getElementById(btnId);
-    if (btn) { btn.classList.add('active'); btn.textContent = '✏️ Edição Activa'; }
-    if (applyMap2[pendingEditTable]) applyMap2[pendingEditTable]();
+    btn.classList.add('active');
+    btn.textContent = '✏️ Edição Activa';
+    if (pendingEditTable === 'bh') applyFilters();
+    else if (pendingEditTable === 'raizes') applyRaizesFilters();
+    else applyLakeFilters();
   } else {
     document.getElementById('editPwdError').style.display = 'block';
     document.getElementById('editPwdInput').value = '';
@@ -2258,62 +1789,16 @@ function changeStatus(table, key, newStatus) {
       fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({raizes_states: allRaizesStates}) }).catch(()=>{});
       applyRaizesFilters();
     }
-  } else if (table === 'gg') {
-    const unit = ggData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('gg_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('gg_states', JSON.stringify(states));
-      const allStates = {};
-      ggData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gg_states: allStates}) }).catch(()=>{});
-      applyGgFilters();
-    }
-  } else if (table === 'gp') {
-    const unit = gpData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('gp_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('gp_states', JSON.stringify(states));
-      const allStates = {};
-      gpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gp_states: allStates}) }).catch(()=>{});
-      applyGpFilters();
-    }
-  } else if (table === 'sjp') {
-    const unit = sjpData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('sjp_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('sjp_states', JSON.stringify(states));
-      const allStates = {};
-      sjpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sjp_states: allStates}) }).catch(()=>{});
-      applySjpFilters();
-    }
-  } else if (table === 'tp') {
-    const unit = tpData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('tp_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('tp_states', JSON.stringify(states));
-      const allStates = {};
-      tpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({tp_states: allStates}) }).catch(()=>{});
-      applyTpFilters();
-    }
   } else {
     const [torre, fraccao] = key.split('_');
     const unit = LAKE_UNITS.find(u => u.torre === torre && u.fraccao === fraccao);
     if (unit) {
       unit.status = newStatus;
+      // Guardar no servidor E localStorage (fallback)
       const states = JSON.parse(localStorage.getItem('lake_states') || '{}');
       states[key] = newStatus;
       localStorage.setItem('lake_states', JSON.stringify(states));
+      // Guardar no servidor - incluir TODOS os estados
       const allLakeStates = {};
       LAKE_UNITS.forEach(u => { allLakeStates[u.torre + '_' + u.fraccao] = u.status; });
       fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({lake_states: allLakeStates}) }).catch(()=>{});
@@ -3901,386 +3386,6 @@ document.addEventListener('DOMContentLoaded', function() {
     })
     .catch(() => {});
 });
-
-
-// ============================================================
-// GONDOMAR GREEN — DADOS
-// ============================================================
-const ggData = [{"fraccao":"A11","piso":1,"tipologia":"T3","abc":107.25,"varanda":75.75,"garagem":15.6,"total":183.0,"orientacao":"Nascente","preco":0,"status":"Reservado"},{"fraccao":"A12","piso":1,"tipologia":"T4","abc":140.6,"varanda":88.3,"garagem":24.1,"total":228.9,"orientacao":"Nascente / Sul","preco":0,"status":"Vendido"},{"fraccao":"A13","piso":1,"tipologia":"T4","abc":140.6,"varanda":6.3,"garagem":23.4,"total":146.9,"orientacao":"Poente / Sul","preco":330000,"status":"Disponível"},{"fraccao":"A14","piso":1,"tipologia":"T3","abc":107.25,"varanda":5.55,"garagem":15.3,"total":112.8,"orientacao":"Poente","preco":300000,"status":"Disponível"},{"fraccao":"A15","piso":1,"tipologia":"T3","abc":107.25,"varanda":5.55,"garagem":16.3,"total":112.8,"orientacao":"Poente","preco":300000,"status":"Disponível"},{"fraccao":"A16","piso":1,"tipologia":"T4","abc":140.6,"varanda":6.3,"garagem":23.8,"total":146.9,"orientacao":"Poente / Norte","preco":330000,"status":"Disponível"},{"fraccao":"A17","piso":1,"tipologia":"T4","abc":140.6,"varanda":88.3,"garagem":24.65,"total":228.9,"orientacao":"Nascente / Norte","preco":390000,"status":"Disponível"},{"fraccao":"A18","piso":1,"tipologia":"T3","abc":107.25,"varanda":75.75,"garagem":16.4,"total":183.0,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A21","piso":2,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":16.0,"total":135.0,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A22","piso":2,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":33.95,"total":172.6,"orientacao":"Nascente / Sul","preco":0,"status":"Reservado"},{"fraccao":"A23","piso":2,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":25.85,"total":167.15,"orientacao":"Poente / Sul","preco":0,"status":"Vendido"},{"fraccao":"A24","piso":2,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":16.35,"total":130.2,"orientacao":"Poente","preco":320000,"status":"Disponível"},{"fraccao":"A25","piso":2,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":15.7,"total":130.2,"orientacao":"Poente","preco":320000,"status":"Disponível"},{"fraccao":"A26","piso":2,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":15.7,"total":167.15,"orientacao":"Poente / Norte","preco":0,"status":"Vendido"},{"fraccao":"A27","piso":2,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":29.15,"total":172.6,"orientacao":"Nascente / Norte","preco":0,"status":"Vendido"},{"fraccao":"A28","piso":2,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":14.7,"total":135.0,"orientacao":"Nascente","preco":325000,"status":"Disponível"},{"fraccao":"A31","piso":3,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":16.75,"total":135.0,"orientacao":"Nascente","preco":330000,"status":"Disponível"},{"fraccao":"A32","piso":3,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":33.2,"total":172.6,"orientacao":"Nascente / Sul","preco":380000,"status":"Disponível"},{"fraccao":"A33","piso":3,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":31.9,"total":167.15,"orientacao":"Poente / Sul","preco":0,"status":"Reservado"},{"fraccao":"A34","piso":3,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":15.75,"total":130.2,"orientacao":"Poente","preco":320000,"status":"Disponível"},{"fraccao":"A35","piso":3,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":29.8,"total":130.2,"orientacao":"Poente","preco":335000,"status":"Disponível"},{"fraccao":"A36","piso":3,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":34.4,"total":167.15,"orientacao":"Poente / Norte","preco":0,"status":"Vendido"},{"fraccao":"A37","piso":3,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":33.4,"total":172.6,"orientacao":"Nascente / Norte","preco":350000,"status":"Disponível"},{"fraccao":"A38","piso":3,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":15.35,"total":135.0,"orientacao":"Nascente","preco":330000,"status":"Disponível"},{"fraccao":"A41","piso":4,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":15.7,"total":135.0,"orientacao":"Nascente","preco":340000,"status":"Disponível"},{"fraccao":"A42","piso":4,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":34.5,"total":172.6,"orientacao":"Nascente / Sul","preco":0,"status":"Reservado"},{"fraccao":"A43","piso":4,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":32.9,"total":167.15,"orientacao":"Poente / Sul","preco":0,"status":"Vendido"},{"fraccao":"A44","piso":4,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":15.7,"total":130.2,"orientacao":"Poente","preco":330000,"status":"Disponível"},{"fraccao":"A45","piso":4,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":16.7,"total":130.2,"orientacao":"Poente","preco":330000,"status":"Disponível"},{"fraccao":"A46","piso":4,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":25.16,"total":167.15,"orientacao":"Poente / Norte","preco":0,"status":"Vendido"},{"fraccao":"A47","piso":4,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":24.4,"total":172.6,"orientacao":"Nascente / Norte","preco":350000,"status":"Disponível"},{"fraccao":"A48","piso":4,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":32.99,"total":135.0,"orientacao":"Nascente","preco":340000,"status":"Disponível"},{"fraccao":"A51","piso":5,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":15.7,"total":135.0,"orientacao":"Nascente","preco":350000,"status":"Disponível"},{"fraccao":"A52","piso":5,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":16.4,"total":172.6,"orientacao":"Nascente / Sul","preco":365000,"status":"Disponível"},{"fraccao":"A53","piso":5,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":32.65,"total":167.15,"orientacao":"Poente / Sul","preco":0,"status":"Vendido"},{"fraccao":"A54","piso":5,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":16.7,"total":130.2,"orientacao":"Poente","preco":345000,"status":"Disponível"},{"fraccao":"A55","piso":5,"tipologia":"T3","abc":107.25,"varanda":22.95,"garagem":15.4,"total":130.2,"orientacao":"Poente","preco":345000,"status":"Disponível"},{"fraccao":"A56","piso":5,"tipologia":"T4","abc":140.6,"varanda":26.55,"garagem":31.18,"total":167.15,"orientacao":"Poente / Norte","preco":370000,"status":"Disponível"},{"fraccao":"A57","piso":5,"tipologia":"T4","abc":140.6,"varanda":32.0,"garagem":31.25,"total":172.6,"orientacao":"Nascente / Norte","preco":370000,"status":"Disponível"},{"fraccao":"A58","piso":5,"tipologia":"T3","abc":107.25,"varanda":27.75,"garagem":15.7,"total":135.0,"orientacao":"Nascente","preco":350000,"status":"Disponível"}];
-let ggFilters = { tipo: 'all', status: 'all', piso: 'all' };
-let selectedGgUnit = null;
-
-function setGgFilter(key, val, btn) {
-  ggFilters[key] = val;
-  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  applyGgFilters();
-}
-
-function applyGgFilters() {
-  const search = (document.getElementById('ggSearchBox') || {}).value || '';
-  const pisoEl = document.getElementById('ggFilterPiso');
-  const piso = pisoEl ? pisoEl.value : 'all';
-  let filtered = ggData.filter(u => {
-    if (ggFilters.tipo !== 'all' && u.tipologia !== ggFilters.tipo) return false;
-    if (ggFilters.status !== 'all' && u.status !== ggFilters.status) return false;
-    if (piso !== 'all' && String(u.piso) !== piso) return false;
-    if (search && !u.fraccao.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-  renderGgTable(filtered);
-  updateGgStats(filtered);
-  const lbl = document.getElementById('ggCountLabel');
-  if (lbl) lbl.textContent = filtered.length;
-  const dispCount = document.getElementById('gg-disp-count');
-  if (dispCount) dispCount.textContent = ggData.filter(u => u.status === 'Disponível').length;
-}
-
-function updateGgStats(data) {
-  const bar = document.getElementById('ggStatsBar');
-  if (!bar) return;
-  const total = ggData.length;
-  const disp = ggData.filter(u => u.status === 'Disponível').length;
-  const vend = ggData.filter(u => u.status === 'Vendido').length;
-  const res = ggData.filter(u => u.status === 'Reservado').length;
-  const pct = Math.round((vend + res) / total * 100);
-  bar.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend + res}</div><div class="stat-box-label">Vendidas/Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${pct}%</div><div class="stat-box-label">Absorção</div></div>`;
-}
-
-function renderGgTable(data) {
-  const tbody = document.getElementById('ggTableBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>'; return; }
-  tbody.innerHTML = data.map(u => {
-    const sc = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : 'reservado';
-    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
-    const pFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
-    return `<tr><td><strong>${u.fraccao}</strong></td><td class="muted">${u.piso}º</td><td><span class="tipo-badge">${u.tipologia}</span></td><td>${u.abc.toFixed(2)}</td><td class="muted">${u.varanda.toFixed(2)}</td><td><strong>${u.total.toFixed(2)}</strong></td><td class="muted" style="font-size:0.8rem;">${u.orientacao}</td><td><strong>${pFmt}</strong></td><td id="gg-status-${u.fraccao}">${editMode.gg ? getStatusSelectHTML('gg', u.fraccao, u.status) : '<span class="badge badge-' + sc + '">' + u.status + '</span>'}</td><td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openGgDetail(${JSON.stringify(u)})'>${u.status === 'Disponível' ? 'Simular' : 'Ver'}</button></td></tr>`;
-  }).join('');
-}
-
-function openGgDetail(unit) {
-  selectedGgUnit = unit;
-  document.getElementById('ggDetailTitle').textContent = 'Fracção ' + unit.fraccao;
-  document.getElementById('ggDetailSubtitle').textContent = 'Gondomar Green · Piso ' + unit.piso + 'º · ' + unit.tipologia;
-  document.getElementById('ggUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso}º</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
-  const cpcv = Math.round(unit.preco * 0.15);
-  const prest = Math.round(unit.preco * 0.10);
-  const escritura = Math.round(unit.preco * 0.75);
-  document.getElementById('ggPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
-  document.getElementById('ggSimPreco').value = unit.preco;
-  document.getElementById('ggDetailPanel').style.display = 'block';
-  document.getElementById('ggDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  calcularGg();
-}
-
-function closeGgDetail() { document.getElementById('ggDetailPanel').style.display = 'none'; selectedGgUnit = null; }
-
-function calcularGg() {
-  if (!selectedGgUnit) return;
-  const preco = parseFloat(document.getElementById('ggSimPreco').value) || 0;
-  const val = parseFloat(document.getElementById('ggSimValorizacao').value) || 15;
-  const meses = parseInt(document.getElementById('ggSimMeses').value) || 12;
-  const taxa = parseFloat(document.getElementById('ggSimFiscal').value);
-  const anos = meses / 12;
-  const cessao = preco * Math.pow(1 + val / 100, anos);
-  const mvBruta = cessao - preco;
-  const imposto = mvBruta > 0 ? mvBruta * taxa : 0;
-  const lucro = mvBruta - imposto;
-  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
-  const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
-  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
-  document.getElementById('gg-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
-  document.getElementById('gg-res-preco').textContent = fmt(preco);
-  document.getElementById('gg-res-cessao').textContent = fmt(cessao);
-  document.getElementById('gg-res-mais-valia').textContent = fmt(mvBruta);
-  document.getElementById('gg-res-investido').textContent = fmt(capital);
-  document.getElementById('gg-res-roi').textContent = roi.toFixed(1) + '%';
-  document.getElementById('gg-res-meses').textContent = meses + ' meses';
-}
-
-// ============================================================
-// GAIA PREMIUM — DADOS
-// ============================================================
-const gpData = [{"fraccao":"B01","bloco":"B","piso":0,"tipologia":"T3","abc":157.1,"varanda":22.5,"total":179.6,"orientacao":"Nascente / Poente","preco":0,"status":"Reservado"},{"fraccao":"B02","bloco":"B","piso":0,"tipologia":"T3","abc":97.1,"varanda":39.7,"total":136.8,"orientacao":"Nascente / Sul","preco":0,"status":"Vendido"},{"fraccao":"B03","bloco":"B","piso":0,"tipologia":"T3","abc":105.6,"varanda":37.9,"total":143.5,"orientacao":"Nascente / Sul / Poente","preco":0,"status":"Vendido"},{"fraccao":"A01","bloco":"A","piso":0,"tipologia":"T1","abc":64.3,"varanda":0,"total":64.3,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"A02","bloco":"A","piso":0,"tipologia":"T2","abc":86.4,"varanda":10.8,"total":97.2,"orientacao":"Nascente / Norte / Poente","preco":0,"status":"Vendido"},{"fraccao":"A03","bloco":"A","piso":0,"tipologia":"T2","abc":85.0,"varanda":22.8,"total":107.8,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A04","bloco":"A","piso":0,"tipologia":"T2","abc":70.9,"varanda":22.4,"total":93.3,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A05","bloco":"A","piso":0,"tipologia":"T2","abc":92.8,"varanda":25.4,"total":118.2,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A06","bloco":"A","piso":0,"tipologia":"T1","abc":55.2,"varanda":0,"total":55.2,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"A07","bloco":"A","piso":0,"tipologia":"T2","abc":77.5,"varanda":0,"total":77.5,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"B11","bloco":"B","piso":1,"tipologia":"T3","abc":134.6,"varanda":26.45,"total":161.05,"orientacao":"Nascente / Poente","preco":407000,"status":"Disponível"},{"fraccao":"B12","bloco":"B","piso":1,"tipologia":"T2","abc":97.0,"varanda":26.1,"total":123.1,"orientacao":"Nascente / Sul","preco":347000,"status":"Disponível"},{"fraccao":"B13","bloco":"B","piso":1,"tipologia":"T3","abc":110.5,"varanda":74.6,"total":185.1,"orientacao":"Nascente / Sul / Poente","preco":429000,"status":"Disponível"},{"fraccao":"A11","bloco":"A","piso":1,"tipologia":"T2","abc":80.1,"varanda":31.8,"total":111.9,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"A12","bloco":"A","piso":1,"tipologia":"T2","abc":86.4,"varanda":18.6,"total":105.0,"orientacao":"Nascente / Norte / Poente","preco":0,"status":"Vendido"},{"fraccao":"A13","bloco":"A","piso":1,"tipologia":"T2","abc":83.6,"varanda":10.7,"total":94.3,"orientacao":"Nascente","preco":0,"status":"Reservado"},{"fraccao":"A14","bloco":"A","piso":1,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Nascente","preco":325000,"status":"Disponível"},{"fraccao":"A15","bloco":"A","piso":1,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Nascente","preco":330000,"status":"Disponível"},{"fraccao":"A16","bloco":"A","piso":1,"tipologia":"T2","abc":85.7,"varanda":20.2,"total":105.9,"orientacao":"Nascente / Poente","preco":313500,"status":"Disponível"},{"fraccao":"A17","bloco":"A","piso":1,"tipologia":"T1","abc":47.0,"varanda":17.5,"total":64.5,"orientacao":"Poente","preco":275000,"status":"Disponível"},{"fraccao":"A18","bloco":"A","piso":1,"tipologia":"T2","abc":80.8,"varanda":33.2,"total":114.0,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"B21","bloco":"B","piso":2,"tipologia":"T3","abc":134.6,"varanda":26.45,"total":161.05,"orientacao":"Nascente / Poente","preco":0,"status":"Vendido"},{"fraccao":"B22","bloco":"B","piso":2,"tipologia":"T2","abc":97.0,"varanda":26.1,"total":123.1,"orientacao":"Nascente / Sul","preco":0,"status":"Reservado"},{"fraccao":"B23","bloco":"B","piso":2,"tipologia":"T3","abc":110.5,"varanda":74.6,"total":185.1,"orientacao":"Nascente / Sul / Poente","preco":429000,"status":"Disponível"},{"fraccao":"A21","bloco":"A","piso":2,"tipologia":"T2","abc":80.1,"varanda":31.8,"total":111.9,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"A22","bloco":"A","piso":2,"tipologia":"T2","abc":86.4,"varanda":18.6,"total":105.0,"orientacao":"Nascente / Norte / Poente","preco":0,"status":"Vendido"},{"fraccao":"A23","bloco":"A","piso":2,"tipologia":"T2","abc":83.6,"varanda":10.7,"total":94.3,"orientacao":"Nascente","preco":336000,"status":"Disponível"},{"fraccao":"A24","bloco":"A","piso":2,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Nascente","preco":336000,"status":"Disponível"},{"fraccao":"A25","bloco":"A","piso":2,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Nascente","preco":341000,"status":"Disponível"},{"fraccao":"A26","bloco":"A","piso":2,"tipologia":"T2","abc":85.7,"varanda":20.2,"total":105.9,"orientacao":"Nascente / Poente","preco":0,"status":"Vendido"},{"fraccao":"A27","bloco":"A","piso":2,"tipologia":"T1","abc":47.0,"varanda":17.5,"total":64.5,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"A28","bloco":"A","piso":2,"tipologia":"T2","abc":80.8,"varanda":33.2,"total":114.0,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"B31","bloco":"B","piso":3,"tipologia":"T3","abc":134.6,"varanda":26.45,"total":161.05,"orientacao":"Nascente / Poente","preco":0,"status":"Reservado"},{"fraccao":"B32","bloco":"B","piso":3,"tipologia":"T2","abc":97.0,"varanda":26.1,"total":123.1,"orientacao":"Nascente / Sul","preco":370000,"status":"Disponível"},{"fraccao":"B33","bloco":"B","piso":3,"tipologia":"T3","abc":110.5,"varanda":74.6,"total":185.1,"orientacao":"Nascente / Sul / Poente","preco":451000,"status":"Disponível"},{"fraccao":"A31","bloco":"A","piso":3,"tipologia":"T2","abc":80.1,"varanda":31.8,"total":111.9,"orientacao":"Poente","preco":346500,"status":"Disponível"},{"fraccao":"A32","bloco":"A","piso":3,"tipologia":"T2","abc":86.4,"varanda":18.6,"total":105.0,"orientacao":"Nascente / Norte / Poente","preco":330000,"status":"Disponível"},{"fraccao":"A33","bloco":"A","piso":3,"tipologia":"T2","abc":83.6,"varanda":10.7,"total":94.3,"orientacao":"Nascente","preco":347000,"status":"Disponível"},{"fraccao":"A34","bloco":"A","piso":3,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Nascente","preco":347000,"status":"Disponível"},{"fraccao":"A35","bloco":"A","piso":3,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Nascente","preco":355000,"status":"Disponível"},{"fraccao":"A36","bloco":"A","piso":3,"tipologia":"T2","abc":85.7,"varanda":20.2,"total":105.9,"orientacao":"Nascente / Poente","preco":336000,"status":"Disponível"},{"fraccao":"A37","bloco":"A","piso":3,"tipologia":"T1","abc":47.0,"varanda":17.5,"total":64.5,"orientacao":"Poente","preco":0,"status":"Reservado"},{"fraccao":"A38","bloco":"A","piso":3,"tipologia":"T2","abc":80.8,"varanda":33.2,"total":114.0,"orientacao":"Poente","preco":347000,"status":"Disponível"},{"fraccao":"B41","bloco":"B","piso":4,"tipologia":"T3","abc":134.6,"varanda":26.6,"total":161.2,"orientacao":"Nascente / Poente","preco":439000,"status":"Disponível"},{"fraccao":"B42","bloco":"B","piso":4,"tipologia":"T2","abc":97.0,"varanda":26.4,"total":123.4,"orientacao":"Nascente / Sul","preco":383000,"status":"Disponível"},{"fraccao":"B43","bloco":"B","piso":4,"tipologia":"T3","abc":110.5,"varanda":74.0,"total":184.5,"orientacao":"Nascente / Sul / Poente","preco":0,"status":"Vendido"},{"fraccao":"A41","bloco":"A","piso":4,"tipologia":"T3","abc":102.7,"varanda":38.0,"total":140.7,"orientacao":"Nascente / Norte","preco":451000,"status":"Disponível"},{"fraccao":"A42","bloco":"A","piso":4,"tipologia":"T3","abc":104.0,"varanda":33.1,"total":137.1,"orientacao":"Poente / Norte","preco":451000,"status":"Disponível"},{"fraccao":"A43","bloco":"A","piso":4,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Poente","preco":359000,"status":"Disponível"},{"fraccao":"A44","bloco":"A","piso":4,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Poente","preco":365000,"status":"Disponível"},{"fraccao":"A45","bloco":"A","piso":4,"tipologia":"T2","abc":85.7,"varanda":20.4,"total":106.1,"orientacao":"Nascente / Poente","preco":345000,"status":"Disponível"},{"fraccao":"A46","bloco":"A","piso":4,"tipologia":"T1","abc":47.0,"varanda":17.3,"total":64.3,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"A47","bloco":"A","piso":4,"tipologia":"T2","abc":80.8,"varanda":33.4,"total":114.2,"orientacao":"Nascente","preco":360000,"status":"Disponível"},{"fraccao":"B51","bloco":"B","piso":5,"tipologia":"T3","abc":134.6,"varanda":25.9,"total":160.5,"orientacao":"Nascente / Poente","preco":451000,"status":"Disponível"},{"fraccao":"B52","bloco":"B","piso":5,"tipologia":"T1","abc":61.0,"varanda":16.9,"total":77.9,"orientacao":"Nascente","preco":319000,"status":"Disponível"},{"fraccao":"B53","bloco":"B","piso":5,"tipologia":"T2","abc":100.2,"varanda":109.1,"total":209.3,"orientacao":"Nascente / Sul / Poente","preco":438900,"status":"Disponível"},{"fraccao":"A51","bloco":"A","piso":5,"tipologia":"T3","abc":102.7,"varanda":38.0,"total":140.7,"orientacao":"Nascente / Norte","preco":439000,"status":"Disponível"},{"fraccao":"A52","bloco":"A","piso":5,"tipologia":"T3","abc":104.0,"varanda":33.1,"total":137.1,"orientacao":"Poente / Norte","preco":462000,"status":"Disponível"},{"fraccao":"A53","bloco":"A","piso":5,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Poente","preco":369600,"status":"Disponível"},{"fraccao":"A54","bloco":"A","piso":5,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Poente","preco":370000,"status":"Disponível"},{"fraccao":"A55","bloco":"A","piso":5,"tipologia":"T2","abc":85.7,"varanda":20.4,"total":106.1,"orientacao":"Nascente / Poente","preco":359000,"status":"Disponível"},{"fraccao":"A56","bloco":"A","piso":5,"tipologia":"T1","abc":47.0,"varanda":17.3,"total":64.3,"orientacao":"Nascente","preco":301000,"status":"Disponível"},{"fraccao":"A57","bloco":"A","piso":5,"tipologia":"T2","abc":80.8,"varanda":33.4,"total":114.2,"orientacao":"Nascente","preco":370000,"status":"Disponível"},{"fraccao":"B61","bloco":"B","piso":6,"tipologia":"T3","abc":134.6,"varanda":26.5,"total":161.1,"orientacao":"Nascente / Poente","preco":0,"status":"Reservado"},{"fraccao":"B62","bloco":"B","piso":6,"tipologia":"T3","abc":120.9,"varanda":98.3,"total":219.2,"orientacao":"Nascente / Sul / Poente","preco":0,"status":"Reservado"},{"fraccao":"A61","bloco":"A","piso":6,"tipologia":"T3","abc":127.8,"varanda":195.3,"total":323.1,"orientacao":"Poente / Norte","preco":0,"status":"Reservado"},{"fraccao":"A62","bloco":"A","piso":6,"tipologia":"T2","abc":69.5,"varanda":10.6,"total":80.1,"orientacao":"Nascente","preco":407000,"status":"Disponível"},{"fraccao":"A63","bloco":"A","piso":6,"tipologia":"T2","abc":83.2,"varanda":10.7,"total":93.9,"orientacao":"Nascente","preco":407000,"status":"Disponível"},{"fraccao":"A64","bloco":"A","piso":6,"tipologia":"T2","abc":85.6,"varanda":18.2,"total":103.8,"orientacao":"Nascente / Poente","preco":407000,"status":"Disponível"},{"fraccao":"A65","bloco":"A","piso":6,"tipologia":"T1","abc":47.0,"varanda":19.1,"total":66.1,"orientacao":"Poente","preco":0,"status":"Reservado"},{"fraccao":"A66","bloco":"A","piso":6,"tipologia":"T2","abc":80.8,"varanda":33.2,"total":114.0,"orientacao":"Poente","preco":416000,"status":"Disponível"}];
-let gpFilters = { tipo: 'all', status: 'all', piso: 'all', bloco: 'all' };
-let selectedGpUnit = null;
-
-function setGpFilter(key, val, btn) {
-  gpFilters[key] = val;
-  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  applyGpFilters();
-}
-
-function applyGpFilters() {
-  const search = (document.getElementById('gpSearchBox') || {}).value || '';
-  const pisoEl = document.getElementById('gpFilterPiso');
-  const piso = pisoEl ? pisoEl.value : 'all';
-  let filtered = gpData.filter(u => {
-    if (gpFilters.tipo !== 'all' && u.tipologia !== gpFilters.tipo) return false;
-    if (gpFilters.status !== 'all' && u.status !== gpFilters.status) return false;
-    if (gpFilters.bloco !== 'all' && u.bloco !== gpFilters.bloco) return false;
-    if (piso !== 'all' && String(u.piso) !== piso) return false;
-    if (search && !u.fraccao.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-  renderGpTable(filtered);
-  updateGpStats(filtered);
-  const lbl = document.getElementById('gpCountLabel');
-  if (lbl) lbl.textContent = filtered.length;
-  const dispCount = document.getElementById('gp-disp-count');
-  if (dispCount) dispCount.textContent = gpData.filter(u => u.status === 'Disponível').length;
-}
-
-function updateGpStats(data) {
-  const bar = document.getElementById('gpStatsBar');
-  if (!bar) return;
-  const total = gpData.length;
-  const disp = gpData.filter(u => u.status === 'Disponível').length;
-  const vend = gpData.filter(u => u.status === 'Vendido').length;
-  const res = gpData.filter(u => u.status === 'Reservado').length;
-  const pct = Math.round((vend + res) / total * 100);
-  bar.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend + res}</div><div class="stat-box-label">Vendidas/Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${pct}%</div><div class="stat-box-label">Absorção</div></div>`;
-}
-
-function renderGpTable(data) {
-  const tbody = document.getElementById('gpTableBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>'; return; }
-  tbody.innerHTML = data.map(u => {
-    const sc = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : 'reservado';
-    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
-    const pFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
-    return `<tr><td><strong>${u.fraccao}</strong></td><td class="muted">${u.bloco}</td><td class="muted">${u.piso === 0 ? 'RC' : u.piso + 'º'}</td><td><span class="tipo-badge">${u.tipologia}</span></td><td>${u.abc.toFixed(2)}</td><td class="muted">${u.varanda.toFixed(2)}</td><td><strong>${u.total.toFixed(2)}</strong></td><td class="muted" style="font-size:0.8rem;">${u.orientacao}</td><td><strong>${pFmt}</strong></td><td id="gp-status-${u.fraccao}">${editMode.gp ? getStatusSelectHTML('gp', u.fraccao, u.status) : '<span class="badge badge-' + sc + '">' + u.status + '</span>'}</td><td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openGpDetail(${JSON.stringify(u)})'>${u.status === 'Disponível' ? 'Simular' : 'Ver'}</button></td></tr>`;
-  }).join('');
-}
-
-function openGpDetail(unit) {
-  selectedGpUnit = unit;
-  document.getElementById('gpDetailTitle').textContent = 'Fracção ' + unit.fraccao;
-  document.getElementById('gpDetailSubtitle').textContent = 'Gaia Premium · Bloco ' + unit.bloco + ' · Piso ' + (unit.piso === 0 ? 'RC' : unit.piso + 'º') + ' · ' + unit.tipologia;
-  document.getElementById('gpUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Bloco</div><div class="unit-info-val">${unit.bloco}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso === 0 ? 'RC' : unit.piso + 'º'}</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
-  const cpcv = Math.round(unit.preco * 0.15);
-  const prest = Math.round(unit.preco * 0.10);
-  const escritura = Math.round(unit.preco * 0.75);
-  document.getElementById('gpPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
-  document.getElementById('gpSimPreco').value = unit.preco;
-  document.getElementById('gpDetailPanel').style.display = 'block';
-  document.getElementById('gpDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  calcularGp();
-}
-
-function closeGpDetail() { document.getElementById('gpDetailPanel').style.display = 'none'; selectedGpUnit = null; }
-
-function calcularGp() {
-  if (!selectedGpUnit) return;
-  const preco = parseFloat(document.getElementById('gpSimPreco').value) || 0;
-  const val = parseFloat(document.getElementById('gpSimValorizacao').value) || 15;
-  const meses = parseInt(document.getElementById('gpSimMeses').value) || 12;
-  const taxa = parseFloat(document.getElementById('gpSimFiscal').value);
-  const anos = meses / 12;
-  const cessao = preco * Math.pow(1 + val / 100, anos);
-  const mvBruta = cessao - preco;
-  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
-  const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
-  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
-  document.getElementById('gp-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
-  document.getElementById('gp-res-preco').textContent = fmt(preco);
-  document.getElementById('gp-res-cessao').textContent = fmt(cessao);
-  document.getElementById('gp-res-mais-valia').textContent = fmt(mvBruta);
-  document.getElementById('gp-res-investido').textContent = fmt(capital);
-  document.getElementById('gp-res-roi').textContent = roi.toFixed(1) + '%';
-  document.getElementById('gp-res-meses').textContent = meses + ' meses';
-}
-
-// ============================================================
-// SÃO JOÃO PREMIUM — DADOS
-// ============================================================
-const sjpData = [{"fraccao":"0A","piso":0,"tipologia":"T4","abc":141.43,"varanda":26.1,"garagem":28.9,"total":167.53,"orientacao":"Poente","preco":429000,"status":"Disponível"},{"fraccao":"0B","piso":0,"tipologia":"T3","abc":129.75,"varanda":18.25,"garagem":27.45,"total":148.0,"orientacao":"Poente","preco":390000,"status":"Disponível"},{"fraccao":"0C","piso":0,"tipologia":"Loja","abc":125.48,"varanda":0,"garagem":0,"total":125.48,"orientacao":"Nascente","preco":285000,"status":"Disponível"},{"fraccao":"0D","piso":0,"tipologia":"Loja","abc":146.2,"varanda":0,"garagem":0,"total":146.2,"orientacao":"Nascente","preco":325000,"status":"Disponível"},{"fraccao":"1A","piso":1,"tipologia":"T2","abc":80.9,"varanda":23.8,"garagem":14.45,"total":104.7,"orientacao":"Poente","preco":330000,"status":"Disponível"},{"fraccao":"1B","piso":1,"tipologia":"T1","abc":53.5,"varanda":6.13,"garagem":13.0,"total":59.63,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"1C","piso":1,"tipologia":"T3","abc":110.8,"varanda":122.6,"garagem":20.6,"total":233.4,"orientacao":"Nascente","preco":529000,"status":"Disponível"},{"fraccao":"1D","piso":1,"tipologia":"T2","abc":87.58,"varanda":146.0,"garagem":15.0,"total":233.58,"orientacao":"Nascente","preco":429000,"status":"Disponível"},{"fraccao":"2A","piso":2,"tipologia":"T2","abc":80.9,"varanda":23.8,"garagem":15.3,"total":104.7,"orientacao":"Poente","preco":340000,"status":"Disponível"},{"fraccao":"2B","piso":2,"tipologia":"T1","abc":53.5,"varanda":6.13,"garagem":13.0,"total":59.63,"orientacao":"Poente","preco":0,"status":"Vendido"},{"fraccao":"2C","piso":2,"tipologia":"T3","abc":110.8,"varanda":29.7,"garagem":21.75,"total":140.5,"orientacao":"Nascente","preco":415000,"status":"Disponível"},{"fraccao":"2D","piso":2,"tipologia":"T2","abc":87.58,"varanda":55.2,"garagem":13.7,"total":142.78,"orientacao":"Nascente","preco":340000,"status":"Disponível"},{"fraccao":"3A","piso":3,"tipologia":"T2","abc":80.9,"varanda":23.8,"garagem":13.0,"total":104.7,"orientacao":"Poente","preco":350000,"status":"Disponível"},{"fraccao":"3B","piso":3,"tipologia":"T1","abc":53.5,"varanda":6.13,"garagem":12.95,"total":59.63,"orientacao":"Poente","preco":270000,"status":"Disponível"},{"fraccao":"3C","piso":3,"tipologia":"T3","abc":110.8,"varanda":29.7,"garagem":21.75,"total":140.5,"orientacao":"Nascente","preco":425000,"status":"Disponível"},{"fraccao":"3D","piso":3,"tipologia":"T2","abc":87.58,"varanda":55.2,"garagem":13.2,"total":142.78,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"4A","piso":4,"tipologia":"T2","abc":80.9,"varanda":23.8,"garagem":13.0,"total":104.7,"orientacao":"Poente","preco":360000,"status":"Disponível"},{"fraccao":"4B","piso":4,"tipologia":"T1","abc":53.5,"varanda":6.13,"garagem":13.0,"total":59.63,"orientacao":"Poente","preco":280000,"status":"Disponível"},{"fraccao":"4C","piso":4,"tipologia":"T3","abc":110.8,"varanda":29.7,"garagem":14.2,"total":140.5,"orientacao":"Nascente","preco":450000,"status":"Disponível"},{"fraccao":"4D","piso":4,"tipologia":"T2","abc":87.58,"varanda":55.2,"garagem":13.7,"total":142.78,"orientacao":"Nascente","preco":0,"status":"Vendido"},{"fraccao":"5A","piso":5,"tipologia":"T1","abc":53.5,"varanda":19.2,"garagem":12.95,"total":72.7,"orientacao":"Poente","preco":300000,"status":"Disponível"},{"fraccao":"5B","piso":5,"tipologia":"T3","abc":110.8,"varanda":29.7,"garagem":14.2,"total":140.5,"orientacao":"Nascente","preco":505000,"status":"Disponível"}];
-let sjpFilters = { tipo: 'all', status: 'all', piso: 'all' };
-let selectedSjpUnit = null;
-
-function setSjpFilter(key, val, btn) {
-  sjpFilters[key] = val;
-  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  applySjpFilters();
-}
-
-function applySjpFilters() {
-  const search = (document.getElementById('sjpSearchBox') || {}).value || '';
-  const pisoEl = document.getElementById('sjpFilterPiso');
-  const piso = pisoEl ? pisoEl.value : 'all';
-  let filtered = sjpData.filter(u => {
-    if (sjpFilters.tipo !== 'all' && u.tipologia !== sjpFilters.tipo) return false;
-    if (sjpFilters.status !== 'all' && u.status !== sjpFilters.status) return false;
-    if (piso !== 'all' && String(u.piso) !== piso) return false;
-    if (search && !u.fraccao.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-  renderSjpTable(filtered);
-  updateSjpStats(filtered);
-  const lbl = document.getElementById('sjpCountLabel');
-  if (lbl) lbl.textContent = filtered.length;
-  const dispCount = document.getElementById('sjp-disp-count');
-  if (dispCount) dispCount.textContent = sjpData.filter(u => u.status === 'Disponível').length;
-}
-
-function updateSjpStats(data) {
-  const bar = document.getElementById('sjpStatsBar');
-  if (!bar) return;
-  const total = sjpData.length;
-  const disp = sjpData.filter(u => u.status === 'Disponível').length;
-  const vend = sjpData.filter(u => u.status === 'Vendido').length;
-  const res = sjpData.filter(u => u.status === 'Reservado').length;
-  const pct = Math.round((vend + res) / total * 100);
-  bar.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend + res}</div><div class="stat-box-label">Vendidas/Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${pct}%</div><div class="stat-box-label">Absorção</div></div>`;
-}
-
-function renderSjpTable(data) {
-  const tbody = document.getElementById('sjpTableBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>'; return; }
-  tbody.innerHTML = data.map(u => {
-    const sc = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : 'reservado';
-    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
-    const pFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
-    return `<tr><td><strong>${u.fraccao}</strong></td><td class="muted">${u.piso === 0 ? 'RC' : u.piso + 'º'}</td><td><span class="tipo-badge">${u.tipologia}</span></td><td>${u.abc.toFixed(2)}</td><td class="muted">${u.varanda.toFixed(2)}</td><td><strong>${u.total.toFixed(2)}</strong></td><td class="muted" style="font-size:0.8rem;">${u.orientacao}</td><td><strong>${pFmt}</strong></td><td id="sjp-status-${u.fraccao}">${editMode.sjp ? getStatusSelectHTML('sjp', u.fraccao, u.status) : '<span class="badge badge-' + sc + '">' + u.status + '</span>'}</td><td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openSjpDetail(${JSON.stringify(u)})'>${u.status === 'Disponível' ? 'Simular' : 'Ver'}</button></td></tr>`;
-  }).join('');
-}
-
-function openSjpDetail(unit) {
-  selectedSjpUnit = unit;
-  document.getElementById('sjpDetailTitle').textContent = 'Fracção ' + unit.fraccao;
-  document.getElementById('sjpDetailSubtitle').textContent = 'São João Premium · Piso ' + (unit.piso === 0 ? 'RC' : unit.piso + 'º') + ' · ' + unit.tipologia;
-  document.getElementById('sjpUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso === 0 ? 'RC' : unit.piso + 'º'}</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
-  const cpcv = Math.round(unit.preco * 0.15);
-  const prest = Math.round(unit.preco * 0.10);
-  const escritura = Math.round(unit.preco * 0.75);
-  document.getElementById('sjpPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
-  document.getElementById('sjpSimPreco').value = unit.preco;
-  document.getElementById('sjpDetailPanel').style.display = 'block';
-  document.getElementById('sjpDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  calcularSjp();
-}
-
-function closeSjpDetail() { document.getElementById('sjpDetailPanel').style.display = 'none'; selectedSjpUnit = null; }
-
-function calcularSjp() {
-  if (!selectedSjpUnit) return;
-  const preco = parseFloat(document.getElementById('sjpSimPreco').value) || 0;
-  const val = parseFloat(document.getElementById('sjpSimValorizacao').value) || 15;
-  const meses = parseInt(document.getElementById('sjpSimMeses').value) || 12;
-  const taxa = parseFloat(document.getElementById('sjpSimFiscal').value);
-  const anos = meses / 12;
-  const cessao = preco * Math.pow(1 + val / 100, anos);
-  const mvBruta = cessao - preco;
-  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
-  const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
-  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
-  document.getElementById('sjp-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
-  document.getElementById('sjp-res-preco').textContent = fmt(preco);
-  document.getElementById('sjp-res-cessao').textContent = fmt(cessao);
-  document.getElementById('sjp-res-mais-valia').textContent = fmt(mvBruta);
-  document.getElementById('sjp-res-investido').textContent = fmt(capital);
-  document.getElementById('sjp-res-roi').textContent = roi.toFixed(1) + '%';
-  document.getElementById('sjp-res-meses').textContent = meses + ' meses';
-}
-
-// ============================================================
-// TROFA PREMIUM — DADOS
-// ============================================================
-const tpData = [{"fraccao":"A10","piso":1,"tipologia":"Loja","abc":243.24,"varanda":0,"garagem":41.6,"total":243.24,"orientacao":"Poente","preco":430000,"status":"Disponível"},{"fraccao":"A11","piso":1,"tipologia":"T1","abc":65.14,"varanda":4.2,"garagem":12.5,"total":69.34,"orientacao":"Nascente / Norte","preco":0,"status":"Reservado"},{"fraccao":"A12","piso":1,"tipologia":"T3","abc":106.95,"varanda":27.16,"garagem":15.67,"total":134.11,"orientacao":"Poente / Norte","preco":350000,"status":"Disponível"},{"fraccao":"A13","piso":1,"tipologia":"T3","abc":123.8,"varanda":15.6,"garagem":27.05,"total":139.4,"orientacao":"Sul","preco":370000,"status":"Disponível"},{"fraccao":"A14","piso":1,"tipologia":"T3","abc":119.94,"varanda":14.55,"garagem":13.25,"total":134.49,"orientacao":"Nascente / Sul","preco":0,"status":"Vendido"},{"fraccao":"A21","piso":2,"tipologia":"T1","abc":65.14,"varanda":4.2,"garagem":12.5,"total":69.34,"orientacao":"Nascente / Norte","preco":225000,"status":"Disponível"},{"fraccao":"A22","piso":2,"tipologia":"T3","abc":106.95,"varanda":27.16,"garagem":12.5,"total":134.11,"orientacao":"Poente / Norte","preco":370000,"status":"Disponível"},{"fraccao":"A23","piso":2,"tipologia":"T3","abc":123.8,"varanda":28.41,"garagem":25.0,"total":152.21,"orientacao":"Sul","preco":395000,"status":"Disponível"},{"fraccao":"A24","piso":2,"tipologia":"T3","abc":119.94,"varanda":25.45,"garagem":12.5,"total":145.39,"orientacao":"Nascente / Sul","preco":370000,"status":"Disponível"},{"fraccao":"A31","piso":3,"tipologia":"T1","abc":65.14,"varanda":4.2,"garagem":12.5,"total":69.34,"orientacao":"Nascente / Norte","preco":240000,"status":"Disponível"},{"fraccao":"A32","piso":3,"tipologia":"T3","abc":106.95,"varanda":27.16,"garagem":12.5,"total":134.11,"orientacao":"Poente / Norte","preco":380000,"status":"Disponível"},{"fraccao":"A33","piso":3,"tipologia":"T3","abc":123.8,"varanda":28.41,"garagem":25.9,"total":152.21,"orientacao":"Sul","preco":410000,"status":"Disponível"},{"fraccao":"A34","piso":3,"tipologia":"T3","abc":119.94,"varanda":25.45,"garagem":12.5,"total":145.39,"orientacao":"Nascente / Sul","preco":385000,"status":"Disponível"},{"fraccao":"A41","piso":4,"tipologia":"T1","abc":65.14,"varanda":4.2,"garagem":12.5,"total":69.34,"orientacao":"Nascente / Norte","preco":255000,"status":"Disponível"},{"fraccao":"A42","piso":4,"tipologia":"T3","abc":106.95,"varanda":27.16,"garagem":12.5,"total":134.11,"orientacao":"Poente / Norte","preco":405000,"status":"Disponível"},{"fraccao":"A43","piso":4,"tipologia":"T3","abc":123.8,"varanda":28.41,"garagem":25.0,"total":152.21,"orientacao":"Sul","preco":425000,"status":"Disponível"},{"fraccao":"A44","piso":4,"tipologia":"T3","abc":119.94,"varanda":25.45,"garagem":12.5,"total":145.39,"orientacao":"Nascente / Sul","preco":400000,"status":"Disponível"},{"fraccao":"A51","piso":5,"tipologia":"T3","abc":118.5,"varanda":106.35,"garagem":23.67,"total":224.85,"orientacao":"Sul / Poente","preco":0,"status":"Vendido"},{"fraccao":"A52","piso":5,"tipologia":"T3","abc":119.27,"varanda":104.73,"garagem":21.9,"total":224.0,"orientacao":"Nascente / Sul","preco":1000000,"status":"Disponível"}];
-let tpFilters = { tipo: 'all', status: 'all', piso: 'all' };
-let selectedTpUnit = null;
-
-function setTpFilter(key, val, btn) {
-  tpFilters[key] = val;
-  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  applyTpFilters();
-}
-
-function applyTpFilters() {
-  const search = (document.getElementById('tpSearchBox') || {}).value || '';
-  const pisoEl = document.getElementById('tpFilterPiso');
-  const piso = pisoEl ? pisoEl.value : 'all';
-  let filtered = tpData.filter(u => {
-    if (tpFilters.tipo !== 'all' && u.tipologia !== tpFilters.tipo) return false;
-    if (tpFilters.status !== 'all' && u.status !== tpFilters.status) return false;
-    if (piso !== 'all' && String(u.piso) !== piso) return false;
-    if (search && !u.fraccao.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-  renderTpTable(filtered);
-  updateTpStats(filtered);
-  const lbl = document.getElementById('tpCountLabel');
-  if (lbl) lbl.textContent = filtered.length;
-  const dispCount = document.getElementById('tp-disp-count');
-  if (dispCount) dispCount.textContent = tpData.filter(u => u.status === 'Disponível').length;
-}
-
-function updateTpStats(data) {
-  const bar = document.getElementById('tpStatsBar');
-  if (!bar) return;
-  const total = tpData.length;
-  const disp = tpData.filter(u => u.status === 'Disponível').length;
-  const vend = tpData.filter(u => u.status === 'Vendido').length;
-  const res = tpData.filter(u => u.status === 'Reservado').length;
-  const pct = Math.round((vend + res) / total * 100);
-  bar.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend + res}</div><div class="stat-box-label">Vendidas/Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${pct}%</div><div class="stat-box-label">Absorção</div></div>`;
-}
-
-function renderTpTable(data) {
-  const tbody = document.getElementById('tpTableBody');
-  if (!tbody) return;
-  if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>'; return; }
-  tbody.innerHTML = data.map(u => {
-    const sc = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : 'reservado';
-    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
-    const pFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
-    return `<tr><td><strong>${u.fraccao}</strong></td><td class="muted">${u.piso}º</td><td><span class="tipo-badge">${u.tipologia}</span></td><td>${u.abc.toFixed(2)}</td><td class="muted">${u.varanda.toFixed(2)}</td><td><strong>${u.total.toFixed(2)}</strong></td><td class="muted" style="font-size:0.8rem;">${u.orientacao}</td><td><strong>${pFmt}</strong></td><td id="tp-status-${u.fraccao}">${editMode.tp ? getStatusSelectHTML('tp', u.fraccao, u.status) : '<span class="badge badge-' + sc + '">' + u.status + '</span>'}</td><td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openTpDetail(${JSON.stringify(u)})'>${u.status === 'Disponível' ? 'Simular' : 'Ver'}</button></td></tr>`;
-  }).join('');
-}
-
-function openTpDetail(unit) {
-  selectedTpUnit = unit;
-  document.getElementById('tpDetailTitle').textContent = 'Fracção ' + unit.fraccao;
-  document.getElementById('tpDetailSubtitle').textContent = 'Trofa Premium · Piso ' + unit.piso + 'º · ' + unit.tipologia;
-  document.getElementById('tpUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso}º</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
-  const cpcv = Math.round(unit.preco * 0.15);
-  const prest = Math.round(unit.preco * 0.10);
-  const escritura = Math.round(unit.preco * 0.75);
-  document.getElementById('tpPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
-  document.getElementById('tpSimPreco').value = unit.preco;
-  document.getElementById('tpDetailPanel').style.display = 'block';
-  document.getElementById('tpDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  calcularTp();
-}
-
-function closeTpDetail() { document.getElementById('tpDetailPanel').style.display = 'none'; selectedTpUnit = null; }
-
-function calcularTp() {
-  if (!selectedTpUnit) return;
-  const preco = parseFloat(document.getElementById('tpSimPreco').value) || 0;
-  const val = parseFloat(document.getElementById('tpSimValorizacao').value) || 15;
-  const meses = parseInt(document.getElementById('tpSimMeses').value) || 12;
-  const taxa = parseFloat(document.getElementById('tpSimFiscal').value);
-  const anos = meses / 12;
-  const cessao = preco * Math.pow(1 + val / 100, anos);
-  const mvBruta = cessao - preco;
-  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
-  const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
-  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
-  document.getElementById('tp-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
-  document.getElementById('tp-res-preco').textContent = fmt(preco);
-  document.getElementById('tp-res-cessao').textContent = fmt(cessao);
-  document.getElementById('tp-res-mais-valia').textContent = fmt(mvBruta);
-  document.getElementById('tp-res-investido').textContent = fmt(capital);
-  document.getElementById('tp-res-roi').textContent = roi.toFixed(1) + '%';
-  document.getElementById('tp-res-meses').textContent = meses + ' meses';
-}
 
 </script>
 
