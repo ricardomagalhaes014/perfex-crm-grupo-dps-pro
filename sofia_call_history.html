@@ -1,133 +1,76 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sofia Outbound — Histórico de Chamadas</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f4f6f9;
-            color: #333;
-        }
-        .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            color: #fff;
-            padding: 24px 32px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .header-icon {
-            width: 48px; height: 48px;
-            background: rgba(255,255,255,0.15);
-            border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 24px;
-        }
-        .header h1 { font-size: 22px; font-weight: 700; }
-        .header p  { font-size: 13px; opacity: 0.7; margin-top: 2px; }
-        .header-right { margin-left: auto; font-size: 12px; opacity: 0.6; text-align: right; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sofia Outbound — Histórico de Chamadas</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f6f9; color: #333; }
 
-        .stats {
-            display: flex; gap: 16px;
-            padding: 20px 32px;
-            flex-wrap: wrap;
-        }
-        .stat-card {
-            background: #fff;
-            border-radius: 10px;
-            padding: 16px 24px;
-            min-width: 160px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-            border-left: 4px solid #0f3460;
-        }
-        .stat-card.green  { border-left-color: #28a745; }
-        .stat-card.orange { border-left-color: #fd7e14; }
-        .stat-card .num { font-size: 28px; font-weight: 700; color: #0f3460; }
-        .stat-card.green  .num { color: #28a745; }
-        .stat-card.orange .num { color: #fd7e14; }
-        .stat-card .lbl { font-size: 12px; color: #888; margin-top: 2px; }
+.header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #fff; padding: 24px 32px;
+    display: flex; align-items: center; gap: 16px;
+}
+.header-icon { width: 48px; height: 48px; background: rgba(255,255,255,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.header h1 { font-size: 22px; font-weight: 700; }
+.header p  { font-size: 13px; opacity: 0.7; margin-top: 2px; }
+.header-right { margin-left: auto; font-size: 12px; opacity: 0.6; text-align: right; }
 
-        .container { padding: 0 32px 32px; }
+.stats { display: flex; gap: 16px; padding: 20px 32px; flex-wrap: wrap; }
+.stat-card { background: #fff; border-radius: 10px; padding: 16px 24px; min-width: 160px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid #0f3460; }
+.stat-card.green  { border-left-color: #28a745; }
+.stat-card.orange { border-left-color: #fd7e14; }
+.stat-card .num { font-size: 28px; font-weight: 700; color: #0f3460; }
+.stat-card.green  .num { color: #28a745; }
+.stat-card.orange .num { color: #fd7e14; }
+.stat-card .lbl { font-size: 12px; color: #888; margin-top: 2px; }
 
-        .filters {
-            display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
-        }
-        .filters input, .filters select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 13px;
-            background: #fff;
-        }
-        .filters input { width: 240px; }
-        .btn-refresh {
-            margin-left: auto;
-            background: #0f3460; color: #fff;
-            border: none; border-radius: 6px;
-            padding: 8px 16px; font-size: 13px;
-            cursor: pointer;
-        }
-        .btn-refresh:hover { background: #16213e; }
+.container { padding: 0 32px 32px; }
+.filters { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.filters input, .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: #fff; }
+.filters input { width: 240px; }
+.btn-refresh { margin-left: auto; background: #0f3460; color: #fff; border: none; border-radius: 6px; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+.btn-refresh:hover { background: #16213e; }
 
-        table {
-            width: 100%; border-collapse: collapse;
-            background: #fff; border-radius: 10px;
-            overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-        }
-        thead th {
-            background: #0f3460; color: #fff;
-            padding: 12px 14px; font-size: 12px;
-            text-align: left; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 0.5px;
-        }
-        tbody tr { border-bottom: 1px solid #f0f0f0; }
-        tbody tr:hover { background: #f8f9ff; }
-        tbody td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
-        .conv-id { font-family: monospace; font-size: 11px; color: #888; }
-        .agent-badge {
-            display: inline-block;
-            padding: 2px 8px; border-radius: 12px;
-            font-size: 11px; font-weight: 600;
-        }
-        .agent-bh     { background: #e3f2fd; color: #1565c0; }
-        .agent-raizes { background: #f3e5f5; color: #6a1b9a; }
+.progress-bar { background: #e9ecef; border-radius: 4px; height: 4px; margin-bottom: 16px; overflow: hidden; }
+.progress-bar-fill { background: #0f3460; height: 100%; transition: width 0.3s; }
 
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px; border-radius: 12px;
-            font-size: 12px; font-weight: 600; color: #fff;
-        }
+table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+thead th { background: #0f3460; color: #fff; padding: 12px 14px; font-size: 12px; text-align: left; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+tbody tr { border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.15s; }
+tbody tr:hover { background: #f0f4ff; }
+tbody tr.expanded { background: #f0f4ff; }
+tbody td { padding: 12px 14px; font-size: 13px; vertical-align: middle; }
 
-        .loading {
-            text-align: center; padding: 48px; color: #888; font-size: 14px;
-        }
-        .loading .spinner {
-            display: inline-block; width: 32px; height: 32px;
-            border: 3px solid #ddd; border-top-color: #0f3460;
-            border-radius: 50%; animation: spin 0.8s linear infinite;
-            margin-bottom: 12px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+.transcript-row td { padding: 0; background: #f8f9fa; }
+.transcript-inner { padding: 16px 20px; border-top: 2px solid #0f3460; }
+.transcript-title { font-size: 12px; font-weight: 700; color: #0f3460; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+.transcript-scroll { max-height: 350px; overflow-y: auto; }
+.turn { margin-bottom: 10px; }
+.turn-agent { text-align: left; }
+.turn-user  { text-align: right; }
+.turn-label { font-size: 10px; color: #aaa; margin-bottom: 3px; }
+.turn-agent .turn-label { text-align: left; }
+.turn-user  .turn-label { text-align: right; }
+.bubble { display: inline-block; max-width: 70%; padding: 8px 14px; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+.bubble-agent { background: #e8eaf6; color: #1a237e; border-bottom-left-radius: 4px; }
+.bubble-user  { background: #0f3460; color: white; border-bottom-right-radius: 4px; }
+.no-transcript { color: #aaa; font-style: italic; font-size: 13px; padding: 10px 0; }
 
-        .error-box {
-            background: #fff3cd; border: 1px solid #ffc107;
-            border-radius: 8px; padding: 16px; margin-bottom: 16px;
-            font-size: 13px; color: #856404;
-        }
+.agent-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.agent-bh     { background: #e3f2fd; color: #1565c0; }
+.agent-raizes { background: #f3e5f5; color: #6a1b9a; }
+.status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; }
+.expand-icon { color: #aaa; font-size: 14px; transition: transform 0.2s; }
+.expanded .expand-icon { transform: rotate(180deg); }
 
-        .footer { text-align: center; padding: 16px; font-size: 11px; color: #bbb; }
-
-        @media (max-width: 768px) {
-            .header, .stats, .container { padding-left: 16px; padding-right: 16px; }
-            .filters input { width: 100%; }
-            table { font-size: 12px; }
-            thead th:nth-child(8) { display: none; }
-            tbody td:nth-child(8) { display: none; }
-        }
-    </style>
+.loading { text-align: center; padding: 48px; color: #888; font-size: 14px; }
+.loading .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid #ddd; border-top-color: #0f3460; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.footer { text-align: center; padding: 16px; font-size: 11px; color: #bbb; }
+</style>
 </head>
 <body>
 
@@ -135,7 +78,7 @@
     <div class="header-icon">📞</div>
     <div>
         <h1>Sofia Outbound — Histórico de Chamadas</h1>
-        <p>Chamadas automáticas realizadas pelos agentes Sofia</p>
+        <p>Chamadas automáticas realizadas pelos agentes Sofia · Clique numa linha para ver a transcrição</p>
     </div>
     <div class="header-right" id="updateTime">A carregar...</div>
 </div>
@@ -147,7 +90,7 @@
     </div>
     <div class="stat-card green">
         <div class="num" id="statConcluidas">—</div>
-        <div class="lbl">Concluídas</div>
+        <div class="lbl">Atendidas</div>
     </div>
     <div class="stat-card orange">
         <div class="num" id="statHoje">—</div>
@@ -155,7 +98,7 @@
     </div>
     <div class="stat-card">
         <div class="num" id="statOutras">—</div>
-        <div class="lbl">Não Atendidas / Outras</div>
+        <div class="lbl">Não Atendidas</div>
     </div>
 </div>
 
@@ -169,56 +112,54 @@
         </select>
         <select id="statusFilter" onchange="filterTable()">
             <option value="">Todos os Status</option>
-            <option value="done">Concluída</option>
-            <option value="initiated">Iniciada</option>
+            <option value="done">Atendida</option>
+            <option value="initiated">Não Atendeu</option>
             <option value="failed">Falhou</option>
         </select>
         <button class="btn-refresh" onclick="loadData()">↻ Atualizar</button>
     </div>
-
+    <div class="progress-bar" id="progressBar" style="display:none">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
     <div id="tableArea">
-        <div class="loading">
-            <div class="spinner"></div><br>
-            A carregar chamadas...
-        </div>
+        <div class="loading"><div class="spinner"></div><br>A carregar chamadas...</div>
     </div>
 </div>
 
-<div class="footer">Sofia Outbound System — Grupo DPS &copy; 2026</div>
+<div class="footer">Sofia Outbound System — Grupo DPS © 2026</div>
 
 <script>
-const API_KEY = "sk_c414c588b881d8e7a802ff9d9192ab671392c51eeb0e7afc";
-const AGENT_BH     = "agent_9901kv1pvewveh9s9ebs1rys274k";
-const AGENT_RAIZES = "agent_4301kv1pv8g8e259bbdyfk7mrefb";
+const API_KEY     = "sk_c414c588b881d8e7a802ff9d9192ab671392c51eeb0e7afc";
+const AGENT_BH    = "agent_9901kv1pvewveh9s9ebs1rys274k";
+const AGENT_RAIZES= "agent_4301kv1pv8g8e259bbdyfk7mrefb";
 
 let allCalls = [];
+let detailCache = {};
 
 function formatDate(ts) {
     if (!ts) return '—';
-    const d = new Date(ts * 1000);
-    return d.toLocaleDateString('pt-PT') + ' ' + d.toLocaleTimeString('pt-PT');
+    return new Date(ts * 1000).toLocaleString('pt-PT');
 }
-
 function formatDuration(secs) {
     if (!secs || secs === 0) return '—';
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${m}:${String(s).padStart(2,'0')}`;
+    return m > 0 ? `${m}m ${String(s).padStart(2,'0')}s` : `${s}s`;
 }
-
 function statusBadge(status) {
     const map = {
-        'done':      { label: 'Concluída',    color: '#28a745' },
-        'processing':{ label: 'Em curso',     color: '#007bff' },
-        'failed':    { label: 'Falhou',       color: '#dc3545' },
-        'initiated': { label: 'Iniciada',     color: '#6c757d' },
-        'no-answer': { label: 'Não Atendeu',  color: '#fd7e14' },
-        'busy':      { label: 'Ocupado',      color: '#ffc107' },
+        'done':       { label: 'Atendida',    color: '#28a745' },
+        'processing': { label: 'Em curso',    color: '#007bff' },
+        'failed':     { label: 'Falhou',      color: '#dc3545' },
+        'initiated':  { label: 'Não Atendeu', color: '#fd7e14' },
+        'no-answer':  { label: 'Não Atendeu', color: '#fd7e14' },
+        'busy':       { label: 'Ocupado',     color: '#ffc107' },
     };
     const s = (status || '').toLowerCase();
     const info = map[s] || { label: status || '—', color: '#6c757d' };
     return `<span class="status-badge" style="background:${info.color}">${info.label}</span>`;
 }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 async function fetchConversations(agentId, agentLabel) {
     try {
@@ -229,124 +170,228 @@ async function fetchConversations(agentId, agentLabel) {
         if (!res.ok) return [];
         const data = await res.json();
         return (data.conversations || []).map(c => ({ ...c, agent_label: agentLabel }));
-    } catch(e) {
-        console.error('Erro ao carregar conversas:', e);
-        return [];
-    }
+    } catch(e) { return []; }
 }
 
-function renderTable(calls) {
-    if (calls.length === 0) {
-        return '<div class="loading">Nenhuma chamada registada ainda.</div>';
-    }
-
-    const today = new Date().toLocaleDateString('pt-PT');
-    let total = calls.length;
-    let concluidas = calls.filter(c => (c.status||'').toLowerCase() === 'done').length;
-    let hoje = calls.filter(c => {
-        const ts = c.start_time_unix_secs || (c.metadata && c.metadata.start_time_unix_secs) || 0;
-        return new Date(ts * 1000).toLocaleDateString('pt-PT') === today;
-    }).length;
-
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statConcluidas').textContent = concluidas;
-    document.getElementById('statHoje').textContent = hoje;
-    document.getElementById('statOutras').textContent = total - concluidas;
-
-    let rows = '';
-    calls.forEach((conv, i) => {
-        const ts       = conv.start_time_unix_secs || (conv.metadata && conv.metadata.start_time_unix_secs) || 0;
-        const duration = conv.call_duration_secs || (conv.metadata && conv.metadata.call_duration_secs) || 0;
-        const phone    = (conv.metadata && conv.metadata.phone_call && conv.metadata.phone_call.external_number)
-                      || (conv.conversation_initiation_client_data && conv.conversation_initiation_client_data.dynamic_variables && conv.conversation_initiation_client_data.dynamic_variables.lead_phone)
-                      || (conv.user_id && conv.user_id.startsWith('+') ? conv.user_id : '—');
-        const name     = (conv.conversation_initiation_client_data && conv.conversation_initiation_client_data.dynamic_variables && conv.conversation_initiation_client_data.dynamic_variables.lead_name)
-                      || '—';
-        const status   = conv.status || '—';
-        const agent    = conv.agent_label;
-        const convId   = conv.conversation_id || '';
-        const agentClass = agent === 'Raízes' ? 'agent-raizes' : 'agent-bh';
-
-        rows += `<tr data-agent="${agent}" data-status="${status.toLowerCase()}">
-            <td>${total - i}</td>
-            <td>${formatDate(ts)}</td>
-            <td><strong>${name}</strong></td>
-            <td>${phone}</td>
-            <td><span class="agent-badge ${agentClass}">${agent}</span></td>
-            <td>${formatDuration(duration)}</td>
-            <td>${statusBadge(status)}</td>
-            <td class="conv-id">${convId.substring(0,24)}...</td>
-        </tr>`;
-    });
-
-    return `<table id="callTable">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Data / Hora</th>
-                <th>Cliente</th>
-                <th>Telefone</th>
-                <th>Agente</th>
-                <th>Duração</th>
-                <th>Status</th>
-                <th>ID Conversa</th>
-            </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-    </table>`;
+async function fetchDetail(convId) {
+    if (detailCache[convId]) return detailCache[convId];
+    try {
+        const res = await fetch(
+            `https://api.elevenlabs.io/v1/convai/conversations/${convId}`,
+            { headers: { 'xi-api-key': API_KEY } }
+        );
+        if (!res.ok) return null;
+        const d = await res.json();
+        detailCache[convId] = d;
+        return d;
+    } catch(e) { return null; }
 }
 
 async function loadData() {
-    document.getElementById('tableArea').innerHTML = `
-        <div class="loading">
-            <div class="spinner"></div><br>
-            A carregar chamadas...
-        </div>`;
-
-    document.getElementById('statTotal').textContent = '—';
-    document.getElementById('statConcluidas').textContent = '—';
-    document.getElementById('statHoje').textContent = '—';
-    document.getElementById('statOutras').textContent = '—';
+    document.getElementById('tableArea').innerHTML = `<div class="loading"><div class="spinner"></div><br>A carregar lista de chamadas...</div>`;
+    document.getElementById('progressBar').style.display = 'none';
+    ['statTotal','statConcluidas','statHoje','statOutras'].forEach(id => document.getElementById(id).textContent = '—');
 
     const [bhCalls, raizesCalls] = await Promise.all([
         fetchConversations(AGENT_BH, 'Belo Horizonte'),
         fetchConversations(AGENT_RAIZES, 'Raízes')
     ]);
 
-    allCalls = [...bhCalls, ...raizesCalls].sort((a, b) => {
-        const ta = a.start_time_unix_secs || (a.metadata && a.metadata.start_time_unix_secs) || 0;
-        const tb = b.start_time_unix_secs || (b.metadata && b.metadata.start_time_unix_secs) || 0;
+    // Juntar e ordenar por data (mais recente primeiro)
+    let combined = [...bhCalls, ...raizesCalls].sort((a, b) => {
+        const ta = a.start_time_unix_secs || 0;
+        const tb = b.start_time_unix_secs || 0;
         return tb - ta;
     });
 
-    document.getElementById('tableArea').innerHTML = renderTable(allCalls);
-    document.getElementById('updateTime').innerHTML = `Atualizado em<br>${new Date().toLocaleString('pt-PT')}`;
+    // Filtrar apenas chamadas outbound (que têm phone_call na metadata)
+    // Nota: a lista pode não ter metadata completa, vamos carregar detalhes
+    const total = combined.length;
+    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('tableArea').innerHTML = `<div class="loading"><div class="spinner"></div><br>A carregar detalhes de ${total} chamadas...</div>`;
 
-    filterTable();
+    // Carregar detalhes em paralelo (máx 20 de cada vez)
+    const enriched = [];
+    const batchSize = 10;
+    for (let i = 0; i < combined.length; i += batchSize) {
+        const batch = combined.slice(i, i + batchSize);
+        const details = await Promise.all(batch.map(c => fetchDetail(c.conversation_id)));
+        batch.forEach((c, idx) => {
+            const d = details[idx];
+            if (!d) { enriched.push(c); return; }
+            const meta = d.metadata || {};
+            const pc   = meta.phone_call || {};
+            // Só incluir chamadas outbound
+            if (pc.direction && pc.direction !== 'outbound') return;
+            enriched.push({
+                ...c,
+                detail: d,
+                phone: pc.external_number || '—',
+                clientName: extractClientName(d),
+                transcript: d.transcript || [],
+                duration: meta.call_duration_secs || 0,
+                status: d.status || c.status || 'unknown'
+            });
+        });
+        const pct = Math.min(100, Math.round((i + batchSize) / combined.length * 100));
+        document.getElementById('progressFill').style.width = pct + '%';
+    }
+
+    allCalls = enriched;
+    document.getElementById('progressBar').style.display = 'none';
+    renderTable(allCalls);
+    document.getElementById('updateTime').innerHTML = `Atualizado em<br>${new Date().toLocaleString('pt-PT')}`;
+}
+
+function extractClientName(d) {
+    // Tentar obter nome das dynamic_variables
+    const dv = (d.conversation_initiation_client_data || {}).dynamic_variables || {};
+    if (dv.lead_name) return dv.lead_name;
+    if (dv.client_name) return dv.client_name;
+    if (dv.nome) return dv.nome;
+    if (dv.name) return dv.name;
+    // Fallback: usar o número chamado
+    const meta = d.metadata || {};
+    const pc = meta.phone_call || {};
+    return pc.external_number || '—';
+}
+
+function renderTable(calls) {
+    if (calls.length === 0) {
+        document.getElementById('tableArea').innerHTML = '<div class="loading">Nenhuma chamada outbound registada ainda.</div>';
+        return;
+    }
+
+    const today = new Date().toLocaleDateString('pt-PT');
+    const total       = calls.length;
+    const concluidas  = calls.filter(c => (c.status||'').toLowerCase() === 'done').length;
+    const hoje        = calls.filter(c => {
+        const ts = c.start_time_unix_secs || 0;
+        return new Date(ts * 1000).toLocaleDateString('pt-PT') === today;
+    }).length;
+
+    document.getElementById('statTotal').textContent      = total;
+    document.getElementById('statConcluidas').textContent = concluidas;
+    document.getElementById('statHoje').textContent       = hoje;
+    document.getElementById('statOutras').textContent     = total - concluidas;
+
+    let rows = '';
+    calls.forEach((conv, i) => {
+        const ts       = conv.start_time_unix_secs || 0;
+        const phone    = conv.phone || '—';
+        const name     = conv.clientName || phone;
+        const status   = conv.status || '—';
+        const agent    = conv.agent_label;
+        const convId   = conv.conversation_id || '';
+        const agentClass = agent === 'Raízes' ? 'agent-raizes' : 'agent-bh';
+        const dur      = formatDuration(conv.duration || 0);
+
+        rows += `<tr data-agent="${agent}" data-status="${status.toLowerCase()}" data-convid="${convId}" onclick="toggleTranscript(this, '${convId}')">
+            <td>${total - i}</td>
+            <td>${formatDate(ts)}</td>
+            <td><strong>${esc(name)}</strong></td>
+            <td>${esc(phone)}</td>
+            <td><span class="agent-badge ${agentClass}">${agent}</span></td>
+            <td>${dur}</td>
+            <td>${statusBadge(status)}</td>
+            <td><span class="expand-icon">▼</span></td>
+        </tr>
+        <tr class="transcript-row" id="tr-${convId}" style="display:none">
+            <td colspan="8">
+                <div class="transcript-inner" id="tc-${convId}">
+                    <div class="loading" style="padding:16px"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div></div>
+                </div>
+            </td>
+        </tr>`;
+    });
+
+    document.getElementById('tableArea').innerHTML = `
+        <table id="callTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Data / Hora</th>
+                    <th>Cliente</th>
+                    <th>Telefone</th>
+                    <th>Agente</th>
+                    <th>Duração</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+
+async function toggleTranscript(row, convId) {
+    const trRow = document.getElementById('tr-' + convId);
+    const tcDiv = document.getElementById('tc-' + convId);
+    
+    if (trRow.style.display === 'none') {
+        // Expandir
+        trRow.style.display = '';
+        row.classList.add('expanded');
+        
+        // Carregar transcrição
+        const d = detailCache[convId] || await fetchDetail(convId);
+        if (!d) {
+            tcDiv.innerHTML = '<div class="no-transcript">Não foi possível carregar a transcrição.</div>';
+            return;
+        }
+        
+        const transcript = d.transcript || [];
+        const meta = d.metadata || {};
+        const pc   = meta.phone_call || {};
+        const dur  = formatDuration(meta.call_duration_secs || 0);
+        const phone = pc.external_number || '—';
+        
+        let html = `<div class="transcript-title">💬 Transcrição da conversa · ${phone} · Duração: ${dur}</div>`;
+        html += '<div class="transcript-scroll">';
+        
+        if (transcript.length === 0) {
+            html += '<div class="no-transcript">Sem transcrição disponível (chamada não atendida ou muito curta)</div>';
+        } else {
+            transcript.forEach(t => {
+                const isAgent = t.role === 'agent';
+                const msg = (t.message || '').trim();
+                if (!msg) return;
+                html += `<div class="turn ${isAgent ? 'turn-agent' : 'turn-user'}">
+                    <div class="turn-label">${isAgent ? '🤖 Sofia' : '👤 Cliente'}</div>
+                    <div class="bubble ${isAgent ? 'bubble-agent' : 'bubble-user'}">${esc(msg)}</div>
+                </div>`;
+            });
+        }
+        html += '</div>';
+        tcDiv.innerHTML = html;
+    } else {
+        // Colapsar
+        trRow.style.display = 'none';
+        row.classList.remove('expanded');
+    }
 }
 
 function filterTable() {
     const search = document.getElementById('searchInput').value.toLowerCase();
     const agent  = document.getElementById('agentFilter').value.toLowerCase();
     const status = document.getElementById('statusFilter').value.toLowerCase();
-    const rows   = document.querySelectorAll('#callTable tbody tr');
+    const rows   = document.querySelectorAll('#callTable tbody tr:not(.transcript-row)');
     rows.forEach(row => {
         const text      = row.innerText.toLowerCase();
-        const rowAgent  = (row.dataset.agent || '').toLowerCase();
+        const rowAgent  = (row.dataset.agent  || '').toLowerCase();
         const rowStatus = (row.dataset.status || '').toLowerCase();
+        const convId    = row.dataset.convid || '';
         const show = (!search || text.includes(search))
                   && (!agent  || rowAgent.includes(agent))
                   && (!status || rowStatus.includes(status));
         row.style.display = show ? '' : 'none';
+        // Esconder também a linha de transcrição se a linha principal estiver escondida
+        const trRow = document.getElementById('tr-' + convId);
+        if (trRow) trRow.style.display = show ? trRow.style.display : 'none';
     });
 }
 
-// Carregar dados ao abrir a página
 loadData();
-
-// Auto-atualizar a cada 2 minutos
 setInterval(loadData, 120000);
 </script>
-
 </body>
 </html>
