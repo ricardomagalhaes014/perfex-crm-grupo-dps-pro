@@ -5392,6 +5392,10 @@ function lead_mark_as_junk(id) {
 }
 // From lead table mark as
 function lead_mark_as(status_id, lead_id) {
+  // Fechar o dropdown imediatamente
+  $('#tableLeadsStatus-' + lead_id).closest('.dropdown').removeClass('open');
+  $('body').trigger('click'); // Garante que qualquer dropdown aberto é fechado
+
   var data = {};
   data.status = status_id;
   data.leadid = lead_id;
