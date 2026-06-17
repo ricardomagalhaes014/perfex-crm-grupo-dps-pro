@@ -201,7 +201,7 @@ return App_table::find('leads')
             $hrefAttr = 'href="' . admin_url('leads/index/' . $aRow['id']) . '" onclick="init_lead(' . $aRow['id'] . ');return false;"';
             $row[]    = '<a ' . $hrefAttr . ' class="tw-font-medium">' . $aRow['id'] . '</a>';
 
-            $nameRow = '<a ' . $hrefAttr . ' class="tw-font-medium">' . e($aRow['name']) . '</a>';
+            $nameRow = '<a ' . $hrefAttr . ' class="tw-font-medium">' . htmlspecialchars($aRow['name'], ENT_QUOTES, 'UTF-8') . '</a>';
 
             $nameRow .= '<div class="row-options">';
             $nameRow .= '<a ' . $hrefAttr . '>' . _l('view') . '</a>';
@@ -228,22 +228,22 @@ return App_table::find('leads')
                 $consents    = $this->ci->gdpr_model->get_consent_purposes($aRow['id'], 'lead');
 
                 foreach ($consents as $consent) {
-                    $consentHTML .= '<p style="margin-bottom:0px;">' . e($consent['name']) . (! empty($consent['consent_given']) ? '<i class="fa fa-check text-success pull-right"></i>' : '<i class="fa fa-remove text-danger pull-right"></i>') . '</p>';
+                    $consentHTML .= '<p style="margin-bottom:0px;">' . htmlspecialchars($consent['name'], ENT_QUOTES, 'UTF-8') . (! empty($consent['consent_given']) ? '<i class="fa fa-check text-success pull-right"></i>' : '<i class="fa fa-remove text-danger pull-right"></i>') . '</p>';
                 }
                 $row[] = $consentHTML;
             }
             
             // Empresa
-            $row[] = e($aRow['company']);
+            $row[] = htmlspecialchars($aRow['company'], ENT_QUOTES, 'UTF-8');
 
             // Email
             $row[] = ($aRow['email'] != ''
-                ? '<a href="mailto:' . e($aRow['email']) . '">' . e($aRow['email']) . '</a>'
+                ? '<a href="mailto:' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '</a>'
                 : '');
 
             // Telefone (link WhatsApp)
             $row[] = ($aRow['phonenumber'] != ''
-                ? '<a href="https://wa.me/' . preg_replace('/\D/', '', $aRow['phonenumber']) . '" target="_blank">' . e($aRow['phonenumber']) . '</a>'
+                ? '<a href="https://wa.me/' . preg_replace('/\D/', '', $aRow['phonenumber']) . '" target="_blank">' . htmlspecialchars($aRow['phonenumber'], ENT_QUOTES, 'UTF-8') . '</a>'
                 : '');
 
             // 🔹 NOVA COLUNA "Notes" (última nota com cor por idade)
@@ -272,7 +272,7 @@ return App_table::find('leads')
                 }
                 $row[] = '<div class="lead-note note-item ' . $note_class . '" 
                              style="min-width:260px; max-width:520px; display:block;">'
-                         . e($short_note) .
+                         . htmlspecialchars($short_note, ENT_QUOTES, 'UTF-8') .
                          '</div>';
 
             } else {
@@ -285,7 +285,7 @@ return App_table::find('leads')
 
             $assignedOutput = '';
             if ($aRow['assigned'] != 0) {
-                $full_name = e($aRow['assigned_firstname'] . ' ' . $aRow['assigned_lastname']);
+                $full_name = htmlspecialchars($aRow['assigned_firstname'] . ' ' . $aRow['assigned_lastname'], ENT_QUOTES, 'UTF-8');
 
                 $assignedOutput = '<a data-toggle="tooltip" data-title="' . $full_name . '" href="' . admin_url('profile/' . $aRow['assigned']) . '">' . staff_profile_image($aRow['assigned'], [
                     'staff-profile-image-small',
@@ -308,7 +308,7 @@ return App_table::find('leads')
                 if (! $locked) {
                     $outputStatus .= '<div class="dropdown inline-block">';
                     $outputStatus .= '<a href="#" class="dropdown-toggle tw-flex tw-items-center tw-gap-1 tw-flex-nowrap hover:tw-opacity-80 tw-align-middle lead-status-' . $aRow['status'] . ' label' . (empty($aRow['color']) ? ' label-default' : '') . '" style="color:' . $aRow['color'] . ';border:1px solid ' . adjust_hex_brightness($aRow['color'], 0.4) . ';background: ' . adjust_hex_brightness($aRow['color'], 0.04) . ';" id="tableLeadsStatus-' . $aRow['id'] . '" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">';
-                    $outputStatus .= e($aRow['status_name']);
+                    $outputStatus .= htmlspecialchars($aRow['status_name'], ENT_QUOTES, 'UTF-8');
                     $outputStatus .= '<i class="chevron"></i>';
                     $outputStatus .= '</a>';
 
@@ -318,7 +318,7 @@ return App_table::find('leads')
                         if ($aRow['status'] != $leadChangeStatus['id']) {
                             $outputStatus .= '<li>
                           <a href="#" onclick="lead_mark_as(' . $leadChangeStatus['id'] . ',' . $aRow['id'] . '); return false;">
-                             ' . e($leadChangeStatus['name']) . '
+                             ' . htmlspecialchars($leadChangeStatus['name'], ENT_QUOTES, 'UTF-8') . '
                           </a>
                        </li>';
                         }
@@ -326,13 +326,13 @@ return App_table::find('leads')
                     $outputStatus .= '</ul>';
                     $outputStatus .= '</div>';
                 } else {
-                    $outputStatus = '<span class="lead-status-' . $aRow['status'] . ' label' . (empty($aRow['color']) ? ' label-default' : '') . '" style="color:' . $aRow['color'] . ';border:1px solid ' . adjust_hex_brightness($aRow['color'], 0.4) . ';background: ' . adjust_hex_brightness($aRow['color'], 0.04) . ';">' . e($aRow['status_name']) . '</span>';
+                    $outputStatus = '<span class="lead-status-' . $aRow['status'] . ' label' . (empty($aRow['color']) ? ' label-default' : '') . '" style="color:' . $aRow['color'] . ';border:1px solid ' . adjust_hex_brightness($aRow['color'], 0.4) . ';background: ' . adjust_hex_brightness($aRow['color'], 0.04) .'">' . htmlspecialchars($aRow['status_name'], ENT_QUOTES, 'UTF-8') . '</span>';
                 }
             }
 
             $row[] = $outputStatus;
 
-            $row[] = e($aRow['source_name']);
+            $row[] = htmlspecialchars((string)$aRow['source_name'], ENT_QUOTES, 'UTF-8');
 
             $row[] = ($aRow['lastcontact'] == '0000-00-00 00:00:00' || ! is_date($aRow['lastcontact']) ? '' : '<span data-toggle="tooltip" data-title="' . e(_dt($aRow['lastcontact'])) . '" class="text-has-action is-date">' . e(time_ago($aRow['lastcontact'])) . '</span>');
 
