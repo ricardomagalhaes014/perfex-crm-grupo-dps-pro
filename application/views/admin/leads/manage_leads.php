@@ -305,6 +305,24 @@
 <?php init_tail(); ?>
 <script>
     var openLeadID = '<?= e($leadid); ?>';
+
+    // DPS FIX: Redefinir lead_mark_as para fechar o dropdown antes de alterar o estado
+    function lead_mark_as(status_id, lead_id) {
+        // Fechar o dropdown
+        var $dropdown = $('#tableLeadsStatus-' + lead_id).closest('.dropdown, .open');
+        $dropdown.removeClass('open').removeClass('show');
+        $dropdown.find('.dropdown-menu').removeClass('show').hide();
+        $('#tableLeadsStatus-' + lead_id).attr('aria-expanded', 'false');
+        // Fechar todos os dropdowns abertos na tabela
+        $('table.table-leads .dropdown').removeClass('open show');
+        $('table.table-leads .dropdown-menu').removeClass('show').hide();
+        // Enviar o pedido
+        var data = { status: status_id, leadid: lead_id };
+        $.post(admin_url + 'leads/update_lead_status', data).done(function(response) {
+            table_leads.DataTable().ajax.reload(null, false);
+        });
+    }
+
     $(function() {
         leads_kanban();
         $('#leads_bulk_mark_lost').on('change', function() {
