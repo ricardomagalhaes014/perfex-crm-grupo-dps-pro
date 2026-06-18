@@ -481,6 +481,26 @@ switch ($action) {
         cache_clear();
         echo json_encode(['success' => true, 'message' => 'Cache limpa']);
         break;
+
+    case 'sofia_patch':
+        $results = [];
+        // Parar campanhas ativas
+        $conn->query("UPDATE " . TBL_PREFIX . "dps_sofia_campaigns SET status='stopped' WHERE status='active'");
+        $results['campaigns_stopped'] = $conn->affected_rows;
+        // Corrigir a view do módulo Sofia
+        $view_path = __DIR__ . '/modules/dps_sofia_calls/views/sofia_calls/index.php';
+        $view_content = file_get_contents($view_path);
+        $results['view_exists'] = file_exists($view_path);
+        $results['view_has_ajax'] = strpos($view_content, 'X-Requested-With') !== false ? 'SIM' : 'NAO';
+        $results['view_has_agents'] = strpos($view_content, '$agents') !== false ? 'SIM (ERRO!)' : 'NAO (OK)';
+        $results['view_size'] = strlen($view_content);
+        // Verificar controller
+        $ctrl_path = __DIR__ . '/modules/dps_sofia_calls/controllers/Dps_sofia_calls.php';
+        $ctrl_content = file_get_contents($ctrl_path);
+        $results['ctrl_has_create_campaign'] = strpos($ctrl_content, 'create_campaign') !== false ? 'SIM' : 'NAO';
+        $results['ctrl_has_staff_filter'] = strpos($ctrl_content, 'staff_id') !== false ? 'SIM' : 'NAO';
+        echo json_encode(['success' => true, 'data' => $results]);
+        break;
         
     default:
         http_response_code(400);
