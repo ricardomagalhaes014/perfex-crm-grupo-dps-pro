@@ -57,11 +57,6 @@ class Leads extends AdminController
             ajax_access_denied();
         }
     
-        // Opcional: só permite acesso via AJAX (DataTables)
-        if (!$this->input->is_ajax_request()) {
-            show_404(); // ou simplesmente exit;
-        }
-    
         App_table::find('leads')->output();
     }
     
