@@ -9,18 +9,14 @@ class Dps_sofia_calls extends AdminController
         $this->load->model('dps_sofia_calls/Dps_sofia_calls_model');
     }
 
-    // ─── PÁGINA PRINCIPAL ───────────────────────────────────────────────────────
-
     public function index()
     {
         $data['title']         = 'Sofia Calls';
         $data['lead_statuses'] = $this->Dps_sofia_calls_model->get_lead_statuses();
-        $data['agents']        = $this->Dps_sofia_calls_model->get_agents();
+        $data['staff_list']    = $this->Dps_sofia_calls_model->get_staff_list();
         $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
         $this->load->view('dps_sofia_calls/sofia_calls/index', $data);
     }
-
-    // ─── CRIAR CAMPANHA ─────────────────────────────────────────────────────────
 
     public function create_campaign()
     {
@@ -29,13 +25,14 @@ class Dps_sofia_calls extends AdminController
         $data = [
             'name'           => $this->input->post('name'),
             'lead_status_id' => (int) $this->input->post('lead_status_id'),
-            'agent_id'       => $this->input->post('agent_id'),
+            'staff_id'       => (int) $this->input->post('staff_id'),
             'focus_text'     => $this->input->post('focus_text'),
+            'agent_id'       => $this->input->post('agent_id'),
         ];
 
         if (empty($data['name']) || empty($data['lead_status_id'])) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatórios']);
+            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatorios']);
             exit;
         }
 
@@ -45,12 +42,10 @@ class Dps_sofia_calls extends AdminController
         echo json_encode([
             'success'     => true,
             'campaign_id' => $campaign_id,
-            'message'     => 'Campanha criada com sucesso',
+            'message'     => 'Campanha criada em estado pausado. Clique em Iniciar quando quiser comecar.',
         ]);
         exit;
     }
-
-    // ─── CONTROLAR CAMPANHA ─────────────────────────────────────────────────────
 
     public function campaign_action()
     {
@@ -62,7 +57,7 @@ class Dps_sofia_calls extends AdminController
         $allowed = ['active', 'paused', 'stopped'];
         if (!in_array($action, $allowed)) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Ação inválida']);
+            echo json_encode(['success' => false, 'message' => 'Acao invalida']);
             exit;
         }
 
@@ -72,8 +67,6 @@ class Dps_sofia_calls extends AdminController
         echo json_encode(['success' => $ok]);
         exit;
     }
-
-    // ─── INICIAR CHAMADA IMEDIATA ───────────────────────────────────────────────
 
     public function make_call()
     {
@@ -86,8 +79,6 @@ class Dps_sofia_calls extends AdminController
         echo json_encode($result);
         exit;
     }
-
-    // ─── DETALHES DA CAMPANHA ───────────────────────────────────────────────────
 
     public function campaign_detail()
     {

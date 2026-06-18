@@ -1,7 +1,15 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
-
+/*
+Module Name: DPS Sofia Calls
+Description: Automação de chamadas telefónicas com a Sofia (ElevenLabs AI) para leads do CRM. Permite criar campanhas de chamadas automáticas por estado de lead, com foco/contexto personalizável.
+Version: 1.0.0
+Requires at least: 2.3.*
+Author: Grupo DPS
+Author URI: https://grupo-dps.com
+*/
 define('DPS_SOFIA_CALLS_MODULE_NAME', 'dps_sofia_calls');
+define('DPS_SOFIA_CALLS_VERSION', '1.0.0');
 
 // Registar menu lateral
 hooks()->add_action('admin_init', 'dps_sofia_calls_menu');

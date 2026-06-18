@@ -13,7 +13,6 @@
                     </button>
                 </div>
 
-                <!-- CAMPANHAS ATIVAS -->
                 <div class="row" id="campaigns-container">
                     <?php if (empty($campaigns)): ?>
                     <div class="col-md-12">
@@ -29,7 +28,7 @@
                                 <div class="tw-flex tw-justify-between tw-items-start tw-mb-2">
                                     <h5 class="tw-font-semibold tw-text-neutral-700 tw-mb-0"><?php echo htmlspecialchars($c['name']); ?></h5>
                                     <span class="label label-<?php echo $c['status'] === 'active' ? 'success' : ($c['status'] === 'paused' ? 'warning' : 'danger'); ?>">
-                                        <?php echo ucfirst($c['status']); ?>
+                                        <?php echo $c['status'] === 'active' ? 'Ativa' : ($c['status'] === 'paused' ? 'Pausada' : ($c['status'] === 'completed' ? 'Concluída' : 'Parada')); ?>
                                     </span>
                                 </div>
 
@@ -39,7 +38,6 @@
                                 </p>
                                 <?php endif; ?>
 
-                                <!-- Barra de progresso -->
                                 <?php
                                 $total = max(1, (int)$c['total_leads']);
                                 $made  = (int)$c['calls_made'];
@@ -60,22 +58,21 @@
                                     <span class="tw-text-red-500"><i class="fa fa-times"></i> <?php echo $c['calls_failed']; ?> falhadas</span>
                                 </div>
 
-                                <!-- Botões de controlo -->
                                 <div class="btn-group btn-group-sm tw-w-full">
-                                    <?php if ($c['status'] === 'active'): ?>
+                                    <?php if ($c['status'] === 'paused'): ?>
+                                    <button class="btn btn-success btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="active" title="Iniciar campanha">
+                                        <i class="fa fa-play"></i> Iniciar
+                                    </button>
+                                    <?php elseif ($c['status'] === 'active'): ?>
                                     <button class="btn btn-warning btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="paused" title="Pausar">
                                         <i class="fa fa-pause"></i> Pausar
                                     </button>
-                                    <button class="btn btn-success btn-make-call" data-id="<?php echo $c['id']; ?>" title="Ligar agora">
+                                    <button class="btn btn-success btn-make-call" data-id="<?php echo $c['id']; ?>" title="Ligar agora para o próximo lead">
                                         <i class="fa fa-phone"></i> Ligar Agora
-                                    </button>
-                                    <?php elseif ($c['status'] === 'paused'): ?>
-                                    <button class="btn btn-success btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="active" title="Retomar">
-                                        <i class="fa fa-play"></i> Retomar
                                     </button>
                                     <?php endif; ?>
                                     <?php if (in_array($c['status'], ['active', 'paused'])): ?>
-                                    <button class="btn btn-danger btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="stopped" title="Parar">
+                                    <button class="btn btn-danger btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="stopped" title="Parar definitivamente">
                                         <i class="fa fa-stop"></i> Parar
                                     </button>
                                     <?php endif; ?>
@@ -116,30 +113,34 @@
                             <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted">A Sofia vai ligar a todos os leads com este estado que tenham número de telefone.</small>
+                        <small class="text-muted">A Sofia vai ligar aos leads com este estado que tenham número de telefone.</small>
                     </div>
                     <div class="form-group">
-                        <label>Agente Sofia</label>
-                        <select name="agent_id" class="form-control">
-                            <?php foreach ($agents as $a): ?>
-                            <option value="<?php echo $a['agent_id']; ?>" <?php echo strpos($a['name'], 'Outbound') !== false ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($a['name']); ?>
-                            </option>
+                        <label>Responsável (Staff)</label>
+                        <select name="staff_id" class="form-control">
+                            <option value="">-- Todos os responsáveis --</option>
+                            <?php foreach ($staff_list as $staff): ?>
+                            <option value="<?php echo $staff['staffid']; ?>"><?php echo htmlspecialchars($staff['fullname']); ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <small class="text-muted">Filtrar leads por responsável. Deixe vazio para incluir todos.</small>
                     </div>
+                    <input type="hidden" name="agent_id" value="agent_9901kv1pvewveh9s9ebs1rys274k">
                     <div class="form-group">
                         <label>Foco / Contexto para a Sofia</label>
                         <textarea name="focus_text" class="form-control" rows="4"
-                            placeholder="Ex: Foca-te em marcar uma visita ao empreendimento Belo Horizonte. O lead mostrou interesse em apartamentos T2. Menciona a promoção de lançamento com desconto de 5%."></textarea>
-                        <small class="text-muted">A Sofia vai usar este texto como contexto adicional em todas as chamadas desta campanha.</small>
+                            placeholder="Ex: Perguntar ao cliente se já analisou o conteúdo enviado. Recordar que as condições de pré-venda terminam em breve."></textarea>
+                        <small class="text-muted">A Sofia vai usar este texto como contexto em todas as chamadas desta campanha.</small>
+                    </div>
+                    <div class="alert alert-info" style="margin-bottom:0;">
+                        <i class="fa fa-info-circle"></i> A campanha será criada em estado <strong>pausado</strong>. Pode iniciar quando quiser.
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" id="btnCriarCampanha">
-                    <i class="fa fa-rocket"></i> Criar e Iniciar
+                    <i class="fa fa-plus"></i> Criar Campanha
                 </button>
             </div>
         </div>
@@ -166,97 +167,137 @@ $(document).ready(function() {
 
     var BASE = '<?php echo admin_url("dps_sofia_calls"); ?>';
 
-    // ── Criar campanha ──────────────────────────────────────────────────────────
+    // Criar campanha
     $('#btnCriarCampanha').on('click', function() {
-        var btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A criar...');
-        var data = $('#formNovaCampanha').serialize();
+        var name     = $('[name="name"]', '#formNovaCampanha').val().trim();
+        var statusId = $('[name="lead_status_id"]', '#formNovaCampanha').val();
+        var staffId  = $('[name="staff_id"]', '#formNovaCampanha').val();
+        var focus    = $('[name="focus_text"]', '#formNovaCampanha').val().trim();
+        var agentId  = $('[name="agent_id"]', '#formNovaCampanha').val();
 
-        $.post(BASE + '/create_campaign', data, function(r) {
-            if (r.success) {
-                alert_float('success', 'Campanha criada! A Sofia vai começar a ligar.');
-                $('#modalNovaCampanha').modal('hide');
-                setTimeout(function() { location.reload(); }, 1500);
-            } else {
-                alert_float('danger', r.message || 'Erro ao criar campanha');
+        if (!name || !statusId) {
+            alert('Preencha o nome e o estado dos leads.');
+            return;
+        }
+
+        var btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A criar...');
+
+        $.ajax({
+            url: BASE + '/create_campaign',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus, agent_id: agentId },
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', 'Campanha criada! Clique em Iniciar quando quiser começar as chamadas.');
+                    $('#modalNovaCampanha').modal('hide');
+                    setTimeout(function() { location.reload(); }, 1500);
+                } else {
+                    alert_float('danger', r.message || 'Erro ao criar campanha');
+                }
+            },
+            error: function(xhr) {
+                alert_float('danger', 'Erro ' + xhr.status + ': ' + (xhr.responseText || 'Sem resposta'));
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<i class="fa fa-plus"></i> Criar Campanha');
             }
-        }).always(function() {
-            btn.prop('disabled', false).html('<i class="fa fa-rocket"></i> Criar e Iniciar');
         });
     });
 
-    // ── Ação na campanha (pausar/retomar/parar) ─────────────────────────────────
+    // Ação na campanha (iniciar/pausar/parar)
     $(document).on('click', '.btn-campaign-action', function() {
         var id     = $(this).data('id');
         var action = $(this).data('action');
-        var labels = { active: 'retomada', paused: 'pausada', stopped: 'parada' };
+        var labels = { active: 'iniciada', paused: 'pausada', stopped: 'parada' };
 
-        $.post(BASE + '/campaign_action', { id: id, action: action }, function(r) {
-            if (r.success) {
-                alert_float('success', 'Campanha ' + (labels[action] || action));
-                setTimeout(function() { location.reload(); }, 1000);
-            } else {
-                alert_float('danger', 'Erro ao atualizar campanha');
+        $.ajax({
+            url: BASE + '/campaign_action',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { id: id, action: action },
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', 'Campanha ' + (labels[action] || action));
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    alert_float('danger', 'Erro ao atualizar campanha');
+                }
             }
         });
     });
 
-    // ── Ligar agora ─────────────────────────────────────────────────────────────
+    // Ligar agora
     $(document).on('click', '.btn-make-call', function() {
         var campaign_id = $(this).data('id');
         var btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i>');
 
-        $.post(BASE + '/make_call', { campaign_id: campaign_id }, function(r) {
-            if (r.success) {
-                alert_float('success', 'A Sofia está a ligar para ' + (r.lead || 'o lead'));
-            } else {
-                alert_float('danger', r.message || 'Erro ao iniciar chamada');
+        $.ajax({
+            url: BASE + '/make_call',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { campaign_id: campaign_id },
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', 'A Sofia está a ligar para ' + (r.lead || 'o lead'));
+                } else {
+                    alert_float('danger', r.message || 'Erro ao iniciar chamada');
+                }
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<i class="fa fa-phone"></i> Ligar Agora');
             }
-        }).always(function() {
-            btn.prop('disabled', false).html('<i class="fa fa-phone"></i> Ligar Agora');
         });
     });
 
-    // ── Ver detalhes ────────────────────────────────────────────────────────────
+    // Ver detalhes
     $(document).on('click', '.btn-campaign-detail', function() {
         var id = $(this).data('id');
         $('#modalDetalhesBody').html('<div class="text-center"><i class="fa fa-spinner fa-spin fa-2x"></i></div>');
         $('#modalDetalhes').modal('show');
 
-        $.post(BASE + '/campaign_detail', { id: id }, function(r) {
-            var s = r.stats || {};
-            var html = '<div class="row tw-mb-4">';
-            html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-green-600">' + (s.answered || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Atendidas</div></div>';
-            html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-orange-500">' + (s.no_answer || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Sem resposta</div></div>';
-            html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-red-500">' + (s.failed || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Falhadas</div></div>';
-            html += '</div>';
+        $.ajax({
+            url: BASE + '/campaign_detail',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: { id: id },
+            success: function(r) {
+                var s = r.stats || {};
+                var html = '<div class="row tw-mb-4">';
+                html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-green-600">' + (s.answered || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Atendidas</div></div>';
+                html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-orange-500">' + (s.no_answer || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Sem resposta</div></div>';
+                html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-red-500">' + (s.failed || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Falhadas</div></div>';
+                html += '</div>';
 
-            html += '<table class="table table-condensed table-striped"><thead><tr><th>Lead</th><th>Telefone</th><th>Estado</th><th>Início</th></tr></thead><tbody>';
-            if (r.logs && r.logs.length) {
-                $.each(r.logs, function(i, log) {
-                    var badge = {
-                        pending:   '<span class="label label-default">Pendente</span>',
-                        calling:   '<span class="label label-info">A ligar</span>',
-                        answered:  '<span class="label label-success">Atendida</span>',
-                        no_answer: '<span class="label label-warning">Sem resposta</span>',
-                        failed:    '<span class="label label-danger">Falhou</span>',
-                        busy:      '<span class="label label-warning">Ocupado</span>',
-                    };
-                    html += '<tr>';
-                    html += '<td>' + (log.lead_name || '-') + '</td>';
-                    html += '<td>' + log.phone_number + '</td>';
-                    html += '<td>' + (badge[log.status] || log.status) + '</td>';
-                    html += '<td>' + (log.started_at || '-') + '</td>';
-                    html += '</tr>';
-                });
-            } else {
-                html += '<tr><td colspan="4" class="text-center text-muted">Sem chamadas ainda</td></tr>';
+                html += '<table class="table table-condensed table-striped"><thead><tr><th>Lead</th><th>Telefone</th><th>Estado</th><th>Início</th></tr></thead><tbody>';
+                if (r.logs && r.logs.length) {
+                    $.each(r.logs, function(i, log) {
+                        var badge = {
+                            pending:   '<span class="label label-default">Pendente</span>',
+                            calling:   '<span class="label label-info">A ligar</span>',
+                            answered:  '<span class="label label-success">Atendida</span>',
+                            no_answer: '<span class="label label-warning">Sem resposta</span>',
+                            failed:    '<span class="label label-danger">Falhada</span>',
+                            busy:      '<span class="label label-warning">Ocupado</span>'
+                        };
+                        html += '<tr>';
+                        html += '<td>' + (log.lead_name || '-') + '</td>';
+                        html += '<td>' + (log.phone_number || '-') + '</td>';
+                        html += '<td>' + (badge[log.status] || log.status) + '</td>';
+                        html += '<td>' + (log.started_at || '-') + '</td>';
+                        html += '</tr>';
+                    });
+                } else {
+                    html += '<tr><td colspan="4" class="text-center text-muted">Sem registos de chamadas</td></tr>';
+                }
+                html += '</tbody></table>';
+                $('#modalDetalhesBody').html(html);
+            },
+            error: function() {
+                $('#modalDetalhesBody').html('<div class="alert alert-danger">Erro ao carregar detalhes</div>');
             }
-            html += '</tbody></table>';
-            $('#modalDetalhesBody').html(html);
         });
     });
-
 });
 </script>
-
 <?php init_tail(); ?>
