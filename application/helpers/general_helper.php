@@ -938,11 +938,33 @@ function csrf_jquery_token()
             data: csrfData.formatted
         });
 
-        $(document).ajaxError(function(event, request, settings) {
-            if (request.status === 419) {
-                alert_float('warning', 'Page expired, refresh the page make an action.')
+        // Actualizar o token CSRF apos cada pedido AJAX (para csrf_regenerate=true)
+        $(document).ajaxComplete(function(event, xhr, settings) {
+            var newToken = getCsrfCookie(csrfData.token_name);
+            if (newToken && newToken !== csrfData.hash) {
+                csrfData.hash = newToken;
+                csrfData.formatted[csrfData.token_name] = newToken;
+                $.ajaxSetup({ data: csrfData.formatted });
             }
         });
+
+        $(document).ajaxError(function(event, request, settings) {
+            if (request.status === 419) {
+                var newToken = getCsrfCookie(csrfData.token_name);
+                if (newToken) {
+                    csrfData.hash = newToken;
+                    csrfData.formatted[csrfData.token_name] = newToken;
+                    $.ajaxSetup({ data: csrfData.formatted });
+                } else {
+                    alert_float('warning', 'Page expired, refresh the page make an action.');
+                }
+            }
+        });
+    }
+
+    function getCsrfCookie(name) {
+        var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : null;
     }
 </script>
 <?php
