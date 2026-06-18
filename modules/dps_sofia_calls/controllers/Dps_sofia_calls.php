@@ -1,0 +1,104 @@
+<?php
+defined('BASEPATH') or exit('No direct script access allowed');
+
+class Dps_sofia_calls extends AdminController
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->model('dps_sofia_calls/Dps_sofia_calls_model');
+    }
+
+    // ─── PÁGINA PRINCIPAL ───────────────────────────────────────────────────────
+
+    public function index()
+    {
+        $data['title']         = 'Sofia Calls';
+        $data['lead_statuses'] = $this->Dps_sofia_calls_model->get_lead_statuses();
+        $data['agents']        = $this->Dps_sofia_calls_model->get_agents();
+        $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
+        $this->load->view('dps_sofia_calls/sofia_calls/index', $data);
+    }
+
+    // ─── CRIAR CAMPANHA ─────────────────────────────────────────────────────────
+
+    public function create_campaign()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $data = [
+            'name'           => $this->input->post('name'),
+            'lead_status_id' => (int) $this->input->post('lead_status_id'),
+            'agent_id'       => $this->input->post('agent_id'),
+            'focus_text'     => $this->input->post('focus_text'),
+        ];
+
+        if (empty($data['name']) || empty($data['lead_status_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatórios']);
+            exit;
+        }
+
+        $campaign_id = $this->Dps_sofia_calls_model->create_campaign($data);
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success'     => true,
+            'campaign_id' => $campaign_id,
+            'message'     => 'Campanha criada com sucesso',
+        ]);
+        exit;
+    }
+
+    // ─── CONTROLAR CAMPANHA ─────────────────────────────────────────────────────
+
+    public function campaign_action()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $id     = (int) $this->input->post('id');
+        $action = $this->input->post('action');
+
+        $allowed = ['active', 'paused', 'stopped'];
+        if (!in_array($action, $allowed)) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Ação inválida']);
+            exit;
+        }
+
+        $ok = $this->Dps_sofia_calls_model->update_campaign_status($id, $action);
+
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $ok]);
+        exit;
+    }
+
+    // ─── INICIAR CHAMADA IMEDIATA ───────────────────────────────────────────────
+
+    public function make_call()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $campaign_id = (int) $this->input->post('campaign_id');
+        $result      = $this->Dps_sofia_calls_model->make_immediate_call($campaign_id);
+
+        header('Content-Type: application/json');
+        echo json_encode($result);
+        exit;
+    }
+
+    // ─── DETALHES DA CAMPANHA ───────────────────────────────────────────────────
+
+    public function campaign_detail()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $id    = (int) $this->input->post('id');
+        $stats = $this->Dps_sofia_calls_model->get_campaign_stats($id);
+        $logs  = $this->Dps_sofia_calls_model->get_call_logs($id, 50);
+
+        header('Content-Type: application/json');
+        echo json_encode(['stats' => $stats, 'logs' => $logs]);
+        exit;
+    }
+}
