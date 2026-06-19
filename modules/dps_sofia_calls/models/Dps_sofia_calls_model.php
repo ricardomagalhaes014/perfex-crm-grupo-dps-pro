@@ -134,6 +134,20 @@ class Dps_sofia_calls_model extends App_Model
         return $campaign_id;
     }
 
+    public function update_campaign($id, $data)
+    {
+        $update = [
+            'name'           => $data['name'],
+            'lead_status_id' => $data['lead_status_id'],
+            'staff_id'       => isset($data['staff_id']) ? (int)$data['staff_id'] : 0,
+            'focus_text'     => isset($data['focus_text']) ? $data['focus_text'] : null,
+            'updated_at'     => date('Y-m-d H:i:s'),
+        ];
+        $this->db->where('id', $id);
+        $this->db->update(db_prefix() . 'dps_sofia_campaigns', $update);
+        return $this->db->affected_rows() >= 0;
+    }
+
     public function update_campaign_status($id, $status)
     {
         $this->db->where('id', $id);

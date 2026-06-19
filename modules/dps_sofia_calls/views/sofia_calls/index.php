@@ -27,9 +27,21 @@
                             <div class="panel-body">
                                 <div class="tw-flex tw-justify-between tw-items-start tw-mb-2">
                                     <h5 class="tw-font-semibold tw-text-neutral-700 tw-mb-0"><?php echo htmlspecialchars($c['name']); ?></h5>
-                                    <span class="label label-<?php echo $c['status'] === 'active' ? 'success' : ($c['status'] === 'paused' ? 'warning' : 'danger'); ?>">
-                                        <?php echo $c['status'] === 'active' ? 'Ativa' : ($c['status'] === 'paused' ? 'Pausada' : ($c['status'] === 'completed' ? 'Concluída' : 'Parada')); ?>
-                                    </span>
+                                    <div class="tw-flex tw-items-center tw-gap-1">
+                                        <span class="label label-<?php echo $c['status'] === 'active' ? 'success' : ($c['status'] === 'paused' ? 'warning' : 'danger'); ?>">
+                                            <?php echo $c['status'] === 'active' ? 'Ativa' : ($c['status'] === 'paused' ? 'Pausada' : ($c['status'] === 'completed' ? 'Concluída' : 'Parada')); ?>
+                                        </span>
+                                        <button class="btn btn-xs btn-default btn-campaign-edit"
+                                            data-id="<?php echo $c['id']; ?>"
+                                            data-name="<?php echo htmlspecialchars($c['name'], ENT_QUOTES); ?>"
+                                            data-focus="<?php echo htmlspecialchars($c['focus_text'] ?? '', ENT_QUOTES); ?>"
+                                            data-status="<?php echo $c['lead_status_id']; ?>"
+                                            data-staff="<?php echo $c['staff_id']; ?>"
+                                            data-agent="<?php echo htmlspecialchars($c['agent_id'] ?? '', ENT_QUOTES); ?>"
+                                            title="Editar campanha">
+                                            <i class="fa fa-pencil"></i>
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <?php if ($c['focus_text']): ?>
@@ -147,6 +159,58 @@
     </div>
 </div>
 
+<!-- MODAL EDITAR CAMPANHA -->
+<div class="modal fade" id="modalEditarCampanha" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-pencil"></i> Editar Campanha</h4>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarCampanha">
+                    <input type="hidden" name="id" id="editCampanhaId">
+                    <div class="form-group">
+                        <label>Nome da Campanha <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="editCampanhaName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado dos Leads <span class="text-danger">*</span></label>
+                        <select name="lead_status_id" id="editCampanhaStatus" class="form-control" required>
+                            <option value="">-- Selecionar estado --</option>
+                            <?php foreach ($lead_statuses as $s): ?>
+                            <option value="<?php echo $s['id']; ?>"><?php echo htmlspecialchars($s['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Atenção: alterar o estado vai recalcular os leads da campanha.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Responsável (Staff)</label>
+                        <select name="staff_id" id="editCampanhaStaff" class="form-control">
+                            <option value="">-- Todos os responsáveis --</option>
+                            <?php foreach ($staff_list as $staff): ?>
+                            <option value="<?php echo $staff['staffid']; ?>"><?php echo htmlspecialchars($staff['fullname']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Foco / Contexto para a Sofia</label>
+                        <textarea name="focus_text" id="editCampanhaFocus" class="form-control" rows="5"
+                            placeholder="Ex: Perguntar ao cliente se já analisou o conteúdo enviado..."></textarea>
+                        <small class="text-muted">A Sofia vai usar este texto como contexto em todas as chamadas desta campanha.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarCampanha">
+                    <i class="fa fa-save"></i> Guardar Alterações
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL DETALHES -->
 <div class="modal fade" id="modalDetalhes" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -205,6 +269,55 @@ $(document).ready(function() {
             },
             complete: function() {
                 btn.prop('disabled', false).html('<i class="fa fa-plus"></i> Criar Campanha');
+            }
+        });
+    });
+
+    // Abrir modal de editar
+    $(document).on('click', '.btn-campaign-edit', function() {
+        var btn = $(this);
+        $('#editCampanhaId').val(btn.data('id'));
+        $('#editCampanhaName').val(btn.data('name'));
+        $('#editCampanhaFocus').val(btn.data('focus'));
+        $('#editCampanhaStatus').val(btn.data('status'));
+        $('#editCampanhaStaff').val(btn.data('staff') || '');
+        $('#modalEditarCampanha').modal('show');
+    });
+
+    // Guardar edição
+    $('#btnGuardarCampanha').on('click', function() {
+        var id       = $('#editCampanhaId').val();
+        var name     = $('#editCampanhaName').val().trim();
+        var statusId = $('#editCampanhaStatus').val();
+        var staffId  = $('#editCampanhaStaff').val();
+        var focus    = $('#editCampanhaFocus').val().trim();
+
+        if (!name || !statusId) {
+            alert('Preencha o nome e o estado dos leads.');
+            return;
+        }
+
+        var btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
+
+        $.ajax({
+            url: BASE + '/update_campaign',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: (function(){ var d = { id: id, name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', 'Campanha atualizada com sucesso!');
+                    $('#modalEditarCampanha').modal('hide');
+                    setTimeout(function() { location.reload(); }, 1200);
+                } else {
+                    alert_float('danger', r.message || 'Erro ao atualizar campanha');
+                }
+            },
+            error: function(xhr) {
+                alert_float('danger', 'Erro ' + xhr.status + ': ' + (xhr.responseText || 'Sem resposta'));
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<i class="fa fa-save"></i> Guardar Alterações');
             }
         });
     });
@@ -272,18 +385,18 @@ $(document).ready(function() {
                 html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-orange-500">' + (s.no_answer || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Sem resposta</div></div>';
                 html += '<div class="col-xs-4 text-center"><div class="tw-text-2xl tw-font-bold tw-text-red-500">' + (s.failed || 0) + '</div><div class="tw-text-xs tw-text-neutral-500">Falhadas</div></div>';
                 html += '</div>';
-
-                html += '<table class="table table-condensed table-striped"><thead><tr><th>Lead</th><th>Telefone</th><th>Estado</th><th>Início</th></tr></thead><tbody>';
-                if (r.logs && r.logs.length) {
-                    $.each(r.logs, function(i, log) {
-                        var badge = {
-                            pending:   '<span class="label label-default">Pendente</span>',
-                            calling:   '<span class="label label-info">A ligar</span>',
-                            answered:  '<span class="label label-success">Atendida</span>',
-                            no_answer: '<span class="label label-warning">Sem resposta</span>',
-                            failed:    '<span class="label label-danger">Falhada</span>',
-                            busy:      '<span class="label label-warning">Ocupado</span>'
-                        };
+                html += '<table class="table table-bordered table-striped"><thead><tr><th>Lead</th><th>Telefone</th><th>Estado</th><th>Data</th></tr></thead><tbody>';
+                var logs = r.logs || [];
+                if (logs.length > 0) {
+                    var badge = {
+                        pending:   '<span class="label label-default">Pendente</span>',
+                        calling:   '<span class="label label-info">A ligar</span>',
+                        answered:  '<span class="label label-success">Atendida</span>',
+                        no_answer: '<span class="label label-warning">Sem resposta</span>',
+                        failed:    '<span class="label label-danger">Falhada</span>',
+                        busy:      '<span class="label label-warning">Ocupado</span>'
+                    };
+                    $.each(logs, function(i, log) {
                         html += '<tr>';
                         html += '<td>' + (log.lead_name || '-') + '</td>';
                         html += '<td>' + (log.phone_number || '-') + '</td>';

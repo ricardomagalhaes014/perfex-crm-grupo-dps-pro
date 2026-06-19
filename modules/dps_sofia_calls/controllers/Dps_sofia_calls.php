@@ -80,6 +80,37 @@ class Dps_sofia_calls extends AdminController
         exit;
     }
 
+    public function update_campaign()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $id = (int) $this->input->post('id');
+        if (!$id) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'ID invalido']);
+            exit;
+        }
+
+        $data = [
+            'name'           => $this->input->post('name'),
+            'lead_status_id' => (int) $this->input->post('lead_status_id'),
+            'staff_id'       => (int) $this->input->post('staff_id'),
+            'focus_text'     => $this->input->post('focus_text'),
+        ];
+
+        if (empty($data['name']) || empty($data['lead_status_id'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatorios']);
+            exit;
+        }
+
+        $ok = $this->Dps_sofia_calls_model->update_campaign($id, $data);
+
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $ok]);
+        exit;
+    }
+
     public function campaign_detail()
     {
         if (!$this->input->is_ajax_request()) show_404();
