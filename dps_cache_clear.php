@@ -92,4 +92,22 @@ if (isset($_GET['check_sofia'])) {
     $results['csrf_exclude_exists'] = file_exists($mod.'/config/csrf_exclude_uris.php');
 }
 
+// Fix view only - instala apenas a view corrigida
+if (isset($_GET['fix_view'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main/modules/dps_sofia_calls/views/sofia_calls/index.php';
+    $ch = curl_init($raw);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>10,CURLOPT_SSL_VERIFYPEER=>false]);
+    $c = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    $dest = __DIR__ . '/modules/dps_sofia_calls/views/sofia_calls/index.php';
+    if ($c && $http === 200 && strlen($c) > 1000) {
+        file_put_contents($dest, $c);
+        if (function_exists('opcache_invalidate')) opcache_invalidate($dest, true);
+        if (function_exists('opcache_reset')) opcache_reset();
+        echo json_encode(['status'=>'OK','bytes'=>strlen($c),'init_tail_line'=>substr_count(substr($c,0,strpos($c,'init_tail')),"\n")+1]);
+    } else {
+        echo json_encode(['status'=>'ERRO','http'=>$http,'bytes'=>strlen($c)]);
+    }
+    exit;
+}
+
 echo json_encode($results, JSON_PRETTY_PRINT);
