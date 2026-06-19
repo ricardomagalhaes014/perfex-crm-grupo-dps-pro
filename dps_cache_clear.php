@@ -71,3 +71,6 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
 }
 
 echo json_encode($results, JSON_PRETTY_PRINT);
+
+// ===== DIAGNÓSTICO SOFIA =====
+// Não incluído por defeito - adicionar ?diag_sofia para ativar

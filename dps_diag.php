@@ -1,66 +1,64 @@
 <?php
-// Diagnóstico temporário - APAGAR APÓS USO
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+// DPS Diagnóstico - verifica estado do módulo Sofia Calls
+header('Content-Type: application/json');
+$results = [];
 
-define('DB_HOST', 'localhost');
-define('DB_USER', 'u172337921_crmgrupopds');
-define('DB_PASS', '3AF5_ZCiqQ7:=At');
-define('DB_NAME', 'u172337921_crmgrupopds');
+// Conectar à BD
+$ci_config = __DIR__ . '/application/config/database.php';
+if (!file_exists($ci_config)) { die(json_encode(['error' => 'database.php não encontrado'])); }
+include_once($ci_config);
+$conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
+if ($conn->connect_error) { die(json_encode(['error' => 'BD: ' . $conn->connect_error])); }
 
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-if ($conn->connect_error) {
-    echo json_encode(['error' => 'DB connect failed: ' . $conn->connect_error]);
-    exit;
+$prefix = 'tbl';
+// Tentar descobrir o prefixo
+$r = $conn->query("SHOW TABLES LIKE '%modules'");
+if ($r && $r->num_rows > 0) {
+    $row = $r->fetch_row();
+    $prefix = str_replace('modules', '', $row[0]);
 }
-$conn->set_charset('utf8mb4');
+$results['db_prefix'] = $prefix;
 
-$result = [];
-
-// Verificar tabelas dps_teams e dps_team_members
-$tables_to_check = ['tbldps_teams', 'tbldps_team_members', 'tblstaff'];
-foreach ($tables_to_check as $tbl) {
-    $r = $conn->query("SHOW TABLES LIKE '$tbl'");
-    $result['tables'][$tbl] = ($r && $r->num_rows > 0) ? 'EXISTS' : 'NOT FOUND';
-}
-
-// Se tbldps_teams existe, ver as colunas
-if ($result['tables']['tbldps_teams'] === 'EXISTS') {
-    $r = $conn->query("SHOW COLUMNS FROM tbldps_teams");
-    while ($row = $r->fetch_assoc()) {
-        $result['tbldps_teams_columns'][] = $row['Field'] . ' (' . $row['Type'] . ')';
-    }
-    // Ver os dados
-    $r = $conn->query("SELECT id, name, area FROM tbldps_teams LIMIT 10");
-    while ($row = $r->fetch_assoc()) {
-        $result['tbldps_teams_data'][] = $row;
-    }
+// Verificar se o módulo está instalado
+$r = $conn->query("SELECT * FROM `{$prefix}modules` WHERE `module_name` = 'dps_sofia_calls' LIMIT 1");
+if ($r && $r->num_rows > 0) {
+    $mod = $r->fetch_assoc();
+    $results['module_installed'] = true;
+    $results['module_active'] = $mod['active'] ?? 'N/A';
+} else {
+    $results['module_installed'] = false;
 }
 
-// Se tbldps_team_members existe, ver as colunas
-if ($result['tables']['tbldps_team_members'] === 'EXISTS') {
-    $r = $conn->query("SHOW COLUMNS FROM tbldps_team_members");
-    while ($row = $r->fetch_assoc()) {
-        $result['tbldps_team_members_columns'][] = $row['Field'] . ' (' . $row['Type'] . ')';
-    }
-    // Ver os dados
-    $r = $conn->query("SELECT * FROM tbldps_team_members LIMIT 20");
-    while ($row = $r->fetch_assoc()) {
-        $result['tbldps_team_members_data'][] = $row;
-    }
+// Verificar se a tabela dps_sofia_campaigns existe
+$r = $conn->query("SHOW TABLES LIKE '{$prefix}dps_sofia_campaigns'");
+$results['table_campaigns_exists'] = ($r && $r->num_rows > 0);
+
+// Verificar se a tabela dps_sofia_call_logs existe
+$r = $conn->query("SHOW TABLES LIKE '{$prefix}dps_sofia_call_logs'");
+$results['table_call_logs_exists'] = ($r && $r->num_rows > 0);
+
+// Contar campanhas
+if ($results['table_campaigns_exists']) {
+    $r = $conn->query("SELECT COUNT(*) as c FROM `{$prefix}dps_sofia_campaigns`");
+    $results['campaigns_count'] = $r ? $r->fetch_assoc()['c'] : 'erro';
+    // Últimas campanhas
+    $r = $conn->query("SELECT id, name, status, created_at FROM `{$prefix}dps_sofia_campaigns` ORDER BY id DESC LIMIT 3");
+    $results['last_campaigns'] = [];
+    if ($r) while ($row = $r->fetch_assoc()) $results['last_campaigns'][] = $row;
 }
 
-// Verificar colunas landing_ na tabela staff
-$r = $conn->query("SHOW COLUMNS FROM tblstaff LIKE 'landing%'");
-while ($row = $r->fetch_assoc()) {
-    $result['staff_landing_columns'][] = $row['Field'] . ' (' . $row['Type'] . ')';
+// Verificar ficheiros do módulo
+$module_dir = __DIR__ . '/modules/dps_sofia_calls';
+$results['controller_exists'] = file_exists($module_dir . '/controllers/Dps_sofia_calls.php');
+$results['model_exists'] = file_exists($module_dir . '/models/Dps_sofia_calls_model.php');
+$results['view_exists'] = file_exists($module_dir . '/views/sofia_calls/index.php');
+$results['csrf_exclude_exists'] = file_exists($module_dir . '/config/csrf_exclude_uris.php');
+
+// Verificar tamanho da view (17334 = versão com CSRF)
+if ($results['view_exists']) {
+    $results['view_size'] = filesize($module_dir . '/views/sofia_calls/index.php');
+    $results['view_has_csrf'] = strpos(file_get_contents($module_dir . '/views/sofia_calls/index.php'), 'get_csrf_for_ajax') !== false;
 }
 
-// Verificar staff activos e os seus slugs
-$r = $conn->query("SELECT staffid, firstname, lastname, landing_slug, landing_foto, profile_image FROM tblstaff WHERE active = 1 LIMIT 10");
-while ($row = $r->fetch_assoc()) {
-    $result['staff_active'][] = $row;
-}
-
-echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 $conn->close();
+echo json_encode($results, JSON_PRETTY_PRINT);

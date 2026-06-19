@@ -8,6 +8,7 @@ $files = [
     'modules/dps_sofia_calls/views/sofia_calls/index.php',
     'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
     'dps_cache_clear.php',
+    'dps_diag.php',
 ];
 $results = [];
 foreach ($files as $rel) {
