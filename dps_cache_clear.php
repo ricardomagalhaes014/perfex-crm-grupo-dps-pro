@@ -36,6 +36,7 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
         'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
         'dps_diag.php',
         'dps_fix_csrf.php',
+        'dps_sofia_check.php',
         'dps_cache_clear.php',
     ];
     foreach ($files as $rel) {
