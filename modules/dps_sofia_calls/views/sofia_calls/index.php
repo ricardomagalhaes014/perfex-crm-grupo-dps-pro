@@ -162,6 +162,7 @@
     </div>
 </div>
 
+<?php init_tail(); ?>
 <?php $csrf = get_csrf_for_ajax(); ?>
 <script>
 $(document).ready(function() {
@@ -303,4 +304,3 @@ $(document).ready(function() {
     });
 });
 </script>
-<?php init_tail(); ?>
