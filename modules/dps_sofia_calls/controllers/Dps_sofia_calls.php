@@ -147,4 +147,68 @@ class Dps_sofia_calls extends AdminController
         echo json_encode(['stats' => $stats, 'logs' => $logs]);
         exit;
     }
+
+    /**
+     * Endpoint de diagnóstico — acessível via GET:
+     * https://crm.grupo-dps.com/admin/dps_sofia_calls/diag
+     * https://crm.grupo-dps.com/admin/dps_sofia_calls/diag?run=1  (executa process_pending_calls)
+     */
+    public function diag()
+    {
+        // Apenas admins
+        if (!is_admin()) show_404();
+
+        $api_key = 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+        $out     = [];
+
+        // Chamadas em 'calling'
+        $this->db->where('status', 'calling');
+        $this->db->select('id, campaign_id, lead_name, phone_number, elevenlabs_call_id, started_at,
+            TIMESTAMPDIFF(SECOND, started_at, NOW()) as elapsed_secs');
+        $calling = $this->db->get(db_prefix() . 'dps_sofia_call_logs')->result_array();
+        $out['calling_count'] = count($calling);
+        $out['calling_calls'] = $calling;
+
+        // Campanhas ativas
+        $this->db->where('status', 'active');
+        $out['active_campaigns'] = $this->db->get(db_prefix() . 'dps_sofia_campaigns')->result_array();
+
+        // Verificar hook cron
+        $this->db->where('hook_name', 'perfex_cron');
+        $out['cron_hooks'] = $this->db->get(db_prefix() . 'hooks')->result_array();
+
+        // Testar ElevenLabs para a primeira chamada presa
+        if (!empty($calling) && !empty($calling[0]['elevenlabs_call_id'])) {
+            $conv_id = $calling[0]['elevenlabs_call_id'];
+            $ch = curl_init('https://api.elevenlabs.io/v1/convai/conversations/' . $conv_id);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HTTPHEADER     => ['xi-api-key: ' . $api_key],
+                CURLOPT_TIMEOUT        => 10,
+            ]);
+            $resp = curl_exec($ch);
+            $err  = curl_error($ch);
+            curl_close($ch);
+            $out['elevenlabs_test'] = [
+                'conv_id'    => $conv_id,
+                'response'   => $resp ? json_decode($resp, true) : null,
+                'curl_error' => $err ?: null,
+            ];
+        }
+
+        // Executar process_pending_calls se ?run=1
+        if ($this->input->get('run') == '1') {
+            $out['process_result'] = 'A executar process_pending_calls...';
+            $this->Dps_sofia_calls_model->process_pending_calls();
+            $out['process_result'] = 'Concluido. Verifique os logs.';
+
+            // Estado após execução
+            $this->db->where('status', 'calling');
+            $out['calling_after'] = $this->db->count_all_results(db_prefix() . 'dps_sofia_call_logs');
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }
