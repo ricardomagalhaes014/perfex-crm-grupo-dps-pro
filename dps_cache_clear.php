@@ -111,3 +111,30 @@ if (isset($_GET['fix_view'])) {
 }
 
 echo json_encode($results, JSON_PRETTY_PRINT);
+
+// Fix sofia all - instala view + controller + model
+if (isset($_GET['fix_sofia_all'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
+    $targets = [
+        'modules/dps_sofia_calls/views/sofia_calls/index.php',
+        'modules/dps_sofia_calls/controllers/Dps_sofia_calls.php',
+        'modules/dps_sofia_calls/models/Dps_sofia_calls_model.php',
+    ];
+    $out = [];
+    foreach ($targets as $rel) {
+        $ch = curl_init($raw . '/' . $rel);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>10,CURLOPT_SSL_VERIFYPEER=>false]);
+        $c = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        $dest = __DIR__ . '/' . $rel;
+        if ($c && $http === 200 && strlen($c) > 100) {
+            file_put_contents($dest, $c);
+            if (function_exists('opcache_invalidate')) opcache_invalidate($dest, true);
+            $out[basename($rel)] = 'OK (' . strlen($c) . ' bytes)';
+        } else {
+            $out[basename($rel)] = 'ERRO HTTP ' . $http;
+        }
+    }
+    if (function_exists('opcache_reset')) opcache_reset();
+    echo json_encode(['status'=>'done','files'=>$out]);
+    exit;
+}
