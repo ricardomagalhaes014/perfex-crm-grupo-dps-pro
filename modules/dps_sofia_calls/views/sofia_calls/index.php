@@ -162,10 +162,13 @@
     </div>
 </div>
 
+<?php $csrf = get_csrf_for_ajax(); ?>
 <script>
 $(document).ready(function() {
 
-    var BASE = '<?php echo admin_url("dps_sofia_calls"); ?>';
+    var BASE      = '<?php echo admin_url("dps_sofia_calls"); ?>';
+    var CSRF_NAME = '<?php echo $csrf["token_name"]; ?>';
+    var CSRF_HASH = '<?php echo $csrf["hash"]; ?>';
 
     // Criar campanha
     $('#btnCriarCampanha').on('click', function() {
@@ -186,7 +189,7 @@ $(document).ready(function() {
             url: BASE + '/create_campaign',
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            data: { name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus, agent_id: agentId },
+            data: (function(){ var d = { name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus, agent_id: agentId }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 if (r.success) {
                     alert_float('success', 'Campanha criada! Clique em Iniciar quando quiser começar as chamadas.');
@@ -215,7 +218,7 @@ $(document).ready(function() {
             url: BASE + '/campaign_action',
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            data: { id: id, action: action },
+            data: (function(){ var d = { id: id, action: action }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 if (r.success) {
                     alert_float('success', 'Campanha ' + (labels[action] || action));
@@ -236,7 +239,7 @@ $(document).ready(function() {
             url: BASE + '/make_call',
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            data: { campaign_id: campaign_id },
+            data: (function(){ var d = { campaign_id: campaign_id }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 if (r.success) {
                     alert_float('success', 'A Sofia está a ligar para ' + (r.lead || 'o lead'));
@@ -260,7 +263,7 @@ $(document).ready(function() {
             url: BASE + '/campaign_detail',
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            data: { id: id },
+            data: (function(){ var d = { id: id }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 var s = r.stats || {};
                 var html = '<div class="row tw-mb-4">';
