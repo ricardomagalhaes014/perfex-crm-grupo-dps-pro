@@ -48,6 +48,8 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
         'modules/dps_sofia_calls/models/Dps_sofia_calls_model.php',
         'modules/dps_sofia_calls/views/sofia_calls/index.php',
         'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
+        'dps_diag.php',
+        'dps_fix_csrf.php',
     ];
     foreach ($files as $rel) {
         $url = $raw . '/' . $rel;
