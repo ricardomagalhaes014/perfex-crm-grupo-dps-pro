@@ -190,17 +190,18 @@ class Dps_sofia_calls_model extends App_Model
             $call['lead_name']
         );
 
-        if ($result && isset($result['call_id'])) {
+        $call_id = isset($result['conversation_id']) ? $result['conversation_id'] : (isset($result['call_id']) ? $result['call_id'] : null);
+        if ($result && (isset($result['success']) && $result['success'] || $call_id)) {
             $this->db->where('id', $call['id']);
             $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
                 'status'             => 'calling',
-                'elevenlabs_call_id' => $result['call_id'],
+                'elevenlabs_call_id' => $call_id,
                 'started_at'         => date('Y-m-d H:i:s'),
             ]);
             $this->db->where('id', $campaign_id);
             $this->db->set('calls_made', 'calls_made + 1', false);
             $this->db->update(db_prefix() . 'dps_sofia_campaigns');
-            return ['success' => true, 'call_id' => $result['call_id'], 'lead' => $call['lead_name']];
+            return ['success' => true, 'call_id' => $call_id, 'lead' => $call['lead_name']];
         }
 
         return ['success' => false, 'message' => 'Erro ao iniciar chamada', 'detail' => $result];
@@ -250,7 +251,7 @@ class Dps_sofia_calls_model extends App_Model
             ];
         }
 
-        return $this->_api_post('https://api.elevenlabs.io/v1/convai/twilio-outbound-call', $payload, $api_key);
+        return $this->_api_post('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', $payload, $api_key);
     }
 
     private function _normalize_phone($phone)
