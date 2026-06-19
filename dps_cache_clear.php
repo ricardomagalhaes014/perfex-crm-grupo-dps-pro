@@ -55,3 +55,41 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
 }
 
 echo json_encode($results, JSON_PRETTY_PRINT);
+
+// ===== CHECK SOFIA =====
+if (isset($_GET['check_sofia'])) {
+    $ci_config = __DIR__ . '/application/config/database.php';
+    if (file_exists($ci_config)) {
+        include_once($ci_config);
+        $conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
+        if (!$conn->connect_error) {
+            // Descobrir prefixo
+            $r = $conn->query("SHOW TABLES LIKE '%modules'");
+            $prefix = 'tbl';
+            if ($r && $r->num_rows > 0) { $row = $r->fetch_row(); $prefix = str_replace('modules', '', $row[0]); }
+            $results['prefix'] = $prefix;
+            // Verificar tabelas
+            foreach (['dps_sofia_campaigns', 'dps_sofia_call_logs'] as $t) {
+                $r = $conn->query("SHOW TABLES LIKE '{$prefix}{$t}'");
+                $results["table_{$t}"] = ($r && $r->num_rows > 0) ? 'EXISTS' : 'NOT FOUND';
+            }
+            // Verificar módulo
+            $r = $conn->query("SELECT module_name, active FROM `{$prefix}modules` WHERE module_name='dps_sofia_calls' LIMIT 1");
+            $results['module'] = ($r && $r->num_rows > 0) ? $r->fetch_assoc() : 'NOT INSTALLED';
+            // Contar campanhas
+            if ($results['table_dps_sofia_campaigns'] === 'EXISTS') {
+                $r = $conn->query("SELECT COUNT(*) as c FROM `{$prefix}dps_sofia_campaigns`");
+                $results['campaigns_count'] = $r ? $r->fetch_assoc()['c'] : 0;
+                $r = $conn->query("SELECT id, name, status, created_at FROM `{$prefix}dps_sofia_campaigns` ORDER BY id DESC LIMIT 5");
+                $results['campaigns'] = [];
+                if ($r) while ($row = $r->fetch_assoc()) $results['campaigns'][] = $row;
+            }
+            $conn->close();
+        } else { $results['db_error'] = $conn->connect_error; }
+    }
+    // Verificar ficheiros
+    $mod = __DIR__ . '/modules/dps_sofia_calls';
+    $results['view_size'] = file_exists($mod.'/views/sofia_calls/index.php') ? filesize($mod.'/views/sofia_calls/index.php') : 0;
+    $results['view_has_csrf'] = file_exists($mod.'/views/sofia_calls/index.php') ? (strpos(file_get_contents($mod.'/views/sofia_calls/index.php'), 'get_csrf_for_ajax') !== false) : false;
+    $results['csrf_exclude_exists'] = file_exists($mod.'/config/csrf_exclude_uris.php');
+}
