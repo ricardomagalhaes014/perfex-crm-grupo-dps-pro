@@ -166,6 +166,207 @@ class Dps_sofia_calls_model extends App_Model
         return $this->db->get(db_prefix() . 'dps_sofia_call_logs')->result_array();
     }
 
+    /**
+     * Chamado pelo cron do Perfex (perfex_cron hook).
+     * 1. Verifica chamadas em estado "calling" e actualiza o estado com base na ElevenLabs.
+     * 2. Para cada chamada terminada, guarda a transcrição como nota no lead.
+     * 3. Dispara a próxima chamada pendente nas campanhas activas.
+     */
+    public function process_pending_calls()
+    {
+        $api_key = $this->api_key ?: 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+
+        // --- Passo 1: Verificar chamadas em curso ---
+        $this->db->where('status', 'calling');
+        $calling = $this->db->get(db_prefix() . 'dps_sofia_call_logs')->result_array();
+
+        foreach ($calling as $log) {
+            if (empty($log['elevenlabs_call_id'])) {
+                // Sem ID de conversa — marcar como falhada
+                $this->db->where('id', $log['id']);
+                $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
+                    'status'   => 'failed',
+                    'ended_at' => date('Y-m-d H:i:s'),
+                ]);
+                continue;
+            }
+
+            // Consultar estado da conversa na ElevenLabs
+            $conv = $this->_api_get(
+                'https://api.elevenlabs.io/v1/convai/conversations/' . $log['elevenlabs_call_id'],
+                $api_key
+            );
+
+            if (!$conv || !isset($conv['status'])) continue;
+
+            $conv_status = $conv['status']; // initiated | processing | done | failed
+
+            if (!in_array($conv_status, ['done', 'failed'])) continue;
+
+            // Determinar estado final
+            $duration    = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
+            $final_status = 'no_answer';
+            if ($conv_status === 'failed') {
+                $final_status = 'failed';
+            } elseif ($duration > 5) {
+                $final_status = 'answered';
+            }
+
+            // Actualizar log
+            $this->db->where('id', $log['id']);
+            $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
+                'status'   => $final_status,
+                'duration' => $duration,
+                'ended_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            // Actualizar contadores da campanha
+            if ($final_status === 'answered') {
+                $this->db->where('id', $log['campaign_id']);
+                $this->db->set('calls_answered', 'calls_answered + 1', false);
+                $this->db->update(db_prefix() . 'dps_sofia_campaigns');
+            } elseif (in_array($final_status, ['failed', 'no_answer'])) {
+                $this->db->where('id', $log['campaign_id']);
+                $this->db->set('calls_failed', 'calls_failed + 1', false);
+                $this->db->update(db_prefix() . 'dps_sofia_campaigns');
+            }
+
+            // --- Passo 2: Guardar transcrição como nota no lead ---
+            $this->_save_transcript_as_note($log, $conv, $final_status, $duration);
+
+            // --- Passo 3: Disparar próxima chamada na campanha ---
+            $campaign = $this->get_campaign($log['campaign_id']);
+            if ($campaign && $campaign['status'] === 'active') {
+                $this->_fire_next_call($campaign);
+            }
+        }
+
+        // --- Campanhas activas sem chamadas em curso: disparar próxima ---
+        $this->db->where('status', 'active');
+        $active_campaigns = $this->db->get(db_prefix() . 'dps_sofia_campaigns')->result_array();
+
+        foreach ($active_campaigns as $campaign) {
+            // Verificar se já há uma chamada em curso para esta campanha
+            $this->db->where('campaign_id', $campaign['id']);
+            $this->db->where('status', 'calling');
+            $in_progress = $this->db->count_all_results(db_prefix() . 'dps_sofia_call_logs');
+
+            if ($in_progress === 0) {
+                $this->_fire_next_call($campaign);
+            }
+        }
+    }
+
+    /**
+     * Dispara a próxima chamada pendente de uma campanha.
+     */
+    private function _fire_next_call($campaign)
+    {
+        $this->db->where('campaign_id', $campaign['id']);
+        $this->db->where('status', 'pending');
+        $this->db->order_by('id', 'ASC');
+        $this->db->limit(1);
+        $call = $this->db->get(db_prefix() . 'dps_sofia_call_logs')->row_array();
+
+        if (!$call) {
+            // Sem mais pendentes — campanha concluída
+            $this->update_campaign_status($campaign['id'], 'completed');
+            return;
+        }
+
+        $result  = $this->_make_call(
+            $call['phone_number'],
+            $campaign['agent_id'],
+            $campaign['focus_text'],
+            $call['lead_name']
+        );
+
+        $call_id = isset($result['conversation_id']) ? $result['conversation_id']
+                 : (isset($result['call_id'])        ? $result['call_id'] : null);
+
+        if ($result && (!empty($result['success']) || $call_id)) {
+            $this->db->where('id', $call['id']);
+            $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
+                'status'             => 'calling',
+                'elevenlabs_call_id' => $call_id,
+                'started_at'         => date('Y-m-d H:i:s'),
+            ]);
+            $this->db->where('id', $campaign['id']);
+            $this->db->set('calls_made', 'calls_made + 1', false);
+            $this->db->update(db_prefix() . 'dps_sofia_campaigns');
+        } else {
+            // Falha ao ligar — marcar como falhada e tentar o próximo
+            $this->db->where('id', $call['id']);
+            $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
+                'status'   => 'failed',
+                'ended_at' => date('Y-m-d H:i:s'),
+            ]);
+            $this->db->where('id', $campaign['id']);
+            $this->db->set('calls_failed', 'calls_failed + 1', false);
+            $this->db->update(db_prefix() . 'dps_sofia_campaigns');
+        }
+    }
+
+    /**
+     * Guarda a transcrição da chamada como nota no lead.
+     */
+    private function _save_transcript_as_note($log, $conv, $final_status, $duration)
+    {
+        $lead_id = $log['lead_id'];
+        if (!$lead_id) return;
+
+        // Construir texto da transcrição
+        $transcript_lines = isset($conv['transcript']) ? $conv['transcript'] : [];
+        $transcript_text  = '';
+
+        foreach ($transcript_lines as $line) {
+            $role    = isset($line['role'])    ? ucfirst($line['role'])    : '';
+            $message = isset($line['message']) ? $line['message']          : '';
+            if ($message) {
+                $transcript_text .= $role . ': ' . $message . "\n";
+            }
+        }
+
+        // Sumário da análise (se disponível)
+        $summary = '';
+        if (!empty($conv['analysis']['transcript_summary'])) {
+            $summary = $conv['analysis']['transcript_summary'];
+        }
+
+        // Construir nota
+        $status_labels = [
+            'answered'  => 'Atendida',
+            'no_answer' => 'Sem resposta',
+            'failed'    => 'Falhada',
+        ];
+        $status_label = isset($status_labels[$final_status]) ? $status_labels[$final_status] : $final_status;
+        $duration_str = $duration > 0 ? gmdate('i:s', $duration) . ' min' : '-';
+
+        $note  = '📞 Chamada Sofia — ' . date('d/m/Y H:i') . "\n";
+        $note .= 'Estado: ' . $status_label . ' | Duração: ' . $duration_str . "\n";
+
+        if ($summary) {
+            $note .= "\nResumo:\n" . $summary . "\n";
+        }
+
+        if ($transcript_text) {
+            $note .= "\nTranscrição:\n" . $transcript_text;
+        }
+
+        if (!$transcript_text && !$summary) {
+            $note .= "\n(Sem transcrição disponível)";
+        }
+
+        // Inserir nota directamente na tabela de notas do Perfex
+        $this->db->insert(db_prefix() . 'notes', [
+            'rel_id'      => $lead_id,
+            'rel_type'    => 'lead',
+            'description' => nl2br($note),
+            'addedfrom'   => 0,
+            'dateadded'   => date('Y-m-d H:i:s'),
+        ]);
+    }
+
     public function make_immediate_call($campaign_id)
     {
         $campaign = $this->get_campaign($campaign_id);
@@ -175,6 +376,7 @@ class Dps_sofia_calls_model extends App_Model
 
         $this->db->where('campaign_id', $campaign_id);
         $this->db->where('status', 'pending');
+        $this->db->order_by('id', 'ASC');
         $this->db->limit(1);
         $call = $this->db->get(db_prefix() . 'dps_sofia_call_logs')->row_array();
 
@@ -190,8 +392,10 @@ class Dps_sofia_calls_model extends App_Model
             $call['lead_name']
         );
 
-        $call_id = isset($result['conversation_id']) ? $result['conversation_id'] : (isset($result['call_id']) ? $result['call_id'] : null);
-        if ($result && (isset($result['success']) && $result['success'] || $call_id)) {
+        $call_id = isset($result['conversation_id']) ? $result['conversation_id']
+                 : (isset($result['call_id'])        ? $result['call_id'] : null);
+
+        if ($result && (!empty($result['success']) || $call_id)) {
             $this->db->where('id', $call['id']);
             $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
                 'status'             => 'calling',
@@ -279,6 +483,22 @@ class Dps_sofia_calls_model extends App_Model
             CURLOPT_HTTPHEADER     => [
                 'xi-api-key: ' . $api_key,
                 'Content-Type: application/json',
+            ],
+            CURLOPT_TIMEOUT => 15,
+        ]);
+        $response = curl_exec($ch);
+        curl_close($ch);
+        return $response ? json_decode($response, true) : null;
+    }
+
+    private function _api_get($url, $api_key = null)
+    {
+        if (!$api_key) $api_key = $this->api_key ?: 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => [
+                'xi-api-key: ' . $api_key,
             ],
             CURLOPT_TIMEOUT => 15,
         ]);
