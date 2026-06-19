@@ -110,6 +110,111 @@ if (isset($_GET['fix_view'])) {
     exit;
 }
 
+// ===== RUN CRON MANUALMENTE =====
+if (isset($_GET['run_cron'])) {
+    $ci_config = __DIR__ . '/application/config/database.php';
+    if (file_exists($ci_config)) {
+        include_once($ci_config);
+        $conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
+        if (!$conn->connect_error) {
+            $prefix = 'tbl';
+            $r = $conn->query("SHOW TABLES LIKE '%modules'");
+            if ($r && $r->num_rows > 0) { $row = $r->fetch_row(); $prefix = str_replace('modules', '', $row[0]); }
+            $api_key = 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+            $call_timeout = 4 * 60;
+            // Buscar chamadas em curso
+            $r = $conn->query("SELECT * FROM `{$prefix}dps_sofia_call_logs` WHERE status='calling' LIMIT 20");
+            $calling = [];
+            if ($r) while ($row = $r->fetch_assoc()) $calling[] = $row;
+            $results['calling_count'] = count($calling);
+            $processed = [];
+            foreach ($calling as $log) {
+                $started = $log['started_at'] ? strtotime($log['started_at']) : 0;
+                $elapsed = time() - $started;
+                $timed_out = ($started > 0 && $elapsed >= $call_timeout);
+                $conv_status = null; $duration = 0; $conv = null;
+                if (!empty($log['elevenlabs_call_id'])) {
+                    $ch = curl_init('https://api.elevenlabs.io/v1/convai/conversations/' . $log['elevenlabs_call_id']);
+                    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true, CURLOPT_HTTPHEADER=>['xi-api-key: '.$api_key], CURLOPT_TIMEOUT=>10]);
+                    $resp = curl_exec($ch); curl_close($ch);
+                    $conv = $resp ? json_decode($resp, true) : null;
+                    $conv_status = $conv ? ($conv['status'] ?? null) : null;
+                    $duration = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
+                }
+                if (!$timed_out && !in_array($conv_status, ['done', 'failed'])) {
+                    $processed[] = ['id'=>$log['id'], 'action'=>'waiting', 'elapsed'=>$elapsed, 'conv_status'=>$conv_status];
+                    continue;
+                }
+                if ($timed_out && !$duration) $duration = $elapsed;
+                $final = 'no_answer';
+                if ($conv_status === 'failed') $final = 'failed';
+                elseif ($duration > 5) $final = 'answered';
+                $conn->query("UPDATE `{$prefix}dps_sofia_call_logs` SET status='{$final}', duration={$duration}, ended_at=NOW() WHERE id={$log['id']}");
+                if ($final === 'answered') {
+                    $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET calls_answered=calls_answered+1 WHERE id={$log['campaign_id']}");
+                } else {
+                    $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET calls_failed=calls_failed+1 WHERE id={$log['campaign_id']}");
+                }
+                $processed[] = ['id'=>$log['id'], 'lead'=>$log['lead_name'], 'action'=>'closed', 'final'=>$final, 'duration'=>$duration, 'conv_status'=>$conv_status, 'timed_out'=>$timed_out];
+                // Disparar próxima
+                $rc = $conn->query("SELECT * FROM `{$prefix}dps_sofia_campaigns` WHERE id={$log['campaign_id']} AND status='active' LIMIT 1");
+                $camp = $rc ? $rc->fetch_assoc() : null;
+                if ($camp) {
+                    $rn = $conn->query("SELECT * FROM `{$prefix}dps_sofia_call_logs` WHERE campaign_id={$camp['id']} AND status='pending' ORDER BY id ASC LIMIT 1");
+                    $next = $rn ? $rn->fetch_assoc() : null;
+                    if ($next) {
+                        $phone = $next['phone_number'];
+                        $payload = json_encode(['agent_id'=>$camp['agent_id'],'agent_phone_number_id'=>'phnum_6701kvea8mbhe4vbdz75jf1wd1y7','to_number'=>$phone,'conversation_initiation_client_data'=>['dynamic_variables'=>['lead_name'=>$next['lead_name']??'','focus_text'=>$camp['focus_text']??'']]]);
+                        $ch2 = curl_init('https://api.elevenlabs.io/v1/convai/twilio/outbound-call');
+                        curl_setopt_array($ch2, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_HTTPHEADER=>['xi-api-key: '.$api_key,'Content-Type: application/json'],CURLOPT_TIMEOUT=>15]);
+                        $r2 = curl_exec($ch2); curl_close($ch2);
+                        $rd = $r2 ? json_decode($r2, true) : null;
+                        $cid = $rd['conversation_id'] ?? ($rd['call_id'] ?? null);
+                        if ($cid) {
+                            $conn->query("UPDATE `{$prefix}dps_sofia_call_logs` SET status='calling', elevenlabs_call_id='".addslashes($cid)."', started_at=NOW() WHERE id={$next['id']}");
+                            $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET calls_made=calls_made+1 WHERE id={$camp['id']}");
+                            $processed[] = ['action'=>'next_call_fired', 'lead'=>$next['lead_name'], 'call_id'=>$cid];
+                        } else {
+                            $processed[] = ['action'=>'next_call_failed', 'lead'=>$next['lead_name'], 'error'=>$rd];
+                        }
+                    } else {
+                        $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET status='completed' WHERE id={$camp['id']}");
+                        $processed[] = ['action'=>'campaign_completed', 'campaign_id'=>$camp['id']];
+                    }
+                }
+            }
+            // Campanhas ativas sem chamadas em curso
+            $ra = $conn->query("SELECT * FROM `{$prefix}dps_sofia_campaigns` WHERE status='active'");
+            if ($ra) while ($camp = $ra->fetch_assoc()) {
+                $ri = $conn->query("SELECT COUNT(*) as c FROM `{$prefix}dps_sofia_call_logs` WHERE campaign_id={$camp['id']} AND status='calling'");
+                $in_prog = $ri ? (int)$ri->fetch_assoc()['c'] : 0;
+                if ($in_prog === 0) {
+                    $rn = $conn->query("SELECT * FROM `{$prefix}dps_sofia_call_logs` WHERE campaign_id={$camp['id']} AND status='pending' ORDER BY id ASC LIMIT 1");
+                    $next = $rn ? $rn->fetch_assoc() : null;
+                    if ($next) {
+                        $payload = json_encode(['agent_id'=>$camp['agent_id'],'agent_phone_number_id'=>'phnum_6701kvea8mbhe4vbdz75jf1wd1y7','to_number'=>$next['phone_number'],'conversation_initiation_client_data'=>['dynamic_variables'=>['lead_name'=>$next['lead_name']??'','focus_text'=>$camp['focus_text']??'']]]);
+                        $ch2 = curl_init('https://api.elevenlabs.io/v1/convai/twilio/outbound-call');
+                        curl_setopt_array($ch2, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_POST=>true,CURLOPT_POSTFIELDS=>$payload,CURLOPT_HTTPHEADER=>['xi-api-key: '.$api_key,'Content-Type: application/json'],CURLOPT_TIMEOUT=>15]);
+                        $r2 = curl_exec($ch2); curl_close($ch2);
+                        $rd = $r2 ? json_decode($r2, true) : null;
+                        $cid = $rd['conversation_id'] ?? ($rd['call_id'] ?? null);
+                        if ($cid) {
+                            $conn->query("UPDATE `{$prefix}dps_sofia_call_logs` SET status='calling', elevenlabs_call_id='".addslashes($cid)."', started_at=NOW() WHERE id={$next['id']}");
+                            $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET calls_made=calls_made+1 WHERE id={$camp['id']}");
+                            $processed[] = ['action'=>'idle_campaign_fired', 'campaign'=>$camp['name'], 'lead'=>$next['lead_name'], 'call_id'=>$cid];
+                        }
+                    } else {
+                        $conn->query("UPDATE `{$prefix}dps_sofia_campaigns` SET status='completed' WHERE id={$camp['id']}");
+                        $processed[] = ['action'=>'campaign_completed', 'campaign'=>$camp['name']];
+                    }
+                }
+            }
+            $results['cron_processed'] = $processed;
+            $conn->close();
+        } else { $results['cron_error'] = $conn->connect_error; }
+    }
+}
+
 echo json_encode($results, JSON_PRETTY_PRINT);
 
 // Fix sofia all - instala view + controller + model
