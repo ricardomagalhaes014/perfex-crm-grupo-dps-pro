@@ -26,7 +26,8 @@ function dps_sofia_calls_menu()
 }
 
 // Cron: processar chamadas pendentes
-hooks()->add_action('perfex_cron', 'dps_sofia_calls_process_cron');
+// Usa o hook 'after_cron_run' que é disparado pelo Perfex core após cada execução do cron.
+hooks()->add_action('after_cron_run', 'dps_sofia_calls_process_cron');
 function dps_sofia_calls_process_cron()
 {
     $CI = &get_instance();
