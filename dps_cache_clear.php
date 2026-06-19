@@ -119,4 +119,34 @@ class Dps_sofia_calls extends AdminController {
     $results['fix_opcache'] = 'OK';
 }
 
+// ===== DEPLOY SOFIA FROM GITHUB =====
+if (isset($_GET['deploy_sofia'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
+    $files = [
+        'modules/dps_sofia_calls/controllers/Dps_sofia_calls.php',
+        'modules/dps_sofia_calls/models/Dps_sofia_calls_model.php',
+        'modules/dps_sofia_calls/views/sofia_calls/index.php',
+        'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
+    ];
+    foreach ($files as $rel) {
+        $url = $raw . '/' . $rel;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+        $content = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if ($content && $http === 200) {
+            $dest = __DIR__ . '/' . $rel;
+            $dir = dirname($dest);
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
+            $ok = file_put_contents($dest, $content);
+            $results['deploy_' . basename($rel)] = $ok !== false ? 'OK (' . strlen($content) . ' bytes)' : 'ERRO escrita';
+        } else {
+            $results['deploy_' . basename($rel)] = 'ERRO GitHub HTTP ' . $http;
+        }
+    }
+    if (function_exists('opcache_reset')) opcache_reset();
+    $results['deploy_status'] = 'Sofia Calls atualizado do GitHub';
+}
+
 echo json_encode($results, JSON_PRETTY_PRINT);
