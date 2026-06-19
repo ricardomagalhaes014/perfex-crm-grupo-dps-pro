@@ -54,8 +54,6 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
     $results['deploy_status'] = 'Deploy concluido do GitHub';
 }
 
-echo json_encode($results, JSON_PRETTY_PRINT);
-
 // ===== CHECK SOFIA =====
 if (isset($_GET['check_sofia'])) {
     $ci_config = __DIR__ . '/application/config/database.php';
@@ -93,3 +91,5 @@ if (isset($_GET['check_sofia'])) {
     $results['view_has_csrf'] = file_exists($mod.'/views/sofia_calls/index.php') ? (strpos(file_get_contents($mod.'/views/sofia_calls/index.php'), 'get_csrf_for_ajax') !== false) : false;
     $results['csrf_exclude_exists'] = file_exists($mod.'/config/csrf_exclude_uris.php');
 }
+
+echo json_encode($results, JSON_PRETTY_PRINT);
