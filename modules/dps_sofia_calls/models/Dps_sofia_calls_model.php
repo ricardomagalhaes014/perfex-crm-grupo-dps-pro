@@ -220,7 +220,9 @@ class Dps_sofia_calls_model extends App_Model
             $final_status = 'no_answer';
             if ($conv_status === 'failed') {
                 $final_status = 'failed';
-            } elseif ($duration > 5) {
+            } elseif (!empty($conv['analysis']['call_successful']) && $conv['analysis']['call_successful'] === 'success') {
+                $final_status = 'answered';
+            } elseif ($duration > 15) {
                 $final_status = 'answered';
             }
 
