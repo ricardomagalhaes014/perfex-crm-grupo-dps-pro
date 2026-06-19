@@ -207,23 +207,29 @@ class Dps_sofia_calls_model extends App_Model
             );
             $conv_status = ($conv && isset($conv['status'])) ? $conv['status'] : null;
 
-            // Se ainda em curso E não excedeu timeout — aguardar próximo cron
+            // Se a ElevenLabs diz que está "initiated" ou "in-progress" mas já passou o timeout (4 min), forçamos o fecho.
+            // Isto resolve o problema das chamadas que ficam presas na ElevenLabs sem nunca passar a "done".
             if (!$timed_out && !in_array($conv_status, ['done', 'failed'])) {
                 continue;
             }
 
             // Determinar estado final
-            $duration     = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
+            $duration = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
             if ($timed_out && !$duration) {
                 $duration = $elapsed;
             }
+            
             $final_status = 'no_answer';
+            
             if ($conv_status === 'failed') {
                 $final_status = 'failed';
             } elseif (!empty($conv['analysis']['call_successful']) && $conv['analysis']['call_successful'] === 'success') {
                 $final_status = 'answered';
-            } elseif ($duration > 15) {
+            } elseif ($duration > 15 && $conv_status === 'done') {
                 $final_status = 'answered';
+            } elseif ($timed_out && in_array($conv_status, ['initiated', 'in-progress', null])) {
+                // Se deu timeout e a ElevenLabs nunca disse que atendeu, assumimos que não atendeu ou falhou
+                $final_status = 'no_answer';
             }
 
             // Actualizar log
