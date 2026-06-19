@@ -217,6 +217,22 @@ if (isset($_GET['run_cron'])) {
 
 echo json_encode($results, JSON_PRETTY_PRINT);
 
+// Fix sofia debug - instala script de diagnóstico
+if (isset($_GET['fix_sofia_debug'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main/dps_sofia_debug.php';
+    $ch = curl_init($raw);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>10,CURLOPT_SSL_VERIFYPEER=>false]);
+    $c = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    $dest = __DIR__ . '/dps_sofia_debug.php';
+    if ($c && $http === 200 && strlen($c) > 100) {
+        file_put_contents($dest, $c);
+        echo json_encode(['status'=>'ok','bytes'=>strlen($c)]);
+    } else {
+        echo json_encode(['status'=>'erro','http'=>$http]);
+    }
+    exit;
+}
+
 // Fix sofia all - instala view + controller + model
 if (isset($_GET['fix_sofia_all'])) {
     $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
