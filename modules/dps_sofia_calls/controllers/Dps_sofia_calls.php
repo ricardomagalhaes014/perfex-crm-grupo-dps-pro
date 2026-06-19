@@ -63,8 +63,14 @@ class Dps_sofia_calls extends AdminController
 
         $ok = $this->Dps_sofia_calls_model->update_campaign_status($id, $action);
 
+        // Quando inicia a campanha, disparar imediatamente a primeira chamada
+        $call_result = null;
+        if ($action === 'active' && $ok) {
+            $call_result = $this->Dps_sofia_calls_model->make_immediate_call($id);
+        }
+
         header('Content-Type: application/json');
-        echo json_encode(['success' => $ok]);
+        echo json_encode(['success' => $ok, 'call' => $call_result]);
         exit;
     }
 

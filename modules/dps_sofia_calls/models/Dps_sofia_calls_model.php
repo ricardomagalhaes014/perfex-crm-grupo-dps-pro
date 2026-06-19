@@ -224,7 +224,7 @@ class Dps_sofia_calls_model extends App_Model
     private function _make_call($phone, $agent_id, $focus_text = null, $lead_name = null)
     {
         $api_key         = $this->api_key         ?: 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
-        $phone_number_id = $this->phone_number_id ?: 'phnum_6701kveaXXX';
+        $phone_number_id = $this->phone_number_id ?: 'phnum_6701kvea8mbhe4vbdz75jf1wd1y7';
 
         $payload = [
             'agent_id'              => $agent_id,
