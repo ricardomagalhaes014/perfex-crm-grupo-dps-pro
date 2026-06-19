@@ -378,13 +378,21 @@ class Dps_sofia_calls_model extends App_Model
             $note .= "\n(Sem transcrição disponível)";
         }
 
-        // Inserir nota directamente na tabela de notas do Perfex
+        // 1. Inserir nota directamente na tabela de notas do Perfex
+        // addedfrom deve ser 1 (admin) para que a nota apareça no lead, 
+        // pois o Perfex faz INNER JOIN com tblstaff
         $this->db->insert(db_prefix() . 'notes', [
             'rel_id'      => $lead_id,
             'rel_type'    => 'lead',
             'description' => nl2br($note),
-            'addedfrom'   => 0,
+            'addedfrom'   => 1, // 1 = Admin (necessário para o INNER JOIN)
             'dateadded'   => date('Y-m-d H:i:s'),
+        ]);
+
+        // 2. Atualizar a data de Último Contato (lastcontact) no lead
+        $this->db->where('id', $lead_id);
+        $this->db->update(db_prefix() . 'leads', [
+            'lastcontact' => date('Y-m-d H:i:s')
         ]);
     }
 
