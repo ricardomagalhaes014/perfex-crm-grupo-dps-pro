@@ -168,43 +168,55 @@ class Dps_sofia_calls_model extends App_Model
 
     /**
      * Chamado pelo cron do Perfex (perfex_cron hook).
-     * 1. Verifica chamadas em estado "calling" e actualiza o estado com base na ElevenLabs.
+     * 1. Verifica chamadas em estado "calling" — se terminaram ou excederam timeout, actualiza e avança.
      * 2. Para cada chamada terminada, guarda a transcrição como nota no lead.
      * 3. Dispara a próxima chamada pendente nas campanhas activas.
      */
     public function process_pending_calls()
     {
-        $api_key = $this->api_key ?: 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+        $api_key        = $this->api_key ?: 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+        $call_timeout   = 4 * 60; // 4 minutos — tempo máximo por chamada antes de avançar
 
         // --- Passo 1: Verificar chamadas em curso ---
         $this->db->where('status', 'calling');
         $calling = $this->db->get(db_prefix() . 'dps_sofia_call_logs')->result_array();
 
         foreach ($calling as $log) {
+            $started = $log['started_at'] ? strtotime($log['started_at']) : 0;
+            $elapsed = time() - $started;
+            $timed_out = ($started > 0 && $elapsed >= $call_timeout);
+
+            // Sem ID de conversa — marcar como falhada e avançar
             if (empty($log['elevenlabs_call_id'])) {
-                // Sem ID de conversa — marcar como falhada
                 $this->db->where('id', $log['id']);
                 $this->db->update(db_prefix() . 'dps_sofia_call_logs', [
                     'status'   => 'failed',
                     'ended_at' => date('Y-m-d H:i:s'),
                 ]);
+                $campaign = $this->get_campaign($log['campaign_id']);
+                if ($campaign && $campaign['status'] === 'active') {
+                    $this->_fire_next_call($campaign);
+                }
                 continue;
             }
 
             // Consultar estado da conversa na ElevenLabs
-            $conv = $this->_api_get(
+            $conv        = $this->_api_get(
                 'https://api.elevenlabs.io/v1/convai/conversations/' . $log['elevenlabs_call_id'],
                 $api_key
             );
+            $conv_status = ($conv && isset($conv['status'])) ? $conv['status'] : null;
 
-            if (!$conv || !isset($conv['status'])) continue;
-
-            $conv_status = $conv['status']; // initiated | processing | done | failed
-
-            if (!in_array($conv_status, ['done', 'failed'])) continue;
+            // Se ainda em curso E não excedeu timeout — aguardar próximo cron
+            if (!$timed_out && !in_array($conv_status, ['done', 'failed'])) {
+                continue;
+            }
 
             // Determinar estado final
-            $duration    = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
+            $duration     = isset($conv['metadata']['call_duration_secs']) ? (int)$conv['metadata']['call_duration_secs'] : 0;
+            if ($timed_out && !$duration) {
+                $duration = $elapsed;
+            }
             $final_status = 'no_answer';
             if ($conv_status === 'failed') {
                 $final_status = 'failed';
@@ -225,14 +237,16 @@ class Dps_sofia_calls_model extends App_Model
                 $this->db->where('id', $log['campaign_id']);
                 $this->db->set('calls_answered', 'calls_answered + 1', false);
                 $this->db->update(db_prefix() . 'dps_sofia_campaigns');
-            } elseif (in_array($final_status, ['failed', 'no_answer'])) {
+            } else {
                 $this->db->where('id', $log['campaign_id']);
                 $this->db->set('calls_failed', 'calls_failed + 1', false);
                 $this->db->update(db_prefix() . 'dps_sofia_campaigns');
             }
 
             // --- Passo 2: Guardar transcrição como nota no lead ---
-            $this->_save_transcript_as_note($log, $conv, $final_status, $duration);
+            if ($conv) {
+                $this->_save_transcript_as_note($log, $conv, $final_status, $duration);
+            }
 
             // --- Passo 3: Disparar próxima chamada na campanha ---
             $campaign = $this->get_campaign($log['campaign_id']);
@@ -246,7 +260,6 @@ class Dps_sofia_calls_model extends App_Model
         $active_campaigns = $this->db->get(db_prefix() . 'dps_sofia_campaigns')->result_array();
 
         foreach ($active_campaigns as $campaign) {
-            // Verificar se já há uma chamada em curso para esta campanha
             $this->db->where('campaign_id', $campaign['id']);
             $this->db->where('status', 'calling');
             $in_progress = $this->db->count_all_results(db_prefix() . 'dps_sofia_call_logs');
