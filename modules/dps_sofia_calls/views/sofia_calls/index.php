@@ -88,6 +88,14 @@
                                         <i class="fa fa-stop"></i> Parar
                                     </button>
                                     <?php endif; ?>
+                                    <?php if (in_array($c['status'], ['stopped', 'completed'])): ?>
+                                    <button class="btn btn-success btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="paused" title="Reiniciar campanha">
+                                        <i class="fa fa-refresh"></i> Reiniciar
+                                    </button>
+                                    <button class="btn btn-danger btn-campaign-delete" data-id="<?php echo $c['id']; ?>" title="Apagar campanha">
+                                        <i class="fa fa-trash"></i> Apagar
+                                    </button>
+                                    <?php endif; ?>
                                     <button class="btn btn-default btn-campaign-detail" data-id="<?php echo $c['id']; ?>" title="Ver detalhes">
                                         <i class="fa fa-list"></i>
                                     </button>
@@ -412,6 +420,27 @@ $(document).ready(function() {
             },
             error: function() {
                 $('#modalDetalhesBody').html('<div class="alert alert-danger">Erro ao carregar detalhes</div>');
+            }
+        });
+    });
+
+    // Apagar campanha
+    $(document).on('click', '.btn-campaign-delete', function() {
+        var id = $(this).data('id');
+        if (!confirm('Tem a certeza que quer apagar esta campanha? Esta ação não pode ser revertida.')) return;
+
+        $.ajax({
+            url: BASE + '/delete_campaign',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: (function(){ var d = { id: id }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', 'Campanha apagada.');
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    alert_float('danger', 'Erro ao apagar campanha');
+                }
             }
         });
     });

@@ -117,6 +117,24 @@ class Dps_sofia_calls extends AdminController
         exit;
     }
 
+    public function delete_campaign()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $id = (int) $this->input->post('id');
+        if (!$id) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false]);
+            exit;
+        }
+
+        $ok = $this->Dps_sofia_calls_model->delete_campaign($id);
+
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $ok]);
+        exit;
+    }
+
     public function campaign_detail()
     {
         if (!$this->input->is_ajax_request()) show_404();

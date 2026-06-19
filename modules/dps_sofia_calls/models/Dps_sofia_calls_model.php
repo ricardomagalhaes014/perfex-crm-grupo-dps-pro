@@ -206,6 +206,15 @@ class Dps_sofia_calls_model extends App_Model
         return ['success' => false, 'message' => 'Erro ao iniciar chamada', 'detail' => $result];
     }
 
+    public function delete_campaign($id)
+    {
+        $this->db->where('id', $id);
+        $this->db->delete(db_prefix() . 'dps_sofia_campaigns');
+        $this->db->where('campaign_id', $id);
+        $this->db->delete(db_prefix() . 'dps_sofia_call_logs');
+        return true;
+    }
+
     public function get_campaign_stats($campaign_id)
     {
         $this->db->select('
