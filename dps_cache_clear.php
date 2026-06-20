@@ -96,6 +96,36 @@ if (isset($_GET['check_sofia'])) {
     $results['csrf_exclude_exists'] = file_exists($mod.'/config/csrf_exclude_uris.php');
 }
 
+// ===== TEST SOFIA CALL - testa se o servidor consegue fazer chamada ElevenLabs =====
+if (isset($_GET['test_sofia_call'])) {
+    $api_key = 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+    $phone_number_id = 'phnum_6701kvea8mbhe4vbdz75jf1wd1y7';
+    $agent_id = isset($_GET['agent']) ? $_GET['agent'] : 'agent_4301kv1pv8g8e259bbdyfk7mrefb';
+    $to_number = isset($_GET['to']) ? $_GET['to'] : '+351910076278';
+    $payload = json_encode(['agent_id' => $agent_id, 'agent_phone_number_id' => $phone_number_id, 'to_number' => $to_number]);
+    $ch = curl_init('https://api.elevenlabs.io/v1/convai/twilio-outbound-call');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => ['xi-api-key: ' . $api_key, 'Content-Type: application/json'],
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_error = curl_error($ch);
+    curl_close($ch);
+    $results['test_sofia_call'] = [
+        'http_code' => $http_code,
+        'curl_error' => $curl_error,
+        'response' => $response ? json_decode($response, true) : null,
+        'response_raw' => $response,
+        'agent_id' => $agent_id,
+        'to_number' => $to_number,
+    ];
+}
+
 // Fix view only - instala apenas a view corrigida
 if (isset($_GET['fix_view'])) {
     $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main/modules/dps_sofia_calls/views/sofia_calls/index.php';
