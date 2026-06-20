@@ -33,7 +33,8 @@ if (!is_array($data)) {
     exit;
 }
 
-// Filtrar apenas MESSAGES_UPSETRT)$type = isset($data['event']) ? $data['event'] : '';
+// Filtrar apenas MESSAGES_UPSERT
+$type = isset($data['event']) ? $data['event'] : '';
 if ($type !== 'MESSAGES_UPSERT') {
     echo json_encode(['ok' => true, 'skipped' => 'event: ' . $type]);
     exit;
