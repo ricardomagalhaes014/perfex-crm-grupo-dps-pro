@@ -145,7 +145,15 @@
                         </select>
                         <small class="text-muted">Filtrar leads por responsável. Deixe vazio para incluir todos.</small>
                     </div>
-                    <input type="hidden" name="agent_id" value="agent_9901kv1pvewveh9s9ebs1rys274k">
+                    <div class="form-group">
+                        <label>Agente Sofia a usar <span class="text-danger">*</span></label>
+                        <select name="agent_id" class="form-control" required>
+                            <?php foreach ($agents_list as $ag): ?>
+                            <option value="<?php echo htmlspecialchars($ag['agent_id']); ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <small class="text-muted">Selecione o agente que fará as chamadas desta campanha.</small>
+                    </div>
                     <div class="form-group">
                         <label>Foco / Contexto para a Sofia</label>
                         <textarea name="focus_text" class="form-control" rows="4"
@@ -198,6 +206,14 @@
                             <option value="">-- Todos os responsáveis --</option>
                             <?php foreach ($staff_list as $staff): ?>
                             <option value="<?php echo $staff['staffid']; ?>"><?php echo htmlspecialchars($staff['fullname']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Agente Sofia a usar <span class="text-danger">*</span></label>
+                        <select name="agent_id" id="editCampanhaAgent" class="form-control" required>
+                            <?php foreach ($agents_list as $ag): ?>
+                            <option value="<?php echo htmlspecialchars($ag['agent_id']); ?>"><?php echo htmlspecialchars($ag['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -289,6 +305,7 @@ $(document).ready(function() {
         $('#editCampanhaFocus').val(btn.data('focus'));
         $('#editCampanhaStatus').val(btn.data('status'));
         $('#editCampanhaStaff').val(btn.data('staff') || '');
+        $('#editCampanhaAgent').val(btn.data('agent') || 'agent_9901kv1pvewveh9s9ebs1rys274k');
         $('#modalEditarCampanha').modal('show');
     });
 
@@ -298,6 +315,7 @@ $(document).ready(function() {
         var name     = $('#editCampanhaName').val().trim();
         var statusId = $('#editCampanhaStatus').val();
         var staffId  = $('#editCampanhaStaff').val();
+        var agentId  = $('#editCampanhaAgent').val();
         var focus    = $('#editCampanhaFocus').val().trim();
 
         if (!name || !statusId) {
@@ -311,7 +329,7 @@ $(document).ready(function() {
             url: BASE + '/update_campaign',
             type: 'POST',
             headers: {'X-Requested-With': 'XMLHttpRequest'},
-            data: (function(){ var d = { id: id, name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
+            data: (function(){ var d = { id: id, name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus, agent_id: agentId }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 if (r.success) {
                     alert_float('success', 'Campanha atualizada com sucesso!');

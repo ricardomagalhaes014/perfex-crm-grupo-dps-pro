@@ -15,6 +15,19 @@ class Dps_sofia_calls extends AdminController
         $data['lead_statuses'] = $this->Dps_sofia_calls_model->get_lead_statuses();
         $data['staff_list']    = $this->Dps_sofia_calls_model->get_staff_list();
         $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
+        
+        // Lista fixa de agentes baseada na configuração atual do cliente
+        $data['agents_list'] = [
+            ['agent_id' => 'agent_9901kv1pvewveh9s9ebs1rys274k', 'name' => 'Sofia - Assistente DPS Imobiliario'],
+            ['agent_id' => 'Sofia - Outbound Belo Horizonte', 'name' => 'Sofia - Outbound Belo Horizonte'],
+            ['agent_id' => 'Sofia - Raizes DPS', 'name' => 'Sofia - Raizes DPS'],
+            ['agent_id' => 'Sofia - Belo Horizonte DPS', 'name' => 'Sofia - Belo Horizonte DPS'],
+            ['agent_id' => 'Sofia - Outbound Raizes', 'name' => 'Sofia - Outbound Raizes'],
+            ['agent_id' => 'Sofia - Lake Towers DPS', 'name' => 'Sofia - Lake Towers DPS'],
+            ['agent_id' => 'Sofia - DPS Brasil', 'name' => 'Sofia - DPS Brasil'],
+            ['agent_id' => 'Sofia - Sky Marine Towers DPS', 'name' => 'Sofia - Sky Marine Towers DPS']
+        ];
+        
         $this->load->view('dps_sofia_calls/sofia_calls/index', $data);
     }
 
@@ -102,6 +115,7 @@ class Dps_sofia_calls extends AdminController
             'lead_status_id' => (int) $this->input->post('lead_status_id'),
             'staff_id'       => (int) $this->input->post('staff_id'),
             'focus_text'     => $this->input->post('focus_text'),
+            'agent_id'       => $this->input->post('agent_id'),
         ];
 
         if (empty($data['name']) || empty($data['lead_status_id'])) {
