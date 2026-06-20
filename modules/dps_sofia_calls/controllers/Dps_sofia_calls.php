@@ -16,16 +16,17 @@ class Dps_sofia_calls extends AdminController
         $data['staff_list']    = $this->Dps_sofia_calls_model->get_staff_list();
         $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
         
-        // Lista fixa de agentes baseada na configuração atual do cliente
+        // Lista de agentes com IDs reais da ElevenLabs
         $data['agents_list'] = [
-            ['agent_id' => 'agent_9901kv1pvewveh9s9ebs1rys274k', 'name' => 'Sofia - Assistente DPS Imobiliario'],
-            ['agent_id' => 'Sofia - Outbound Belo Horizonte', 'name' => 'Sofia - Outbound Belo Horizonte'],
-            ['agent_id' => 'Sofia - Raizes DPS', 'name' => 'Sofia - Raizes DPS'],
-            ['agent_id' => 'Sofia - Belo Horizonte DPS', 'name' => 'Sofia - Belo Horizonte DPS'],
-            ['agent_id' => 'Sofia - Outbound Raizes', 'name' => 'Sofia - Outbound Raizes'],
-            ['agent_id' => 'Sofia - Lake Towers DPS', 'name' => 'Sofia - Lake Towers DPS'],
-            ['agent_id' => 'Sofia - DPS Brasil', 'name' => 'Sofia - DPS Brasil'],
-            ['agent_id' => 'Sofia - Sky Marine Towers DPS', 'name' => 'Sofia - Sky Marine Towers DPS']
+            ['agent_id' => 'agent_0901kv03vzc4eqnvzt5758mms6t8', 'name' => 'Sofia - Assistente DPS Imobiliario'],
+            ['agent_id' => 'agent_9901kv1pvewveh9s9ebs1rys274k', 'name' => 'Sofia - Outbound Belo Horizonte'],
+            ['agent_id' => 'agent_4301kv1pv8g8e259bbdyfk7mrefb', 'name' => 'Sofia - Outbound Raizes'],
+            ['agent_id' => 'agent_7501kv0dj084fmbahfdafsfmgcfv', 'name' => 'Sofia - Raizes DPS'],
+            ['agent_id' => 'agent_1901kv0dj4m0fxnr5pxqdhqzjf26', 'name' => 'Sofia - Belo Horizonte DPS'],
+            ['agent_id' => 'agent_2901kv39h680esb9wtrx6yk291sw', 'name' => 'Sofia - Lake Towers DPS'],
+            ['agent_id' => 'agent_9501kv39wjr4etjre7118p0ejncp', 'name' => 'Sofia - DPS Brasil'],
+            ['agent_id' => 'agent_4301kv39h81keckrf9dkd1cb7mxk', 'name' => 'Sofia - DPS Brasil (2)'],
+            ['agent_id' => 'agent_9201kv3brmpcehrtyhahfq214bq8', 'name' => 'Sofia - Sky Marine Towers DPS']
         ];
         
         $this->load->view('dps_sofia_calls/sofia_calls/index', $data);
