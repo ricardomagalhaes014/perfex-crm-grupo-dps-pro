@@ -355,6 +355,72 @@ class Dps_sofia_calls_model extends App_Model
             $summary = $conv['analysis']['transcript_summary'];
         }
 
+        // Determinar interesse (se ElevenLabs devolveu success criteria ou pelo resumo)
+        $has_interest = false;
+        if (!empty($conv['analysis']['call_successful']) && $conv['analysis']['call_successful'] === 'success') {
+            $has_interest = true;
+        } elseif (!empty($conv['analysis']['extracted_data'])) {
+            // Se a ElevenLabs extraiu dados, normalmente é porque houve interesse e recolha de info
+            $has_interest = true;
+        } elseif (stripos($summary, 'interesse') !== false || stripos($summary, 'interessado') !== false || stripos($summary, 'enviar proposta') !== false || stripos($summary, 'enviar mais info') !== false) {
+            $has_interest = true;
+        }
+
+        // Criar tarefa se houver interesse
+        if ($has_interest && $final_status === 'answered') {
+            $this->load->model('tasks_model');
+            $campaign = $this->get_campaign($log['campaign_id']);
+            $staff_id = $campaign && !empty($campaign['staff_id']) ? $campaign['staff_id'] : 0;
+            
+            // Se a campanha não tiver staff associado, tenta ver se o lead tem staff
+            if (!$staff_id) {
+                $lead = $this->db->select('assigned')->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+                if ($lead && $lead->assigned) {
+                    $staff_id = $lead->assigned;
+                }
+            }
+
+            $task_data = [
+                'name'        => 'Acompanhar Lead interessado (Sofia Calls)',
+                'description' => "A Sofia detetou interesse nesta chamada.\n\nResumo da chamada:\n" . $summary,
+                'priority'    => 4, // 4 = Alta prioridade
+                'dateadded'   => date('Y-m-d H:i:s'),
+                'startdate'   => date('Y-m-d'),
+                'duedate'     => date('Y-m-d', strtotime('+1 day')),
+                'addedfrom'   => 1, // admin
+                'is_added_from_contact' => 0,
+                'status'      => 1, // 1 = Not Started
+                'rel_type'    => 'lead',
+                'rel_id'      => $lead_id,
+                'is_public'   => 0,
+                'billable'    => 0,
+                'billed'      => 0,
+                'recurring'   => 0,
+                'visible_to_client' => 0
+            ];
+
+            $this->db->insert(db_prefix() . 'tasks', $task_data);
+            $task_id = $this->db->insert_id();
+
+            if ($task_id && $staff_id) {
+                // Atribuir tarefa ao staff
+                $this->db->insert(db_prefix() . 'task_assigned', [
+                    'taskid'        => $task_id,
+                    'staffid'       => $staff_id,
+                    'assigned_from' => 1
+                ]);
+
+                // Enviar notificação ao staff
+                add_notification([
+                    'description'     => 'Novo lead interessado da campanha Sofia Calls',
+                    'touserid'        => $staff_id,
+                    'fromuserid'      => 1,
+                    'link'            => 'leads/index/' . $lead_id,
+                    'additional_data' => serialize([$log['lead_name']]),
+                ]);
+            }
+        }
+
         // Construir nota
         $status_labels = [
             'answered'  => 'Atendida',
