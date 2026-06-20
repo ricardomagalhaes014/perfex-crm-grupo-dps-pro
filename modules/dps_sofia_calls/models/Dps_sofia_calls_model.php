@@ -551,7 +551,7 @@ class Dps_sofia_calls_model extends App_Model
             ];
         }
 
-        return $this->_api_post('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', $payload, $api_key);
+        return $this->_api_post('https://api.elevenlabs.io/v1/convai/twilio-outbound-call', $payload, $api_key);
     }
 
     private function _normalize_phone($phone)
