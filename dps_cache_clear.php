@@ -78,9 +78,13 @@ if (isset($_GET['check_sofia'])) {
             if ($results['table_dps_sofia_campaigns'] === 'EXISTS') {
                 $r = $conn->query("SELECT COUNT(*) as c FROM `{$prefix}dps_sofia_campaigns`");
                 $results['campaigns_count'] = $r ? $r->fetch_assoc()['c'] : 0;
-                $r = $conn->query("SELECT id, name, status, created_at FROM `{$prefix}dps_sofia_campaigns` ORDER BY id DESC LIMIT 5");
+                $r = $conn->query("SELECT id, name, status, agent_id, focus_text, calls_made, calls_answered, calls_failed, created_at FROM `{$prefix}dps_sofia_campaigns` ORDER BY id DESC LIMIT 5");
                 $results['campaigns'] = [];
                 if ($r) while ($row = $r->fetch_assoc()) $results['campaigns'][] = $row;
+                // Logs recentes
+                $r = $conn->query("SELECT id, campaign_id, lead_name, phone_number, status, elevenlabs_call_id, started_at, ended_at FROM `{$prefix}dps_sofia_call_logs` ORDER BY id DESC LIMIT 20");
+                $results['recent_logs'] = [];
+                if ($r) while ($row = $r->fetch_assoc()) $results['recent_logs'][] = $row;
             }
             $conn->close();
         } else { $results['db_error'] = $conn->connect_error; }
