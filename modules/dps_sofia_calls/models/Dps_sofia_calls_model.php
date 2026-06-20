@@ -141,6 +141,7 @@ class Dps_sofia_calls_model extends App_Model
             'lead_status_id' => $data['lead_status_id'],
             'staff_id'       => isset($data['staff_id']) ? (int)$data['staff_id'] : 0,
             'focus_text'     => isset($data['focus_text']) ? $data['focus_text'] : null,
+            'agent_id'       => isset($data['agent_id']) && $data['agent_id'] ? $data['agent_id'] : 'agent_9901kv1pvewveh9s9ebs1rys274k',
             'updated_at'     => date('Y-m-d H:i:s'),
         ];
         $this->db->where('id', $id);
