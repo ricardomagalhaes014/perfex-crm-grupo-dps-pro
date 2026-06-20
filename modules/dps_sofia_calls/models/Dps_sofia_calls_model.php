@@ -580,10 +580,22 @@ class Dps_sofia_calls_model extends App_Model
                 'xi-api-key: ' . $api_key,
                 'Content-Type: application/json',
             ],
-            CURLOPT_TIMEOUT => 15,
+            CURLOPT_TIMEOUT        => 20,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_FOLLOWLOCATION => true,
         ]);
-        $response = curl_exec($ch);
+        $response  = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err  = curl_error($ch);
         curl_close($ch);
+        // Log para debug
+        $log_dir = FCPATH . 'uploads/sofia_logs';
+        if (!is_dir($log_dir)) @mkdir($log_dir, 0755, true);
+        @file_put_contents($log_dir . '/api_calls.log',
+            date('Y-m-d H:i:s') . " POST $url HTTP=$http_code err=$curl_err resp=" . substr((string)$response, 0, 400) . "\n",
+            FILE_APPEND);
+        if (!$response && $curl_err) return ['error' => $curl_err];
         return $response ? json_decode($response, true) : null;
     }
 
@@ -596,7 +608,9 @@ class Dps_sofia_calls_model extends App_Model
             CURLOPT_HTTPHEADER     => [
                 'xi-api-key: ' . $api_key,
             ],
-            CURLOPT_TIMEOUT => 15,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
         ]);
         $response = curl_exec($ch);
         curl_close($ch);
