@@ -1,4 +1,4 @@
-/* Sofia Widget - disabled. Remove pill button, show native ElevenLabs widget. */
+/* Sofia Widget v1782086216 - disabled. Remove pill button, show native ElevenLabs widget. */
 (function() {
   function cleanup() {
     var ids = ['dps-sofia-btn', 'dps-sofia-container', 'dps-btn', 'dps-tip'];
