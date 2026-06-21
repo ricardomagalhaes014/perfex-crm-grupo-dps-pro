@@ -154,3 +154,19 @@
   observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
 })();
+
+// Remover botões antigos de outros widgets Sofia que possam existir na página
+(function() {
+  function removeOldWidgets() {
+    // Remover botão antigo #dps-btn (belohorizonte)
+    var oldBtn = document.getElementById('dps-btn');
+    if (oldBtn) oldBtn.remove();
+    var oldTip = document.getElementById('dps-tip');
+    if (oldTip) oldTip.remove();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', removeOldWidgets);
+  } else {
+    removeOldWidgets();
+  }
+})();
