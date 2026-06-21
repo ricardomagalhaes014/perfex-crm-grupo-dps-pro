@@ -1,9 +1,29 @@
 /**
  * Sofia DPS Widget — Chamada Direta ElevenLabs
- * Versão: 3.0
+ * Versão: 3.1
  * Sem formulário — clique no botão abre o widget diretamente
  * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com, skymarine.grupo-dps.com
  */
+
+// ─── PASSO 1: Neutralizar scripts antigos IMEDIATAMENTE (antes do DOM estar pronto) ───
+// Cria um proxy para 'el-w' para evitar TypeError no script inline do belohorizonte
+(function() {
+  // Substituir getElementById para interceptar 'el-w' e devolver um objeto seguro
+  var _origGetById = document.getElementById.bind(document);
+  document.getElementById = function(id) {
+    if (id === 'el-w') {
+      return { style: { cssText: '' }, shadowRoot: null, onclick: null };
+    }
+    return _origGetById(id);
+  };
+  // Remover #dps-btn imediatamente se já existir
+  var oldBtn = _origGetById('dps-btn');
+  if (oldBtn) oldBtn.style.display = 'none';
+  var oldTip = _origGetById('dps-tip');
+  if (oldTip) oldTip.style.display = 'none';
+})();
+
+// ─── PASSO 2: Widget principal ───
 (function() {
   'use strict';
 
@@ -30,12 +50,26 @@
   var AVATAR_URL = 'https://storage.googleapis.com/eleven-public-prod/DJNwVMnFnDMoqZmJlWBBTKIAHe23/voices/agent_avatar/sofia_dps_avatar.jpg';
 
   function hideNativeWidget() {
-    var existing = document.querySelector('elevenlabs-convai');
+    var existing = document.querySelector('elevenlabs-convai:not(#dps-sofia-el-widget)');
     if (existing) {
-      existing.style.display = 'none';
-      existing.style.visibility = 'hidden';
-      existing.style.pointerEvents = 'none';
+      existing.style.cssText = 'display:none!important;visibility:hidden!important;pointer-events:none!important;';
     }
+  }
+
+  function removeOldWidgets() {
+    // Restaurar getElementById original antes de remover
+    if (document._origGetById) document.getElementById = document._origGetById;
+    var oldBtn = document.getElementById('dps-btn');
+    if (oldBtn) oldBtn.remove();
+    var oldTip = document.getElementById('dps-tip');
+    if (oldTip) oldTip.remove();
+    // Remover script inline antigo que usa el-w
+    var scripts = document.querySelectorAll('script');
+    scripts.forEach(function(s) {
+      if (s.textContent && s.textContent.indexOf('el-w') !== -1) {
+        s.remove();
+      }
+    });
   }
 
   function loadElevenLabsScript(callback) {
@@ -52,6 +86,8 @@
 
   function injectWidget() {
     hideNativeWidget();
+    removeOldWidgets();
+
     var old = document.getElementById('dps-sofia-container');
     if (old) old.remove();
 
@@ -144,29 +180,13 @@
     window.addEventListener('load', hideNativeWidget);
   }
 
+  // Observer para esconder widgets nativos que apareçam depois
   var observer = new MutationObserver(function() {
     var native = document.querySelector('elevenlabs-convai:not(#dps-sofia-el-widget)');
     if (native) {
-      native.style.display = 'none';
-      native.style.visibility = 'hidden';
+      native.style.cssText = 'display:none!important;visibility:hidden!important;pointer-events:none!important;';
     }
   });
   observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-})();
-
-// Remover botões antigos de outros widgets Sofia que possam existir na página
-(function() {
-  function removeOldWidgets() {
-    // Remover botão antigo #dps-btn (belohorizonte)
-    var oldBtn = document.getElementById('dps-btn');
-    if (oldBtn) oldBtn.remove();
-    var oldTip = document.getElementById('dps-tip');
-    if (oldTip) oldTip.remove();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', removeOldWidgets);
-  } else {
-    removeOldWidgets();
-  }
 })();
