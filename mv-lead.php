@@ -76,26 +76,20 @@ if (!empty($email) || !empty($phone)) {
     }
 }
 
-// Separar nome e apelido
-$name_parts = explode(' ', $name, 2);
-$firstname  = $name_parts[0];
-$lastname   = isset($name_parts[1]) ? $name_parts[1] : '';
-
 // Inserir lead
 try {
     $stmt = $pdo->prepare("
         INSERT INTO tblleads
-            (status, source, assigned, firstname, lastname, email, phonenumber, description, dateadded, lastcontact, addedfrom, is_public, date_converted)
+            (status, source, assigned, name, email, phonenumber, description, dateadded, lastcontact, addedfrom, is_public, date_converted)
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NULL, 1, 0, NULL)
+            (?, ?, ?, ?, ?, ?, ?, NOW(), NULL, 1, 0, NULL)
     ");
     $description = "Lead Facebook Lead Ads - Formulário MV\nFacebook Lead ID: " . $fb_lead_id;
     $stmt->execute([
         $status_id,
         $source_id,
         $assigned,
-        $firstname,
-        $lastname,
+        $name,
         $email,
         $phone,
         $description

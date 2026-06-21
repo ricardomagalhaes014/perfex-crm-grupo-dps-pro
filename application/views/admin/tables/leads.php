@@ -241,10 +241,17 @@ return App_table::find('leads')
                 ? '<a href="mailto:' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '</a>'
                 : '');
 
-            // Telefone (link WhatsApp)
-            $row[] = ($aRow['phonenumber'] != ''
-                ? '<a href="https://wa.me/' . preg_replace('/\D/', '', $aRow['phonenumber']) . '" target="_blank">' . htmlspecialchars($aRow['phonenumber'], ENT_QUOTES, 'UTF-8') . '</a>'
-                : '');
+            // Telefone (link WhatsApp + ícone chamada)
+            if ($aRow['phonenumber'] != '') {
+                $phone_clean   = preg_replace('/\D/', '', $aRow['phonenumber']);
+                $phone_display = htmlspecialchars($aRow['phonenumber'], ENT_QUOTES, 'UTF-8');
+                $row[] = '<span style="white-space:nowrap;">' .
+                    '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="Abrir WhatsApp">' . $phone_display . '</a>' .
+                    '&nbsp;<a href="tel:' . $phone_clean . '" title="Ligar" style="color:#27ae60;font-size:13px;vertical-align:middle;"><i class="fa fa-phone"></i></a>' .
+                    '</span>';
+            } else {
+                $row[] = '';
+            }
 
             // 🔹 NOVA COLUNA "Notes" (última nota com cor por idade)
             $note_text = isset($aRow['last_note']) ? $aRow['last_note'] : '';
