@@ -1,6 +1,6 @@
 /**
  * Sofia DPS Widget — Chamada Direta ElevenLabs
- * Versão: 3.1
+ * Versão: 3.2
  * Sem formulário — clique no botão abre o widget diretamente
  * Suporte: dpsimobiliario.pt, laketowers.grupo-dps.com, brasil.grupo-dps.com, skymarine.grupo-dps.com
  */
@@ -151,6 +151,30 @@
     loadElevenLabsScript(null);
   }
 
+  // Aceitar T&C automaticamente e iniciar chamada
+  function autoAgreeAndCall(shadow, attempt) {
+    attempt = attempt || 0;
+    if (attempt > 20) return; // máx 2 segundos
+    try {
+      // Primeiro: clicar em 'Start a call' se ainda não foi clicado
+      var startBtn = shadow.querySelector('button[title="Start a call"]');
+      if (startBtn) {
+        startBtn.click();
+      }
+      // Segundo: aceitar T&C se aparecer
+      var allBtns = shadow.querySelectorAll('button');
+      for (var i = 0; i < allBtns.length; i++) {
+        var txt = allBtns[i].textContent.trim();
+        if (txt === 'Agree' || txt === 'Accept' || txt === 'Aceitar' || txt === 'Concordo') {
+          allBtns[i].click();
+          return; // T&C aceite, chamada iniciada
+        }
+      }
+      // Repetir até T&C aparecer
+      setTimeout(function() { autoAgreeAndCall(shadow, attempt + 1); }, 100);
+    } catch(err) {}
+  }
+
   // Abrir widget diretamente ao clicar
   window._dpsSofiaOpen = function() {
     var widget = document.getElementById('dps-sofia-el-widget');
@@ -161,8 +185,7 @@
         try {
           var shadow = widget.shadowRoot;
           if (shadow) {
-            var btns = shadow.querySelectorAll('button');
-            if (btns.length > 0) btns[0].click();
+            autoAgreeAndCall(shadow, 0);
           }
         } catch(err) {}
       }, 400);
