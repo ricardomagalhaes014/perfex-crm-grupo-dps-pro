@@ -42,15 +42,17 @@ define('FORM_CONFIG', [
         'name'       => 'Ricardo Magalhães',
         'status'     => 4,                                  // estado "Novos"
         'source'     => 2,                                  // fonte "Facebook/Meta"
+        'tags'       => '',
     ],
-    // Adicionar outros formulários aqui:
-    // 'FORM_ID_CLAUDIO' => [
-    //     'assigned' => 2,
-    //     'email'    => 'claudio@grupo-dps.com',
-    //     'name'     => 'Cláudio Carvalho',
-    //     'status'   => 4,
-    //     'source'   => 2,
-    // ],
+    // Ricardo Magalhães - Formulário MV
+    '1353702410017440' => [
+        'assigned'   => 1,                                  // staff_id do Ricardo no Perfex
+        'email'      => 'ricardomagalhaes@grupo-dps.com',
+        'name'       => 'Ricardo Magalhães',
+        'status'     => 4,                                  // estado "Novos"
+        'source'     => 2,                                  // fonte "Facebook/Meta"
+        'tags'       => 'MV',
+    ],
 ]);
 
 // Ficheiro de log (relativo ao directório do CRM)
@@ -301,6 +303,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'assigned'    => $config['assigned'],
                     'Interesse'   => $interesse,
                 ];
+                // Adicionar tags se configuradas
+                if (!empty($config['tags'])) {
+                    $perfex_fields['tags'] = $config['tags'];
+                }
 
                 $result = create_perfex_lead($perfex_fields);
 
