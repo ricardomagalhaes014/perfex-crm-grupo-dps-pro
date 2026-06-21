@@ -5,6 +5,9 @@
  * Cria lead no Perfex CRM com tag MV, atribuída ao Ricardo (staff_id=1)
  */
 
+// Definir BASEPATH para contornar a verificação de segurança do CodeIgniter nos ficheiros de config
+define('BASEPATH', __DIR__ . '/');
+
 // Token de segurança
 define('MV_TOKEN', 'dps-mv-2026');
 
