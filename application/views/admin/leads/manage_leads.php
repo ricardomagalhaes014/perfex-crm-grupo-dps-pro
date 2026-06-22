@@ -308,14 +308,10 @@
 
     // DPS FIX: Redefinir lead_mark_as para fechar o dropdown antes de alterar o estado
     function lead_mark_as(status_id, lead_id) {
-        // Fechar via Bootstrap API
-        var $toggle = $('#tableLeadsStatus-' + lead_id);
-        $toggle.attr('aria-expanded', 'false');
-        // Remover classes de todos os dropdowns da tabela
-        $('table.table-leads .dropdown').removeClass('open show');
-        $('table.table-leads .dropdown-menu').removeClass('show').css('display', 'none');
-        // Disparar evento nativo para fechar qualquer dropdown Bootstrap activo
-        $(document).trigger('click');
+        // Fechar via mecanismo nativo do Bootstrap 3 (clearMenus)
+        $(document).trigger('click.bs.dropdown.data-api');
+        // Garantia extra: remover classe open de todos os dropdowns da tabela
+        $('table.table-leads .dropdown.open').removeClass('open');
         // Enviar o pedido
         var data = { status: status_id, leadid: lead_id };
         $.post(admin_url + 'leads/update_lead_status', data).done(function(response) {
