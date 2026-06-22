@@ -609,6 +609,7 @@ class App_table
 
         $params = array_merge(['customFieldsColumns' => []], $params);
 
+        header('Content-Type: application/json; charset=utf-8');
         echo json_encode($closure($params, $this->rules()));
 
         exit();
