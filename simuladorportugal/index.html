@@ -471,6 +471,18 @@
       </div>
     </div>
 
+
+    <!-- CERVEIRA PREMIUM -->
+    <div class="emp-card" id="card-cerveira" onclick="selectEmp('cerveira')">
+      <div class="emp-card-badge" style="background:rgba(34,197,94,0.2);color:#4ade80;">Novo</div>
+      <div class="emp-card-name">Cerveira Premium</div>
+      <div class="emp-card-loc">&#128205; Viana do Castelo</div>
+      <div class="emp-card-stats">
+        <div class="emp-stat"><strong>T1–T4+1</strong> Tipologias</div>
+        <div class="emp-stat"><strong>4</strong> Pisos</div>
+        <div class="emp-stat"><strong id="cerv-disp-count">—</strong> Disponíveis</div>
+      </div>
+    </div>
     <!-- FILTROS RAÍZES -->
     <div class="filters" id="raizes-filters" style="display:none;">
       <h2>2. Filtros</h2>
@@ -574,6 +586,40 @@
           <option value="4">Piso 4</option>
           <option value="5">Piso 5</option>
           <option value="6">Piso 6</option>
+        </select>
+      </div>
+    </div>
+    <div class="filters" id="cerveira-filters" style="display:none;">
+      <h2>2. Filtros</h2>
+      <div class="filter-group">
+        <span class="filter-label">Tipologia</span>
+        <div class="filter-btns">
+          <button class="filter-btn all active" onclick="setCerveiraFilter('tipo','all',this)">Todas</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('tipo','T0',this)">T0</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('tipo','T1',this)">T1</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('tipo','T2',this)">T2</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('tipo','T3',this)">T3</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('tipo','T4+1',this)">T4+1</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Estado</span>
+        <div class="filter-btns">
+          <button class="filter-btn all active" onclick="setCerveiraFilter('status','all',this)">Todos</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('status','Disponível',this)">Disponível</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('status','Reservado',this)">Reservado</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('status','Vendido',this)">Vendido</button>
+          <button class="filter-btn" onclick="setCerveiraFilter('status','DPS',this)">DPS</button>
+        </div>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Piso</span>
+        <select class="filter-select" id="cerveiraFilterPiso" onchange="applyCerveiraFilters()">
+          <option value="all">Todos os pisos</option>
+          <option value="0">Piso 0</option>
+          <option value="1">Piso 1</option>
+          <option value="2">Piso 2</option>
+          <option value="3">Piso 3</option>
         </select>
       </div>
     </div>
@@ -1004,6 +1050,141 @@
   </div>
 </div>
 
+<div id="cerveira-section" style="display:none;">
+  <!-- DOCUMENTOS DOWNLOAD -->
+  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/mapa-plantas.pdf" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128247; Mapa de Plantas
+    </a>
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/minuta-cedencia.docx" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128196; Minuta de Cedência
+    </a>
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/cpcv.docx" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128196; CPCV
+    </a>
+  </div>
+  <!-- STATS -->
+  <div class="stats-bar" id="cerveiraStatsBar"></div>
+  <!-- TABLE HEADER -->
+  <div class="table-header">
+    <div class="table-title" style="display:flex;align-items:center;gap:16px;">
+      <span>A mostrar <strong id="cerveiraCountLabel">0</strong> unidades</span>
+      <button class="edit-mode-btn" id="cerveiraEditBtn" onclick="toggleEditMode('cerveira')">&#9999;&#65039; Modo Edição</button>
+    </div>
+    <input type="text" class="search-box" placeholder="&#128269; Pesquisar fracção..." id="cerveiraSearchBox" oninput="applyCerveiraFilters()">
+  </div>
+  <!-- TABLE -->
+  <div style="overflow-x:auto;">
+    <table id="cerveiraTable">
+      <thead>
+        <tr>
+          <th onclick="sortCerveiraTable('fraccao')">Fracção <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('piso')">Piso <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('tipologia')">Tipologia <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('abc')">Área ABC (m²) <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('varanda')">Varanda (m²) <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('total')">Total (m²) <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('preco')">Preço (€) <span class="sort-arrow">&#8645;</span></th>
+          <th onclick="sortCerveiraTable('status')">Estado <span class="sort-arrow">&#8661;</span></th>
+          <th onclick="sortCerveiraTable('orientacao')">Orientação <span class="sort-arrow">&#8661;</span></th>
+          <th>Simulador</th>
+        </tr>
+      </thead>
+      <tbody id="cerveiraTableBody"></tbody>
+    </table>
+  </div>
+  <!-- PAINEL DE DETALHE -->
+  <div id="cerveiraDetailPanel" style="display:none;margin:24px;background:var(--dark);border:1px solid var(--border);padding:28px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+      <div>
+        <div style="font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">CERVEIRA PREMIUM — PLANO DE PAGAMENTO</div>
+        <div style="font-size:1.3rem;font-weight:700;" id="cerveiraDetailTitle">Fracção —</div>
+        <div style="color:var(--gray);font-size:0.85rem;margin-top:4px;" id="cerveiraDetailSubtitle">Viana do Castelo</div>
+      </div>
+      <button onclick="closeCerveiraDetail()" style="background:none;border:1px solid var(--border);color:var(--gray);padding:6px 14px;cursor:pointer;font-size:0.8rem;">&#10005; Fechar</button>
+    </div>
+    <!-- INFO GRID -->
+    <div class="unit-info-grid" id="cerveiraUnitInfoGrid" style="margin-bottom:24px;"></div>
+    <!-- PLANO DE PAGAMENTO -->
+    <div class="sim-section" style="margin-bottom:24px;">
+      <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;" id="cerveiraPagamentoGrid"></div>
+    </div>
+    <!-- SIMULADOR -->
+    <div class="sim-section">
+      <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simulação de Cedência de Posição</h3>
+      <div class="sim-grid">
+        <div class="sim-field">
+          <label>Preço de Compra (€)</label>
+          <input type="number" id="cerveiraSimPreco" readonly style="opacity:0.7;">
+        </div>
+        <div class="sim-field">
+          <label>Valorização Anual Estimada (%)</label>
+          <input type="number" id="cerveiraSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularCerveira()">
+        </div>
+        <div class="sim-field">
+          <label>Número de Meses para Venda</label>
+          <input type="number" id="cerveiraSimMeses" value="12" min="1" max="120" oninput="calcularCerveira()">
+        </div>
+        <div class="sim-field">
+          <label>Regime Fiscal</label>
+          <select id="cerveiraSimFiscal" onchange="calcularCerveira()">
+            <option value="0.28" selected>Residente (28%)</option>
+            <option value="0.25">Não Residente (25%)</option>
+            <option value="0">Isento / NHR</option>
+          </select>
+        </div>
+      </div>
+      <!-- RESULTADO -->
+      <div id="cerveira-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="cerveiraResultGrid">
+        <div class="result-box">
+          <div class="result-label">Preço de Compra</div>
+          <div class="result-val" id="cerv-res-preco">—</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">Valor de Cedência Estimado</div>
+          <div class="result-val" id="cerv-res-cessao">—</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">Mais-Valia Bruta</div>
+          <div class="result-val" id="cerv-res-mais-valia">—</div>
+        </div>
+        <div class="result-box" style="border-color:rgba(197,165,90,0.4);">
+          <div class="result-label">&#128176; Capital Investido até à Venda</div>
+          <div class="result-val" id="cerv-res-investido" style="color:var(--gold)">—</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">ROI (Retorno sobre Investimento)</div>
+          <div class="result-val" id="cerv-res-roi">—</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">Meses até Venda</div>
+          <div class="result-val" id="cerv-res-meses">—</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--gray);margin-top:16px;line-height:1.6;">
+        * Simulação meramente indicativa. Valores sujeitos a alteração. Não constitui proposta contratual.<br>
+        * A simulação de cedência é calculada com base na % de valorização anual colocada pelo cliente e no número de meses introduzido.
+      </div>
+    </div>
+    <!-- PLANTA DA UNIDADE -->
+    <div class="sim-section" style="margin-top:24px;">
+      <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Planta da Unidade</h3>
+      <div id="cerveiraPlantaContainer" style="text-align:center;">
+        <img id="cerveiraPlantaImg" src="" alt="Planta" style="max-width:100%;max-height:500px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Clique para ampliar">
+        <div style="font-size:0.72rem;color:var(--gray);margin-top:8px;">Clique na planta para ampliar</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const BH_UNITS = [{"fraccao":"A","piso":1,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":340000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"B","piso":1,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":340000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"C","piso":1,"tipologia":"T1","abc":52.0,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":71.4,"preco":260000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"D","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":179900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"E","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":179900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"F","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":179900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"G","piso":2,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":345000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"H","piso":2,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":345000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"I","piso":2,"tipologia":"T1","abc":52.0,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":71.4,"preco":265000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"J","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"K","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"L","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"M","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":350000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"N","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":350000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"O","piso":3,"tipologia":"T1","abc":52.0,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":71.4,"preco":270000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"P","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"Q","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"DPS","orientacao":"Poente"},{"fraccao":"R","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"S","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":27.3,"total":109.8,"preco":362900,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"T","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":20.0,"total":102.5,"preco":362900,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"U","piso":4,"tipologia":"T1","abc":52.0,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":71.4,"preco":275000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"V","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"W","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"X","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"Y","piso":1,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":345000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"Z","piso":1,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":345000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"AA","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AB","piso":1,"tipologia":"T0","abc":35.0,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AC","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AD","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AE","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AF","piso":1,"tipologia":"T2","abc":73.5,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":345000,"status":"Disponível","orientacao":"Sul / Nascente"},{"fraccao":"AG","piso":1,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":265000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"AH","piso":1,"tipologia":"T2","abc":84.0,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":115.1,"preco":379000,"status":"Disponível","orientacao":"Poente"},{"fraccao":"AI","piso":1,"tipologia":"T0","abc":35.0,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Sul / Poente"},{"fraccao":"AJ","piso":1,"tipologia":"T0","abc":35.0,"varanda":27.2,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"AK","piso":1,"tipologia":"T0","abc":35.0,"varanda":4.0,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"AL","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"AM","piso":2,"tipologia":"T2","abc":73.5,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":350000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"AN","piso":2,"tipologia":"T2","abc":73.5,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":350000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"AO","piso":2,"tipologia":"T0","abc":35.0,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AP","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AQ","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AR","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AS","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"AT","piso":2,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":350000,"status":"Disponível","orientacao":"Sul / Nascente"},{"fraccao":"AU","piso":2,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":270000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"AV","piso":2,"tipologia":"T2","abc":84.0,"varanda":18.1,"terraco":0.0,"estacionamento":13.0,"total":115.1,"preco":384900,"status":"DPS","orientacao":"Poente"},{"fraccao":"AW","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"AX","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"AY","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"AZ","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BA","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":369000,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"BB","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":369000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"BC","piso":3,"tipologia":"T0","abc":35.0,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BD","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"BE","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"BF","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BG","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":194900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BH","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":369000,"status":"Disponível","orientacao":"Sul / Nascente"},{"fraccao":"BI","piso":3,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":275000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BJ","piso":3,"tipologia":"T2","abc":84.0,"varanda":16.1,"terraco":0.0,"estacionamento":13.0,"total":113.1,"preco":394900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BK","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"BL","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BM","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BN","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BO","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":374900,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"BP","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":374900,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"BQ","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"BR","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BS","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BT","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BU","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":199000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"BV","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":374900,"status":"Disponível","orientacao":"Sul / Nascente"},{"fraccao":"BW","piso":4,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":280000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BX","piso":4,"tipologia":"T2","abc":84.0,"varanda":16.1,"terraco":0.0,"estacionamento":13.0,"total":113.1,"preco":399900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"BY","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":204900,"status":"DPS","orientacao":"Sul / Poente"},{"fraccao":"BZ","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":204900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"CA","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":204900,"status":"DPS","orientacao":"Poente"},{"fraccao":"CB","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":204900,"status":"DPS","orientacao":"Poente"},{"fraccao":"CC","piso":5,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":379900,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"CD","piso":5,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":379900,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"CE","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CF","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CG","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CH","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CI","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CJ","piso":5,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":19.0,"total":101.5,"preco":379900,"status":"Vendido","orientacao":"Sul / Nascente"},{"fraccao":"CK","piso":5,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":285000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"CL","piso":5,"tipologia":"T2","abc":84.0,"varanda":16.1,"terraco":0.0,"estacionamento":13.0,"total":113.1,"preco":404900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"CM","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"CN","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"CO","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Poente"},{"fraccao":"CP","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":209000,"status":"Disponível","orientacao":"Poente"},{"fraccao":"CQ","piso":6,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":384900,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"CR","piso":6,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":384900,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"CS","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CT","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CU","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CV","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CW","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"CX","piso":6,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":19.0,"total":101.5,"preco":384900,"status":"Disponível","orientacao":"Sul / Nascente"},{"fraccao":"CY","piso":6,"tipologia":"T1","abc":54.5,"varanda":11.6,"terraco":0.0,"estacionamento":13.0,"total":79.1,"preco":290000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"CZ","piso":6,"tipologia":"T2","abc":84.0,"varanda":16.1,"terraco":0.0,"estacionamento":13.0,"total":113.1,"preco":409900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"DA","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"DB","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"DPS","orientacao":"Poente"},{"fraccao":"DC","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"DD","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":214900,"status":"Disponível","orientacao":"Poente"},{"fraccao":"DE","piso":1,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":365000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"DF","piso":1,"tipologia":"T1","abc":58.6,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":304900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"DG","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":184900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"DH","piso":1,"tipologia":"T0","abc":35.7,"varanda":10.9,"terraco":0.0,"estacionamento":13.0,"total":59.6,"preco":189900,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"DI","piso":1,"tipologia":"T2","abc":72.0,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":89.4,"preco":365000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"DJ","piso":1,"tipologia":"T1","abc":56.9,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":74.9,"preco":290000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"DK","piso":1,"tipologia":"T2","abc":72.9,"varanda":9.5,"terraco":0.0,"estacionamento":13.0,"total":95.4,"preco":369900,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"DL","piso":1,"tipologia":"T0","abc":47.7,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":65.74,"preco":219900,"status":"DPS","orientacao":"Poente"},{"fraccao":"DM","piso":1,"tipologia":"T1","abc":59.3,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":78.7,"preco":290000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"DN","piso":1,"tipologia":"T1","abc":52.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":70.54,"preco":285000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"DO","piso":1,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":189900,"status":"DPS","orientacao":"Poente"},{"fraccao":"DP","piso":2,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":372000,"status":"Disponível","orientacao":"Norte / Poente"},{"fraccao":"DQ","piso":2,"tipologia":"T1","abc":58.6,"varanda":23.7,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":312900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"DR","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":191900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"DS","piso":2,"tipologia":"T0","abc":35.7,"varanda":10.9,"terraco":0.0,"estacionamento":13.0,"total":59.6,"preco":196900,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"DT","piso":2,"tipologia":"T2","abc":72.0,"varanda":4.4,"terraco":0.0,"estacionamento":13.0,"total":89.4,"preco":372000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"DU","piso":2,"tipologia":"T1","abc":56.9,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":74.9,"preco":297000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"DV","piso":2,"tipologia":"T2","abc":72.9,"varanda":9.5,"terraco":0.0,"estacionamento":13.0,"total":95.4,"preco":372900,"status":"DPS","orientacao":"Norte / Poente"},{"fraccao":"DW","piso":2,"tipologia":"T0","abc":47.7,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":65.74,"preco":226900,"status":"DPS","orientacao":"Poente"},{"fraccao":"DX","piso":2,"tipologia":"T1","abc":59.3,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":78.7,"preco":297000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"DY","piso":2,"tipologia":"T1","abc":52.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":70.54,"preco":292000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"DZ","piso":2,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":196900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EA","piso":3,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":379000,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"EB","piso":3,"tipologia":"T1","abc":58.6,"varanda":23.7,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":319900,"status":"DPS","orientacao":"Nascente"},{"fraccao":"EC","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":198900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"ED","piso":3,"tipologia":"T0","abc":35.7,"varanda":10.9,"terraco":0.0,"estacionamento":13.0,"total":59.6,"preco":203900,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"EE","piso":3,"tipologia":"T2","abc":72.0,"varanda":4.4,"terraco":0.0,"estacionamento":13.0,"total":89.4,"preco":379000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"EF","piso":3,"tipologia":"T1","abc":56.9,"varanda":5.0,"terraco":0.0,"estacionamento":13.0,"total":74.9,"preco":304000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"EG","piso":3,"tipologia":"T2","abc":72.9,"varanda":9.5,"terraco":0.0,"estacionamento":13.0,"total":95.4,"preco":386900,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"EH","piso":3,"tipologia":"T0","abc":47.7,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":65.74,"preco":233900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EI","piso":3,"tipologia":"T1","abc":59.3,"varanda":6.4,"terraco":0.0,"estacionamento":13.0,"total":78.7,"preco":304000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EJ","piso":3,"tipologia":"T1","abc":52.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":70.54,"preco":304000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EK","piso":3,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":203900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EL","piso":4,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":389000,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"EM","piso":4,"tipologia":"T1","abc":58.6,"varanda":23.7,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":329900,"status":"Disponível","orientacao":"Nascente"},{"fraccao":"EN","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":208900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"EP","piso":4,"tipologia":"T1","abc":52.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":70.54,"preco":314000,"status":"DPS","orientacao":"Poente"},{"fraccao":"EQ","piso":4,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":213900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"ER","piso":5,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":405000,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"ES","piso":5,"tipologia":"T1","abc":58.6,"varanda":23.7,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":339900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"ET","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":221000,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"EU","piso":5,"tipologia":"T0","abc":35.7,"varanda":8.8,"terraco":0.0,"estacionamento":13.0,"total":57.5,"preco":225000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"EV","piso":5,"tipologia":"T1","abc":52.0,"varanda":4.4,"terraco":0.0,"estacionamento":13.0,"total":69.4,"preco":324000,"status":"Disponível","orientacao":"Norte / Nascente"},{"fraccao":"EW","piso":5,"tipologia":"T2","abc":72.6,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":90.64,"preco":425000,"status":"Vendido","orientacao":"Norte / Nascente"},{"fraccao":"EX","piso":5,"tipologia":"T0","abc":43.4,"varanda":11.3,"terraco":0.0,"estacionamento":13.0,"total":67.7,"preco":253900,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"EY","piso":5,"tipologia":"T1","abc":53.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":71.54,"preco":327900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"EZ","piso":5,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":221000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"FA","piso":6,"tipologia":"T2","abc":73.5,"varanda":9.0,"terraco":0.0,"estacionamento":13.0,"total":95.5,"preco":415000,"status":"Vendido","orientacao":"Norte / Poente"},{"fraccao":"FB","piso":6,"tipologia":"T1","abc":58.6,"varanda":23.7,"terraco":0.0,"estacionamento":13.0,"total":95.3,"preco":349900,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"FC","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":231000,"status":"Vendido","orientacao":"Nascente"},{"fraccao":"FD","piso":6,"tipologia":"T0","abc":35.7,"varanda":8.8,"terraco":0.0,"estacionamento":13.0,"total":57.5,"preco":235000,"status":"Vendido","orientacao":"Poente"},{"fraccao":"FE","piso":6,"tipologia":"T2","abc":72.5,"varanda":39.4,"terraco":0.0,"estacionamento":13.0,"total":124.9,"preco":479900,"status":"Vendido","orientacao":"Sul / Poente"},{"fraccao":"FF","piso":6,"tipologia":"T0","abc":43.4,"varanda":11.3,"terraco":0.0,"estacionamento":13.0,"total":67.7,"preco":263900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"FG","piso":6,"tipologia":"T1","abc":53.5,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":71.54,"preco":337900,"status":"Vendido","orientacao":"Poente"},{"fraccao":"FH","piso":6,"tipologia":"T0","abc":35.0,"varanda":5.04,"terraco":0.0,"estacionamento":13.0,"total":53.04,"preco":231000,"status":"Vendido","orientacao":"Poente"}];
 
@@ -1035,12 +1216,16 @@ function selectEmp(emp) {
   document.getElementById('card-bh').classList.toggle('active', emp === 'bh');
   document.getElementById('card-lake').classList.toggle('active', emp === 'lake');
   document.getElementById('card-raizes').classList.toggle('active', emp === 'raizes');
+  document.getElementById('card-cerveira').classList.toggle('active', emp === 'cerveira');
   document.getElementById('bh-section').style.display = emp === 'bh' ? 'block' : 'none';
   document.getElementById('lake-section').style.display = emp === 'lake' ? 'block' : 'none';
   document.getElementById('raizes-section').style.display = emp === 'raizes' ? 'block' : 'none';
+  document.getElementById('cerveira-section').style.display = emp === 'cerveira' ? 'block' : 'none';
   document.getElementById('bh-filters').style.display = emp === 'bh' ? 'block' : 'none';
   document.getElementById('raizes-filters').style.display = emp === 'raizes' ? 'block' : 'none';
+  document.getElementById('cerveira-filters').style.display = emp === 'cerveira' ? 'block' : 'none';
   if (emp === 'raizes') { applyRaizesFilters(); }
+  if (emp === 'cerveira') { applyCerveiraFilters(); }
 }
 
 // ============================================================
@@ -1666,7 +1851,7 @@ function calcularLake() {
 // ============================================================
 // MODO EDIÇÃO DE ESTADOS
 // ============================================================
-let editMode = { bh: false, lake: false, raizes: false };
+let editMode = { bh: false, lake: false, raizes: false, cerveira: false };
 let pendingEditTable = null;
 const EDIT_PASSWORD = 'dpsinterno';
 const ESTADOS = ['Disponível', 'Reservado', 'Vendido', 'DPS'];
@@ -3385,6 +3570,269 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     })
     .catch(() => {});
+});
+
+// ============================================================
+// CERVEIRA PREMIUM — DADOS
+// ============================================================
+const CERVEIRA_UNITS = [
+  // PISO 0
+  {"fraccao":"0A","piso":0,"tipologia":"T1","abc":54.55,"varanda":11.7,"garagem":12.5,"total":78.75,"preco":172000,"status":"Disponível","orientacao":"Norte/Nascente"},
+  {"fraccao":"0B","piso":0,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":12.5,"total":72.4,"preco":169000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0C","piso":0,"tipologia":"T0","abc":35.6,"varanda":11.7,"garagem":12.6,"total":59.9,"preco":145000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0D","piso":0,"tipologia":"T1","abc":51.0,"varanda":10.8,"garagem":12.5,"total":74.3,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0E","piso":0,"tipologia":"T1","abc":58.7,"varanda":13.2,"garagem":12.5,"total":84.4,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0F","piso":0,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":12.5,"total":72.4,"preco":169000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0G","piso":0,"tipologia":"T0","abc":35.6,"varanda":11.7,"garagem":12.5,"total":59.8,"preco":145000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"0H","piso":0,"tipologia":"T1","abc":62.15,"varanda":16.1,"garagem":13.5,"total":84.75,"preco":172000,"status":"Disponível","orientacao":"Nascente/Sul"},
+  {"fraccao":"0I","piso":0,"tipologia":"T1","abc":52.95,"varanda":16.3,"garagem":12.5,"total":78.75,"preco":175000,"status":"Disponível","orientacao":"Poente/Sul"},
+  {"fraccao":"0J","piso":0,"tipologia":"T1","abc":44.15,"varanda":15.25,"garagem":12.5,"total":71.9,"preco":169000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0K","piso":0,"tipologia":"T1","abc":44.4,"varanda":16.3,"garagem":12.5,"total":72.2,"preco":169000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0L","piso":0,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":12.5,"total":84.45,"preco":172000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0M","piso":0,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":12.5,"total":84.45,"preco":172000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0N","piso":0,"tipologia":"T1","abc":44.15,"varanda":15.25,"garagem":12.5,"total":71.9,"preco":169000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0O","piso":0,"tipologia":"T1","abc":44.4,"varanda":15.3,"garagem":12.5,"total":72.2,"preco":169000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"0P","piso":0,"tipologia":"T1","abc":65.6,"varanda":18.8,"garagem":12.5,"total":94.9,"preco":180000,"status":"Disponível","orientacao":"Poente/Norte"},
+  // PISO 1
+  {"fraccao":"1A","piso":1,"tipologia":"T1","abc":54.55,"varanda":11.7,"garagem":12.5,"total":78.75,"preco":175000,"status":"Disponível","orientacao":"Norte/Nascente"},
+  {"fraccao":"1B","piso":1,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":12.5,"total":72.4,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1C","piso":1,"tipologia":"T1","abc":46.15,"varanda":14.15,"garagem":12.6,"total":72.1,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1D","piso":1,"tipologia":"T1","abc":58.7,"varanda":13.2,"garagem":12.5,"total":84.4,"preco":175000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1E","piso":1,"tipologia":"T1","abc":58.7,"varanda":13.2,"garagem":12.5,"total":84.4,"preco":175000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1F","piso":1,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":12.5,"total":72.4,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1G","piso":1,"tipologia":"T1","abc":46.45,"varanda":13.15,"garagem":12.5,"total":72.1,"preco":172000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1H","piso":1,"tipologia":"T1","abc":66.65,"varanda":16.75,"garagem":14.45,"total":96.85,"preco":0,"status":"Vendido","orientacao":"Nascente/Sul"},
+  {"fraccao":"1I","piso":1,"tipologia":"T1","abc":52.95,"varanda":16.2,"garagem":14.46,"total":80.6,"preco":180000,"status":"Disponível","orientacao":"Poente/Sul"},
+  {"fraccao":"1J","piso":1,"tipologia":"T1","abc":44.15,"varanda":15.25,"garagem":14.45,"total":73.85,"preco":172000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"1K","piso":1,"tipologia":"T1","abc":44.4,"varanda":16.3,"garagem":14.46,"total":74.15,"preco":174000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"1L","piso":1,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":14.45,"total":86.4,"preco":178000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"1M","piso":1,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":14.45,"total":86.4,"preco":178000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"1N","piso":1,"tipologia":"T1","abc":44.15,"varanda":15.4,"garagem":14.45,"total":73.9,"preco":169000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"1O","piso":1,"tipologia":"T1","abc":46.4,"varanda":15.4,"garagem":14.45,"total":74.15,"preco":169000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"1P","piso":1,"tipologia":"T1","abc":65.6,"varanda":18.8,"garagem":15.9,"total":98.5,"preco":0,"status":"Vendido","orientacao":"Poente/Norte"},
+  // PISO 2
+  {"fraccao":"2A","piso":2,"tipologia":"T1","abc":54.55,"varanda":11.7,"garagem":15.9,"total":82.15,"preco":160000,"status":"Disponível","orientacao":"Sul/Poente"},
+  {"fraccao":"2B","piso":2,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":24.5,"total":89.05,"preco":0,"status":"Reservado","orientacao":"Nascente"},
+  {"fraccao":"2C","piso":2,"tipologia":"T1","abc":46.45,"varanda":13.15,"garagem":13.0,"total":72.6,"preco":162000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"2D","piso":2,"tipologia":"T1","abc":58.7,"varanda":13.2,"garagem":13.0,"total":84.9,"preco":0,"status":"Vendido","orientacao":"Nascente"},
+  {"fraccao":"2E","piso":2,"tipologia":"T1","abc":58.7,"varanda":13.2,"garagem":13.0,"total":84.9,"preco":167000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"2F","piso":2,"tipologia":"T1","abc":46.7,"varanda":13.2,"garagem":13.0,"total":72.9,"preco":179000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"2G","piso":2,"tipologia":"T1","abc":46.45,"varanda":13.15,"garagem":13.0,"total":72.6,"preco":179000,"status":"Disponível","orientacao":"Nascente"},
+  {"fraccao":"2H","piso":2,"tipologia":"T1","abc":66.65,"varanda":15.75,"garagem":13.0,"total":95.4,"preco":0,"status":"Vendido","orientacao":"Nascente/Sul"},
+  {"fraccao":"2I","piso":2,"tipologia":"T1","abc":59.95,"varanda":11.7,"garagem":13.0,"total":79.15,"preco":180000,"status":"Disponível","orientacao":"Poente/Sul"},
+  {"fraccao":"2J","piso":2,"tipologia":"T1","abc":44.15,"varanda":15.25,"garagem":15.0,"total":72.4,"preco":182000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"2K","piso":2,"tipologia":"T1","abc":46.4,"varanda":15.3,"garagem":13.0,"total":72.7,"preco":182000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"2L","piso":2,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":13.0,"total":84.95,"preco":185000,"status":"Disponível","orientacao":"Poente"},
+  {"fraccao":"2M","piso":2,"tipologia":"T1","abc":56.6,"varanda":15.35,"garagem":25.45,"total":97.4,"preco":0,"status":"Vendido","orientacao":"Poente"},
+  {"fraccao":"2N","piso":2,"tipologia":"T1","abc":44.15,"varanda":15.4,"garagem":25.45,"total":84.9,"preco":0,"status":"Reservado","orientacao":"Poente"},
+  {"fraccao":"2O","piso":2,"tipologia":"T1","abc":46.4,"varanda":15.3,"garagem":25.45,"total":85.15,"preco":0,"status":"Reservado","orientacao":"Poente"},
+  {"fraccao":"2P","piso":2,"tipologia":"T1","abc":65.6,"varanda":18.8,"garagem":27.4,"total":109.8,"preco":0,"status":"Vendido","orientacao":"Poente/Norte"},
+  // PISO 3
+  {"fraccao":"3A","piso":3,"tipologia":"T2","abc":79.0,"varanda":83.35,"garagem":25.9,"total":168.25,"preco":0,"status":"Reservado","orientacao":"Sul/Nascente"},
+  {"fraccao":"3B","piso":3,"tipologia":"T3","abc":79.25,"varanda":74.0,"garagem":25.9,"total":179.15,"preco":0,"status":"Reservado","orientacao":"Nascente"},
+  {"fraccao":"3C","piso":3,"tipologia":"T3","abc":76.5,"varanda":74.0,"garagem":25.45,"total":176.0,"preco":0,"status":"Reservado","orientacao":"Nascente"},
+  {"fraccao":"3D","piso":3,"tipologia":"T2","abc":64.95,"varanda":93.75,"garagem":25.45,"total":184.15,"preco":0,"status":"Reservado","orientacao":"Nascente/Sul"},
+  {"fraccao":"3E","piso":3,"tipologia":"T4+1","abc":48.1,"varanda":70.1,"garagem":26.95,"total":145.15,"preco":0,"status":"Reservado","orientacao":"Sul/Poente"},
+  {"fraccao":"3F","piso":3,"tipologia":"T2","abc":52.15,"varanda":83.15,"garagem":20.9,"total":147.2,"preco":0,"status":"Reservado","orientacao":"Poente"},
+  {"fraccao":"3G","piso":3,"tipologia":"T2","abc":53.15,"varanda":63.75,"garagem":20.9,"total":147.0,"preco":0,"status":"Reservado","orientacao":"Poente"},
+  {"fraccao":"3H","piso":3,"tipologia":"T1+1","abc":54.5,"varanda":82.05,"garagem":39.9,"total":176.45,"preco":0,"status":"Reservado","orientacao":"Poente/Norte"}
+];
+
+let cerveiraFilters = { tipo: 'all', status: 'all' };
+let cerveiraSortKey = 'piso';
+let cerveiraSortAsc = true;
+let selectedCerveiraUnit = null;
+
+function renderCerveiraStats() {
+  const total = CERVEIRA_UNITS.length;
+  const disp = CERVEIRA_UNITS.filter(u => u.status === 'Disponível').length;
+  const res = CERVEIRA_UNITS.filter(u => u.status === 'Reservado').length;
+  const vend = CERVEIRA_UNITS.filter(u => u.status === 'Vendido').length;
+  const dps = CERVEIRA_UNITS.filter(u => u.status === 'DPS').length;
+  const sb = document.getElementById('cerveiraStatsBar');
+  if (sb) sb.innerHTML = `
+    <div class="stat-item"><span class="stat-num">${total}</span><span class="stat-label">Total</span></div>
+    <div class="stat-item" style="color:#4ade80;"><span class="stat-num">${disp}</span><span class="stat-label">Disponíveis</span></div>
+    <div class="stat-item" style="color:#facc15;"><span class="stat-num">${res}</span><span class="stat-label">Reservados</span></div>
+    <div class="stat-item" style="color:#f87171;"><span class="stat-num">${vend}</span><span class="stat-label">Vendidos</span></div>
+    ${dps > 0 ? '<div class="stat-item" style="color:var(--gold);"><span class="stat-num">' + dps + '</span><span class="stat-label">DPS</span></div>' : ''}
+  `;
+  const dc = document.getElementById('cerv-disp-count');
+  if (dc) dc.textContent = disp;
+}
+
+function setCerveiraFilter(key, val, btn) {
+  cerveiraFilters[key] = val;
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyCerveiraFilters();
+}
+
+function applyCerveiraFilters() {
+  const searchEl = document.getElementById('cerveiraSearchBox');
+  const pisoEl = document.getElementById('cerveiraFilterPiso');
+  const search = searchEl ? searchEl.value.toLowerCase().trim() : '';
+  const piso = pisoEl ? pisoEl.value : 'all';
+  const detailPanel = document.getElementById('cerveiraDetailPanel');
+  if (detailPanel && detailPanel.style.display !== 'none') {
+    detailPanel.style.display = 'none';
+  }
+  let data = CERVEIRA_UNITS.filter(u => {
+    if (cerveiraFilters.tipo !== 'all' && u.tipologia !== cerveiraFilters.tipo) return false;
+    if (cerveiraFilters.status !== 'all' && u.status !== cerveiraFilters.status) return false;
+    if (piso !== 'all' && String(u.piso) !== piso) return false;
+    if (search && !u.fraccao.toLowerCase().includes(search) && !u.tipologia.toLowerCase().includes(search)) return false;
+    return true;
+  });
+  data.sort((a, b) => {
+    let va = a[cerveiraSortKey], vb = b[cerveiraSortKey];
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    if (va < vb) return cerveiraSortAsc ? -1 : 1;
+    if (va > vb) return cerveiraSortAsc ? 1 : -1;
+    return 0;
+  });
+  const cl = document.getElementById('cerveiraCountLabel');
+  if (cl) cl.textContent = data.length;
+  renderCerveiraTable(data);
+  renderCerveiraStats();
+}
+
+function sortCerveiraTable(key) {
+  if (cerveiraSortKey === key) cerveiraSortAsc = !cerveiraSortAsc;
+  else { cerveiraSortKey = key; cerveiraSortAsc = true; }
+  applyCerveiraFilters();
+}
+
+function renderCerveiraTable(data) {
+  const tbody = document.getElementById('cerveiraTableBody');
+  if (!tbody) return;
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(u => {
+    const statusClass = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : u.status === 'DPS' ? 'dps' : 'reservado';
+    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
+    const precoFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
+    const btnLabel = u.status === 'Disponível' ? 'Simular' : 'Ver';
+    const uJson = JSON.stringify(u).replace(/'/g, "\'");
+    return `<tr>
+      <td><strong>${u.fraccao}</strong></td>
+      <td class="muted">${u.piso}º</td>
+      <td><span class="tipo-badge">${u.tipologia}</span></td>
+      <td>${u.abc.toFixed(2)}</td>
+      <td class="muted">${u.varanda.toFixed(2)}</td>
+      <td><strong>${u.total.toFixed(2)}</strong></td>
+      <td><strong>${precoFmt}</strong></td>
+      <td id="cerv-status-${u.fraccao}">
+        ${(typeof editMode !== 'undefined' && editMode.cerveira) ? getCerveiraStatusSelectHTML(u.fraccao, u.status) : '<span class="badge badge-' + statusClass + '">' + u.status + '</span>'}
+      </td>
+      <td class="muted" style="font-size:0.8rem;">${u.orientacao || '—'}</td>
+      <td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openCerveiraDetail(${uJson})'>${btnLabel}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function getCerveiraStatusSelectHTML(fraccao, currentStatus) {
+  const opts = ['Disponível','Reservado','Vendido','DPS'].map(s =>
+    `<option value="${s}" ${s === currentStatus ? 'selected' : ''}>${s}</option>`
+  ).join('');
+  return `<select onchange="saveCerveiraStatus('${fraccao}', this.value)" style="background:var(--dark);color:var(--text);border:1px solid var(--border);padding:4px 8px;font-size:0.8rem;">${opts}</select>`;
+}
+
+function saveCerveiraStatus(fraccao, newStatus) {
+  const unit = CERVEIRA_UNITS.find(u => u.fraccao === fraccao);
+  if (unit) unit.status = newStatus;
+  applyCerveiraFilters();
+}
+
+function openCerveiraDetail(unit) {
+  selectedCerveiraUnit = unit;
+  document.getElementById('cerveiraDetailTitle').textContent = 'Fracção ' + unit.fraccao;
+  document.getElementById('cerveiraDetailSubtitle').textContent = 'Cerveira Premium · Viana do Castelo · Piso ' + unit.piso + ' · ' + unit.tipologia;
+  document.getElementById('cerveiraUnitInfoGrid').innerHTML = `
+    <div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso}º</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Varanda/Terraço</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Garagem</div><div class="unit-info-val">${unit.garagem} m²</div></div>
+    <div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao || '—'}</div></div>
+    ${unit.preco > 0 ? '<div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ' + unit.preco.toLocaleString('pt-PT') + '</div></div>' : ''}
+    <div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>
+  `;
+  const reserva   = unit.preco > 0 ? Math.round(unit.preco * 0.02) : 0;
+  const cpcv      = unit.preco > 0 ? Math.round(unit.preco * 0.10) : 0;
+  const escritura = unit.preco > 0 ? Math.round(unit.preco * 0.88) : 0;
+  document.getElementById('cerveiraPagamentoGrid').innerHTML = `
+    <div class="result-box">
+      <div class="result-label">Reserva — Agora</div>
+      <div class="result-val" style="color:var(--gold)">${reserva > 0 ? '€ ' + reserva.toLocaleString('pt-PT') : '—'}</div>
+      <div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">2% do preço de compra</div>
+    </div>
+    <div class="result-box">
+      <div class="result-label">CPCV</div>
+      <div class="result-val" style="color:var(--gold)">${cpcv > 0 ? '€ ' + cpcv.toLocaleString('pt-PT') : '—'}</div>
+      <div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço de compra</div>
+    </div>
+    <div class="result-box">
+      <div class="result-label">Escritura Pública</div>
+      <div class="result-val" style="color:var(--gold)">${escritura > 0 ? '€ ' + escritura.toLocaleString('pt-PT') : '—'}</div>
+      <div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">88% do preço de compra</div>
+    </div>
+    <div class="result-box">
+      <div class="result-label">Cedência de Posição</div>
+      <div class="result-val" style="color:var(--gold);font-size:0.85rem;">Possível</div>
+      <div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">Antes da escritura</div>
+    </div>
+  `;
+  const simPreco = document.getElementById('cerveiraSimPreco');
+  if (simPreco) simPreco.value = unit.preco > 0 ? unit.preco : '';
+  document.getElementById('cerveiraSimValorizacao').value = 15;
+  document.getElementById('cerveiraSimMeses').value = 12;
+  const plantaUrl = 'https://dpsimobiliario.pt/cerveirapremium/plantas/planta-' + unit.fraccao + '.png';
+  const img = document.getElementById('cerveiraPlantaImg');
+  if (img) { img.src = plantaUrl; img.onclick = function() { window.open(plantaUrl, '_blank'); }; }
+  document.getElementById('cerveiraDetailPanel').style.display = 'block';
+  document.getElementById('cerveiraDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (unit.preco > 0) calcularCerveira();
+}
+
+function closeCerveiraDetail() {
+  document.getElementById('cerveiraDetailPanel').style.display = 'none';
+  selectedCerveiraUnit = null;
+}
+
+function calcularCerveira() {
+  if (!selectedCerveiraUnit) return;
+  const preco = parseFloat(document.getElementById('cerveiraSimPreco').value) || 0;
+  if (preco <= 0) return;
+  const valorizacaoPct = parseFloat(document.getElementById('cerveiraSimValorizacao').value) || 15;
+  const meses = parseInt(document.getElementById('cerveiraSimMeses').value) || 12;
+  const taxaFiscal = parseFloat(document.getElementById('cerveiraSimFiscal').value);
+  const anos = meses / 12;
+  const valorCessao = preco * Math.pow(1 + valorizacaoPct / 100, anos);
+  const maisValiaBruta = valorCessao - preco;
+  const imposto = maisValiaBruta > 0 ? maisValiaBruta * taxaFiscal : 0;
+  const capitalInvestido = preco * 0.12;
+  const roi = capitalInvestido > 0 ? (maisValiaBruta / capitalInvestido * 100) : 0;
+  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
+  const fmtPct = v => v.toFixed(1) + '%';
+  const info = document.getElementById('cerveira-investido-info');
+  if (info) info.innerHTML = `<strong style="color:var(--gold);">Capital investido até à venda (${meses} meses):</strong> Reserva 2% = ${fmt(preco * 0.02)} &nbsp;+&nbsp; CPCV 10% = ${fmt(preco * 0.10)} &nbsp;→&nbsp; <strong style="color:var(--gold);">Total: ${fmt(capitalInvestido)} (12% do preço)</strong>`;
+  document.getElementById('cerv-res-preco').textContent = fmt(preco);
+  document.getElementById('cerv-res-cessao').textContent = fmt(valorCessao);
+  document.getElementById('cerv-res-mais-valia').textContent = fmt(maisValiaBruta);
+  document.getElementById('cerv-res-investido').textContent = fmt(capitalInvestido);
+  document.getElementById('cerv-res-roi').textContent = fmtPct(roi);
+  document.getElementById('cerv-res-meses').textContent = meses + ' meses';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  applyCerveiraFilters();
 });
 
 </script>
