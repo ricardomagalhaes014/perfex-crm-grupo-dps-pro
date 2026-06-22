@@ -1051,36 +1051,34 @@
 </div>
 
 <div id="cerveira-section" style="display:none;">
-  <!-- DOCUMENTOS DOWNLOAD -->
-  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/mapa-plantas.pdf" target="_blank" download
-       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
-      &#128247; Mapa de Plantas
-    </a>
-    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/minuta-cedencia.docx" target="_blank" download
-       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
-      &#128196; Minuta de Cedência
-    </a>
-    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/cpcv.docx" target="_blank" download
-       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
-      &#128196; CPCV
-    </a>
-    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/brochura.pdf" target="_blank" download
-       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
-      &#128210; Brochura
-    </a>
-  </div>
   <!-- STATS -->
   <div class="stats-bar" id="cerveiraStatsBar"></div>
   <!-- TABLE HEADER -->
   <div class="table-header">
-    <div class="table-title" style="display:flex;align-items:center;gap:16px;">
+    <div class="table-title" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
       <span>A mostrar <strong id="cerveiraCountLabel">0</strong> unidades</span>
       <button class="edit-mode-btn" id="cerveiraEditBtn" onclick="toggleEditMode('cerveira')">&#9999;&#65039; Modo Edição</button>
+      <button class="edit-mode-btn" id="cerveiraExportBtn" onclick="exportCerveiraToPDF()" style="border-color:rgba(197,165,90,0.4);color:var(--gold);">&#11015; Exportar PDF</button>
+      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/mapa-plantas.pdf" target="_blank" download
+         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
+        &#128247; Mapa Plantas
+      </a>
+      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/brochura.pdf" target="_blank" download
+         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
+        &#128210; Brochura
+      </a>
+      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/minuta-cedencia.docx" target="_blank" download
+         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
+        &#128196; Minuta
+      </a>
+      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/cpcv.docx" target="_blank" download
+         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
+        &#128196; CPCV
+      </a>
     </div>
     <input type="text" class="search-box" placeholder="&#128269; Pesquisar fracção..." id="cerveiraSearchBox" oninput="applyCerveiraFilters()">
   </div>
@@ -3834,6 +3832,166 @@ function calcularCerveira() {
   document.getElementById('cerv-res-investido').textContent = fmt(capitalInvestido);
   document.getElementById('cerv-res-roi').textContent = fmtPct(roi);
   document.getElementById('cerv-res-meses').textContent = meses + ' meses';
+}
+
+function exportCerveiraToPDF() {
+  const btn = document.getElementById('cerveiraExportBtn');
+  const origText = btn.textContent;
+  btn.textContent = 'A gerar...';
+  btn.disabled = true;
+  try {
+    const doExport = () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const W = doc.internal.pageSize.getWidth();
+      const H = doc.internal.pageSize.getHeight();
+      const GOLD = [197, 165, 90];
+      const DARK = [13, 31, 60];
+      const WHITE = [245, 242, 237];
+      const GRAY = [138, 155, 181];
+      // Filtros activos
+      const pisoEl = document.getElementById('cerveiraFilterPiso');
+      const piso = pisoEl ? pisoEl.value : 'all';
+      const search = document.getElementById('cerveiraSearchBox').value.toLowerCase().trim();
+      let data = CERVEIRA_UNITS.filter(u => {
+        if (cerveiraFilters.tipo !== 'all' && u.tipologia !== cerveiraFilters.tipo) return false;
+        if (cerveiraFilters.status !== 'all' && u.status !== cerveiraFilters.status) return false;
+        if (piso !== 'all' && String(u.piso) !== piso) return false;
+        if (search && !u.fraccao.toLowerCase().includes(search) && !u.tipologia.toLowerCase().includes(search)) return false;
+        return true;
+      });
+      data.sort((a, b) => {
+        let va = a[cerveiraSortKey], vb = b[cerveiraSortKey];
+        if (typeof va === 'string') va = va.toLowerCase();
+        if (typeof vb === 'string') vb = vb.toLowerCase();
+        if (va < vb) return cerveiraSortAsc ? -1 : 1;
+        if (va > vb) return cerveiraSortAsc ? 1 : -1;
+        return 0;
+      });
+      // --- CABEÇALHO ---
+      doc.setFillColor(...DARK);
+      doc.rect(0, 0, W, H, 'F');
+      doc.setFillColor(...GOLD);
+      doc.rect(0, 0, W, 2, 'F');
+      doc.setTextColor(...GOLD);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CERVEIRA PREMIUM', W / 2, 14, { align: 'center' });
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Viana do Castelo — DPS Imobiliário', W / 2, 20, { align: 'center' });
+      const filterDesc = [
+        cerveiraFilters.tipo !== 'all' ? cerveiraFilters.tipo : 'Todas as Tipologias',
+        cerveiraFilters.status !== 'all' ? cerveiraFilters.status : 'Todos os Estados',
+        piso !== 'all' ? 'Piso ' + piso : 'Todos os Pisos'
+      ].join(' • ');
+      doc.setTextColor(...GOLD);
+      doc.setFontSize(7);
+      doc.text(filterDesc, W / 2, 26, { align: 'center' });
+      const hoje = new Date().toLocaleDateString('pt-PT');
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(7);
+      doc.text(`${data.length} unidade${data.length !== 1 ? 's' : ''} • Gerado em ${hoje}`, W / 2, 31, { align: 'center' });
+      doc.setDrawColor(...GOLD);
+      doc.setLineWidth(0.3);
+      doc.line(10, 34, W - 10, 34);
+      // --- TABELA ---
+      const cols = [
+        { header: 'FRACÇÃO', key: 'fraccao', w: 22 },
+        { header: 'PISO', key: 'piso', w: 14 },
+        { header: 'TIPOLOGIA', key: 'tipologia', w: 22 },
+        { header: 'ÁREA ABC (m²)', key: 'abc', w: 28 },
+        { header: 'VARANDA (m²)', key: 'varanda', w: 28 },
+        { header: 'TOTAL (m²)', key: 'total', w: 26 },
+        { header: 'PREÇO (€)', key: 'preco', w: 36 },
+        { header: 'ESTADO', key: 'status', w: 26 },
+        { header: 'ORIENTAÇÃO', key: 'orientacao', w: 36 }
+      ];
+      const tableX = 10;
+      const rowH = 7;
+      const headerH = 8;
+      let y = 38;
+      doc.setFillColor(20, 40, 75);
+      doc.rect(tableX, y, W - 20, headerH, 'F');
+      doc.setTextColor(...GOLD);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+      let x = tableX + 2;
+      cols.forEach(c => { doc.text(c.header, x, y + 5.5); x += c.w; });
+      y += headerH;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      data.forEach((u, i) => {
+        if (y + rowH > H - 12) {
+          doc.setFillColor(...GOLD);
+          doc.rect(0, H - 2, W, 2, 'F');
+          doc.addPage();
+          doc.setFillColor(...DARK);
+          doc.rect(0, 0, W, H, 'F');
+          doc.setFillColor(...GOLD);
+          doc.rect(0, 0, W, 2, 'F');
+          y = 10;
+          doc.setFillColor(20, 40, 75);
+          doc.rect(tableX, y, W - 20, headerH, 'F');
+          doc.setTextColor(...GOLD);
+          doc.setFontSize(6.5);
+          doc.setFont('helvetica', 'bold');
+          let hx = tableX + 2;
+          cols.forEach(c => { doc.text(c.header, hx, y + 5.5); hx += c.w; });
+          y += headerH;
+          doc.setFont('helvetica', 'normal');
+        }
+        if (i % 2 === 0) {
+          doc.setFillColor(18, 35, 65);
+          doc.rect(tableX, y, W - 20, rowH, 'F');
+        }
+        const statusColor = u.status === 'Disponível' ? [34, 197, 94] :
+                            u.status === 'Vendido' ? [239, 68, 68] :
+                            u.status === 'DPS' ? [197, 165, 90] :
+                            [99, 102, 241];
+        doc.setTextColor(...WHITE);
+        let cx = tableX + 2;
+        cols.forEach(c => {
+          let val = u[c.key];
+          if (c.key === 'preco') val = '€ ' + Number(val).toLocaleString('pt-PT');
+          else if (c.key === 'abc' || c.key === 'varanda' || c.key === 'total') val = Number(val).toFixed(2);
+          else if (c.key === 'piso') val = val + 'º';
+          else if (c.key === 'status') { doc.setTextColor(...statusColor); }
+          else doc.setTextColor(...WHITE);
+          doc.text(String(val ?? ''), cx, y + 4.8);
+          if (c.key === 'status') doc.setTextColor(...WHITE);
+          cx += c.w;
+        });
+        doc.setDrawColor(30, 50, 90);
+        doc.setLineWidth(0.1);
+        doc.line(tableX, y + rowH, tableX + W - 20, y + rowH);
+        y += rowH;
+      });
+      doc.setFillColor(...GOLD);
+      doc.rect(0, H - 2, W, 2, 'F');
+      doc.setTextColor(...GRAY);
+      doc.setFontSize(6);
+      doc.text('DPS Imobiliário — dpsimobiliario.pt', W / 2, H - 5, { align: 'center' });
+      const tipoLabel = cerveiraFilters.tipo !== 'all' ? cerveiraFilters.tipo : 'TodasTipo';
+      const statusLabel = cerveiraFilters.status !== 'all' ? cerveiraFilters.status : 'TodosEstados';
+      doc.save(`Cerveira_Unidades_${tipoLabel}_${statusLabel}_${hoje.replace(/\//g,'-')}.pdf`);
+      btn.textContent = origText;
+      btn.disabled = false;
+    };
+    if (!window.jspdf) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = doExport;
+      document.head.appendChild(s);
+    } else {
+      doExport();
+    }
+  } catch(err) {
+    alert('Erro ao gerar PDF: ' + err.message);
+    btn.textContent = origText;
+    btn.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
