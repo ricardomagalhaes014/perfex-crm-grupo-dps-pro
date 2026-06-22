@@ -272,18 +272,17 @@ return App_table::find('leads')
                 }
             }
 
+                        $pencil_btn = '<a href="#" onclick="dpsOpenNotePopup(' . $aRow['id'] . '); return false;" title="Adicionar nota" style="color:#888;font-size:13px;margin-left:4px;vertical-align:middle;"><i class="fa fa-pencil"></i></a>';
             if ($note_text !== '') {
                 $short_note = strip_tags($note_text);
                 if (strlen($short_note) > 80) {
                     $short_note = substr($short_note, 0, 80) . '...';
                 }
-                $row[] = '<div class="lead-note note-item ' . $note_class . '" 
-                             style="min-width:260px; max-width:520px; display:block;">'
+                $row[] = '<div class="lead-note note-item ' . $note_class . '" style="min-width:260px; max-width:520px; display:inline-block; vertical-align:middle;">'
                          . htmlspecialchars($short_note, ENT_QUOTES, 'UTF-8') .
-                         '</div>';
-
+                         '</div>' . $pencil_btn;
             } else {
-                $row[] = '';
+                $row[] = $pencil_btn;
             }
 
             // Tags

@@ -339,6 +339,53 @@
         });
     });
 </script>
+
+<!-- DPS: Modal de nota rápida na tabela de leads -->
+<div class="modal fade" id="dps-note-popup" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document" style="max-width:500px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-pencil"></i> Adicionar Nota</h4>
+            </div>
+            <div class="modal-body">
+                <textarea id="dps-note-text" class="form-control" rows="5" placeholder="Escreve a nota aqui..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="dps-note-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    var _dpsNoteLeadId = null;
+    function dpsOpenNotePopup(lead_id) {
+        _dpsNoteLeadId = lead_id;
+        $('#dps-note-text').val('');
+        $('#dps-note-popup').modal('show');
+        setTimeout(function(){ $('#dps-note-text').focus(); }, 400);
+    }
+    $(document).on('click', '#dps-note-save', function() {
+        var note = $('#dps-note-text').val().trim();
+        if (!note || !_dpsNoteLeadId) return;
+        var $btn = $(this).prop('disabled', true).text('A guardar...');
+        var postData = { description: note };
+        postData[app.options.csrf_token_name] = app.options.csrf_hash;
+        $.post(admin_url + 'leads/add_note/' + _dpsNoteLeadId, postData)
+        .done(function(resp) {
+            $('#dps-note-popup').modal('hide');
+            table_leads.DataTable().ajax.reload(null, false);
+        }).fail(function() {
+            alert('Erro ao guardar a nota. Tenta novamente.');
+        }).always(function() {
+            $btn.prop('disabled', false).text('Guardar');
+        });
+    });
+    $('#dps-note-popup').on('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') $('#dps-note-save').click();
+    });
+</script>
 </body>
 
 </html>
