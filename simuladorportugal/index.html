@@ -1051,34 +1051,37 @@
 </div>
 
 <div id="cerveira-section" style="display:none;">
+  <!-- DOCUMENTOS DOWNLOAD -->
+  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/mapa-plantas.pdf" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128247; Mapa Plantas
+    </a>
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/brochura.pdf" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128210; Brochura
+    </a>
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/minuta-cedencia.docx" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128196; Minuta de Ced&#234;ncia
+    </a>
+    <a href="https://dpsimobiliario.pt/cerveirapremium/docs/cpcv.docx" target="_blank" download
+       style="display:inline-flex;align-items:center;gap:8px;background:rgba(197,165,90,0.12);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
+       onmouseover="this.style.background='rgba(197,165,90,0.25)'" onmouseout="this.style.background='rgba(197,165,90,0.12)'">
+      &#128196; CPCV
+    </a>
+  </div>
   <!-- STATS -->
   <div class="stats-bar" id="cerveiraStatsBar"></div>
   <!-- TABLE HEADER -->
   <div class="table-header">
-    <div class="table-title" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div class="table-title" style="display:flex;align-items:center;gap:16px;">
       <span>A mostrar <strong id="cerveiraCountLabel">0</strong> unidades</span>
       <button class="edit-mode-btn" id="cerveiraEditBtn" onclick="toggleEditMode('cerveira')">&#9999;&#65039; Modo Edição</button>
       <button class="edit-mode-btn" id="cerveiraExportBtn" onclick="exportCerveiraToPDF()" style="border-color:rgba(197,165,90,0.4);color:var(--gold);">&#11015; Exportar PDF</button>
-      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/mapa-plantas.pdf" target="_blank" download
-         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
-        &#128247; Mapa Plantas
-      </a>
-      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/brochura.pdf" target="_blank" download
-         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
-        &#128210; Brochura
-      </a>
-      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/minuta-cedencia.docx" target="_blank" download
-         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
-        &#128196; Minuta
-      </a>
-      <a href="https://dpsimobiliario.pt/cerveirapremium/docs/cpcv.docx" target="_blank" download
-         style="display:inline-flex;align-items:center;gap:6px;background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.4);color:var(--gold);padding:6px 12px;font-size:0.72rem;font-weight:700;letter-spacing:0.05em;text-decoration:none;text-transform:uppercase;transition:background 0.2s;"
-         onmouseover="this.style.background='rgba(197,165,90,0.2)'" onmouseout="this.style.background='rgba(197,165,90,0.08)'">
-        &#128196; CPCV
-      </a>
     </div>
     <input type="text" class="search-box" placeholder="&#128269; Pesquisar fracção..." id="cerveiraSearchBox" oninput="applyCerveiraFilters()">
   </div>
