@@ -1690,6 +1690,8 @@ function selectEmp(emp) {
   if (emp === 'gp') applyGpFilters();
   if (emp === 'sjp') applySjpFilters();
   if (emp === 'tp') applyTpFilters();
+  if (emp === 'bh') applyFilters();
+  if (emp === 'cerveira') applyCerveiraFilters();
 }
 
 // ============================================================
@@ -4562,6 +4564,69 @@ const CERVEIRA_UNITS = [
   {"fraccao":"3G","piso":3,"tipologia":"T2","abc":53.15,"varanda":63.75,"garagem":20.9,"total":147.0,"preco":0,"status":"Reservado","orientacao":"Poente"},
   {"fraccao":"3H","piso":3,"tipologia":"T1+1","abc":54.5,"varanda":82.05,"garagem":39.9,"total":176.45,"preco":0,"status":"Reservado","orientacao":"Poente/Norte"}
 ];
+let cerveiraFilters = { tipo: 'all', status: 'all' };
+let cerveiraSortKey = 'piso';
+let cerveiraSortAsc = true;
+let selectedCerveiraUnit = null;
+function setCerveiraFilter(key, val, btn) {
+  cerveiraFilters[key] = val;
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyCerveiraFilters();
+}
+function sortCerveiraTable(key) {
+  if (cerveiraSortKey === key) cerveiraSortAsc = !cerveiraSortAsc;
+  else { cerveiraSortKey = key; cerveiraSortAsc = true; }
+  applyCerveiraFilters();
+}
+
+function openCerveiraDetail(unit) {
+  selectedCerveiraUnit = unit;
+  document.getElementById('cerveiraDetailTitle').textContent = 'Fracção ' + unit.fraccao;
+  document.getElementById('cerveiraDetailSubtitle').textContent = 'Cerveira Premium · Piso ' + (unit.piso === 0 ? 'RC' : unit.piso + 'º') + ' · ' + unit.tipologia;
+  document.getElementById('cerveiraUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso === 0 ? 'RC' : unit.piso + 'º'}</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
+  const cpcv = Math.round(unit.preco * 0.15);
+  const prest = Math.round(unit.preco * 0.10);
+  const escritura = Math.round(unit.preco * 0.75);
+  document.getElementById('cerveiraPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
+  document.getElementById('cerveiraSimPreco').value = unit.preco;
+  // Carregar planta
+  const plantaUrl = 'https://dpsimobiliario.pt/cerveirapremium/plantas/planta-' + unit.fraccao + '.png';
+  const plantaImg = document.getElementById('cerveiraPlantaImg');
+  if (plantaImg) {
+    plantaImg.src = plantaUrl;
+    plantaImg.onclick = function() { window.open(plantaUrl, '_blank'); };
+  }
+  document.getElementById('cerveiraDetailPanel').style.display = 'block';
+  document.getElementById('cerveiraDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  calcularCerveira();
+}
+
+function closeCerveiraDetail() {
+  document.getElementById('cerveiraDetailPanel').style.display = 'none';
+  selectedCerveiraUnit = null;
+}
+
+function calcularCerveira() {
+  if (!selectedCerveiraUnit) return;
+  const preco = parseFloat(document.getElementById('cerveiraSimPreco').value) || 0;
+  const val = parseFloat(document.getElementById('cerveiraSimValorizacao').value) || 15;
+  const meses = parseInt(document.getElementById('cerveiraSimMeses').value) || 12;
+  const taxa = parseFloat(document.getElementById('cerveiraSimFiscal').value);
+  const anos = meses / 12;
+  const cessao = preco * Math.pow(1 + val / 100, anos);
+  const mvBruta = cessao - preco;
+  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
+  const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
+  const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
+  document.getElementById('cerveira-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
+  document.getElementById('cerv-res-preco').textContent = fmt(preco);
+  document.getElementById('cerv-res-cessao').textContent = fmt(cessao);
+  document.getElementById('cerv-res-mais-valia').textContent = fmt(mvBruta);
+  document.getElementById('cerv-res-investido').textContent = fmt(capital);
+  document.getElementById('cerv-res-roi').textContent = roi.toFixed(1) + '%';
+  document.getElementById('cerv-res-meses').textContent = meses + ' meses';
+}
 
 function exportCerveiraToPDF() {
   const btn = document.getElementById('cerveiraExportBtn');
@@ -4721,6 +4786,44 @@ function exportCerveiraToPDF() {
     btn.textContent = origText;
     btn.disabled = false;
   }
+}
+
+function renderCerveiraTable(data) {
+  const tbody = document.getElementById('cerveiraTableBody');
+  if (!tbody) return;
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--gray);">Nenhuma unidade encontrada.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(u => {
+    const sc = u.status === 'Disponível' ? 'disponivel' : u.status === 'Vendido' ? 'vendido' : 'reservado';
+    const canSim = u.status === 'Disponível' || u.status === 'Reservado';
+    const pFmt = u.preco > 0 ? '€ ' + u.preco.toLocaleString('pt-PT') : '—';
+    return `<tr>
+      <td><strong>${u.fraccao}</strong></td>
+      <td class="muted">${u.piso === 0 ? 'RC' : u.piso + 'º'}</td>
+      <td><span class="tipo-badge">${u.tipologia}</span></td>
+      <td>${u.abc.toFixed(2)}</td>
+      <td class="muted">${u.varanda.toFixed(2)}</td>
+      <td><strong>${u.total.toFixed(2)}</strong></td>
+      <td class="muted" style="font-size:0.8rem;">${u.orientacao}</td>
+      <td><strong>${pFmt}</strong></td>
+      <td id="cerveira-status-${u.fraccao}">${editMode.cerveira ? getStatusSelectHTML('cerveira', u.fraccao, u.status) : '<span class="badge badge-' + sc + '">' + u.status + '</span>'}</td>
+      <td><button class="btn-selecionar" ${!canSim ? 'disabled' : ''} onclick='openCerveiraDetail(${JSON.stringify(u)})'>${u.status === 'Disponível' ? 'Simular' : 'Ver'}</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCerveiraStats() {
+  const total = CERVEIRA_UNITS.length;
+  const disp = CERVEIRA_UNITS.filter(u => u.status === 'Disponível').length;
+  const vend = CERVEIRA_UNITS.filter(u => u.status !== 'Disponível').length;
+  const absorcao = total > 0 ? Math.round((vend / total) * 100) : 0;
+  const el = id => document.getElementById(id);
+  if (el('cerveiraStatTotal')) el('cerveiraStatTotal').textContent = total;
+  if (el('cerveiraStatDisp')) el('cerveiraStatDisp').textContent = disp;
+  if (el('cerveiraStatVend')) el('cerveiraStatVend').textContent = vend;
+  if (el('cerveiraStatAbs')) el('cerveiraStatAbs').textContent = absorcao + '%';
 }
 
 function applyCerveiraFilters() {
