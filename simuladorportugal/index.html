@@ -4754,6 +4754,30 @@ function applyCerveiraFilters() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+  applyRaizesFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  applyGgFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  applyGpFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  applySjpFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  applyTpFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  applyCerveiraFilters();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
   fetch('save_states.php')
     .then(r => r.json())
     .then(data => {
