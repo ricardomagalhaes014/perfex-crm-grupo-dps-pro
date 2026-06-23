@@ -114,6 +114,13 @@ if ($action === 'check') {
     $rows = [];
     while ($row = $r->fetch_assoc()) $rows[] = $row;
     echo json_encode(['success' => true, 'rows' => $rows, 'count' => count($rows)]);
+} elseif ($action === 'delete_file') {
+    $path = $_POST['path'] ?? '';
+    if (empty($path)) die(json_encode(['success' => false, 'error' => 'Missing path']));
+    if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
+    if (!file_exists($path)) die(json_encode(['success' => false, 'error' => 'File not found']));
+    $result = unlink($path);
+    echo json_encode(['success' => $result, 'path' => $path]);
 } elseif ($action === 'fetch_url') {
     // Buscar ficheiro de URL externa e escrever no servidor
     $url = $_POST['url'] ?? '';
