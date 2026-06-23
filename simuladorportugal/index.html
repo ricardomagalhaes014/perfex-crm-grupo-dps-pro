@@ -995,6 +995,13 @@
             <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="gg-res-meses">—</div></div>
           </div>
         </div>
+        <div class="sim-section" style="margin-top:24px;">
+          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Planta da Unidade</h3>
+          <div id="ggPlantaContainer" style="text-align:center;">
+            <img id="ggPlantaImg" src="" alt="Planta" style="max-width:100%;max-height:500px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Clique para ampliar">
+            <div style="font-size:0.72rem;color:var(--gray);margin-top:8px;">Clique na planta para ampliar</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1060,6 +1067,13 @@
             <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="gp-res-meses">—</div></div>
           </div>
         </div>
+        <div class="sim-section" style="margin-top:24px;">
+          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Planta da Unidade</h3>
+          <div id="gpPlantaContainer" style="text-align:center;">
+            <img id="gpPlantaImg" src="" alt="Planta" style="max-width:100%;max-height:500px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Clique para ampliar">
+            <div style="font-size:0.72rem;color:var(--gray);margin-top:8px;">Clique na planta para ampliar</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1122,6 +1136,13 @@
             <div class="result-box" style="border-color:rgba(197,165,90,0.4);"><div class="result-label">💰 Capital Investido até à Venda</div><div class="result-val" id="sjp-res-investido" style="color:var(--gold)">—</div></div>
             <div class="result-box"><div class="result-label">ROI (Retorno sobre Investimento)</div><div class="result-val" id="sjp-res-roi">—</div></div>
             <div class="result-box"><div class="result-label">Meses até Venda</div><div class="result-val" id="sjp-res-meses">—</div></div>
+          </div>
+        </div>
+        <div class="sim-section" style="margin-top:24px;">
+          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Planta da Unidade</h3>
+          <div id="sjpPlantaContainer" style="text-align:center;">
+            <img id="sjpPlantaImg" src="" alt="Planta" style="max-width:100%;max-height:500px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Clique para ampliar">
+            <div style="font-size:0.72rem;color:var(--gray);margin-top:8px;">Clique na planta para ampliar</div>
           </div>
         </div>
       </div>
@@ -4155,6 +4176,13 @@ function openGgDetail(unit) {
   const escritura = Math.round(unit.preco * 0.75);
   document.getElementById('ggPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
   document.getElementById('ggSimPreco').value = unit.preco;
+  // Carregar planta
+  const ggPlantaUrl = 'https://dpsimobiliario.pt/gondogreen/plantas/planta-' + unit.fraccao + '.png';
+  const ggPlantaImg = document.getElementById('ggPlantaImg');
+  if (ggPlantaImg) {
+    ggPlantaImg.src = ggPlantaUrl;
+    ggPlantaImg.onclick = function() { window.open(ggPlantaUrl, '_blank'); };
+  }
   document.getElementById('ggDetailPanel').style.display = 'block';
   document.getElementById('ggDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   calcularGg();
@@ -4252,6 +4280,13 @@ function openGpDetail(unit) {
   const escritura = Math.round(unit.preco * 0.75);
   document.getElementById('gpPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
   document.getElementById('gpSimPreco').value = unit.preco;
+  // Carregar planta
+  const gpPlantaUrl = 'https://dpsimobiliario.pt/gaiapremium/plantas/planta-' + unit.fraccao + '.png';
+  const gpPlantaImg = document.getElementById('gpPlantaImg');
+  if (gpPlantaImg) {
+    gpPlantaImg.src = gpPlantaUrl;
+    gpPlantaImg.onclick = function() { window.open(gpPlantaUrl, '_blank'); };
+  }
   document.getElementById('gpDetailPanel').style.display = 'block';
   document.getElementById('gpDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   calcularGp();
@@ -4346,6 +4381,13 @@ function openSjpDetail(unit) {
   const escritura = Math.round(unit.preco * 0.75);
   document.getElementById('sjpPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
   document.getElementById('sjpSimPreco').value = unit.preco;
+  // Carregar planta
+  const sjpPlantaUrl = 'https://dpsimobiliario.pt/sjoaopremium/plantas/planta-' + unit.fraccao + '.png';
+  const sjpPlantaImg = document.getElementById('sjpPlantaImg');
+  if (sjpPlantaImg) {
+    sjpPlantaImg.src = sjpPlantaUrl;
+    sjpPlantaImg.onclick = function() { window.open(sjpPlantaUrl, '_blank'); };
+  }
   document.getElementById('sjpDetailPanel').style.display = 'block';
   document.getElementById('sjpDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   calcularSjp();
