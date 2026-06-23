@@ -1717,6 +1717,8 @@ function selectEmp(emp) {
   if (sjpF) sjpF.style.display = emp === 'sjp' ? 'block' : 'none';
   const tpF = document.getElementById('tp-filters');
   if (tpF) tpF.style.display = emp === 'tp' ? 'block' : 'none';
+  const cerveiraF = document.getElementById('cerveira-filters');
+  if (cerveiraF) cerveiraF.style.display = emp === 'cerveira' ? 'block' : 'none';
   if (emp === 'raizes') applyRaizesFilters();
   if (emp === 'gg') applyGgFilters();
   if (emp === 'gp') applyGpFilters();
