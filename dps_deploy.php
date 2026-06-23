@@ -12,12 +12,19 @@ $base    = __DIR__;
 $raw     = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
 $results = [];
 
-$files = [
-    'modules/dps_sofia_calls/controllers/Dps_sofia_calls.php',
-    'modules/dps_sofia_calls/models/Dps_sofia_calls_model.php',
-    'modules/dps_sofia_calls/views/sofia_calls/index.php',
-    'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
-];
+// Se vier um ficheiro específico via GET, usar só esse
+$file_param = isset($_GET['file']) ? trim($_GET['file']) : '';
+if ($file_param) {
+    $files = [$file_param];
+} else {
+    $files = [
+        'modules/dps_sofia_calls/controllers/Dps_sofia_calls.php',
+        'modules/dps_sofia_calls/models/Dps_sofia_calls_model.php',
+        'modules/dps_sofia_calls/views/sofia_calls/index.php',
+        'modules/dps_sofia_calls/config/csrf_exclude_uris.php',
+        'application/controllers/admin/Leads.php',
+    ];
+}
 
 foreach ($files as $rel) {
     $url     = $raw . '/' . $rel;
