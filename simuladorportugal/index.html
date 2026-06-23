@@ -805,6 +805,17 @@
       </div>
 
       <div class="filter-group">
+        <span class="filter-label">Orientação Solar</span>
+        <div class="filter-btns">
+          <button class="filter-btn all active" onclick="setFilter('orientacao','all',this)">Todas</button>
+          <button class="filter-btn" onclick="setFilter('orientacao','Norte',this)">Norte</button>
+          <button class="filter-btn" onclick="setFilter('orientacao','Sul',this)">Sul</button>
+          <button class="filter-btn" onclick="setFilter('orientacao','Nascente',this)">Nascente</button>
+          <button class="filter-btn" onclick="setFilter('orientacao','Poente',this)">Poente</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
         <span class="filter-label">Piso</span>
         <select class="filter-select" id="filterPiso" onchange="applyFilters()">
           <option value="all">Todos os pisos</option>
@@ -1669,7 +1680,7 @@ const BH_UNITS = [{"fraccao":"A","piso":1,"tipologia":"T2","abc":73.5,"varanda":
 // ESTADO
 // ============================================================
 let currentEmp = 'bh';
-let filters = { tipo: 'all', status: 'all', piso: 'all', torre: 'all' };
+let filters = { tipo: 'all', status: 'all', piso: 'all', torre: 'all', orientacao: 'all' };
 let sortKey = 'piso';
 let sortAsc = true;
 let selectedUnit = null;
@@ -1777,7 +1788,7 @@ function applyFilters() {
       if (blocoUnidade !== filters.torre) return false;
     }
     if (piso !== 'all' && u.piso !== parseInt(piso)) return false;
-    if (raizesFilters.orientacao !== 'all' && u.orientacao !== raizesFilters.orientacao) return false;
+    if (filters.orientacao !== 'all' && !u.orientacao.includes(filters.orientacao)) return false;
     // Pesquisa exacta: começa com o texto pesquisado (evita falsos positivos)
     if (search && !u.fraccao.toLowerCase().startsWith(search)) return false;
     return true;
