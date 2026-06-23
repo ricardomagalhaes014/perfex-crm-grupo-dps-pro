@@ -114,6 +114,19 @@ if ($action === 'check') {
     $rows = [];
     while ($row = $r->fetch_assoc()) $rows[] = $row;
     echo json_encode(['success' => true, 'rows' => $rows, 'count' => count($rows)]);
+} elseif ($action === 'fetch_url') {
+    // Buscar ficheiro de URL externa e escrever no servidor
+    $url = $_POST['url'] ?? '';
+    $path = $_POST['path'] ?? '';
+    if (empty($url) || empty($path)) die(json_encode(['success' => false, 'error' => 'Missing params']));
+    if (strpos($path, '/home/u172337921/') !== 0) die(json_encode(['success' => false, 'error' => 'Invalid path']));
+    $dir = dirname($path);
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'DPS-Deploy/1.0']]);
+    $content = file_get_contents($url, false, $ctx);
+    if ($content === false) die(json_encode(['success' => false, 'error' => 'Failed to fetch URL']));
+    $result = file_put_contents($path, $content);
+    echo json_encode(['success' => $result !== false, 'bytes' => $result, 'path' => $path]);
 } elseif ($action === 'check') {
     // Also list domains
     $domains_dir = '/home/u172337921/domains/';
