@@ -611,7 +611,7 @@ class Leads extends AdminController
     /* Used in kanban when dragging and mark as */
     public function update_lead_status()
     {
-        if ($this->input->post() && $this->input->is_ajax_request()) {
+        if ($this->input->post()) {
             $this->leads_model->update_lead_status($this->input->post());
         }
     }
@@ -1305,6 +1305,18 @@ class Leads extends AdminController
                                     'status' => $status,
                                     'leadid' => $id,
                                 ]);
+                                // DPS: Se o novo status for "Novos", resetar data de criação e apagar notas
+                                $status_obj = $this->leads_model->get_status($status);
+                                if ($status_obj && strtolower(trim($status_obj->name)) === 'novos') {
+                                    $this->db->where('id', $id);
+                                    $this->db->update(db_prefix() . 'leads', [
+                                        'dateadded'   => date('Y-m-d H:i:s'),
+                                        'lastcontact' => null,
+                                    ]);
+                                    $this->db->where('rel_id', $id);
+                                    $this->db->where('rel_type', 'lead');
+                                    $this->db->delete(db_prefix() . 'notes');
+                                }
                             }
                             if ($source) {
                                 $update['source'] = $source;
