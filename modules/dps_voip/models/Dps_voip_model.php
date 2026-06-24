@@ -85,7 +85,6 @@ class Dps_voip_model extends CI_Model
             'to_number'   => $data['to_number'] ?? null,
             'staff_id'    => $data['staff_id'] ?? null,
             'lead_id'     => $data['lead_id'] ?? null,
-            'contact_id'  => $data['contact_id'] ?? null,
             'status'      => $data['status'] ?? 'initiated',
             'started_at'  => date('Y-m-d H:i:s'),
         ]);
@@ -125,29 +124,31 @@ class Dps_voip_model extends CI_Model
     public function get_stats($staff_id = null)
     {
         $stats = [];
+        $tbl = db_prefix() . 'dps_voip_calls';
 
-        $base = $this->db->from(db_prefix() . 'dps_voip_calls');
+        // Total
         if ($staff_id) $this->db->where('staff_id', $staff_id);
-        $stats['total'] = $this->db->count_all_results(db_prefix() . 'dps_voip_calls');
+        $stats['total'] = $this->db->count_all_results($tbl);
 
+        // Outbound
         $this->db->where('direction', 'outbound');
         if ($staff_id) $this->db->where('staff_id', $staff_id);
-        $stats['outbound'] = $this->db->count_all_results(db_prefix() . 'dps_voip_calls');
+        $stats['outbound'] = $this->db->count_all_results($tbl);
 
+        // Inbound
         $this->db->where('direction', 'inbound');
         if ($staff_id) $this->db->where('staff_id', $staff_id);
-        $stats['inbound'] = $this->db->count_all_results(db_prefix() . 'dps_voip_calls');
+        $stats['inbound'] = $this->db->count_all_results($tbl);
 
+        // Completed
         $this->db->where('status', 'completed');
         if ($staff_id) $this->db->where('staff_id', $staff_id);
-        $stats['completed'] = $this->db->count_all_results(db_prefix() . 'dps_voip_calls');
+        $stats['completed'] = $this->db->count_all_results($tbl);
 
         // Duração média
-        $q = $this->db->select_avg('duration', 'avg_duration')
-            ->where('status', 'completed')
-            ->where('duration >', 0);
+        $this->db->select_avg('duration', 'avg_duration')->where('status', 'completed')->where('duration >', 0);
         if ($staff_id) $this->db->where('staff_id', $staff_id);
-        $row = $this->db->get(db_prefix() . 'dps_voip_calls')->row_array();
+        $row = $this->db->get($tbl)->row_array();
         $stats['avg_duration'] = round($row['avg_duration'] ?? 0);
 
         return $stats;
