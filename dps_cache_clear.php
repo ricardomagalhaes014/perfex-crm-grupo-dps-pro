@@ -199,11 +199,14 @@ if (isset($_GET['fix_view'])) {
 
 // ===== FIX VOIP - criar tabelas e registar módulo =====
 if (isset($_GET['fix_voip'])) {
-    $ci_config = __DIR__ . '/application/config/database.php';
-    if (file_exists($ci_config)) {
-        include_once($ci_config);
-        $conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
-        if (!$conn->connect_error) {
+    $app_cfg = __DIR__ . '/application/config/app-config.php';
+    if (file_exists($app_cfg)) { include_once($app_cfg); }
+    $db_host = defined('APP_DB_HOSTNAME') ? APP_DB_HOSTNAME : 'localhost';
+    $db_user = defined('APP_DB_USERNAME') ? APP_DB_USERNAME : '';
+    $db_pass = defined('APP_DB_PASSWORD') ? APP_DB_PASSWORD : '';
+    $db_name = defined('APP_DB_NAME') ? APP_DB_NAME : '';
+    $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+    if (!$conn->connect_error) {
             // Descobrir prefixo
             $r = $conn->query("SHOW TABLES LIKE '%modules'");
             $prefix = 'tbl';
@@ -280,8 +283,7 @@ if (isset($_GET['fix_voip'])) {
             }
             if (function_exists('opcache_reset')) opcache_reset();
             $conn->close();
-        } else { $results['db_error'] = $conn->connect_error; }
-    }
+    } else { $results['db_error'] = $conn->connect_error; }
 }
 
 // ===== RUN CRON MANUALMENTE =====
