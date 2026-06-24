@@ -481,6 +481,53 @@ if (isset($_GET['deploy_verify'])) {
     } else { $results['deploy_verify'] = 'ERRO GitHub HTTP ' . $http; }
 }
 
+// ===== CHECK VOIP =====
+if (isset($_GET['check_voip'])) {
+    $mod = __DIR__ . '/modules/dps_voip';
+    $results['mod_dir'] = is_dir($mod) ? 'EXISTS' : 'NOT FOUND';
+    $files = [
+        'dps_voip.php', 'install.php', 'controllers/Dps_voip.php',
+        'models/Dps_voip_model.php', 'views/dps_voip/index.php',
+    ];
+    foreach ($files as $f) {
+        $fp = $mod . '/' . $f;
+        $results['file_' . basename($f)] = file_exists($fp) ? filesize($fp) . ' bytes' : 'NOT FOUND';
+    }
+    // Verificar sintaxe PHP
+    foreach (['controllers/Dps_voip.php', 'models/Dps_voip_model.php', 'dps_voip.php'] as $f) {
+        $fp = $mod . '/' . $f;
+        if (file_exists($fp)) {
+            $out = shell_exec('php -l ' . escapeshellarg($fp) . ' 2>&1');
+            $results['syntax_' . basename($f)] = trim($out);
+        }
+    }
+    // Ler error_log
+    $log_paths = [__DIR__ . '/error_log', __DIR__ . '/../error_log', ini_get('error_log')];
+    foreach ($log_paths as $lp) {
+        if ($lp && file_exists($lp) && filesize($lp) > 0) {
+            $results['error_log'] = substr(file_get_contents($lp), -2000);
+            $results['error_log_path'] = $lp;
+            break;
+        }
+    }
+    // Verificar se o módulo está na DB
+    $ci_config = __DIR__ . '/application/config/database.php';
+    if (file_exists($ci_config)) {
+        include_once($ci_config);
+        $conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
+        if (!$conn->connect_error) {
+            $r = $conn->query("SHOW TABLES LIKE '%modules'");
+            $prefix = 'tbl';
+            if ($r && $r->num_rows > 0) { $row = $r->fetch_row(); $prefix = str_replace('modules', '', $row[0]); }
+            $r = $conn->query("SELECT module_name, active FROM `{$prefix}modules` WHERE module_name='dps_voip' LIMIT 1");
+            $results['db_module'] = ($r && $r->num_rows > 0) ? $r->fetch_assoc() : 'NOT IN DB';
+            $r = $conn->query("SHOW TABLES LIKE '{$prefix}dps_voip_numbers'");
+            $results['db_table_numbers'] = ($r && $r->num_rows > 0) ? 'EXISTS' : 'NOT FOUND';
+            $conn->close();
+        } else { $results['db_error'] = $conn->connect_error; }
+    }
+}
+
 // ===== CHECK LEADS.PHP =====
 if (isset($_GET['check_leads'])) {
     $f = __DIR__ . '/application/controllers/admin/Leads.php';
