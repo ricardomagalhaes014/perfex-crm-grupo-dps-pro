@@ -121,6 +121,12 @@ if (isset($_GET['deploy_voip'])) {
     curl_setopt_array($bch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
     $bfc = curl_exec($bch); $bhttp = curl_getinfo($bch, CURLINFO_HTTP_CODE); curl_close($bch);
     if ($bfc && $bhttp === 200) { file_put_contents(__DIR__ . '/' . $brel, $bfc); $results['deploy_bootstrap_v2'] = 'OK (' . strlen($bfc) . ' bytes)'; }
+    // Tambem deployar o dps_voip_db_setup.php
+    $drel = 'dps_voip_db_setup.php';
+    $dch = curl_init($raw . '/' . $drel);
+    curl_setopt_array($dch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $dfc = curl_exec($dch); $dhttp = curl_getinfo($dch, CURLINFO_HTTP_CODE); curl_close($dch);
+    if ($dfc && $dhttp === 200) { file_put_contents(__DIR__ . '/' . $drel, $dfc); $results['deploy_voip_db_setup'] = 'OK (' . strlen($dfc) . ' bytes)'; }
     if (function_exists('opcache_reset')) opcache_reset();
     $results['deploy_voip_status'] = 'Deploy VoIP concluido do GitHub';
 }
