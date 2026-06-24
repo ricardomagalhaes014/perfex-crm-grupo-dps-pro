@@ -41,6 +41,12 @@ if (isset($_GET['deploy_leads'])) {
         if (function_exists('opcache_reset')) opcache_reset();
         $results['deploy_leads'] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
     } else { $results['deploy_leads'] = 'ERRO GitHub HTTP ' . $http; }
+    // Também deployar o script de verificação
+    $vrel = 'dps_verify_bulk.php';
+    $vch = curl_init($raw . '/' . $vrel);
+    curl_setopt_array($vch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $vfc = curl_exec($vch); $vhttp = curl_getinfo($vch, CURLINFO_HTTP_CODE); curl_close($vch);
+    if ($vfc && $vhttp === 200) { file_put_contents(__DIR__ . '/' . $vrel, $vfc); $results['deploy_verify_bulk'] = 'OK (' . strlen($vfc) . ' bytes)'; }
 }
 
 if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
