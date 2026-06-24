@@ -47,6 +47,12 @@ if (isset($_GET['deploy_leads'])) {
     curl_setopt_array($vch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
     $vfc = curl_exec($vch); $vhttp = curl_getinfo($vch, CURLINFO_HTTP_CODE); curl_close($vch);
     if ($vfc && $vhttp === 200) { file_put_contents(__DIR__ . '/' . $vrel, $vfc); $results['deploy_verify_bulk'] = 'OK (' . strlen($vfc) . ' bytes)'; }
+    // Tambem atualizar o proprio dps_cache_clear.php
+    $crel = 'dps_cache_clear.php';
+    $cch = curl_init($raw . '/' . $crel);
+    curl_setopt_array($cch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $cfc = curl_exec($cch); $chttp = curl_getinfo($cch, CURLINFO_HTTP_CODE); curl_close($cch);
+    if ($cfc && $chttp === 200 && strlen($cfc) > 5000) { file_put_contents(__DIR__ . '/' . $crel, $cfc); $results['deploy_cache_clear'] = 'OK (' . strlen($cfc) . ' bytes)'; }
 }
 
 if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
