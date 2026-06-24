@@ -77,6 +77,36 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
     $results['deploy_status'] = 'Deploy concluido do GitHub';
 }
 
+// ===== DEPLOY VOIP MODULE =====
+if (isset($_GET['deploy_voip'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
+    $files = [
+        'modules/dps_voip/dps_voip.php',
+        'modules/dps_voip/install.php',
+        'modules/dps_voip/uninstall.php',
+        'modules/dps_voip/controllers/Dps_voip.php',
+        'modules/dps_voip/models/Dps_voip_model.php',
+        'modules/dps_voip/views/dps_voip/index.php',
+        'modules/dps_voip/views/dps_voip/settings.php',
+        'modules/dps_voip/config/csrf_exclude_uris.php',
+        'modules/dps_voip/assets/css/voip.css',
+        'modules/dps_voip/assets/js/softphone.js',
+    ];
+    foreach ($files as $rel) {
+        $ch = curl_init($raw . '/' . $rel);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+        $fc = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if ($fc && $http === 200) {
+            $dest = __DIR__ . '/' . $rel; $dir = dirname($dest);
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
+            $ok = file_put_contents($dest, $fc);
+            $results['deploy_' . basename($rel)] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
+        } else { $results['deploy_' . basename($rel)] = 'ERRO GitHub HTTP ' . $http; }
+    }
+    if (function_exists('opcache_reset')) opcache_reset();
+    $results['deploy_voip_status'] = 'Deploy VoIP concluido do GitHub';
+}
+
 // ===== CHECK SOFIA =====
 if (isset($_GET['check_sofia'])) {
     $ci_config = __DIR__ . '/application/config/database.php';
