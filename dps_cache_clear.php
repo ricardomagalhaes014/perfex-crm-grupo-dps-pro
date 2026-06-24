@@ -310,3 +310,18 @@ if (isset($_GET['fix_sofia_all'])) {
     echo json_encode(['status'=>'done','files'=>$out]);
     exit;
 }
+
+// ===== DEPLOY VERIFY BULK =====
+if (isset($_GET['deploy_verify'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
+    $rel = 'dps_verify_bulk.php';
+    $ch = curl_init($raw . '/' . $rel);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $fc = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($fc && $http === 200) {
+        $dest = __DIR__ . '/' . $rel;
+        $ok = file_put_contents($dest, $fc);
+        if (function_exists('opcache_invalidate')) opcache_invalidate($dest, true);
+        $results['deploy_verify'] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
+    } else { $results['deploy_verify'] = 'ERRO GitHub HTTP ' . $http; }
+}
