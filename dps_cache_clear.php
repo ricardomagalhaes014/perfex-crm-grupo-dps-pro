@@ -27,6 +27,22 @@ if (isset($_GET['stop_sofia'])) {
 }
 
 // ===== DEPLOY FROM GITHUB =====
+// ===== DEPLOY LEADS CONTROLLER =====
+if (isset($_GET['deploy_leads'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
+    $rel = 'application/controllers/admin/Leads.php';
+    $ch = curl_init($raw . '/' . $rel);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $fc = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    if ($fc && $http === 200) {
+        $dest = __DIR__ . '/' . $rel;
+        $ok = file_put_contents($dest, $fc);
+        if (function_exists('opcache_invalidate')) opcache_invalidate($dest, true);
+        if (function_exists('opcache_reset')) opcache_reset();
+        $results['deploy_leads'] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
+    } else { $results['deploy_leads'] = 'ERRO GitHub HTTP ' . $http; }
+}
+
 if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
     $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main';
     $files = [
