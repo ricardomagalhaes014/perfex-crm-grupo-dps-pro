@@ -26,7 +26,7 @@ class Dps_voip extends AdminController
         $data['stats']        = $this->Dps_voip_model->get_stats();
         $data['my_number']    = $this->Dps_voip_model->get_staff_number($staff_id);
         $data['is_admin']     = is_admin();
-        $this->load->view('dps_voip/index', $data);
+        $this->load->view('dps_voip/dps_voip/index', $data);
     }
 
     // ===================== GESTÃO DE NÚMEROS =====================
@@ -369,7 +369,7 @@ class Dps_voip extends AdminController
         $data['app_sid']     = get_option('dps_voip_twilio_app_sid');
         $data['record']      = get_option('dps_voip_record_calls');
         $data['timeout']     = get_option('dps_voip_default_timeout') ?: 30;
-        $this->load->view('dps_voip/settings', $data);
+        $this->load->view('dps_voip/dps_voip/settings', $data);
     }
 
     // ===================== AJAX - HISTÓRICO =====================
