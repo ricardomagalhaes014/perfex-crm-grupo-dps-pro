@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') or exit('No direct script access allowed');
 
-class Dps_voip_model extends CI_Model
+class Dps_voip_model extends App_Model
 {
     // ===================== NÚMEROS =====================
 
@@ -60,7 +60,7 @@ class Dps_voip_model extends CI_Model
 
     public function get_calls($limit = 50, $filters = [])
     {
-        $this->db->select('c.*, s.firstname, s.lastname, l.firstname as lead_fname, l.lastname as lead_lname')
+        $this->db->select('c.*, s.firstname, s.lastname, l.name as lead_name')
             ->from(db_prefix() . 'dps_voip_calls c')
             ->join(db_prefix() . 'staff s', 's.staffid = c.staff_id', 'left')
             ->join(db_prefix() . 'leads l', 'l.id = c.lead_id', 'left')
