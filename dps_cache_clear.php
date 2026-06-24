@@ -197,6 +197,93 @@ if (isset($_GET['fix_view'])) {
     exit;
 }
 
+// ===== FIX VOIP - criar tabelas e registar módulo =====
+if (isset($_GET['fix_voip'])) {
+    $ci_config = __DIR__ . '/application/config/database.php';
+    if (file_exists($ci_config)) {
+        include_once($ci_config);
+        $conn = new mysqli($db['default']['hostname'], $db['default']['username'], $db['default']['password'], $db['default']['database']);
+        if (!$conn->connect_error) {
+            // Descobrir prefixo
+            $r = $conn->query("SHOW TABLES LIKE '%modules'");
+            $prefix = 'tbl';
+            if ($r && $r->num_rows > 0) { $row = $r->fetch_row(); $prefix = str_replace('modules', '', $row[0]); }
+            $results['prefix'] = $prefix;
+            // Criar tabela de números
+            $sql1 = "CREATE TABLE IF NOT EXISTS `{$prefix}dps_voip_numbers` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                `twilio_number` varchar(20) NOT NULL,
+                `friendly_name` varchar(100) DEFAULT NULL,
+                `twilio_sid` varchar(50) DEFAULT NULL,
+                `staff_id` int(11) DEFAULT NULL,
+                `is_active` tinyint(1) NOT NULL DEFAULT 1,
+                `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `twilio_number` (`twilio_number`),
+                KEY `staff_id` (`staff_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $results['create_numbers'] = $conn->query($sql1) ? 'OK' : $conn->error;
+            // Criar tabela de chamadas
+            $sql2 = "CREATE TABLE IF NOT EXISTS `{$prefix}dps_voip_calls` (
+                `id` int(11) NOT NULL AUTO_INCREMENT,
+                `call_sid` varchar(50) DEFAULT NULL,
+                `direction` enum('outbound','inbound') NOT NULL DEFAULT 'outbound',
+                `from_number` varchar(20) DEFAULT NULL,
+                `to_number` varchar(20) DEFAULT NULL,
+                `staff_id` int(11) DEFAULT NULL,
+                `lead_id` int(11) DEFAULT NULL,
+                `contact_id` int(11) DEFAULT NULL,
+                `status` enum('initiated','ringing','in-progress','completed','failed','busy','no-answer','canceled') NOT NULL DEFAULT 'initiated',
+                `duration` int(11) DEFAULT NULL,
+                `recording_url` varchar(500) DEFAULT NULL,
+                `notes` text DEFAULT NULL,
+                `started_at` datetime DEFAULT NULL,
+                `ended_at` datetime DEFAULT NULL,
+                `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `call_sid` (`call_sid`),
+                KEY `staff_id` (`staff_id`),
+                KEY `lead_id` (`lead_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+            $results['create_calls'] = $conn->query($sql2) ? 'OK' : $conn->error;
+            // Verificar se tabelas existem agora
+            $r = $conn->query("SHOW TABLES LIKE '{$prefix}dps_voip_numbers'");
+            $results['table_numbers'] = ($r && $r->num_rows > 0) ? 'EXISTS' : 'MISSING';
+            $r = $conn->query("SHOW TABLES LIKE '{$prefix}dps_voip_calls'");
+            $results['table_calls'] = ($r && $r->num_rows > 0) ? 'EXISTS' : 'MISSING';
+            // Registar módulo na DB se não existe
+            $r = $conn->query("SELECT id FROM `{$prefix}modules` WHERE module_name='dps_voip' LIMIT 1");
+            if (!$r || $r->num_rows === 0) {
+                $conn->query("INSERT INTO `{$prefix}modules` (module_name, active) VALUES ('dps_voip', 1)");
+                $results['module_registered'] = $conn->affected_rows > 0 ? 'OK' : $conn->error;
+            } else {
+                $conn->query("UPDATE `{$prefix}modules` SET active=1 WHERE module_name='dps_voip'");
+                $results['module_registered'] = 'ALREADY EXISTS - set active=1';
+            }
+            // Inserir opções se não existem
+            $options = [
+                'dps_voip_twilio_account_sid' => '',
+                'dps_voip_twilio_auth_token'  => '',
+                'dps_voip_twilio_app_sid'     => '',
+                'dps_voip_record_calls'       => '0',
+                'dps_voip_default_timeout'    => '30',
+            ];
+            foreach ($options as $name => $val) {
+                $r = $conn->query("SELECT id FROM `{$prefix}options` WHERE name='$name'");
+                if (!$r || $r->num_rows === 0) {
+                    $conn->query("INSERT INTO `{$prefix}options` (name, value) VALUES ('$name', '$val')");
+                    $results['option_' . $name] = 'CREATED';
+                } else {
+                    $results['option_' . $name] = 'EXISTS';
+                }
+            }
+            if (function_exists('opcache_reset')) opcache_reset();
+            $conn->close();
+        } else { $results['db_error'] = $conn->connect_error; }
+    }
+}
+
 // ===== RUN CRON MANUALMENTE =====
 if (isset($_GET['run_cron'])) {
     $ci_config = __DIR__ . '/application/config/database.php';
