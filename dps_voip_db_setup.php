@@ -43,6 +43,7 @@ if (isset($_GET['deploy'])) {
         'modules/dps_voip/models/Dps_voip_model.php',
         'modules/dps_voip/views/dps_voip/index.php',
         'modules/dps_voip/dps_voip.php',
+        'dps_voip_test.php',
     ];
     foreach ($files_to_deploy as $f) {
         $ch = curl_init($raw . $f);
