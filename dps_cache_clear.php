@@ -331,3 +331,16 @@ if (isset($_GET['deploy_verify'])) {
         $results['deploy_verify'] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
     } else { $results['deploy_verify'] = 'ERRO GitHub HTTP ' . $http; }
 }
+
+// ===== CHECK LEADS.PHP =====
+if (isset($_GET['check_leads'])) {
+    $f = __DIR__ . '/application/controllers/admin/Leads.php';
+    if (file_exists($f)) {
+        $c = file_get_contents($f);
+        $results['leads_tem_apagar_notas'] = strpos($c, 'Quando se atribui uma lead em massa') !== false ? 'SIM ✅' : 'NÃO ❌';
+        $results['leads_tem_delete_notes'] = strpos($c, "delete(db_prefix() . 'notes')") !== false ? 'SIM ✅' : 'NÃO ❌';
+        $results['leads_tem_dateadded'] = strpos($c, "update['dateadded']") !== false ? 'SIM ✅' : 'NÃO ❌';
+        $results['leads_mtime'] = date('Y-m-d H:i:s', filemtime($f));
+        $results['leads_size'] = filesize($f) . ' bytes';
+    } else { $results['leads_check'] = 'FICHEIRO NÃO ENCONTRADO'; }
+}
