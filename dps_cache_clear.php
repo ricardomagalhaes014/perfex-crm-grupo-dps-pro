@@ -127,6 +127,12 @@ if (isset($_GET['deploy_voip'])) {
     curl_setopt_array($dch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
     $dfc = curl_exec($dch); $dhttp = curl_getinfo($dch, CURLINFO_HTTP_CODE); curl_close($dch);
     if ($dfc && $dhttp === 200) { file_put_contents(__DIR__ . '/' . $drel, $dfc); $results['deploy_voip_db_setup'] = 'OK (' . strlen($dfc) . ' bytes)'; }
+    // Deployar script de diagnóstico
+    $erel = 'dps_voip_errlog.php';
+    $ech = curl_init($raw . '/' . $erel);
+    curl_setopt_array($ech, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $efc = curl_exec($ech); $ehttp = curl_getinfo($ech, CURLINFO_HTTP_CODE); curl_close($ech);
+    if ($efc && $ehttp === 200) { file_put_contents(__DIR__ . '/' . $erel, $efc); $results['deploy_voip_errlog'] = 'OK (' . strlen($efc) . ' bytes)'; }
     if (function_exists('opcache_reset')) opcache_reset();
     $results['deploy_voip_status'] = 'Deploy VoIP concluido do GitHub';
 }
