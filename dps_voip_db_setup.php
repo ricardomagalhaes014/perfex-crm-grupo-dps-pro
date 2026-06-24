@@ -33,4 +33,32 @@ foreach (['dps_voip_twilio_account_sid'=>'','dps_voip_twilio_auth_token'=>'','dp
     else { $results[$n] = 'EXISTS'; }
 }
 $conn->close();
+
+// Deploy de ficheiros do GitHub se pedido
+if (isset($_GET['deploy'])) {
+    $raw = 'https://raw.githubusercontent.com/ricardomagalhaes014/perfex-crm-grupo-dps-pro/main/';
+    $files_to_deploy = [
+        'dps_voip_diag2.php',
+        'modules/dps_voip/controllers/Dps_voip.php',
+        'modules/dps_voip/models/Dps_voip_model.php',
+        'modules/dps_voip/views/dps_voip/index.php',
+        'modules/dps_voip/dps_voip.php',
+    ];
+    foreach ($files_to_deploy as $f) {
+        $ch = curl_init($raw . $f);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+        $fc = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        $dest = __DIR__ . '/' . $f;
+        if ($fc && $http === 200 && strlen($fc) > 100) {
+            @mkdir(dirname($dest), 0755, true);
+            file_put_contents($dest, $fc);
+            if (function_exists('opcache_invalidate')) opcache_invalidate($dest, true);
+            $results['deploy_' . basename($f)] = 'OK (' . strlen($fc) . ' bytes)';
+        } else {
+            $results['deploy_' . basename($f)] = 'FAIL (HTTP ' . $http . ')';
+        }
+    }
+    if (function_exists('opcache_reset')) opcache_reset();
+}
+
 echo json_encode($results, JSON_PRETTY_PRINT);
