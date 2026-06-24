@@ -47,6 +47,12 @@ if (isset($_GET['deploy_leads'])) {
     curl_setopt_array($vch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
     $vfc = curl_exec($vch); $vhttp = curl_getinfo($vch, CURLINFO_HTTP_CODE); curl_close($vch);
     if ($vfc && $vhttp === 200) { file_put_contents(__DIR__ . '/' . $vrel, $vfc); $results['deploy_verify_bulk'] = 'OK (' . strlen($vfc) . ' bytes)'; }
+    // Deployar dps_voip_test.php
+    $vtrel = 'dps_voip_test.php';
+    $vtch = curl_init($raw . '/' . $vtrel);
+    curl_setopt_array($vtch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $vtfc = curl_exec($vtch); $vthttp = curl_getinfo($vtch, CURLINFO_HTTP_CODE); curl_close($vtch);
+    if ($vtfc && $vthttp === 200) { file_put_contents(__DIR__ . '/' . $vtrel, $vtfc); $results['deploy_voip_test'] = 'OK (' . strlen($vtfc) . ' bytes)'; }
     // Tambem atualizar o proprio dps_cache_clear.php
     $crel = 'dps_cache_clear.php';
     $cch = curl_init($raw . '/' . $crel);
