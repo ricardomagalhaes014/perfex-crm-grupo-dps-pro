@@ -98,7 +98,7 @@ function dps_interacoes_popup_footer()
     ob_start();
     ?>
     <!-- DPS Interacções Pop-up -->
-    <div id="dps-ic-popup-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:99998;"></div>
+    <div id="dps-ic-popup-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.55);z-index:99998;pointer-events:none;"></div>
     <div id="dps-ic-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:#fff;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.22);width:90%;max-width:820px;max-height:88vh;overflow:hidden;flex-direction:column;">
         <!-- Header -->
         <div style="background:#1a1a2e;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-radius:12px 12px 0 0;">
@@ -164,13 +164,13 @@ function dps_interacoes_popup_footer()
         function dpsIcShowPopup() {
             var overlay = document.getElementById('dps-ic-popup-overlay');
             var popup   = document.getElementById('dps-ic-popup');
-            if (overlay) { overlay.style.display = 'block'; }
+            if (overlay) { overlay.style.display = 'block'; overlay.style.pointerEvents = 'auto'; }
             if (popup)   { popup.style.display = 'flex'; }
         }
         window.dpsIcClosePopup = function() {
             var overlay = document.getElementById('dps-ic-popup-overlay');
             var popup   = document.getElementById('dps-ic-popup');
-            if (overlay) { overlay.style.display = 'none'; }
+            if (overlay) { overlay.style.display = 'none'; overlay.style.pointerEvents = 'none'; }
             if (popup)   { popup.style.display = 'none'; }
         };
         // Fechar ao clicar no overlay
