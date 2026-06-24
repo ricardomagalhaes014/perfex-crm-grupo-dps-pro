@@ -217,12 +217,12 @@ if (isset($_GET['fix_view'])) {
 
 // ===== FIX VOIP - criar tabelas e registar módulo =====
 if (isset($_GET['fix_voip'])) {
+    // Tentar app-config.php primeiro, depois database.php, depois credenciais hardcoded
+    $db_host = 'localhost'; $db_user = 'u172337921_crmgrupopds'; $db_pass = '3AF5_ZCiqQ7:=At'; $db_name = 'u172337921_crmgrupopds';
     $app_cfg = __DIR__ . '/application/config/app-config.php';
-    if (file_exists($app_cfg)) { include_once($app_cfg); }
-    $db_host = defined('APP_DB_HOSTNAME') ? APP_DB_HOSTNAME : 'localhost';
-    $db_user = defined('APP_DB_USERNAME') ? APP_DB_USERNAME : '';
-    $db_pass = defined('APP_DB_PASSWORD') ? APP_DB_PASSWORD : '';
-    $db_name = defined('APP_DB_NAME') ? APP_DB_NAME : '';
+    if (file_exists($app_cfg)) { include_once($app_cfg); if (defined('APP_DB_HOSTNAME')) { $db_host = APP_DB_HOSTNAME; $db_user = APP_DB_USERNAME; $db_pass = APP_DB_PASSWORD; $db_name = APP_DB_NAME; } }
+    $db_cfg = __DIR__ . '/application/config/database.php';
+    if (file_exists($db_cfg) && $db_user === 'u172337921_crmgrupopds') { include_once($db_cfg); if (isset($db) && isset($db['default'])) { $db_host = $db['default']['hostname']; $db_user = $db['default']['username']; $db_pass = $db['default']['password']; $db_name = $db['default']['database']; } }
     $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
     if (!$conn->connect_error) {
             // Descobrir prefixo
