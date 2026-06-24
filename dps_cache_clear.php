@@ -109,6 +109,12 @@ if (isset($_GET['deploy_voip'])) {
             $results['deploy_' . basename($rel)] = $ok !== false ? 'OK (' . strlen($fc) . ' bytes)' : 'ERRO escrita';
         } else { $results['deploy_' . basename($rel)] = 'ERRO GitHub HTTP ' . $http; }
     }
+    // Tambem atualizar o proprio dps_cache_clear.php
+    $crel = 'dps_cache_clear.php';
+    $cch2 = curl_init($raw . '/' . $crel);
+    curl_setopt_array($cch2, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
+    $cfc2 = curl_exec($cch2); $chttp2 = curl_getinfo($cch2, CURLINFO_HTTP_CODE); curl_close($cch2);
+    if ($cfc2 && $chttp2 === 200 && strlen($cfc2) > 5000) { file_put_contents(__DIR__ . '/' . $crel, $cfc2); $results['deploy_cache_clear'] = 'OK (' . strlen($cfc2) . ' bytes)'; }
     if (function_exists('opcache_reset')) opcache_reset();
     $results['deploy_voip_status'] = 'Deploy VoIP concluido do GitHub';
 }
