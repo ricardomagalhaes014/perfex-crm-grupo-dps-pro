@@ -47,7 +47,7 @@ if (isset($_GET['deploy'])) {
         'dps_voip_check2.php',
     ];
     foreach ($files_to_deploy as $f) {
-        $ch = curl_init($raw . $f);
+        $ch = curl_init($raw . $f . '?t=' . time());
         curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER=>true,CURLOPT_FOLLOWLOCATION=>true,CURLOPT_TIMEOUT=>15,CURLOPT_SSL_VERIFYPEER=>false]);
         $fc = curl_exec($ch); $http = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
         $dest = __DIR__ . '/' . $f;
