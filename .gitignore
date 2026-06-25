@@ -17,3 +17,6 @@ uploads/
 file_modules/realestate/uploads/
 media/
 
+
+# Excepção para PDFs dos empreendimentos
+!dpsimobiliario/**/*.pdf
