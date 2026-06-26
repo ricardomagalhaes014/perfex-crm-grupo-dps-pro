@@ -57,7 +57,8 @@ class Dps_whatsapp_model extends CI_Model
         $ch  = curl_init($url);
         
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
         
         $headers = [
             'Content-Type: application/json',
