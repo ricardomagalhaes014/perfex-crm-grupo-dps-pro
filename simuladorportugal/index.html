@@ -5410,7 +5410,7 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     doc.text('LIC. AMI: 26301  |  WhatsApp: +351 925 610 864', W/2, H-18, { align: 'center' });
     doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
 
-    // ---- P\u00c1GINA 3: PLANTA DA UNIDADE ----
+    // ---- PÁGINA 3: PLANTA DA UNIDADE + MAPA DO PISO ----
     let plantaUrl;
     if (unit.bloco === 'Bloco 2') {
       plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/bloco2-planta-piso.png';
@@ -5424,23 +5424,96 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
         plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-C.png';
       }
     }
+    // Extrair número da fracção (ex: H4 -> 4, P-A7 -> 7, A1 -> 1)
+    const fracNumMatch = unit.fraccao.match(/(\d+)$/);
+    const fracNum = fracNumMatch ? parseInt(fracNumMatch[1]) : 0;
+
+    // Função para desenhar o pequeno mapa do piso com destaque azul
+    function desenharMapaPiso(doc, xBase, yBase, fracNum, bloco) {
+      const CELL_W = 7, CELL_H = 5;
+      const BLUE_FILL = [168, 190, 209]; // #A8BED1
+      const GREY_FILL = [230, 230, 230];
+      const BORDER = [120, 120, 120];
+      const TEXT_COLOR = [60, 60, 60];
+
+      if (bloco === 'Bloco 2') {
+        // Bloco 2: linha horizontal com fracções numeradas
+        // Piso 1: 11 fracções, outros pisos: 10 fracções
+        const total = fracNum <= 11 ? 11 : 10;
+        const lineTotal = Math.min(total, 11);
+        for (let i = 1; i <= lineTotal; i++) {
+          const x = xBase + (i - 1) * (CELL_W + 1);
+          const isFrac = (i === fracNum);
+          doc.setFillColor(...(isFrac ? BLUE_FILL : GREY_FILL));
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.3);
+          doc.rect(x, yBase, CELL_W, CELL_H, 'FD');
+          doc.setTextColor(...(isFrac ? [255,255,255] : TEXT_COLOR));
+          doc.setFontSize(4.5);
+          doc.setFont('helvetica', isFrac ? 'bold' : 'normal');
+          doc.text(String(i), x + CELL_W/2, yBase + CELL_H/2 + 1.5, { align: 'center' });
+        }
+      } else {
+        // Bloco 1: grelha irregular 3x4 com núcleo central vazio
+        // Layout visual (col 0-2, row 0-3):
+        // row0: [1][2][3]
+        // row1: [10][ ][4]
+        // row2: [9][8][5]
+        // row3: [ ][7][6]
+        const cells = [
+          { num: 1,  col: 0, row: 0 },
+          { num: 2,  col: 1, row: 0 },
+          { num: 3,  col: 2, row: 0 },
+          { num: 4,  col: 2, row: 1 },
+          { num: 5,  col: 2, row: 2 },
+          { num: 6,  col: 2, row: 3 },
+          { num: 7,  col: 1, row: 3 },
+          { num: 8,  col: 1, row: 2 },
+          { num: 9,  col: 0, row: 2 },
+          { num: 10, col: 0, row: 1 },
+        ];
+        cells.forEach(cell => {
+          const x = xBase + cell.col * (CELL_W + 1);
+          const y = yBase + cell.row * (CELL_H + 1);
+          const isFrac = (cell.num === fracNum);
+          doc.setFillColor(...(isFrac ? BLUE_FILL : GREY_FILL));
+          doc.setDrawColor(...BORDER);
+          doc.setLineWidth(0.3);
+          doc.rect(x, y, CELL_W, CELL_H, 'FD');
+          doc.setTextColor(...(isFrac ? [255,255,255] : TEXT_COLOR));
+          doc.setFontSize(4.5);
+          doc.setFont('helvetica', isFrac ? 'bold' : 'normal');
+          doc.text(String(cell.num), x + CELL_W/2, y + CELL_H/2 + 1.5, { align: 'center' });
+        });
+      }
+    }
+
     try {
       const plantaImg = await loadImageAsDataURL(plantaUrl);
       doc.addPage();
       doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
       doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
       doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-      doc.text('DPS IMOBILI\u00c1RIO', 20, 15);
+      doc.text('DPS IMOBILIÁRIO', 20, 15);
       doc.setTextColor(...GREY); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
       doc.text('dpsimobiliario.pt', 20, 21);
       doc.setTextColor(...GOLD); doc.setFontSize(9);
-      doc.text('Frac\u00e7\u00e3o ' + unit.fraccao + ' \u2014 ' + unit.tipologia, W-20, 15, { align: 'right' });
+      doc.text('Fracção ' + unit.fraccao + ' — ' + unit.tipologia, W-20, 15, { align: 'right' });
       doc.setDrawColor(...GOLD); doc.line(20, 25, W-20, 25);
       doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
       doc.text('PLANTA DA UNIDADE', W/2, 35, { align: 'center' });
-      doc.addImage(plantaImg, 'PNG', 15, 42, W-30, H-80);
+      // Imagem da planta (deixar espaço em baixo para o mapa)
+      doc.addImage(plantaImg, 'PNG', 15, 42, W-30, H-100);
+      // Legenda do mapa
+      doc.setTextColor(...GREY); doc.setFontSize(7); doc.setFont('helvetica', 'italic');
+      doc.text('Localização no piso:', 15, H-52);
+      // Desenhar mapa do piso
+      desenharMapaPiso(doc, 15, H-48, fracNum, unit.bloco);
+      // Informação da fracção
+      doc.setTextColor(...GREY); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+      doc.text('Piso ' + unit.piso + 'º  |  ' + unit.orientacao + '  |  ' + unit.abc.toFixed(1) + ' m² ABC  +  ' + unit.varanda.toFixed(1) + ' m² varanda', 15, H-20);
       doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
-    } catch(e) { console.warn('Planta n\u00e3o carregada:', e); }
+    } catch(e) { console.warn('Planta não carregada:', e); }
 
     // ---- P\u00c1GINAS 4-6: GALERIA PITCH DECK (9 imagens, 3 por p\u00e1gina) ----
     const propostaUrls = [
