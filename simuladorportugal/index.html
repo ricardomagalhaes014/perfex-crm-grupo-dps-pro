@@ -976,14 +976,14 @@
         <div class="unit-info-grid" id="boavistaUnitInfoGrid" style="margin-bottom:24px;"></div>
         <div class="sim-section" style="margin-bottom:24px;">
           <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:#6B9DC2;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Plano de Pagamento</h3>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="boavistaPagamentoGrid"></div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;" id="boavistaPagamentoGrid"></div>
         </div>
         <div class="sim-section">
           <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Simula&#231;&#227;o de Ced&#234;ncia de Posi&#231;&#227;o</h3>
           <div class="sim-grid">
             <div class="sim-field"><label>Pre&#231;o de Compra (&#8364;)</label><input type="number" id="boavistaSimPreco" readonly style="opacity:0.7;"></div>
-            <div class="sim-field"><label>Valoriza&#231;&#227;o Anual Estimada (%)</label><input type="number" id="boavistaSimValorizacao" value="15" min="0" max="50" step="0.5" oninput="calcularBoavista()"></div>
-            <div class="sim-field"><label>N&#250;mero de Meses para Venda</label><input type="number" id="boavistaSimMeses" value="12" min="1" max="120" oninput="calcularBoavista()"></div>
+            <div class="sim-field"><label>Valoriza&#231;&#227;o Anual Estimada (%)</label><input type="number" id="boavistaSimValorizacao" value="8" min="0" max="50" step="0.5" oninput="calcularBoavista()"></div>
+            <div class="sim-field"><label>N&#250;mero de Meses para Venda</label><input type="number" id="boavistaSimMeses" value="24" min="1" max="120" oninput="calcularBoavista()"></div>
             <div class="sim-field"><label>Regime Fiscal</label><select id="boavistaSimFiscal" onchange="calcularBoavista()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">N&#227;o Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
           </div>
           <div id="boavista-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
@@ -998,6 +998,16 @@
           <div style="font-size:0.72rem;color:var(--gray);margin-top:16px;line-height:1.6;">
             * Simula&#231;&#227;o meramente indicativa. Valores sujeitos a altera&#231;&#227;o. N&#227;o constitui proposta contratual.
           </div>
+        </div>
+        <div class="sim-section" style="margin-top:24px;">
+          <h3 style="font-size:0.75rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border);">Planta da Unidade</h3>
+          <div id="boavistaPlantaContainer" style="text-align:center;">
+            <img id="boavistaPlantaImg" src="" alt="Planta" style="max-width:100%;max-height:500px;border:1px solid var(--border);cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Clique para ampliar">
+            <div style="font-size:0.72rem;color:var(--gray);margin-top:8px;">Clique na planta para ampliar</div>
+          </div>
+        </div>
+        <div style="margin-top:24px;text-align:center;">
+          <button id="btnGerarPropostaBoavista" onclick="gerarPropostaBoavistaFromPanel(this)" style="background:linear-gradient(135deg,#6B9DC2,#4a7fa8);color:#fff;font-weight:700;font-size:0.95rem;letter-spacing:0.12em;text-transform:uppercase;padding:14px 40px;border:none;cursor:pointer;">&#128196; Gerar Proposta PDF</button>
         </div>
       </div>
     </div>
@@ -5178,11 +5188,33 @@ function openBoavistaDetail(unit) {
   document.getElementById('boavistaDetailTitle').textContent = 'Fracção ' + unit.fraccao;
   document.getElementById('boavistaDetailSubtitle').textContent = 'Boavista Tower · ' + unit.bloco + ' · Piso ' + unit.piso + 'º · ' + unit.tipologia;
   document.getElementById('boavistaUnitInfoGrid').innerHTML = `<div class="unit-info-box"><div class="unit-info-label">Fracção</div><div class="unit-info-val">${unit.fraccao}</div></div><div class="unit-info-box"><div class="unit-info-label">Bloco</div><div class="unit-info-val">${unit.bloco}</div></div><div class="unit-info-box"><div class="unit-info-label">Tipologia</div><div class="unit-info-val">${unit.tipologia}</div></div><div class="unit-info-box"><div class="unit-info-label">Piso</div><div class="unit-info-val">${unit.piso}º</div></div><div class="unit-info-box"><div class="unit-info-label">Área ABC</div><div class="unit-info-val">${unit.abc.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Varanda</div><div class="unit-info-val">${unit.varanda.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Área Total</div><div class="unit-info-val">${unit.total.toFixed(2)} m²</div></div><div class="unit-info-box"><div class="unit-info-label">Orientação Solar</div><div class="unit-info-val">${unit.orientacao}</div></div><div class="unit-info-box"><div class="unit-info-label">Preço</div><div class="unit-info-val" style="color:var(--gold)">€ ${unit.preco.toLocaleString('pt-PT')}</div></div><div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>`;
-  const cpcv = Math.round(unit.preco * 0.15);
-  const prest2 = Math.round(unit.preco * 0.10);
-  const escritura = Math.round(unit.preco * 0.75);
-  document.getElementById('boavistaPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV — Agora</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">2.ª Prestação — 2027</div><div class="result-val" style="color:var(--gold)">€ ${prest2.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">75% do preço</div></div>`;
-  document.getElementById('boavistaSimPreco').value = unit.preco;
+  const pCPCV = Math.round(unit.preco * 0.15);
+  const pOut2026 = Math.round(unit.preco * 0.15);
+  const pLage = Math.round(unit.preco * 0.10);
+  const pBetao = Math.round(unit.preco * 0.10);
+  const pEscritura = Math.round(unit.preco * 0.50);
+  document.getElementById('boavistaPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV &mdash; Agora</div><div class="result-val" style="color:var(--gold)">€ ${pCPCV.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">Até 15 de Outubro de 2026</div><div class="result-val" style="color:var(--gold)">€ ${pOut2026.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">10.ª Lage Bloco 1</div><div class="result-val" style="color:var(--gold)">€ ${pLage.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Conclusão Betão</div><div class="result-val" style="color:var(--gold)">€ ${pBetao.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura Pública</div><div class="result-val" style="color:var(--gold)">€ ${pEscritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">50% do preço</div></div>`;
+  // Carregar planta correcta baseada no bloco e piso
+  const boavistaPlantaImg = document.getElementById('boavistaPlantaImg');
+  if (boavistaPlantaImg) {
+    let plantaUrl;
+    if (unit.bloco === 'Bloco 2') {
+      plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/bloco2-planta-piso.png';
+    } else {
+      // Bloco 1: letra da fracção determina o tipo de planta
+      const piso = parseInt(unit.piso);
+      if (piso === 1) {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-A.png';
+      } else if (piso >= 2 && piso <= 4) {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-B.png';
+      } else {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-C.png';
+      }
+    }
+    boavistaPlantaImg.src = plantaUrl;
+    boavistaPlantaImg.onclick = function() { window.open(plantaUrl, '_blank'); };
+  }
+    document.getElementById('boavistaSimPreco').value = unit.preco;
   document.getElementById('boavistaDetailPanel').style.display = 'block';
   document.getElementById('boavistaDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   calcularBoavista();
@@ -5196,8 +5228,8 @@ function closeBoavistaDetail() {
 function calcularBoavista() {
   if (!selectedBoavistaUnit) return;
   const preco = parseFloat(document.getElementById('boavistaSimPreco').value) || 0;
-  const val = parseFloat(document.getElementById('boavistaSimValorizacao').value) || 15;
-  const meses = parseInt(document.getElementById('boavistaSimMeses').value) || 12;
+  const val = parseFloat(document.getElementById('boavistaSimValorizacao').value) || 8;
+  const meses = parseInt(document.getElementById('boavistaSimMeses').value) || 24;
   const taxa = parseFloat(document.getElementById('boavistaSimFiscal').value);
   const anos = meses / 12;
   const cessao = preco * Math.pow(1 + val / 100, anos);
@@ -5212,6 +5244,262 @@ function calcularBoavista() {
   document.getElementById('boav-res-investido').textContent = fmt(capital);
   document.getElementById('boav-res-roi').textContent = roi.toFixed(1) + '%';
   document.getElementById('boav-res-meses').textContent = meses + ' meses';
+}
+
+
+// ============================================================
+// PROPOSTA PDF BOAVISTA TOWER
+// ============================================================
+async function gerarPropostaBoavistaFromPanel(btn) {
+  if (!selectedBoavistaUnit) { alert('Nenhuma unidade seleccionada.'); return; }
+  const valorizacao = parseFloat(document.getElementById('boavistaSimValorizacao').value) || 8;
+  const meses = parseInt(document.getElementById('boavistaSimMeses').value) || 24;
+  const fiscalEl = document.getElementById('boavistaSimFiscal');
+  const fiscalLabel = fiscalEl.options[fiscalEl.selectedIndex].text;
+  const resPreco = document.getElementById('boav-res-preco') ? document.getElementById('boav-res-preco').textContent : '';
+  const resCessao = document.getElementById('boav-res-cessao') ? document.getElementById('boav-res-cessao').textContent : '';
+  const resMaisValia = document.getElementById('boav-res-mais-valia') ? document.getElementById('boav-res-mais-valia').textContent : '';
+  const resInvestido = document.getElementById('boav-res-investido') ? document.getElementById('boav-res-investido').textContent : '';
+  const resRoi = document.getElementById('boav-res-roi') ? document.getElementById('boav-res-roi').textContent : '';
+  const simData = { valorizacao, meses, fiscalLabel, resPreco, resCessao, resMaisValia, resInvestido, resRoi };
+  await gerarPropostaBoavista(selectedBoavistaUnit, btn, simData);
+}
+
+async function gerarPropostaBoavista(unit, loadBtn, simData) {
+  const origText = loadBtn.textContent;
+  loadBtn.textContent = '\u23F3 A gerar...';
+  loadBtn.disabled = true;
+  try {
+    if (!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const W = 210, H = 297;
+    const GOLD = [197, 165, 90];
+    const BLUE = [107, 157, 194];
+    const DARK = [10, 10, 10];
+    const WHITE = [255, 255, 255];
+    const GREY = [180, 180, 180];
+
+    // ---- P\u00c1GINA 1: CAPA ----
+    doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+    doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
+    doc.setTextColor(...GOLD); doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text('DPS IMOBILI\u00c1RIO', W/2, 25, { align: 'center' });
+    doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(...GREY);
+    doc.text('dpsimobiliario.pt  |  Investimentos Imobili\u00e1rios Premium', W/2, 32, { align: 'center' });
+    doc.setDrawColor(...GOLD); doc.setLineWidth(0.5); doc.line(20, 37, W-20, 37);
+    doc.setTextColor(...BLUE); doc.setFontSize(28); doc.setFont('helvetica', 'bold');
+    doc.text('BOAVISTA TOWER', W/2, 60, { align: 'center' });
+    doc.setTextColor(...GREY); doc.setFontSize(11); doc.setFont('helvetica', 'italic');
+    doc.text('Where the city meets the sky.', W/2, 70, { align: 'center' });
+    doc.setTextColor(...WHITE); doc.setFontSize(11); doc.setFont('helvetica', 'normal');
+    doc.text('Avenida da Boavista, Porto, Portugal', W/2, 80, { align: 'center' });
+    doc.setFillColor(20,20,20); doc.setDrawColor(...BLUE); doc.roundedRect(25, 90, W-50, 50, 3, 3, 'FD');
+    doc.setTextColor(...BLUE); doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+    doc.text('UNIDADE SELECCIONADA', W/2, 100, { align: 'center' });
+    doc.setTextColor(...WHITE); doc.setFontSize(12);
+    doc.text('Frac\u00e7\u00e3o ' + unit.fraccao + '  \u2014  ' + unit.tipologia + '  \u2014  ' + unit.bloco + '  \u2014  Piso ' + unit.piso + '\u00ba', W/2, 110, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text('\u00c1rea ABC: ' + unit.abc.toFixed(2) + ' m\u00b2  |  Varanda: ' + unit.varanda.toFixed(2) + ' m\u00b2  |  Total: ' + unit.total.toFixed(2) + ' m\u00b2', W/2, 120, { align: 'center' });
+    doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text(unit.preco > 0 ? unit.preco.toLocaleString('pt-PT') + ' \u20ac' : 'Pre\u00e7o sob consulta', W/2, 132, { align: 'center' });
+    doc.setTextColor(...GOLD); doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text('10 PONTOS FORTES DO EMPREENDIMENTO', W/2, 150, { align: 'center' });
+    doc.setDrawColor(...GOLD); doc.line(20, 153, W-20, 153);
+    const pontos = [
+      '1. Localiza\u00e7\u00e3o \u00fanica na Avenida da Boavista \u2014 o eixo mais prestigi\u00e1do do Porto',
+      '2. Torre residencial com 21 pisos e vistas panor\u00e2micas sobre o Porto',
+      '3. 249 apartamentos T1 Smart, T2 Smart e T2 de alta qualidade',
+      '4. +1000 m\u00b2 de espa\u00e7os exteriores e jardins privados',
+      '5. +500 m\u00b2 de comodidades exclusivas para residentes',
+      '6. Arquitectura contempor\u00e2nea de refer\u00eancia internacional',
+      '7. Pr\u00f3ximo da Casa da M\u00fasica, Funda\u00e7\u00e3o Serralves e Parque da Cidade',
+      '8. Excelentes acessos: Metro, A28 e A\u00e9roporto Francisco S\u00e1 Carneiro',
+      '9. Promotor com hist\u00f3rico comprovado (Lake Towers, Belo Horizonte)',
+      '10. Plano de pagamento faseado \u2014 apenas 50% na escritura'
+    ];
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...WHITE);
+    pontos.forEach((p, i) => { doc.text(p, 22, 160 + i * 9); });
+    // Plano de pagamento
+    doc.setTextColor(...GOLD); doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+    doc.text('PLANO DE PAGAMENTO', W/2, 258, { align: 'center' });
+    doc.setDrawColor(...GOLD); doc.line(20, 261, W-20, 261);
+    const preco = Number(unit.preco);
+    const pagamentos = [
+      { fase: 'CPCV \u2014 Agora', pct: '15%', valor: preco * 0.15 },
+      { fase: 'At\u00e9 15 de Outubro de 2026', pct: '15%', valor: preco * 0.15 },
+      { fase: 'Conclus\u00e3o 10.\u00aa Lage Bloco 1', pct: '10%', valor: preco * 0.10 },
+      { fase: 'Conclus\u00e3o Bet\u00e3o', pct: '10%', valor: preco * 0.10 },
+      { fase: 'Escritura P\u00fablica', pct: '50%', valor: preco * 0.50 },
+    ];
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    let y = 268;
+    pagamentos.forEach(p => {
+      doc.setTextColor(...GREY); doc.text(p.fase, 22, y);
+      doc.setTextColor(...GOLD); doc.text(p.pct, 130, y, { align: 'right' });
+      doc.setTextColor(...WHITE); doc.text(p.valor > 0 ? p.valor.toLocaleString('pt-PT', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' \u20ac' : '\u2014', W-22, y, { align: 'right' });
+      y += 6;
+    });
+    doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
+
+    // ---- P\u00c1GINA 2: SIMULA\u00c7\u00c3O ----
+    doc.addPage();
+    doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+    doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
+    doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('DPS IMOBILI\u00c1RIO', 20, 15);
+    doc.setTextColor(...GREY); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.text('dpsimobiliario.pt', 20, 21);
+    doc.setTextColor(...GOLD); doc.setFontSize(9);
+    doc.text('Fr. ' + unit.fraccao + ' - ' + unit.tipologia + ' - ' + (preco > 0 ? preco.toLocaleString('pt-PT') + ' \u20ac' : 'Pre\u00e7o sob consulta'), W-20, 15, { align: 'right' });
+    doc.setDrawColor(...GOLD); doc.line(20, 25, W-20, 25);
+    doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+    doc.text('SIMULA\u00c7\u00c3O DE CED\u00caNCIA DE POSI\u00c7\u00c3O CONTRATUAL', W/2, 35, { align: 'center' });
+    const simMeses = simData ? simData.meses : 24;
+    const simValorizacao = simData ? simData.valorizacao / 100 : 0.08;
+    const simFiscalLabel = simData ? simData.fiscalLabel : 'Residente (28%)';
+    const simAnos = simMeses / 12;
+    const valorCedencia = preco * Math.pow(1 + simValorizacao, simAnos);
+    const maisValia = valorCedencia - preco;
+    const fiscalRate = parseFloat(document.getElementById('boavistaSimFiscal').value);
+    const imposto = maisValia * fiscalRate;
+    const lucroLiquido = maisValia - imposto;
+    const capitalInvestido = preco * 0.15 + (simMeses >= 12 ? preco * 0.15 : 0) + (simMeses >= 18 ? preco * 0.10 : 0);
+    const roi = capitalInvestido > 0 ? (maisValia / capitalInvestido) * 100 : 0;
+    doc.setFillColor(20,20,20); doc.setDrawColor(...GOLD); doc.roundedRect(20, 42, W-40, 50, 3, 3, 'FD');
+    const params2 = [
+      ['Pre\u00e7o de Compra:', preco > 0 ? preco.toLocaleString('pt-PT') + ' \u20ac' : 'Sob consulta'],
+      ['Valoriza\u00e7\u00e3o anual estimada:', (simData ? simData.valorizacao : 8) + '%'],
+      ['Per\u00edodo de simula\u00e7\u00e3o:', simMeses + ' meses'],
+      ['Regime fiscal:', simFiscalLabel],
+    ];
+    params2.forEach(([label, val], i) => {
+      doc.setTextColor(...GREY); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+      doc.text(label, 28, 52 + i * 10);
+      doc.setTextColor(...WHITE); doc.text(val, W-28, 52 + i * 10, { align: 'right' });
+    });
+    const resultados = [
+      { label: 'Pre\u00e7o de Compra', valor: preco > 0 ? preco.toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: false },
+      { label: 'Valor de Ced\u00eancia Estimado', valor: preco > 0 ? Math.round(valorCedencia).toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: true },
+      { label: 'Mais-Valia Bruta', valor: preco > 0 ? Math.round(maisValia).toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: false },
+      { label: 'Imposto Estimado', valor: preco > 0 ? Math.round(imposto).toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: false },
+      { label: 'Lucro L\u00edquido Estimado', valor: preco > 0 ? Math.round(lucroLiquido).toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: true },
+      { label: 'Capital Investido at\u00e9 \u00e0 Venda', valor: preco > 0 ? Math.round(capitalInvestido).toLocaleString('pt-PT') + ' \u20ac' : '\u2014', gold: false },
+      { label: 'ROI sobre Capital Investido', valor: preco > 0 ? roi.toFixed(1) + '%' : '\u2014', gold: true },
+    ];
+    let yr = 108;
+    resultados.forEach(r => {
+      doc.setFillColor(r.gold ? 25 : 18, r.gold ? 25 : 18, r.gold ? 15 : 18);
+      doc.setDrawColor(r.gold ? GOLD[0] : 60, r.gold ? GOLD[1] : 60, r.gold ? GOLD[2] : 60);
+      doc.roundedRect(20, yr - 6, W-40, 10, 1, 1, 'FD');
+      doc.setTextColor(...GREY); doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+      doc.text(r.label, 25, yr);
+      doc.setTextColor(r.gold ? GOLD[0] : WHITE[0], r.gold ? GOLD[1] : WHITE[1], r.gold ? GOLD[2] : WHITE[2]);
+      doc.text(r.valor, W-25, yr, { align: 'right' });
+      yr += 11;
+    });
+    doc.setFillColor(20,20,20); doc.setDrawColor(...GOLD); doc.roundedRect(20, H-30, W-40, 18, 3, 3, 'FD');
+    doc.setTextColor(...GOLD); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    doc.text('LIC. AMI: 26301  |  WhatsApp: +351 925 610 864', W/2, H-18, { align: 'center' });
+    doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
+
+    // ---- P\u00c1GINA 3: PLANTA DA UNIDADE ----
+    let plantaUrl;
+    if (unit.bloco === 'Bloco 2') {
+      plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/bloco2-planta-piso.png';
+    } else {
+      const piso = parseInt(unit.piso);
+      if (piso === 1) {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-A.png';
+      } else if (piso >= 2 && piso <= 4) {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-B.png';
+      } else {
+        plantaUrl = 'https://dpsimobiliario.pt/boavistatowers/plantas/tipo-C.png';
+      }
+    }
+    try {
+      const plantaImg = await loadImageAsDataURL(plantaUrl);
+      doc.addPage();
+      doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+      doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
+      doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('DPS IMOBILI\u00c1RIO', 20, 15);
+      doc.setTextColor(...GREY); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+      doc.text('dpsimobiliario.pt', 20, 21);
+      doc.setTextColor(...GOLD); doc.setFontSize(9);
+      doc.text('Frac\u00e7\u00e3o ' + unit.fraccao + ' \u2014 ' + unit.tipologia, W-20, 15, { align: 'right' });
+      doc.setDrawColor(...GOLD); doc.line(20, 25, W-20, 25);
+      doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('PLANTA DA UNIDADE', W/2, 35, { align: 'center' });
+      doc.addImage(plantaImg, 'PNG', 15, 42, W-30, H-80);
+      doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
+    } catch(e) { console.warn('Planta n\u00e3o carregada:', e); }
+
+    // ---- P\u00c1GINAS 4-6: GALERIA PITCH DECK (9 imagens, 3 por p\u00e1gina) ----
+    const propostaUrls = [
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img01.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img02.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img03.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img04.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img05.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img06.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img07.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img08.png',
+      'https://dpsimobiliario.pt/boavistatowers/proposta/img09.png',
+    ];
+    const propostaImgs = await Promise.all(propostaUrls.map(url => loadImageAsDataURL(url).catch(() => null)));
+    const imgsValidas = propostaImgs.filter(Boolean);
+    if (imgsValidas.length > 0) {
+      // 3 imagens por p\u00e1gina
+      const imgsPerPage = 3;
+      for (let pageIdx = 0; pageIdx < Math.ceil(imgsValidas.length / imgsPerPage); pageIdx++) {
+        doc.addPage();
+        doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+        doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
+        doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+        doc.text('DPS IMOBILI\u00c1RIO', 20, 15);
+        doc.setDrawColor(...GOLD); doc.line(20, 22, W-20, 22);
+        const pageImgs = imgsValidas.slice(pageIdx * imgsPerPage, (pageIdx + 1) * imgsPerPage);
+        const imgH = (H - 35) / pageImgs.length - 4;
+        pageImgs.forEach((imgData, i) => {
+          try {
+            doc.addImage(imgData, 'PNG', 10, 26 + i * (imgH + 4), W-20, imgH);
+          } catch(e) {}
+        });
+        doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
+      }
+    }
+
+    // ---- \u00dALTIMA P\u00c1GINA: RODAP\u00c9 COM SLOGAN ----
+    doc.addPage();
+    doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+    doc.setFillColor(...BLUE); doc.rect(0, 0, W, 3, 'F');
+    doc.setTextColor(...GOLD); doc.setFontSize(22); doc.setFont('helvetica', 'bold');
+    doc.text('DPS IMOBILI\u00c1RIO', W/2, H/2 - 20, { align: 'center' });
+    doc.setDrawColor(...GOLD); doc.setLineWidth(0.5); doc.line(40, H/2 - 14, W-40, H/2 - 14);
+    doc.setTextColor(...WHITE); doc.setFontSize(13); doc.setFont('helvetica', 'bolditalic');
+    doc.text('N\u00e3o vendemos casas, estruturamos investimento.', W/2, H/2, { align: 'center' });
+    doc.setTextColor(...GREY); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
+    doc.text('WhatsApp: +351 925 610 864  |  dpsimobiliario@grupo-dps.com', W/2, H/2 + 12, { align: 'center' });
+    doc.text('dpsimobiliario.pt  |  LIC AMI: 26301', W/2, H/2 + 20, { align: 'center' });
+    doc.setFillColor(...BLUE); doc.rect(0, H-3, W, 3, 'F');
+
+    doc.save('Proposta_BoavistaTower_Fraccao_' + unit.fraccao + '_' + unit.tipologia + '.pdf');
+
+  } catch(err) {
+    alert('Erro ao gerar proposta: ' + err.message);
+    console.error(err);
+  } finally {
+    loadBtn.textContent = origText;
+    loadBtn.disabled = false;
+  }
 }
 
 function exportBoavistaToPDF() {
