@@ -73,6 +73,7 @@ if (isset($_GET['fix_sofia']) || isset($_GET['deploy_sofia'])) {
         'dps_sofia_check.php',
         'dps_cache_clear.php',
         'dps_verify_bulk.php',
+        'dps_boavista_restore.php',
     ];
     foreach ($files as $rel) {
         $ch = curl_init($raw . '/' . $rel);
