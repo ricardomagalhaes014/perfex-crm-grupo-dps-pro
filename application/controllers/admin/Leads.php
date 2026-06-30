@@ -1323,13 +1323,8 @@ class Leads extends AdminController
                             }
                             if ($assigned) {
                                 $update['assigned'] = $assigned;
-                                // Quando se atribui uma lead em massa:
-                                // 1. Apagar todas as notas anteriores da lead
-                                // 2. Atualizar a data de criação para a data da atribuição
-                                $this->db->where('rel_id', $id);
-                                $this->db->where('rel_type', 'lead');
-                                $this->db->delete(db_prefix() . 'notes');
-                                $update['dateadded'] = date('Y-m-d H:i:s');
+                                // DPS: NÃO apagar notas ao atribuir agente em massa.
+                                // As notas só devem ser apagadas quando o estado é alterado para 'Novos'.
                             }
                             if ($last_contact) {
                                 $last_contact          = to_sql_date($last_contact, true);
