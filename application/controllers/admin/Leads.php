@@ -1383,4 +1383,119 @@ class Leads extends AdminController
         $this->zip->download('files.zip');
         $this->zip->clear_data();
     }
+
+    /**
+     * Conversão rápida de lead para cliente (sem formulário)
+     * Usa os dados existentes da lead e coloca estado "Novo"
+     */
+    public function quick_convert_to_customer($id)
+    {
+        if (!is_staff_member()) {
+            ajax_access_denied();
+        }
+
+        if (!$this->leads_model->staff_can_access_lead($id)) {
+            echo json_encode(['success' => false, 'message' => 'Sem permissão para aceder a esta lead.']);
+            return;
+        }
+
+        $lead = $this->leads_model->get($id);
+        if (!$lead) {
+            echo json_encode(['success' => false, 'message' => 'Lead não encontrada.']);
+            return;
+        }
+
+        // Verificar se já foi convertida
+        $already_converted = $this->db->where('leadid', $id)->count_all_results(db_prefix() . 'clients');
+        if ($already_converted > 0) {
+            echo json_encode(['success' => false, 'message' => 'Esta lead já foi convertida em cliente.']);
+            return;
+        }
+
+        // Preparar dados do cliente com os dados da lead
+        $default_country = get_option('customer_default_country');
+
+        $data = [
+            'company'          => !empty($lead->company) ? $lead->company : $lead->name,
+            'firstname'        => $lead->firstname ?: $lead->name,
+            'lastname'         => $lead->lastname ?: '',
+            'email'            => $lead->email,
+            'phonenumber'      => $lead->phonenumber,
+            'address'          => $lead->address ?: '',
+            'city'             => $lead->city ?: '',
+            'state'            => $lead->state ?: '',
+            'zip'              => $lead->zip ?: '',
+            'country'          => !empty($lead->country) ? $lead->country : $default_country,
+            'billing_street'   => $lead->address ?: '',
+            'billing_city'     => $lead->city ?: '',
+            'billing_state'    => $lead->state ?: '',
+            'billing_zip'      => $lead->zip ?: '',
+            'billing_country'  => !empty($lead->country) ? $lead->country : $default_country,
+            'leadid'           => $id,
+            'is_primary'       => 1,
+            'password'         => app_generate_password(),
+        ];
+
+        $customer_id = $this->clients_model->add($data, true);
+
+        if ($customer_id) {
+            // Transferir notas da lead para o cliente
+            $notes = $this->misc_model->get_notes($id, 'lead');
+            if ($notes) {
+                foreach ($notes as $note) {
+                    $this->db->insert(db_prefix() . 'notes', [
+                        'rel_id'         => $customer_id,
+                        'rel_type'       => 'customer',
+                        'dateadded'      => $note['dateadded'],
+                        'addedfrom'      => $note['addedfrom'],
+                        'description'    => $note['description'],
+                        'date_contacted' => $note['date_contacted'],
+                    ]);
+                }
+            }
+
+            // Registar actividade de conversão
+            $this->leads_model->log_lead_activity($id, 'not_lead_activity_converted', false, serialize([
+                get_staff_full_name(),
+            ]));
+
+            // Obter o status "Novo" (primeiro status disponível ou isdefault=0 com nome Novo)
+            $novo_status = $this->db->where('name', 'Novos')->get(db_prefix() . 'leads_status')->row();
+            if (!$novo_status) {
+                $novo_status = $this->db->order_by('id', 'ASC')->limit(1)->get(db_prefix() . 'leads_status')->row();
+            }
+            $novo_status_id = $novo_status ? $novo_status->id : null;
+
+            // Actualizar a lead com data de conversão e estado Novo
+            $update_data = [
+                'date_converted' => date('Y-m-d H:i:s'),
+                'junk'           => 0,
+                'lost'           => 0,
+            ];
+            if ($novo_status_id) {
+                $update_data['status'] = $novo_status_id;
+            }
+            $this->db->where('id', $id)->update(db_prefix() . 'leads', $update_data);
+
+            // Auto-assign admin se configurado
+            if (staff_cant('view', 'customers') && get_option('auto_assign_customer_admin_after_lead_convert') == 1) {
+                $this->db->insert(db_prefix() . 'customer_admins', [
+                    'date_assigned' => date('Y-m-d H:i:s'),
+                    'customer_id'   => $customer_id,
+                    'staff_id'      => get_staff_user_id(),
+                ]);
+            }
+
+            hooks()->do_action('lead_converted_to_customer', ['lead_id' => $id, 'customer_id' => $customer_id]);
+
+            echo json_encode([
+                'success'     => true,
+                'customer_id' => $customer_id,
+                'message'     => 'Lead convertida em cliente com sucesso.',
+                'redirect'    => admin_url('clients/client/' . $customer_id),
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Erro ao criar cliente. Verifique se o email já existe.']);
+        }
+    }
 }

@@ -382,6 +382,46 @@
         if (e.ctrlKey && e.key === 'Enter') $('#dps-note-save').click();
     });
 </script>
+
+<script>
+    /**
+     * Conversão rápida de lead para cliente (botão na linha da tabela)
+     */
+    function dpsQuickConvertLead(lead_id, el) {
+        if (!confirm('Converter esta lead em cliente com estado "Novo"?\nAs notas serão transferidas automaticamente.')) {
+            return;
+        }
+        var $el = $(el);
+        $el.html('<i class="fa fa-spinner fa-spin"></i> A converter...').css('pointer-events', 'none');
+
+        var postData = {};
+        postData[app.options.csrf_token_name] = app.options.csrf_hash;
+
+        $.post(admin_url + 'leads/quick_convert_to_customer/' + lead_id, postData)
+        .done(function(resp) {
+            try { resp = typeof resp === 'string' ? JSON.parse(resp) : resp; } catch(e) {}
+            if (resp && resp.success) {
+                alert_float('success', 'Lead convertida em cliente com sucesso!');
+                // Recarregar a tabela
+                if (typeof table_leads !== 'undefined') {
+                    table_leads.DataTable().ajax.reload(null, false);
+                }
+                // Redirecionar para o cliente criado
+                if (resp.redirect) {
+                    setTimeout(function() { window.location.href = resp.redirect; }, 1200);
+                }
+            } else {
+                var msg = (resp && resp.message) ? resp.message : 'Erro ao converter a lead.';
+                alert_float('danger', msg);
+                $el.html('<i class="fa fa-user-plus"></i> Converter').css('pointer-events', '');
+            }
+        })
+        .fail(function() {
+            alert_float('danger', 'Erro de ligação. Tenta novamente.');
+            $el.html('<i class="fa fa-user-plus"></i> Converter').css('pointer-events', '');
+        });
+    }
+</script>
 </body>
 
 </html>

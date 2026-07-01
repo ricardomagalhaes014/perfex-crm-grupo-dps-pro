@@ -219,6 +219,14 @@ return App_table::find('leads')
             if ($aRow['addedfrom'] == get_staff_user_id() || $has_permission_delete) {
                 $nameRow .= ' | <a href="' . admin_url('leads/delete/' . $aRow['id']) . '" class="_delete text-danger">' . _l('delete') . '</a>';
             }
+
+            // Botão de conversão rápida para cliente
+            if ($aRow['is_converted'] == 0) {
+                $nameRow .= ' | <a href="#" onclick="dpsQuickConvertLead(' . $aRow['id'] . ', this); return false;" title="Converter em cliente" style="color:#27ae60;"><i class="fa fa-user-plus"></i> Converter</a>';
+            } else {
+                $nameRow .= ' | <span style="color:#888;"><i class="fa fa-check-circle"></i> Convertida</span>';
+            }
+
             $nameRow .= '</div>';
 
             $row[] = $nameRow;
