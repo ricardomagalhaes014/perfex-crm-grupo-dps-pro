@@ -1271,4 +1271,88 @@ class Tasks extends AdminController
             ajax_access_denied();
         }
     }
+
+    /**
+     * Converte uma tarefa em lead (DPS)
+     * Cria uma nova lead com o nome da tarefa e dados do relacionamento
+     */
+    public function convert_task_to_lead($id)
+    {
+        if (!is_staff_member() || staff_cant('create', 'leads')) {
+            ajax_access_denied();
+        }
+
+        $task = $this->tasks_model->get($id);
+        if (!$task) {
+            echo json_encode(['success' => false, 'message' => 'Tarefa nao encontrada.']);
+            return;
+        }
+
+        $this->load->model('leads_model');
+
+        // Obter o status padrao de leads
+        $default_status = get_option('leads_default_status');
+        if (empty($default_status)) {
+            $first_status = $this->db->order_by('id', 'ASC')->limit(1)->get(db_prefix() . 'leads_status')->row();
+            $default_status = $first_status ? $first_status->id : 1;
+        }
+
+        // Obter a fonte padrao de leads
+        $default_source = get_option('leads_default_source');
+
+        // Preparar dados da lead com base na tarefa
+        $lead_name  = $task->name;
+        $lead_email = '';
+        $lead_phone = '';
+
+        // Se a tarefa esta relacionada a uma lead existente, copiar os dados dela
+        if ($task->rel_type == 'lead' && !empty($task->rel_id)) {
+            $existing_lead = $this->leads_model->get($task->rel_id);
+            if ($existing_lead) {
+                $lead_name  = $existing_lead->name;
+                $lead_email = $existing_lead->email;
+                $lead_phone = $existing_lead->phonenumber;
+            }
+        } elseif ($task->rel_type == 'customer' && !empty($task->rel_id)) {
+            $this->load->model('clients_model');
+            $client = $this->clients_model->get($task->rel_id);
+            if ($client) {
+                $lead_name = !empty($client->company) ? $client->company : $task->name;
+            }
+            $contact = $this->db->select('email,phonenumber')
+                ->where('userid', $task->rel_id)
+                ->where('is_primary', 1)
+                ->get(db_prefix() . 'contacts')->row();
+            if ($contact) {
+                $lead_email = $contact->email;
+                $lead_phone = $contact->phonenumber;
+            }
+        }
+
+        $data = [
+            'name'        => $lead_name,
+            'email'       => $lead_email,
+            'phonenumber' => $lead_phone,
+            'status'      => $default_status,
+            'source'      => $default_source ?: '',
+            'assigned'    => get_staff_user_id(),
+            'description' => $task->description ?: '',
+            'addedfrom'   => get_staff_user_id(),
+            'dateadded'   => date('Y-m-d H:i:s'),
+        ];
+
+        $lead_id = $this->leads_model->add($data);
+
+        if ($lead_id) {
+            log_activity('Task Converted to Lead [TaskID: ' . $id . ', LeadID: ' . $lead_id . ']');
+            echo json_encode([
+                'success'  => true,
+                'lead_id'  => $lead_id,
+                'message'  => 'Tarefa convertida em lead com sucesso!',
+                'redirect' => admin_url('leads/index/' . $lead_id),
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Erro ao criar lead. Verifique se o email ja existe.']);
+        }
+    }
 }

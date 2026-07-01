@@ -91,6 +91,39 @@
     $(function() {
         tasks_kanban();
     });
+
+    /**
+     * Converte uma tarefa em lead (DPS)
+     */
+    function dpsConvertTaskToLead(task_id, el) {
+        if (!confirm('Converter esta tarefa em lead?\nSer\u00e1 criada uma nova lead com os dados da tarefa.')) {
+            return;
+        }
+        var $el = $(el);
+        $el.html('<i class="fa fa-spinner fa-spin"></i> A converter...').css('pointer-events', 'none');
+
+        var postData = {};
+        postData[app.options.csrf_token_name] = app.options.csrf_hash;
+
+        $.post(admin_url + 'tasks/convert_task_to_lead/' + task_id, postData)
+        .done(function(resp) {
+            try { resp = typeof resp === 'string' ? JSON.parse(resp) : resp; } catch(e) {}
+            if (resp && resp.success) {
+                alert_float('success', resp.message || 'Tarefa convertida em lead com sucesso!');
+                if (resp.redirect) {
+                    setTimeout(function() { window.location.href = resp.redirect; }, 1200);
+                }
+            } else {
+                var msg = (resp && resp.message) ? resp.message : 'Erro ao converter a tarefa em lead.';
+                alert_float('danger', msg);
+                $el.html('<i class="fa fa-user-plus"></i> Converter em Lead').css('pointer-events', '');
+            }
+        })
+        .fail(function() {
+            alert_float('danger', 'Erro de liga\u00e7\u00e3o. Tenta novamente.');
+            $el.html('<i class="fa fa-user-plus"></i> Converter em Lead').css('pointer-events', '');
+        });
+    }
 </script>
 </body>
 

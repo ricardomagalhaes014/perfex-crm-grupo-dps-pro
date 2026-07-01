@@ -141,6 +141,10 @@ return App_table::find('tasks')
             if ($hasPermissionDelete) {
                 $outputName .= '<span class="tw-text-neutral-300"> | </span><a href="' . admin_url('tasks/delete_task/' . $aRow['id']) . '" class="text-danger _delete task-delete">' . _l('delete') . '</a>';
             }
+            // Botão Converter em Lead (DPS)
+            if (staff_can('create', 'leads')) {
+                $outputName .= '<span class="tw-text-neutral-300"> | </span><a href="#" class="text-success dps-convert-task-to-lead" onclick="dpsConvertTaskToLead(' . $aRow['id'] . ', this); return false;"><i class="fa fa-user-plus"></i> Converter em Lead</a>';
+            }
             $outputName .= '</div>';
 
             $row[] = $outputName;
