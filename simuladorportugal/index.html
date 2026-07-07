@@ -4379,7 +4379,7 @@ function simLogin() {
   const input = document.getElementById('simLoginInput');
   const err = document.getElementById('simLoginError');
   const pass = input ? input.value.trim() : '';
-  const validPasswords = ['dps2026', 'DPS2026', 'dps2025', 'DPS2025'];
+  const validPasswords = ['dps2026', 'DPS2026', 'dps2025', 'DPS2025', 'Dynamic', 'dynamic', 'DYNAMIC'];
   if (validPasswords.includes(pass)) {
     const screen = document.getElementById('simLoginScreen');
     if (screen) screen.style.display = 'none';
