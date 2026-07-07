@@ -2089,8 +2089,8 @@ function toggleEditMode(table) {
 
 function checkEditPwd() {
   const pwd = document.getElementById('editPwdInput').value;
-  const editBtnMap2 = {bh:'bhEditBtn',raizes:'raizesEditBtn',lake:'lakeEditBtn',gg:'ggEditBtn',gp:'gpEditBtn',sjp:'sjpEditBtn',tp:'tpEditBtn'};
-  const applyMap2 = {boavista:applyBoavistaFilters,bh:applyFilters,raizes:applyRaizesFilters,lake:applyLakeFilters,gg:applyGgFilters,gp:applyGpFilters,sjp:applySjpFilters,tp:applyTpFilters};
+  const editBtnMap2 = {bh:'bhEditBtn',raizes:'raizesEditBtn',lake:'lakeEditBtn',gp:'gpEditBtn'};
+  const applyMap2 = {boavista:applyBoavistaFilters,bh:applyFilters,raizes:applyRaizesFilters,lake:applyLakeFilters,gp:applyGpFilters};
   if (pwd === EDIT_PASSWORD) {
     document.getElementById('editPwdModal').classList.remove('open');
     editMode[pendingEditTable] = true;
@@ -2141,18 +2141,6 @@ function changeStatus(table, key, newStatus) {
       fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({raizes_states: allRaizesStates}) }).catch(()=>{});
       applyRaizesFilters();
     }
-  } else if (table === 'REMOVED_GG') {
-    const unit = ggData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('gg_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('gg_states', JSON.stringify(states));
-      const allStates = {};
-      ggData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gg_states: allStates}) }).catch(()=>{});
-      applyGgFilters();
-    }
   } else if (table === 'gp') {
     const unit = gpData.find(u => u.fraccao === key);
     if (unit) {
@@ -2164,28 +2152,6 @@ function changeStatus(table, key, newStatus) {
       gpData.forEach(u => { allStates[u.fraccao] = u.status; });
       fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gp_states: allStates}) }).catch(()=>{});
       applyGpFilters();
-    }
-    const unit = sjpData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('sjp_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('sjp_states', JSON.stringify(states));
-      const allStates = {};
-      sjpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sjp_states: allStates}) }).catch(()=>{});
-      applySjpFilters();
-    }
-    const unit = tpData.find(u => u.fraccao === key);
-    if (unit) {
-      unit.status = newStatus;
-      const states = JSON.parse(localStorage.getItem('tp_states') || '{}');
-      states[key] = newStatus;
-      localStorage.setItem('tp_states', JSON.stringify(states));
-      const allStates = {};
-      tpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({tp_states: allStates}) }).catch(()=>{});
-      applyTpFilters();
     }
   } else if (table === 'boavista') {
     const unit = BOAVISTA_UNITS.find(u => u.fraccao === key);
@@ -3898,19 +3864,7 @@ function calcularGp() {
   document.getElementById('gp-res-meses').textContent = meses + ' meses';
 }
 
-// ============================================================
-// SÃO JOÃO PREMIUM — DADOS
-// ============================================================
-  applySjpFilters();
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-  applyTpFilters();
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-  applyCerveiraFilters();
-});
+// (São João Premium, Trofa Premium e Cerveira Premium removidos)
 
 document.addEventListener('DOMContentLoaded', function() {
   fetch('save_states.php')
