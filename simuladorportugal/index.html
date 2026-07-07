@@ -5332,13 +5332,15 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     doc.line(20, 251, W-20, 251);
     const preco = Number(unit.preco);
     const pagamentos = [
-      { fase: 'CPCV \u2014 Agora', pct: '15%', valor: preco * 0.15 },
-      { fase: '2.\u00aa Presta\u00e7\u00e3o \u2014 2027', pct: '10%', valor: preco * 0.10 },
-      { fase: 'Escritura P\u00fablica', pct: '75%', valor: preco * 0.75 },
+      { fase: 'CPCV', pct: '15%', valor: preco * 0.15 },
+      { fase: 'Refor\u00e7o 15 de Outubro', pct: '15%', valor: preco * 0.15 },
+      { fase: 'Conclus\u00e3o do 10.\u00ba piso (Dez 2027)', pct: '10%', valor: preco * 0.10 },
+      { fase: 'Conclus\u00e3o estrutura bet\u00e3o (Dez 2028)', pct: '10%', valor: preco * 0.10 },
+      { fase: 'Escritura \u2014 50% ap\u00f3s in\u00edcio de obras', pct: '50%', valor: preco * 0.50 },
     ];
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    let y = 258;
+    let y = 255;
     pagamentos.forEach(p => {
       doc.setTextColor(...GREY); doc.text(p.fase, 22, y);
       doc.setTextColor(...GOLD); doc.text(p.pct, 130, y, { align: 'right' });
@@ -5433,13 +5435,13 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
 
     // ---- P\u00c1GINA 3: GALERIA DO EMPREENDIMENTO ----
     const fotoUrls = [
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_01.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_02.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_03.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_04.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_05.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_06.jpg',
-      'https://dpsimobiliario.pt/boavistatowers/fotos/foto_07.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_01.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_02.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_03.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_04.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_05.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_06.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/fotos/nova_07.jpg',
     ];
     const fotoDataUrls = await Promise.all(fotoUrls.map(url => loadImageAsDataURL(url).catch(() => null)));
     const fotosValidas = fotoDataUrls.filter(Boolean);
