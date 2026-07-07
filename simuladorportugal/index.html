@@ -2585,6 +2585,7 @@ function loadSavedStates(onReady) {
       applyFilters();
       applyLakeFilters();
       if (typeof applyRaizesFilters === 'function') applyRaizesFilters();
+      if (typeof applyBoavistaFilters === 'function') applyBoavistaFilters();
       renderStats();
       if (typeof onReady === 'function') onReady();
     })
