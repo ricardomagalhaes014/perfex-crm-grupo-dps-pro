@@ -4421,6 +4421,32 @@ document.addEventListener('DOMContentLoaded', function() {
   applyBoavistaFilters();
 });
 
+function simLogin() {
+  const input = document.getElementById('simLoginInput');
+  const err = document.getElementById('simLoginError');
+  const pass = input ? input.value.trim() : '';
+  const validPasswords = ['dps2026', 'DPS2026', 'dps2025', 'DPS2025'];
+  if (validPasswords.includes(pass)) {
+    const screen = document.getElementById('simLoginScreen');
+    if (screen) screen.style.display = 'none';
+    try { sessionStorage.setItem('simAuth', '1'); } catch(e) {}
+  } else {
+    if (err) { err.style.display = 'block'; }
+    if (input) { input.value = ''; input.focus(); }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    if (sessionStorage.getItem('simAuth') === '1') {
+      const screen = document.getElementById('simLoginScreen');
+      if (screen) screen.style.display = 'none';
+    }
+  } catch(e) {}
+  const inp = document.getElementById('simLoginInput');
+  if (inp) inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') simLogin(); });
+});
+
 </script>
 
 <div id="simLoginScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#081528;z-index:99999;display:flex;align-items:center;justify-content:center;">
