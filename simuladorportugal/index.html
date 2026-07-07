@@ -984,7 +984,7 @@
             <div class="sim-field"><label>Pre&#231;o de Compra (&#8364;)</label><input type="number" id="boavistaSimPreco" readonly style="opacity:0.7;"></div>
             <div class="sim-field"><label>Valoriza&#231;&#227;o Anual Estimada (%)</label><input type="number" id="boavistaSimValorizacao" value="18" min="0" max="50" step="0.5" oninput="calcularBoavista()"></div>
             <div class="sim-field"><label>N&#250;mero de Meses para Venda</label><input type="number" id="boavistaSimMeses" value="24" min="1" max="120" oninput="calcularBoavista()"></div>
-            <div class="sim-field"><label>Regime Fiscal</label><select id="boavistaSimFiscal" onchange="calcularBoavista()"><option value="0.28" selected>Residente (28%)</option><option value="0.25">N&#227;o Residente (25%)</option><option value="0">Isento / NHR</option></select></div>
+
           </div>
           <div id="boavista-investido-info" style="background:rgba(197,165,90,0.08);border:1px solid rgba(197,165,90,0.25);padding:12px 16px;margin-top:20px;margin-bottom:4px;font-size:0.82rem;color:var(--gray);line-height:1.7;"></div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px;" id="boavistaResultGrid">
@@ -5206,7 +5206,6 @@ function calcularBoavista() {
   const preco = parseFloat(document.getElementById('boavistaSimPreco').value) || 0;
   const val = parseFloat(document.getElementById('boavistaSimValorizacao').value) || 15;
   const meses = parseInt(document.getElementById('boavistaSimMeses').value) || 12;
-  const taxa = parseFloat(document.getElementById('boavistaSimFiscal').value);
   const anos = meses / 12;
   const cessao = preco * Math.pow(1 + val / 100, anos);
   const mvBruta = cessao - preco;
@@ -5226,8 +5225,7 @@ async function gerarPropostaBoavistaFromPanel(btn) {
   if (!selectedBoavistaUnit) { alert('Nenhuma unidade seleccionada.'); return; }
   const valorizacao = parseFloat(document.getElementById('boavistaSimValorizacao').value) || 18;
   const meses = parseInt(document.getElementById('boavistaSimMeses').value) || 24;
-  const fiscalLabel = document.getElementById('boavistaSimFiscal').options[document.getElementById('boavistaSimFiscal').selectedIndex].text;
-  const simData = { valorizacao, meses, fiscalLabel };
+  const simData = { valorizacao, meses };
   await gerarPropostaBoavista(selectedBoavistaUnit, btn, simData);
 }
 
@@ -5370,21 +5368,16 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     // Par\u00e2metros
     const simMeses = simData ? simData.meses : 24;
     const simValorizacao = simData ? simData.valorizacao / 100 : 0.18;
-    const simFiscalLabel = simData ? simData.fiscalLabel : 'Residente (28%)';
     const simAnos = simMeses / 12;
     const valorCedencia = preco * Math.pow(1 + simValorizacao, simAnos);
     const maisValia = valorCedencia - preco;
-    const fiscalRate = parseFloat(document.getElementById('boavistaSimFiscal').value);
-    const imposto = maisValia * fiscalRate;
-    const lucroLiquido = maisValia - imposto;
     const capitalInvestido = preco * 0.15 + (simMeses >= 12 ? preco * 0.10 : 0);
     const roi = capitalInvestido > 0 ? (maisValia / capitalInvestido) * 100 : 0;
-    doc.setFillColor(15, 30, 55); doc.setDrawColor(...GOLD); doc.roundedRect(20, 42, W-40, 50, 3, 3, 'FD');
+    doc.setFillColor(15, 30, 55); doc.setDrawColor(...GOLD); doc.roundedRect(20, 42, W-40, 40, 3, 3, 'FD');
     const params2 = [
       ['Pre\u00e7o de Compra:', `${preco.toLocaleString('pt-PT')} \u20ac`],
       ['Valoriza\u00e7\u00e3o anual estimada:', `${simData ? simData.valorizacao : 18}% (introduzido pelo cliente)`],
       ['Per\u00edodo de simula\u00e7\u00e3o:', `${simMeses} meses`],
-      ['Regime fiscal aplicado:', simFiscalLabel],
     ];
     params2.forEach(([label, val], i) => {
       doc.setTextColor(...GREY); doc.setFontSize(9); doc.setFont('helvetica', 'normal');
@@ -5393,12 +5386,10 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     });
     // Resultados
     doc.setTextColor(...GOLD); doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-    doc.text('RESULTADOS ESTIMADOS', W/2, 110, { align: 'center' });
+    doc.text('RESULTADOS ESTIMADOS', W/2, 100, { align: 'center' });
     const resultados = [
       { label: 'Valor estimado de ced\u00eancia', valor: `${Math.round(valorCedencia).toLocaleString('pt-PT')} \u20ac`, gold: true },
       { label: 'Mais-valia bruta', valor: `${Math.round(maisValia).toLocaleString('pt-PT')} \u20ac`, gold: false },
-      { label: 'Imposto estimado', valor: `${Math.round(imposto).toLocaleString('pt-PT')} \u20ac`, gold: false },
-      { label: 'Lucro l\u00edquido estimado', valor: `${Math.round(lucroLiquido).toLocaleString('pt-PT')} \u20ac`, gold: true },
       { label: 'Capital investido at\u00e9 \u00e0 venda', valor: `${Math.round(capitalInvestido).toLocaleString('pt-PT')} \u20ac`, gold: false },
       { label: 'ROI (Retorno sobre Investimento)', valor: `${roi.toFixed(1)}%`, gold: true },
     ];
