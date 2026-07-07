@@ -3980,10 +3980,24 @@ function calcularBoavista() {
   const anos = meses / 12;
   const cessao = preco * Math.pow(1 + val / 100, anos);
   const mvBruta = cessao - preco;
-  const capital = preco * 0.15 + (meses >= 12 ? preco * 0.10 : 0);
+  // Plano de pagamento Boavista: 5 fases com meses estimados desde assinatura do CPCV
+  // Fase 1: CPCV 15% — mês 0 (sempre incluído)
+  // Fase 2: Reforço 15 de Outubro — 15% — estimado mês 3
+  // Fase 3: Conclusão 10.º piso (Dez 2027) — 10% — estimado mês 18
+  // Fase 4: Conclusão estrutura betão (Dez 2028) — 10% — estimado mês 30
+  // Fase 5: Escritura 50% — não incluída no capital investido até cedência
+  const fasesBoavista = [
+    { label: 'CPCV 15%', pct: 0.15, mes: 0 },
+    { label: 'Reforço Out. 15%', pct: 0.15, mes: 3 },
+    { label: 'Concl. 10.º piso 10%', pct: 0.10, mes: 18 },
+    { label: 'Concl. betão 10%', pct: 0.10, mes: 30 },
+  ];
+  const fasesAtivas = fasesBoavista.filter(f => f.mes <= meses);
+  const capital = fasesAtivas.reduce((s, f) => s + preco * f.pct, 0);
   const roi = capital > 0 ? (mvBruta / capital * 100) : 0;
   const fmt = v => '€ ' + Math.round(v).toLocaleString('pt-PT');
-  document.getElementById('boavista-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido:</strong> CPCV 15% = ${fmt(preco*0.15)}${meses >= 12 ? ' + 2.ª Prestação 10% = ' + fmt(preco*0.10) : ''} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
+  const parcelasStr = fasesAtivas.map(f => `${f.label} = ${fmt(preco * f.pct)}`).join(' + ');
+  document.getElementById('boavista-investido-info').innerHTML = `<strong style="color:var(--gold);">Capital investido até à venda (${meses} meses):</strong> ${parcelasStr} → <strong style="color:var(--gold);">Total: ${fmt(capital)}</strong>`;
   document.getElementById('boav-res-preco').textContent = fmt(preco);
   document.getElementById('boav-res-cessao').textContent = fmt(cessao);
   document.getElementById('boav-res-mais-valia').textContent = fmt(mvBruta);
@@ -4142,7 +4156,11 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     const simAnos = simMeses / 12;
     const valorCedencia = preco * Math.pow(1 + simValorizacao, simAnos);
     const maisValia = valorCedencia - preco;
-    const capitalInvestido = preco * 0.15 + (simMeses >= 12 ? preco * 0.10 : 0);
+    // Capital investido: somar fases do plano de pagamento até ao mês de cedência
+    // Fase 1: CPCV 15% — mês 0; Fase 2: Reforço Out. 15% — mês 3;
+    // Fase 3: Concl. 10.º piso 10% — mês 18; Fase 4: Concl. betão 10% — mês 30
+    const fasesPDF = [{pct:0.15,mes:0},{pct:0.15,mes:3},{pct:0.10,mes:18},{pct:0.10,mes:30}];
+    const capitalInvestido = fasesPDF.filter(f=>f.mes<=simMeses).reduce((s,f)=>s+preco*f.pct,0);
     const roi = capitalInvestido > 0 ? (maisValia / capitalInvestido) * 100 : 0;
     doc.setFillColor(15, 30, 55); doc.setDrawColor(...GOLD); doc.roundedRect(20, 42, W-40, 40, 3, 3, 'FD');
     const params2 = [
