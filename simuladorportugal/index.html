@@ -5473,7 +5473,46 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
     doc.setTextColor(...GOLD); doc.setFontSize(9); doc.setFont('helvetica', 'bolditalic');
     doc.text('N\u00e3o vendemos casas, estruturamos investimento.', W/2, H - 8, { align: 'center' });
     doc.setFillColor(...GOLD); doc.rect(0, H-3, W, 3, 'F');
-
+    // ---- P\u00c1GINA 4: PLANTAS ----
+    const plantaUrls = [
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_01.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_02.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_03.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_04.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_05.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_06.jpg',
+      'https://dpsimobiliario.pt/boavistatowers/plantas/planta_07.jpg',
+    ];
+    const plantaDataUrls = await Promise.all(plantaUrls.map(url => loadImageAsDataURL(url).catch(() => null)));
+    const plantasValidas = plantaDataUrls.filter(Boolean);
+    if (plantasValidas.length > 0) {
+      doc.addPage();
+      doc.setFillColor(...DARK); doc.rect(0, 0, W, H, 'F');
+      doc.setFillColor(...GOLD); doc.rect(0, 0, W, 3, 'F');
+      doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('DPS IMOBILI\u00c1RIO', 20, 15);
+      doc.setTextColor(...GREY); doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+      doc.text('dpsimobiliario.pt', 20, 21);
+      doc.setDrawColor(...GOLD); doc.line(20, 25, W-20, 25);
+      doc.setTextColor(...GOLD); doc.setFontSize(14); doc.setFont('helvetica', 'bold');
+      doc.text('PLANTAS', W/2, 35, { align: 'center' });
+      const pCols = 2, pRows = 4;
+      const pMarginX = 10, pMarginY = 40;
+      const pGapX = 4, pGapY = 4;
+      const pImgW = (W - pMarginX * 2 - pGapX * (pCols - 1)) / pCols;
+      const pImgH = (H - pMarginY - 30 - pGapY * (pRows - 1)) / pRows;
+      plantasValidas.slice(0, 7).forEach((imgData, i) => {
+        if (!imgData) return;
+        const col = i % pCols;
+        const row = Math.floor(i / pCols);
+        const x = pMarginX + col * (pImgW + pGapX);
+        const y = pMarginY + row * (pImgH + pGapY);
+        try { doc.addImage(imgData, 'JPEG', x, y, pImgW, pImgH); } catch(e) {}
+      });
+      doc.setTextColor(...GOLD); doc.setFontSize(9); doc.setFont('helvetica', 'bolditalic');
+      doc.text('N\u00e3o vendemos casas, estruturamos investimento.', W/2, H - 8, { align: 'center' });
+      doc.setFillColor(...GOLD); doc.rect(0, H-3, W, 3, 'F');
+    }
     doc.save(`Proposta_Boavista_Fraccao_${unit.fraccao}_${unit.tipologia}.pdf`);
   } catch(err) {
     alert('Erro ao gerar proposta: ' + err.message);
