@@ -1365,7 +1365,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ============================================================
 function selectEmp(emp) {
   currentEmp = emp;
-  ['boavista','bh','lake','raizes','gg','gp','sjp','tp','cerveira'].forEach(e => {
+  ['boavista','bh','lake','raizes','gp'].forEach(e => {
     const card = document.getElementById('card-' + e);
     if (card) card.classList.toggle('active', emp === e);
     const sec = document.getElementById(e + '-section');
@@ -1373,19 +1373,15 @@ function selectEmp(emp) {
   });
   document.getElementById('bh-filters').style.display = emp === 'bh' ? 'block' : 'none';
   document.getElementById('raizes-filters').style.display = emp === 'raizes' ? 'block' : 'none';
-  if (ggF) ggF.style.display = emp === 'gg' ? 'block' : 'none';
   const gpF = document.getElementById('gp-filters');
   if (gpF) gpF.style.display = emp === 'gp' ? 'block' : 'none';
-  if (sjpF) sjpF.style.display = emp === 'sjp' ? 'block' : 'none';
-  if (tpF) tpF.style.display = emp === 'tp' ? 'block' : 'none';
   const boavistaF = document.getElementById('boavista-filters');
   if (boavistaF) boavistaF.style.display = emp === 'boavista' ? 'block' : 'none';
-  if (cerveiraF) cerveiraF.style.display = emp === 'cerveira' ? 'block' : 'none';
   if (emp === 'raizes') applyRaizesFilters();
-  if (emp === 'gg')   if (emp === 'gp') applyGpFilters();
-  if (emp === 'sjp')   if (emp === 'tp')   if (emp === 'bh') applyFilters();
+  if (emp === 'gp') applyGpFilters();
+  if (emp === 'bh') applyFilters();
   if (emp === 'boavista') applyBoavistaFilters();
-  if (emp === 'cerveira') }
+}
 
 // ============================================================
 // FILTROS
