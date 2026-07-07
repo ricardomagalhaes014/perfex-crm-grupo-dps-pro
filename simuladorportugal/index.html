@@ -5597,12 +5597,15 @@ function renderBoavistaTable(data) {
 function renderBoavistaStats() {
   const total = BOAVISTA_UNITS.length;
   const disp = BOAVISTA_UNITS.filter(u => u.status === 'Disponível').length;
-  const vend = BOAVISTA_UNITS.filter(u => u.status !== 'Disponível').length;
+  const vendido = BOAVISTA_UNITS.filter(u => u.status === 'Vendido').length;
+  const reservado = BOAVISTA_UNITS.filter(u => u.status === 'Reservado').length;
+  const dps = BOAVISTA_UNITS.filter(u => u.status === 'DPS').length;
+  const vend = vendido + reservado + dps;
   const absorcao = total > 0 ? Math.round((vend / total) * 100) : 0;
   const el = id => document.getElementById(id);
   if (el('boavista-disp-count')) el('boavista-disp-count').textContent = disp;
   const sb = el('boavistaStatsBar');
-  if (sb) sb.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total Unidades</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend}</div><div class="stat-box-label">Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${absorcao}%</div><div class="stat-box-label">Absorção</div></div>`;
+  if (sb) sb.innerHTML = `<div class="stat-box"><div class="stat-box-val">${total}</div><div class="stat-box-label">Total Unidades</div></div><div class="stat-box"><div class="stat-box-val" style="color:#22c55e">${disp}</div><div class="stat-box-label">Disponíveis</div></div><div class="stat-box"><div class="stat-box-val" style="color:#ef4444">${vend}</div><div class="stat-box-label">Indisponíveis</div></div><div class="stat-box"><div class="stat-box-val">${absorcao}%</div><div class="stat-box-label">Absorção</div></div><div class="stat-box"><div class="stat-box-val" style="color:#f59e0b">${dps}</div><div class="stat-box-label">DPS (vendidas)</div></div>`;
 }
 
 function applyBoavistaFilters() {
