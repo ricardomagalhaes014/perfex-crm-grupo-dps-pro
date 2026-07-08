@@ -1,0 +1,111 @@
+/* App Launcher — grelha de apps estilo iPhone para o Perfex CRM */
+
+.app-launcher {
+    margin: 10px 0 25px;
+}
+
+.app-launcher-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 22px 14px;
+    align-items: start;
+}
+
+.app-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    text-decoration: none !important;
+    color: inherit;
+    transition: transform .12s ease;
+}
+
+.app-tile:hover,
+.app-tile:focus {
+    text-decoration: none !important;
+    color: inherit;
+    transform: translateY(-2px);
+}
+
+.app-tile-icon {
+    position: relative;
+    width: 62px;
+    height: 62px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+.app-tile:hover .app-tile-icon {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+}
+
+.app-tile-icon i {
+    line-height: 1;
+}
+
+.app-tile-label {
+    display: block;
+    margin-top: 7px;
+    font-size: 12px;
+    line-height: 1.25;
+    color: #4b5563;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-tile-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    line-height: 18px;
+    font-weight: 600;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+/* Paleta de cores dos quadrados (fundo suave + ícone forte da mesma família) */
+.app-tile-color-1 .app-tile-icon { background: #e6f1fb; color: #1d6fb8; } /* azul */
+.app-tile-color-2 .app-tile-icon { background: #eafaf1; color: #1d9e75; } /* verde-água */
+.app-tile-color-3 .app-tile-icon { background: #eeedfe; color: #5a4fc4; } /* roxo */
+.app-tile-color-4 .app-tile-icon { background: #fdf3e2; color: #c07d17; } /* âmbar */
+.app-tile-color-5 .app-tile-icon { background: #fbeaf0; color: #c0426a; } /* rosa */
+.app-tile-color-6 .app-tile-icon { background: #eafcef; color: #2f9e44; } /* verde */
+.app-tile-color-7 .app-tile-icon { background: #fbeee8; color: #c65a35; } /* coral */
+.app-tile-color-8 .app-tile-icon { background: #eef1f4; color: #566370; } /* cinza */
+
+/* Compatibilidade com o modo escuro do Perfex */
+.dark .app-tile-label,
+body.dark .app-tile-label {
+    color: #b9c2cc;
+}
+
+.dark .app-tile-badge,
+body.dark .app-tile-badge {
+    box-shadow: 0 0 0 2px #1f2a37;
+}
+
+@media (max-width: 767px) {
+    .app-launcher-grid {
+        grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+        gap: 18px 10px;
+    }
+    .app-tile-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 23px;
+    }
+}
