@@ -9,28 +9,39 @@ function dps_propostas_empreendimentos()
 {
     return [
         'boavista' => [
-            'nome'       => 'Boavista Towers',
-            'states_key' => 'boavista_states',
-            'site'       => 'https://dpsimobiliario.pt/boavistatowers/',
-            'dossier'    => 'https://dpsimobiliario.pt/boavistatowers/dossier-boavista-tower.pdf',
-            'anexos'     => [
-                ['url' => 'https://dpsimobiliario.pt/boavistatowers/tabela-fraccoes-bloco1.pdf', 'nome' => 'Tabela Fracoes Bloco 1.pdf'],
-                ['url' => 'https://dpsimobiliario.pt/boavistatowers/tabela-fraccoes-bloco2.pdf', 'nome' => 'Tabela Fracoes Bloco 2.pdf'],
-            ],
+            'nome'         => 'Boavista Towers',
+            'states_key'   => 'boavista_states',
+            'site'         => 'https://dpsimobiliario.pt/boavistatowers/',
+            'dossier'      => 'https://dpsimobiliario.pt/boavistatowers/dossier-boavista-tower.pdf',
+            'tem_proposta' => true,
         ],
         'raizes' => [
             'nome' => 'Raizes', 'states_key' => 'raizes_states',
-            'site' => 'https://dpsimobiliario.pt/raizes/', 'dossier' => null, 'anexos' => [],
+            'site' => 'https://dpsimobiliario.pt/raizes/', 'dossier' => null, 'tem_proposta' => true,
         ],
         'belohorizonte' => [
             'nome' => 'Belo Horizonte', 'states_key' => 'bh_states',
-            'site' => 'https://dpsimobiliario.pt/belohorizonte/', 'dossier' => null, 'anexos' => [],
+            'site' => 'https://dpsimobiliario.pt/belohorizonte/', 'dossier' => null, 'tem_proposta' => true,
         ],
         'lake' => [
             'nome' => 'Lake Towers', 'states_key' => 'lake_states',
-            'site' => 'https://dpsimobiliario.pt/', 'dossier' => null, 'anexos' => [],
+            'site' => 'https://dpsimobiliario.pt/', 'dossier' => null, 'tem_proposta' => false,
         ],
     ];
+}
+
+/**
+ * Catálogo de unidades (fraccao => {tipologia, area, preco}), extraído do simulador.
+ */
+function dps_propostas_units()
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+    $path = module_dir_path(DPS_PROPOSTAS_MODULE_NAME, 'units.json');
+    $cache = is_file($path) ? (json_decode(file_get_contents($path), true) ?: []) : [];
+    return $cache;
 }
 
 /* ---------------- Evolution API (reutiliza opções do dps_whatsapp) ---------------- */
@@ -98,8 +109,14 @@ function dps_propostas_send_document($staff_id, $number, $url, $filename, $capti
  * Lê a disponibilidade ao vivo do simulador (save_states.php).
  * Devolve ['count'=>int, 'codes'=>[...]] para a chave dada.
  */
-function dps_propostas_disponibilidade($states_key)
+function dps_propostas_disponibilidade($slug)
 {
+    $emps = dps_propostas_empreendimentos();
+    if (! isset($emps[$slug])) {
+        return ['ok' => false, 'count' => 0, 'por_tipologia' => [], 'codes' => []];
+    }
+    $states_key = $emps[$slug]['states_key'];
+
     $ch = curl_init('https://dpsimobiliario.pt/simuladorportugal/save_states.php');
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -110,15 +127,33 @@ function dps_propostas_disponibilidade($states_key)
     curl_close($ch);
     $data = json_decode((string) $raw, true);
     if (! is_array($data) || ! isset($data[$states_key]) || ! is_array($data[$states_key])) {
-        return ['count' => 0, 'codes' => [], 'ok' => false];
+        return ['ok' => false, 'count' => 0, 'por_tipologia' => [], 'codes' => []];
     }
+
+    $units = dps_propostas_units();
+    $cat   = isset($units[$slug]) ? $units[$slug] : [];
+
     $codes = [];
+    $byTipo = [];
     foreach ($data[$states_key] as $code => $estado) {
-        if (trim((string) $estado) === 'Disponível') {
-            $codes[] = $code;
+        if (trim((string) $estado) !== 'Disponível') {
+            continue;
+        }
+        $codes[] = $code;
+        $u     = isset($cat[$code]) ? $cat[$code] : null;
+        $tip   = ($u && ! empty($u['tipologia'])) ? $u['tipologia'] : 'Outros';
+        $preco = ($u && isset($u['preco'])) ? (float) $u['preco'] : 0;
+        if (! isset($byTipo[$tip])) {
+            $byTipo[$tip] = ['tipologia' => $tip, 'n' => 0, 'min' => null];
+        }
+        $byTipo[$tip]['n']++;
+        if ($preco > 0 && ($byTipo[$tip]['min'] === null || $preco < $byTipo[$tip]['min'])) {
+            $byTipo[$tip]['min'] = $preco;
         }
     }
-    return ['count' => count($codes), 'codes' => $codes, 'ok' => true];
+    ksort($byTipo);
+
+    return ['ok' => true, 'count' => count($codes), 'por_tipologia' => array_values($byTipo), 'codes' => $codes];
 }
 
 /**

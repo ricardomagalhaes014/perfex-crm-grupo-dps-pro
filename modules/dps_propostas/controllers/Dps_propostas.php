@@ -54,10 +54,7 @@ class Dps_propostas extends AdminController
             return;
         }
 
-        $disp  = dps_propostas_disponibilidade($emp['states_key']);
-        $lista = $disp['count'] > 0
-            ? implode(', ', array_slice($disp['codes'], 0, 60)) . ($disp['count'] > 60 ? '…' : '')
-            : '—';
+        $disp = dps_propostas_disponibilidade($key);
 
         $primeiro = trim(explode(' ', (string) $lead->name)[0]);
         $msg  = 'Olá' . ($primeiro ? " {$primeiro}" : '') . "! 👋\n\n";
@@ -66,18 +63,20 @@ class Dps_propostas extends AdminController
             $msg .= "📄 Dossier comercial:\n" . $emp['dossier'] . "\n\n";
         }
         $msg .= "🌐 Mais informação:\n" . $emp['site'] . "\n\n";
-        $msg .= '🏠 Unidades disponíveis: *' . $disp['count'] . "*\n" . $lista;
+        $msg .= '🏠 *' . $disp['count'] . ' unidade' . ($disp['count'] === 1 ? '' : 's') . ' disponíve' . ($disp['count'] === 1 ? 'l' : 'is') . '*';
+        if (! empty($disp['por_tipologia'])) {
+            $msg .= ":\n";
+            foreach ($disp['por_tipologia'] as $t) {
+                $linha = '• ' . $t['tipologia'] . ' — ' . $t['n'];
+                if (! empty($t['min'])) {
+                    $linha .= ' (desde ' . number_format($t['min'], 0, ',', '.') . ' €)';
+                }
+                $msg .= $linha . "\n";
+            }
+        }
 
         $r  = dps_propostas_send_text($staff_id, $number, $msg);
         $ok = $r['ok'];
-
-        $anexos = [];
-        foreach ($emp['anexos'] as $ax) {
-            $ra = dps_propostas_send_document($staff_id, $number, $ax['url'], $ax['nome']);
-            if ($ra['ok']) {
-                $anexos[] = $ax['nome'];
-            }
-        }
 
         $this->db->insert(db_prefix() . 'dps_propostas', [
             'lead_id'          => $lead_id,
@@ -88,7 +87,7 @@ class Dps_propostas extends AdminController
             'lead_status_id'   => (int) $lead->status,
             'lead_status_nome' => $this->status_name($lead->status),
             'ficheiro'         => $emp['dossier'],
-            'detalhe'          => 'Disponíveis: ' . $disp['count'] . ($anexos ? '; anexos: ' . implode(', ', $anexos) : ''),
+            'detalhe'          => $disp['count'] . ' unidades disponíveis',
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
@@ -96,7 +95,7 @@ class Dps_propostas extends AdminController
         echo json_encode([
             'success' => $ok,
             'message' => $ok
-                ? ('Informação enviada para ' . $lead->name . ' — ' . $disp['count'] . ' unidades disponíveis' . ($anexos ? ' (+' . count($anexos) . ' anexos)' : '') . '.')
+                ? ('Informação enviada para ' . $lead->name . ' — ' . $disp['count'] . ' unidades disponíveis.')
                 : 'Falha no envio pelo WhatsApp.',
         ]);
     }
