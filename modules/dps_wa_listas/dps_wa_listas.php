@@ -31,8 +31,9 @@ hooks()->add_action('lead_status_changed', 'dps_wa_listas_enqueue');
 
 /**
  * O cron do Perfex processa a fila (poucos por execução) e fala com a Evolution API.
+ * Hook correto do Perfex = after_cron_run (não 'perfex_cron').
  */
-hooks()->add_action('perfex_cron', 'dps_wa_listas_process_queue');
+hooks()->add_action('after_cron_run', 'dps_wa_listas_process_queue');
 
 /**
  * Item na barra lateral (setup / estado da sincronização).

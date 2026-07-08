@@ -34,8 +34,8 @@ function dps_wa_listas_evo_request($method, $path, $body = null)
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST  => $method,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT        => 8,
         CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
             'apikey: ' . $key,
@@ -100,6 +100,47 @@ function dps_wa_listas_handle_label($instance, $number, $label_id, $action)
     ]);
 }
 
+/**
+ * Envia uma mensagem de texto por uma instância.
+ */
+function dps_wa_listas_send_text($instance, $number, $text)
+{
+    return dps_wa_listas_evo_request('POST', '/message/sendText/' . rawurlencode($instance), [
+        'number'      => $number,
+        'textMessage' => ['text' => $text],
+    ]);
+}
+
+/**
+ * Número (só dígitos) do dono da instância — para notificar o próprio comercial.
+ */
+function dps_wa_listas_instance_owner($instance)
+{
+    $res = dps_wa_listas_evo_request('GET', '/instance/fetchInstances?instanceName=' . rawurlencode($instance));
+    if ($res['ok'] && is_array($res['data'])) {
+        $d    = $res['data'];
+        $inst = isset($d['instance']) ? $d['instance'] : (isset($d[0]['instance']) ? $d[0]['instance'] : $d);
+        $owner = is_array($inst) && isset($inst['owner']) ? $inst['owner'] : null;
+        if ($owner) {
+            $parts = explode('@', $owner);
+            return preg_replace('/[^0-9]/', '', $parts[0]);
+        }
+    }
+    return null;
+}
+
+/**
+ * Estados que disparam notificação ao comercial (por omissão: os VIP).
+ */
+function dps_wa_listas_notify_statuses()
+{
+    $v = get_option('dps_wa_listas_notify_statuses');
+    if ($v === '' || $v === null) {
+        return [17, 14, 18];
+    }
+    return array_values(array_filter(array_map('intval', explode(',', $v))));
+}
+
 /* -------------------------------------------------------------------------
  *  Fila
  * ---------------------------------------------------------------------- */
@@ -160,6 +201,19 @@ function dps_wa_listas_enqueue($data)
         'status'        => 'pending',
         'created_at'    => date('Y-m-d H:i:s'),
     ]);
+    $qid = $CI->db->insert_id();
+
+    // Como o cron do Perfex não é fiável aqui, processamos JÁ (síncrono) a
+    // entrada acabada de inserir — mas com um limite por request para não
+    // prender ações em massa (o resto fica pendente para o cron/retry).
+    static $sync_done = 0;
+    if ($qid && $sync_done < 2) {
+        $sync_done++;
+        $row = $CI->db->where('id', $qid)->get(db_prefix() . 'dps_wa_label_queue')->row();
+        if ($row) {
+            dps_wa_listas_process_one($row);
+        }
+    }
 
     return $data;
 }
@@ -214,60 +268,73 @@ function dps_wa_listas_process_one($r)
     }
 
     // Dados da lead.
-    $lead = $CI->db->select('phonenumber')->where('id', (int) $r->lead_id)
+    $lead     = $CI->db->select('name, phonenumber')->where('id', (int) $r->lead_id)
         ->get(db_prefix() . 'leads')->row();
-    $number = $lead ? preg_replace('/[^0-9]/', '', (string) $lead->phonenumber) : '';
-    if ($number === '') {
-        return $set('skipped', 'lead sem telefone');
-    }
-
-    // Nomes dos estados (= nomes das etiquetas).
+    $number   = $lead ? preg_replace('/[^0-9]/', '', (string) $lead->phonenumber) : '';
     $new_name = dps_wa_listas_status_name($r->new_status_id);
     $old_name = dps_wa_listas_status_name($r->old_status_id);
-
     $instance = dps_wa_listas_instance_name($r->staff_id);
-    $labels   = dps_wa_listas_find_labels($instance);
 
-    if (empty($labels)) {
-        return $set('skipped', 'sem etiquetas nesta conta (criar no WhatsApp Business)');
-    }
+    $notes     = [];
+    $notified  = false;
 
-    $errors = [];
-    $did    = false;
-
-    // Adicionar a nova.
-    if ($new_name) {
-        $k = mb_strtolower(trim($new_name));
-        if (isset($labels[$k])) {
-            $res = dps_wa_listas_handle_label($instance, $number, $labels[$k], 'add');
-            if ($res['ok']) {
-                $did = true;
+    // (1) NOTIFICAÇÃO ao comercial — fiável, não depende de etiquetas.
+    if (get_option('dps_wa_listas_notify_agent') == '1'
+        && in_array((int) $r->new_status_id, dps_wa_listas_notify_statuses(), true)) {
+        $owner = dps_wa_listas_instance_owner($instance);
+        if ($owner) {
+            $msg = '🔔 *' . ($new_name ?: 'Novo estado') . "*\n"
+                 . 'Lead: ' . ($lead && $lead->name ? $lead->name : ('#' . (int) $r->lead_id)) . "\n"
+                 . ($number !== '' ? ('Tel: ' . $number . "\n") : '')
+                 . 'Abrir: ' . admin_url('leads/index/' . (int) $r->lead_id);
+            $resN = dps_wa_listas_send_text($instance, $owner, $msg);
+            if ($resN['ok']) {
+                $notified = true;
+                $notes[]  = 'notificado';
             } else {
-                $errors[] = 'add "' . $new_name . '": ' . ($res['error'] ?: ('HTTP ' . $res['http']));
+                $notes[] = 'notif falhou: ' . ($resN['error'] ?: ('HTTP ' . $resN['http']));
             }
         } else {
-            $errors[] = 'etiqueta "' . $new_name . '" não existe na conta';
+            $notes[] = 'notif: sem número do comercial';
         }
     }
 
-    // Remover a antiga (se diferente).
-    if ($old_name && $old_name !== $new_name) {
-        $k = mb_strtolower(trim($old_name));
-        if (isset($labels[$k])) {
-            $res = dps_wa_listas_handle_label($instance, $number, $labels[$k], 'remove');
-            if (! $res['ok']) {
-                $errors[] = 'remove "' . $old_name . '": ' . ($res['error'] ?: ('HTTP ' . $res['http']));
+    // (2) ETIQUETA nativa — best-effort (requer WhatsApp Business com etiquetas).
+    $labelled = false;
+    if ($number === '') {
+        $notes[] = 'etiqueta: lead sem telefone';
+    } else {
+        $labels = dps_wa_listas_find_labels($instance);
+        if (empty($labels)) {
+            $notes[] = 'etiqueta: conta sem etiquetas (criar no WhatsApp Business)';
+        } else {
+            if ($new_name) {
+                $k = mb_strtolower(trim($new_name));
+                if (isset($labels[$k])) {
+                    $res = dps_wa_listas_handle_label($instance, $number, $labels[$k], 'add');
+                    if ($res['ok']) {
+                        $labelled = true;
+                    } else {
+                        $notes[] = 'add "' . $new_name . '": ' . ($res['error'] ?: ('HTTP ' . $res['http']));
+                    }
+                } else {
+                    $notes[] = 'etiqueta "' . $new_name . '" não existe';
+                }
+            }
+            if ($old_name && $old_name !== $new_name) {
+                $k = mb_strtolower(trim($old_name));
+                if (isset($labels[$k])) {
+                    $res = dps_wa_listas_handle_label($instance, $number, $labels[$k], 'remove');
+                    if (! $res['ok']) {
+                        $notes[] = 'remove "' . $old_name . '": ' . ($res['error'] ?: ('HTTP ' . $res['http']));
+                    }
+                }
             }
         }
     }
 
-    if ($did && empty($errors)) {
-        return $set('done', null);
-    }
-    if ($did) {
-        return $set('done', implode(' | ', $errors));
-    }
-    return $set('skipped', implode(' | ', $errors) ?: 'nada aplicado');
+    $done = $notified || $labelled;
+    return $set($done ? 'done' : 'skipped', implode(' | ', $notes) ?: null);
 }
 
 function dps_wa_listas_status_name($status_id)
