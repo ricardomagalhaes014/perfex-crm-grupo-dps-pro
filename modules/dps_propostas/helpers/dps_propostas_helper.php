@@ -126,7 +126,9 @@ function dps_propostas_send_document_b64($staff_id, $number, $b64, $filename, $c
  */
 function dps_propostas_gerar_pdf_disponiveis($emp_nome, $unidades)
 {
-    include_once module_dir_path(DPS_PROPOSTAS_MODULE_NAME, 'libraries/Dps_disponiveis_pdf.php');
+    if (! class_exists('TCPDF')) {
+        @include_once APPPATH . 'vendor/autoload.php';
+    }
 
     $rows = '';
     foreach ($unidades as $u) {
@@ -147,7 +149,16 @@ function dps_propostas_gerar_pdf_disponiveis($emp_nome, $unidades)
         . '<th>Fração</th><th>Tipologia</th><th>Área</th><th>Preço</th></tr></thead>'
         . '<tbody>' . $rows . '</tbody></table>';
 
-    $pdf = (new Dps_disponiveis_pdf('Unidades Disponiveis - ' . $emp_nome, $html))->prepare();
+    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false, false);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetCreator('DPS');
+    $pdf->SetTitle('Unidades Disponiveis - ' . $emp_nome);
+    $pdf->SetMargins(12, 12, 12);
+    $pdf->SetAutoPageBreak(true, 12);
+    $pdf->AddPage();
+    $pdf->writeHTML($html, true, false, true, false, '');
+
     return base64_encode($pdf->Output('disponiveis.pdf', 'S'));
 }
 
