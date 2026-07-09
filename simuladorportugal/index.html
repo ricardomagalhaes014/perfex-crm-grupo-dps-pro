@@ -4434,12 +4434,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v9 (gerar = enviar direto ao CRM, sem postMessage) -->
+<!-- DPS_PROPOSTA_INJECT v13 (captura via construtor) -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
   var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
   var hasCtx = !!(ctx.lead_id && ctx.staff_id && ctx.token);
+  function beacon(m){} // diagnóstico desativado
   if (!hasCtx) { return; } // fora do CRM: comportamento normal (download)
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
   var embedded = !!(window.parent && window.parent !== window);
@@ -4468,6 +4469,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function send() {
     if (!last || sending) { return; }
     sending = true;
+    beacon('send-start unit=' + (last.unit || '') + ' b64len=' + (last.base64 || '').length);
     status('📲 A enviar a proposta ao cliente…', 'wait');
     // Envio DIRETO ao endpoint do CRM (sem postMessage). Envia pela instância staff-<id>
     // (o utilizador logado que abriu o simulador) e regista em "Propostas Enviadas".
@@ -4475,12 +4477,13 @@ document.addEventListener('DOMContentLoaded', function() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
     }).then(function (r) { return r.json(); })
-      .then(function (d) { sending = false; status(d && d.success ? '✅ ' + (d.message || 'Proposta enviada ao cliente!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'), (d && d.success) ? 'ok' : 'err'); })
-      .catch(function () { sending = false; status('⚠️ Erro de comunicação com o CRM.', 'err'); });
+      .then(function (d) { sending = false; beacon('send-result ok=' + !!(d && d.success) + ' msg=' + ((d && d.message) || '')); status(d && d.success ? '✅ ' + (d.message || 'Proposta enviada ao cliente!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'), (d && d.success) ? 'ok' : 'err'); })
+      .catch(function (e) { sending = false; beacon('send-error ' + e); status('⚠️ Erro de comunicação com o CRM.', 'err'); });
   }
 
   function capture(doc, filename) {
     try {
+      beacon('capture fn=' + String(filename));
       if (!/proposta/i.test(String(filename))) { return false; }
       var nm = parseName(filename);
       last = { base64: doc.output('datauristring'), filename: String(filename), unit: nm.unit, emp: nm.emp };
@@ -4501,23 +4504,91 @@ document.addEventListener('DOMContentLoaded', function() {
         return orig.apply(this, arguments);
       };
       proto.__dpsPatched = true;
-      log('[DPS] jsPDF hook aplicado (v8).');
+      log('[DPS] jsPDF hook aplicado.');
+      beacon('hook-applied');
       return true;
     } catch (e) { return false; }
   }
-  if (window.jspdf) { patchProto(window.jspdf); }
-  else { try { var _j; Object.defineProperty(window, 'jspdf', { configurable: true, get: function () { return _j; }, set: function (v) { _j = v; patchProto(v); } }); } catch (e) {} }
-  var t1 = 0, iv1 = setInterval(function () { if (patchProto(window.jspdf) || ++t1 > 2400) { clearInterval(iv1); } }, 300);
+  // Embrulha o CONSTRUTOR do jsPDF: cada documento criado tem o save() intercetado no próprio
+  // objeto (à prova de bala, independente da estrutura do prototype). patchProto fica como reforço.
+  function wrapJsPDF(J) {
+    try {
+      if (!J || typeof J.jsPDF !== 'function') { return false; }
+      if (J.__dpsWrapped) { return true; }
+      if (typeof Proxy === 'undefined' || typeof Reflect === 'undefined') { return false; }
+      var Real = J.jsPDF;
+      J.jsPDF = new Proxy(Real, {
+        construct: function (target, args) {
+          var inst = Reflect.construct(target, args);
+          try {
+            var origSave = inst.save;
+            inst.save = function (fn) {
+              if (/proposta/i.test(String(fn || ''))) { beacon('capture-ctor fn=' + fn); try { capture(inst, fn); } catch (e) { beacon('cap-err ' + e); } return inst; }
+              return (typeof origSave === 'function') ? origSave.apply(inst, arguments) : inst;
+            };
+          } catch (e) {}
+          return inst;
+        }
+      });
+      J.__dpsWrapped = true;
+      beacon('ctor-wrapped');
+      return true;
+    } catch (e) { beacon('wrap-err ' + e); return false; }
+  }
+  function hookAll(J) { var a = wrapJsPDF(J); var b = patchProto(J); return a || b; }
+  if (window.jspdf) { hookAll(window.jspdf); }
+  else {
+    try { var _j; Object.defineProperty(window, 'jspdf', { configurable: true, get: function () { return _j; }, set: function (v) { _j = v; hookAll(v); } }); } catch (e) {}
+    // Pré-carregar o jsPDF já, para o gerador encontrar a NOSSA versão embrulhada e não recarregar.
+    try {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = function () { hookAll(window.jspdf); beacon('preload-ok'); };
+      s.onerror = function () { beacon('preload-fail'); };
+      document.head.appendChild(s);
+    } catch (e) {}
+  }
+  var t1 = 0, iv1 = setInterval(function () { if (hookAll(window.jspdf) && window.jspdf && window.jspdf.__dpsWrapped || ++t1 > 2400) { clearInterval(iv1); } }, 300);
   // Sinal visível de que o simulador está ligado ao CRM (se não aparecer, o token/URL não chegou).
   status('✅ Simulador ligado ao CRM — gera a proposta que ela é enviada ao cliente.', 'ok');
 
+  // --- DIAGNÓSTICO v11: erros JS + estado do jsPDF + wrap das funções de gerar ---
+  window.addEventListener('error', function (e) { beacon('js-error ' + ((e && e.message) || '') + ' @' + String((e && e.filename) || '').slice(-32) + ':' + (e && e.lineno)); });
+  window.addEventListener('unhandledrejection', function (e) { beacon('js-reject ' + String((e && e.reason && (e.reason.message || e.reason)) || '').slice(0, 160)); });
+  var probeT = 0, probed = false, pi = setInterval(function () {
+    if (window.jspdf && !probed) { probed = true; clearInterval(pi); var J = window.jspdf; beacon('jspdf-shape hasJsPDF=' + (!!J.jsPDF) + ' protoSave=' + (J.jsPDF && J.jsPDF.prototype && typeof J.jsPDF.prototype.save) + ' autoTable=' + (J.jsPDF && J.jsPDF.prototype && typeof J.jsPDF.prototype.autoTable)); }
+    if (++probeT > 4000) { clearInterval(pi); }
+  }, 250);
+  ['gerarPropostaBoavista', 'gerarPropostaRaizes', 'gerarPropostaBh'].forEach(function (fn) {
+    var iv = setInterval(function () {
+      if (typeof window[fn] === 'function' && !window[fn].__dpsWrapped) {
+        clearInterval(iv);
+        var orig = window[fn];
+        window[fn] = function () {
+          beacon('gen-start ' + fn);
+          try {
+            var p = orig.apply(this, arguments);
+            Promise.resolve(p).then(function () { beacon('gen-done ' + fn); }, function (e) { beacon('gen-reject ' + fn + ' ' + String((e && (e.message || e)) || '').slice(0, 160)); });
+            return p;
+          } catch (e) { beacon('gen-throw ' + fn + ' ' + String((e && (e.message || e)) || '').slice(0, 160)); throw e; }
+        };
+        window[fn].__dpsWrapped = true;
+        beacon('wrapped ' + fn);
+      }
+    }, 300);
+    setTimeout(function () { clearInterval(iv); }, 60000);
+  });
+
   // "Gerar Proposta PDF" -> "Enviar Proposta ao Cliente" (dentro do CRM já envia direto).
   function relabel() {
-    document.querySelectorAll('[onclick*="gerarProposta"]').forEach(function (b) {
+    var found = document.querySelectorAll('[onclick*="gerarProposta"]');
+    found.forEach(function (b) {
       if (b.__dpsRelabel) { return; }
       b.__dpsRelabel = true;
       b.innerHTML = '📲 Enviar Proposta ao Cliente';
+      b.addEventListener('click', function () { beacon('btn-click ' + (b.getAttribute('onclick') || '').slice(0, 40)); }, true);
     });
+    if (found.length && !window.__dpsRelabelLogged) { window.__dpsRelabelLogged = true; beacon('relabel n=' + found.length); }
   }
   var t2 = 0, iv2 = setInterval(function () { relabel(); if (++t2 > 300) { clearInterval(iv2); } }, 500);
   document.addEventListener('DOMContentLoaded', relabel);

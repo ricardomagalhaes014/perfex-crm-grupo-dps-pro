@@ -159,7 +159,7 @@
             + '&token=' + encodeURIComponent(propToken)
             + '&empreendimento=' + encodeURIComponent(emp)
             + '&nome=' + encodeURIComponent(leadNome || '')
-            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709f';
+            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709h&_cb=' + Date.now();
     }
     var simWrap = root.querySelector('#dps_sim_wrap');
     var simFrame = root.querySelector('#dps_sim_iframe');
