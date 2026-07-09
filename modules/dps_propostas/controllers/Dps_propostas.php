@@ -114,7 +114,7 @@ class Dps_propostas extends AdminController
             'success' => $ok,
             'message' => $ok
                 ? ('Informação enviada para ' . $lead->name . ' — ' . $disp['count'] . ' unidades disponíveis' . ($pdf_ok ? ' + tabela PDF' : '') . '.')
-                : 'Falha no envio pelo WhatsApp.',
+                : ('Falha no envio pelo WhatsApp (instância staff-' . $staff_id . ', HTTP ' . $r['http'] . '). ' . substr((string) ($r['error'] ?: $r['raw']), 0, 240)),
         ]);
     }
 
