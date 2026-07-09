@@ -4425,14 +4425,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v3 -->
+
+
+<!-- DPS_PROPOSTA_INJECT v4 -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
   var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
   if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; }
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
-  var last = null, patched = false, iv = null;
+  var embedded = !!(window.parent && window.parent !== window);
+  var last = null;
 
   function capture(doc, filename) {
     try {
@@ -4443,50 +4446,72 @@ document.addEventListener('DOMContentLoaded', function() {
       var m = fn.match(/^Proposta_([^_]+)_Fraccao_(.+)\.pdf$/i);
       if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
       last = { base64: b64, filename: fn, unit: unit, emp: emp || ctx.empreendimento };
+      if (embedded) { try { window.parent.postMessage({ dps_proposta: last }, '*'); } catch (e) {} }
       updateBtn();
+      if (window.console) { console.log('[DPS] proposta capturada:', fn); }
     } catch (e) { if (window.console) { console.warn('[DPS] captura falhou:', e); } }
   }
 
-  function patch() {
-    if (patched) { if (iv) { clearInterval(iv); } return; }
-    var J = window.jspdf && window.jspdf.jsPDF;
-    if (!J || !J.prototype || typeof J.prototype.save !== 'function') { return; }
-    var proto = J.prototype, orig = proto.save;
-    proto.save = function (filename) {
-      var res = orig.apply(this, arguments);
-      try { capture(this, filename); } catch (e) {}
-      return res;
-    };
-    patched = true;
-    if (iv) { clearInterval(iv); }
-    if (window.console) { console.log('[DPS] captura de proposta pronta.'); }
+  function patchProto(J) {
+    try {
+      if (!J || !J.jsPDF || !J.jsPDF.prototype || typeof J.jsPDF.prototype.save !== 'function') { return false; }
+      var proto = J.jsPDF.prototype;
+      if (proto.__dpsPatched) { return true; }
+      var orig = proto.save;
+      proto.save = function (filename) {
+        var res = orig.apply(this, arguments);
+        try { capture(this, filename); } catch (e) {}
+        return res;
+      };
+      proto.__dpsPatched = true;
+      if (window.console) { console.log('[DPS] captura de proposta pronta.'); }
+      return true;
+    } catch (e) { return false; }
   }
-  iv = setInterval(patch, 200); patch();
 
-  var btn = document.createElement('button');
-  btn.type = 'button';
-  btn.textContent = '📲 Gera a proposta primeiro';
-  btn.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:12px 18px;border:none;border-radius:26px;background:#9aa0a6;color:#fff;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:default;font-family:sans-serif;';
-  function add() { if (document.body) { document.body.appendChild(btn); } else { setTimeout(add, 300); } }
-  add();
+  // Apanhar a atribuição de window.jspdf ANTES de o simulador o usar.
+  if (window.jspdf) {
+    patchProto(window.jspdf);
+  } else {
+    try {
+      var _j;
+      Object.defineProperty(window, 'jspdf', {
+        configurable: true,
+        get: function () { return _j; },
+        set: function (v) { _j = v; patchProto(v); }
+      });
+    } catch (e) {}
+  }
+  // Rede de segurança: continuar a tentar.
+  var tries = 0;
+  var iv = setInterval(function () { if (patchProto(window.jspdf) || ++tries > 60) { clearInterval(iv); } }, 250);
+
+  // Botão flutuante só quando aberto sozinho (fora do CRM). Dentro do CRM usa-se o botão do CRM.
+  var btn = null;
+  if (!embedded) {
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '📲 Gera a proposta primeiro';
+    btn.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:12px 18px;border:none;border-radius:26px;background:#9aa0a6;color:#fff;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:default;font-family:sans-serif;';
+    (function add() { if (document.body) { document.body.appendChild(btn); } else { setTimeout(add, 300); } })();
+    btn.addEventListener('click', function () {
+      if (!last) { alert('Gera primeiro a proposta de uma unidade.'); return; }
+      btn.disabled = true; var t0 = btn.textContent; btn.textContent = 'A enviar...';
+      fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
+      }).catch(function () { alert('Erro de comunicação com o CRM.'); })
+        .finally(function () { btn.disabled = false; btn.textContent = t0; });
+    });
+  }
   function updateBtn() {
-    if (last) {
+    if (btn && last) {
       btn.textContent = '📲 Enviar proposta ao cliente' + (last.unit ? (' (' + last.unit + ')') : '');
       btn.style.background = '#25D366'; btn.style.cursor = 'pointer';
     }
   }
-  btn.addEventListener('click', function () {
-    if (!last) { alert('Gera primeiro a proposta de uma unidade.'); return; }
-    btn.disabled = true; var t0 = btn.textContent; btn.textContent = 'A enviar...';
-    fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
-    }).then(function (r) { return r.json(); }).then(function (d) {
-      alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
-      try { if (window.parent && window.parent !== window) { window.parent.postMessage({ dps_proposta_enviada: !!(d && d.success) }, '*'); } } catch (e) {}
-    }).catch(function () { alert('Erro de comunicação com o CRM.'); })
-      .finally(function () { btn.disabled = false; btn.textContent = t0; });
-  });
 })();
 </script>
 
