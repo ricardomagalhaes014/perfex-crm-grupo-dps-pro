@@ -4434,7 +4434,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v8 (gerar = enviar logo, sem download) -->
+<!-- DPS_PROPOSTA_INJECT v9 (gerar = enviar direto ao CRM, sem postMessage) -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
@@ -4469,26 +4469,15 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!last || sending) { return; }
     sending = true;
     status('📲 A enviar a proposta ao cliente…', 'wait');
-    if (embedded) {
-      // Envia pelo WhatsApp do utilizador logado no CRM (controller autenticado).
-      try { window.parent.postMessage({ dps_send_now: last }, '*'); } catch (e) {}
-      setTimeout(function () { if (sending) { sending = false; status('⚠️ Sem resposta do CRM — tenta gerar de novo.', 'err'); } }, 30000);
-    } else {
-      fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
-      }).then(function (r) { return r.json(); })
-        .then(function (d) { sending = false; status(d && d.success ? '✅ ' + (d.message || 'Proposta enviada ao cliente!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'), (d && d.success) ? 'ok' : 'err'); })
-        .catch(function () { sending = false; status('⚠️ Erro de comunicação com o CRM.', 'err'); });
-    }
+    // Envio DIRETO ao endpoint do CRM (sem postMessage). Envia pela instância staff-<id>
+    // (o utilizador logado que abriu o simulador) e regista em "Propostas Enviadas".
+    fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
+    }).then(function (r) { return r.json(); })
+      .then(function (d) { sending = false; status(d && d.success ? '✅ ' + (d.message || 'Proposta enviada ao cliente!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'), (d && d.success) ? 'ok' : 'err'); })
+      .catch(function () { sending = false; status('⚠️ Erro de comunicação com o CRM.', 'err'); });
   }
-  // Resposta do CRM (modo embebido).
-  window.addEventListener('message', function (ev) {
-    if (ev.data && ev.data.dps_send_result !== undefined) {
-      sending = false;
-      status(ev.data.ok ? '✅ Proposta enviada ao cliente!' : '⚠️ Falha no envio pelo WhatsApp.', ev.data.ok ? 'ok' : 'err');
-    }
-  });
 
   function capture(doc, filename) {
     try {
@@ -4519,6 +4508,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (window.jspdf) { patchProto(window.jspdf); }
   else { try { var _j; Object.defineProperty(window, 'jspdf', { configurable: true, get: function () { return _j; }, set: function (v) { _j = v; patchProto(v); } }); } catch (e) {} }
   var t1 = 0, iv1 = setInterval(function () { if (patchProto(window.jspdf) || ++t1 > 2400) { clearInterval(iv1); } }, 300);
+  // Sinal visível de que o simulador está ligado ao CRM (se não aparecer, o token/URL não chegou).
+  status('✅ Simulador ligado ao CRM — gera a proposta que ela é enviada ao cliente.', 'ok');
 
   // "Gerar Proposta PDF" -> "Enviar Proposta ao Cliente" (dentro do CRM já envia direto).
   function relabel() {
