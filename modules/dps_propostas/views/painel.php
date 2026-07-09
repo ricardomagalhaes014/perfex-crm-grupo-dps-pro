@@ -1,9 +1,16 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <div id="dps_painel_root">
-    <p class="text-muted" style="margin-bottom:12px;">
+    <p class="text-muted" style="margin-bottom:10px;">
         <i class="fa fa-user"></i> <strong><?= e($lead->name ?: ('Lead #' . (int) $lead->id)); ?></strong>
         <?php if (! empty($lead->phonenumber)) { ?> · <i class="fa fa-phone"></i> <?= e($lead->phonenumber); ?><?php } ?>
     </p>
+    <?php $dps_tel = preg_replace('/[^0-9]/', '', (string) $lead->phonenumber); ?>
+    <?php if ($dps_tel !== '') { ?>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <a href="https://wa.me/<?= e($dps_tel); ?>" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i> WhatsApp</a>
+        <a href="tel:<?= e($dps_tel); ?>" class="btn btn-sm btn-primary"><i class="fa fa-phone"></i> Ligar</a>
+    </div>
+    <?php } ?>
     <div class="row">
         <div class="col-md-6">
             <div class="panel_s">

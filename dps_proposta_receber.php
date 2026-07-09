@@ -127,7 +127,18 @@ $wa_ok = false;
 $wa_err = '';
 if ($number !== '' && $pdf_b64 !== '' && $evo_url && $evo_key) {
     $media = preg_replace('#^data:[^;]+;base64,#', '', $pdf_b64); // tirar prefixo data:
+    // Link do site do empreendimento (para acrescentar à legenda).
+    $sites = [
+        'boavista towers' => 'https://dpsimobiliario.pt/boavistatowers/',
+        'belo horizonte'  => 'https://dpsimobiliario.pt/belohorizonte/',
+        'raízes'          => 'https://dpsimobiliario.pt/raizes/',
+        'raizes'          => 'https://dpsimobiliario.pt/raizes/',
+    ];
+    $site = $sites[mb_strtolower(trim((string) $emp))] ?? '';
     $caption = 'Proposta' . ($emp ? ' — ' . $emp : '') . ($unidade ? ' — Unidade ' . $unidade : '');
+    if ($site !== '') {
+        $caption .= "\n\n🌐 Mais informação:\n" . $site;
+    }
     $payload = json_encode([
         'number'       => $number,
         'mediaMessage' => [
