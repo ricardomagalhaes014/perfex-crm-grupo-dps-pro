@@ -4284,10 +4284,45 @@ function exportBoavistaToPDF() {
       doc.setTextColor(138, 155, 181);
       doc.setFontSize(9);
       doc.text('DPS Imobiliário · dpsimobiliario.pt/boavistatowers · ' + new Date().toLocaleDateString('pt-PT'), W/2, 25, { align: 'center' });
+      // Aplicar filtros activos (igual ao applyBoavistaFilters)
+      const boavistaSearchEl = document.getElementById('boavistaSearchBox');
+      const boavistaPisoEl = document.getElementById('boavistaFilterPiso');
+      const boavistaSearch = boavistaSearchEl ? boavistaSearchEl.value.toLowerCase().trim() : '';
+      const boavistaPiso = boavistaPisoEl ? boavistaPisoEl.value : 'all';
+      let filteredData = BOAVISTA_UNITS.filter(u => {
+        if (boavistaFilters.tipo !== 'all' && u.tipologia !== boavistaFilters.tipo) return false;
+        if (boavistaFilters.status !== 'all' && u.status !== boavistaFilters.status) return false;
+        if (boavistaFilters.bloco !== 'all' && u.bloco !== boavistaFilters.bloco) return false;
+        if (boavistaFilters.orientacao !== 'all' && !u.orientacao.includes(boavistaFilters.orientacao)) return false;
+        if (boavistaPiso !== 'all' && String(u.piso) !== boavistaPiso) return false;
+        if (boavistaSearch && !u.fraccao.toLowerCase().includes(boavistaSearch) && !u.tipologia.toLowerCase().includes(boavistaSearch)) return false;
+        return true;
+      });
+      filteredData.sort((a, b) => {
+        let va = a[boavistaSortKey], vb = b[boavistaSortKey];
+        if (typeof va === 'string') va = va.toLowerCase();
+        if (typeof vb === 'string') vb = vb.toLowerCase();
+        if (va < vb) return boavistaSortAsc ? -1 : 1;
+        if (va > vb) return boavistaSortAsc ? 1 : -1;
+        return 0;
+      });
+      // Descrição dos filtros activos
+      const boavistaFilterDesc = [
+        boavistaFilters.bloco !== 'all' ? boavistaFilters.bloco : 'Todos os Blocos',
+        boavistaFilters.tipo !== 'all' ? boavistaFilters.tipo : 'Todas as Tipologias',
+        boavistaFilters.status !== 'all' ? boavistaFilters.status : 'Todos os Estados',
+        boavistaPiso !== 'all' ? 'Piso ' + boavistaPiso : 'Todos os Pisos'
+      ].join(' • ');
+      doc.setTextColor(197, 165, 90);
+      doc.setFontSize(7);
+      doc.text(boavistaFilterDesc, W/2, 31, { align: 'center' });
+      doc.setTextColor(138, 155, 181);
+      doc.setFontSize(7);
+      doc.text(filteredData.length + ' unidade' + (filteredData.length !== 1 ? 's' : '') + ' · Gerado em ' + new Date().toLocaleDateString('pt-PT'), W/2, 36, { align: 'center' });
       const headers = ['Fracção','Bloco','Piso','Tipologia','ABC (m²)','Varanda (m²)','Total (m²)','Preço (€)','Estado','Orientação'];
-      const rows = BOAVISTA_UNITS.map(u => [u.fraccao, u.bloco, u.piso+'º', u.tipologia, u.abc.toFixed(2), u.varanda.toFixed(2), u.total.toFixed(2), u.preco > 0 ? u.preco.toLocaleString('pt-PT') : '—', u.status, u.orientacao]);
+      const rows = filteredData.map(u => [u.fraccao, u.bloco, u.piso+'º', u.tipologia, u.abc.toFixed(2), u.varanda.toFixed(2), u.total.toFixed(2), u.preco > 0 ? u.preco.toLocaleString('pt-PT') : '—', u.status, u.orientacao]);
       doc.autoTable({
-        head: [headers], body: rows, startY: 30,
+        head: [headers], body: rows, startY: 40,
         styles: { fontSize: 7, cellPadding: 2, textColor: [245, 242, 237], fillColor: [8, 21, 40], lineColor: [30, 50, 80], lineWidth: 0.1 },
         headStyles: { fillColor: [13, 31, 60], textColor: [197, 165, 90], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [13, 31, 60] },
