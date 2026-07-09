@@ -253,4 +253,94 @@ class Dps_propostas extends AdminController
             'token'    => dps_propostas_proposta_token($lead->id, $staff_id),
         ]);
     }
+
+    /**
+     * Visão geral (admin): KPIs + gráficos do pipeline, volume e eficácia.
+     */
+    public function visao()
+    {
+        if (! is_staff_member()) {
+            access_denied('visao');
+        }
+        $p = db_prefix();
+
+        $can_view_all = is_admin() || staff_can('view', 'leads');
+        $comercial    = (int) $this->input->get('comercial');
+        if (! $can_view_all) {
+            $comercial = get_staff_user_id();
+        }
+        $wLead = $comercial > 0 ? (' AND ' . $p . 'leads.assigned = ' . $comercial) : '';
+
+        $scalar = function ($sql) {
+            $r = $this->db->query($sql)->row();
+            return $r ? (int) $r->c : 0;
+        };
+
+        // KPIs
+        $total      = $scalar("SELECT COUNT(*) c FROM {$p}leads WHERE 1=1{$wLead}");
+        $concret    = $scalar("SELECT COUNT(*) c FROM {$p}leads WHERE status=13{$wLead}");
+        $perd       = $scalar("SELECT COUNT(*) c FROM {$p}leads WHERE status=5{$wLead}");
+        $novas_hoje = $scalar("SELECT COUNT(*) c FROM {$p}leads WHERE DATE(dateadded)=CURDATE(){$wLead}");
+        $novas_7    = $scalar("SELECT COUNT(*) c FROM {$p}leads WHERE dateadded >= DATE_SUB(CURDATE(), INTERVAL 7 DAY){$wLead}");
+        $interacoes = $scalar("SELECT COUNT(*) c FROM {$p}lead_activity_log a JOIN {$p}leads ON {$p}leads.id=a.leadid WHERE 1=1{$wLead}");
+        $wProp      = $comercial > 0 ? (' AND staff_id=' . $comercial) : '';
+        $propostas  = $scalar("SELECT COUNT(*) c FROM {$p}dps_propostas WHERE tipo='proposta'{$wProp}");
+        $taxa       = $total > 0 ? round($concret / $total * 100, 1) : 0;
+
+        // Por estado
+        $por_estado = $this->db->query(
+            "SELECT s.name, s.color, COUNT(l.id) AS n
+             FROM {$p}leads_status s
+             LEFT JOIN {$p}leads l ON l.status=s.id" . ($comercial > 0 ? ' AND l.assigned=' . $comercial : '') . "
+             GROUP BY s.id ORDER BY s.statusorder, s.id"
+        )->result_array();
+
+        // Novas por dia (últimos 30 dias) — série contígua
+        $rowsDay = $this->db->query(
+            "SELECT DATE(dateadded) AS dia, COUNT(*) AS n FROM {$p}leads
+             WHERE dateadded >= DATE_SUB(CURDATE(), INTERVAL 29 DAY){$wLead}
+             GROUP BY DATE(dateadded)"
+        )->result_array();
+        $mapDay = [];
+        foreach ($rowsDay as $r) { $mapDay[$r['dia']] = (int) $r['n']; }
+        $por_dia = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $d = date('Y-m-d', strtotime("-{$i} day"));
+            $por_dia[] = ['dia' => $d, 'n' => isset($mapDay[$d]) ? $mapDay[$d] : 0];
+        }
+
+        // Por comercial (só admins)
+        $por_comercial = [];
+        if ($can_view_all) {
+            $por_comercial = $this->db->query(
+                "SELECT s.staffid, CONCAT(s.firstname,' ',s.lastname) AS nome,
+                        COUNT(l.id) AS total,
+                        SUM(CASE WHEN l.status=13 THEN 1 ELSE 0 END) AS concret,
+                        SUM(CASE WHEN l.status=5 THEN 1 ELSE 0 END) AS perd
+                 FROM {$p}staff s
+                 JOIN {$p}leads l ON l.assigned=s.staffid
+                 GROUP BY s.staffid HAVING total > 0 ORDER BY total DESC"
+            )->result_array();
+        }
+
+        $comerciais = [];
+        if ($can_view_all) {
+            $comerciais = $this->db->query(
+                "SELECT s.staffid, s.firstname, s.lastname, COUNT(l.id) AS c
+                 FROM {$p}staff s JOIN {$p}leads l ON l.assigned=s.staffid
+                 GROUP BY s.staffid ORDER BY s.firstname, s.lastname"
+            )->result_array();
+        }
+
+        $this->load->view('visao', [
+            'title'         => 'Visão Geral',
+            'can_view_all'  => $can_view_all,
+            'comercial'     => $comercial,
+            'comerciais'    => $comerciais,
+            'kpi'           => compact('total', 'concret', 'perd', 'novas_hoje', 'novas_7', 'interacoes', 'propostas', 'taxa'),
+            'por_estado'    => $por_estado,
+            'por_dia'       => $por_dia,
+            'por_comercial' => $por_comercial,
+        ]);
+    }
 }

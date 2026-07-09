@@ -39,6 +39,12 @@ function dps_propostas_register_menu()
     if (! (function_exists('is_staff_member') && is_staff_member())) {
         return;
     }
+    $CI->app_menu->add_sidebar_menu_item('dps-visao-geral', [
+        'name'     => 'Visão Geral',
+        'href'     => admin_url('dps_propostas/visao'),
+        'icon'     => 'fa fa-line-chart menu-icon',
+        'position' => 15,
+    ]);
     $CI->app_menu->add_sidebar_menu_item('dps-propostas-enviadas', [
         'name'     => 'Propostas Enviadas',
         'href'     => admin_url('dps_propostas/todas'),
