@@ -241,8 +241,15 @@ return App_table::find('leads')
                 $row[] = $consentHTML;
             }
             
-            // Proposta (DPS) — abre painel de proposta/informação sem abrir a lead
-            $row[] = '<button type="button" class="btn btn-danger btn-xs" onclick="if(typeof dps_open_proposta===\'function\'){dps_open_proposta(' . (int) $aRow['id'] . ');}return false;"><i class="fa fa-file-pdf-o"></i> Proposta</button>';
+            // Ações (DPS) na coluna — WhatsApp/Ligar diretos + Info/Proposta (painel)
+            $dps_ph = preg_replace('/\D/', '', (string) $aRow['phonenumber']);
+            $dps_btns = '';
+            if ($dps_ph !== '') {
+                $dps_btns .= '<a href="https://wa.me/' . $dps_ph . '" target="_blank" rel="noopener" class="btn btn-xs" style="background:#25D366;color:#fff;margin:1px;" title="WhatsApp"><i class="fa fa-whatsapp"></i></a> ';
+                $dps_btns .= '<a href="tel:' . $dps_ph . '" class="btn btn-primary btn-xs" style="margin:1px;" title="Ligar"><i class="fa fa-phone"></i></a> ';
+            }
+            $dps_btns .= '<button type="button" class="btn btn-danger btn-xs" style="margin:1px;" onclick="if(typeof dps_open_proposta===\'function\'){dps_open_proposta(' . (int) $aRow['id'] . ');}return false;"><i class="fa fa-file-pdf-o"></i> Info/Proposta</button>';
+            $row[] = $dps_btns;
 
             // Email
             $row[] = ($aRow['email'] != ''
