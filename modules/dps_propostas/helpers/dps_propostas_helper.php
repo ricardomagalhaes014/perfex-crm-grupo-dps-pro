@@ -106,6 +106,52 @@ function dps_propostas_send_document($staff_id, $number, $url, $filename, $capti
 }
 
 /**
+ * Envia um documento em base64 (ex.: PDF gerado no momento).
+ */
+function dps_propostas_send_document_b64($staff_id, $number, $b64, $filename, $caption = '')
+{
+    return dps_propostas_evo_request('POST', '/message/sendMedia/' . dps_propostas_instance($staff_id), [
+        'number'       => $number,
+        'mediaMessage' => [
+            'mediatype' => 'document',
+            'fileName'  => $filename,
+            'media'     => $b64,
+            'caption'   => $caption,
+        ],
+    ], 60);
+}
+
+/**
+ * Gera (ao vivo) o PDF da tabela de unidades DISPONÍVEIS e devolve em base64.
+ */
+function dps_propostas_gerar_pdf_disponiveis($emp_nome, $unidades)
+{
+    include_once module_dir_path(DPS_PROPOSTAS_MODULE_NAME, 'libraries/Dps_disponiveis_pdf.php');
+
+    $rows = '';
+    foreach ($unidades as $u) {
+        $area  = ($u['area'] !== null && $u['area'] !== '')
+            ? rtrim(rtrim(number_format((float) $u['area'], 1, ',', '.'), '0'), ',') . ' m²'
+            : '—';
+        $preco = ($u['preco'] > 0) ? number_format($u['preco'], 0, ',', '.') . ' €' : '—';
+        $rows .= '<tr><td>' . htmlspecialchars($u['fraccao']) . '</td>'
+            . '<td>' . htmlspecialchars((string) $u['tipologia']) . '</td>'
+            . '<td align="right">' . $area . '</td>'
+            . '<td align="right">' . $preco . '</td></tr>';
+    }
+
+    $html = '<h2>Unidades Disponíveis — ' . htmlspecialchars($emp_nome) . '</h2>'
+        . '<p>' . count($unidades) . ' unidades · ' . date('d/m/Y H:i') . '</p>'
+        . '<table border="1" cellpadding="4" cellspacing="0">'
+        . '<thead><tr style="background-color:#f0f0f0;font-weight:bold;">'
+        . '<th>Fração</th><th>Tipologia</th><th>Área</th><th>Preço</th></tr></thead>'
+        . '<tbody>' . $rows . '</tbody></table>';
+
+    $pdf = (new Dps_disponiveis_pdf('Unidades Disponiveis - ' . $emp_nome, $html))->prepare();
+    return base64_encode($pdf->Output('disponiveis.pdf', 'S'));
+}
+
+/**
  * Lê a disponibilidade ao vivo do simulador (save_states.php).
  * Devolve ['count'=>int, 'codes'=>[...]] para a chave dada.
  */
@@ -133,8 +179,9 @@ function dps_propostas_disponibilidade($slug)
     $units = dps_propostas_units();
     $cat   = isset($units[$slug]) ? $units[$slug] : [];
 
-    $codes = [];
-    $byTipo = [];
+    $codes    = [];
+    $byTipo   = [];
+    $unidades = [];
     foreach ($data[$states_key] as $code => $estado) {
         if (trim((string) $estado) !== 'Disponível') {
             continue;
@@ -142,6 +189,7 @@ function dps_propostas_disponibilidade($slug)
         $codes[] = $code;
         $u     = isset($cat[$code]) ? $cat[$code] : null;
         $tip   = ($u && ! empty($u['tipologia'])) ? $u['tipologia'] : 'Outros';
+        $area  = ($u && isset($u['area'])) ? $u['area'] : null;
         $preco = ($u && isset($u['preco'])) ? (float) $u['preco'] : 0;
         if (! isset($byTipo[$tip])) {
             $byTipo[$tip] = ['tipologia' => $tip, 'n' => 0, 'min' => null];
@@ -150,10 +198,15 @@ function dps_propostas_disponibilidade($slug)
         if ($preco > 0 && ($byTipo[$tip]['min'] === null || $preco < $byTipo[$tip]['min'])) {
             $byTipo[$tip]['min'] = $preco;
         }
+        $unidades[] = ['fraccao' => $code, 'tipologia' => $tip, 'area' => $area, 'preco' => $preco];
     }
     ksort($byTipo);
+    // Ordenar unidades por tipologia e depois por preço.
+    usort($unidades, function ($a, $b) {
+        return [$a['tipologia'], $a['preco']] <=> [$b['tipologia'], $b['preco']];
+    });
 
-    return ['ok' => true, 'count' => count($codes), 'por_tipologia' => array_values($byTipo), 'codes' => $codes];
+    return ['ok' => true, 'count' => count($codes), 'por_tipologia' => array_values($byTipo), 'codes' => $codes, 'unidades' => $unidades];
 }
 
 /**

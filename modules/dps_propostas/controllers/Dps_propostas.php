@@ -78,6 +78,24 @@ class Dps_propostas extends AdminController
         $r  = dps_propostas_send_text($staff_id, $number, $msg);
         $ok = $r['ok'];
 
+        // Gerar e enviar a tabela de DISPONÍVEIS ao vivo (PDF), extraída do simulador.
+        $pdf_ok = false;
+        if (! empty($disp['unidades'])) {
+            try {
+                $b64 = dps_propostas_gerar_pdf_disponiveis($emp['nome'], $disp['unidades']);
+                $rp  = dps_propostas_send_document_b64(
+                    $staff_id,
+                    $number,
+                    $b64,
+                    'Unidades Disponiveis - ' . $emp['nome'] . '.pdf',
+                    'Unidades disponíveis — ' . $emp['nome']
+                );
+                $pdf_ok = $rp['ok'];
+            } catch (\Throwable $e) {
+                $pdf_ok = false;
+            }
+        }
+
         $this->db->insert(db_prefix() . 'dps_propostas', [
             'lead_id'          => $lead_id,
             'staff_id'         => $staff_id,
@@ -87,7 +105,7 @@ class Dps_propostas extends AdminController
             'lead_status_id'   => (int) $lead->status,
             'lead_status_nome' => $this->status_name($lead->status),
             'ficheiro'         => $emp['dossier'],
-            'detalhe'          => $disp['count'] . ' unidades disponíveis',
+            'detalhe'          => $disp['count'] . ' unidades disponíveis' . ($pdf_ok ? ' (tabela PDF enviada)' : ''),
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
@@ -95,7 +113,7 @@ class Dps_propostas extends AdminController
         echo json_encode([
             'success' => $ok,
             'message' => $ok
-                ? ('Informação enviada para ' . $lead->name . ' — ' . $disp['count'] . ' unidades disponíveis.')
+                ? ('Informação enviada para ' . $lead->name . ' — ' . $disp['count'] . ' unidades disponíveis' . ($pdf_ok ? ' + tabela PDF' : '') . '.')
                 : 'Falha no envio pelo WhatsApp.',
         ]);
     }
