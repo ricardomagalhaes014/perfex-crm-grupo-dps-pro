@@ -179,9 +179,26 @@ function dps_propostas_render_lead_tab($lead)
     $rows = $CI->db->where('lead_id', (int) $lead->id)->order_by('id', 'DESC')
         ->get(db_prefix() . 'dps_propostas')->result();
 
+    $staff_id = get_staff_user_id();
     $CI->load->view('dps_propostas/lead_tab', [
-        'lead' => $lead,
-        'emps' => dps_propostas_empreendimentos(),
-        'rows' => $rows,
+        'lead'     => $lead,
+        'emps'     => dps_propostas_empreendimentos(),
+        'rows'     => $rows,
+        'staff_id' => $staff_id,
+        'token'    => dps_propostas_proposta_token($lead->id, $staff_id),
     ]);
+}
+
+/**
+ * Token HMAC para autenticar o callback da proposta vindo do simulador.
+ * Segredo em ficheiro fora do repositório.
+ */
+function dps_propostas_proposta_token($lead_id, $staff_id)
+{
+    $secret = @file_get_contents('/home/u172337921/.dps_proposta_secret');
+    $secret = $secret !== false ? trim($secret) : '';
+    if ($secret === '') {
+        return '';
+    }
+    return hash_hmac('sha256', (int) $lead_id . '|' . (int) $staff_id . '|' . date('Y-m-d'), $secret);
 }

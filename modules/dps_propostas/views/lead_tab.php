@@ -103,12 +103,16 @@
     });
 
     var propBtn = document.getElementById('dps_prop_btn');
+    var staffId = <?= (int) $staff_id; ?>;
+    var propToken = <?= json_encode($token); ?>;
     propBtn.addEventListener('click', function () {
         var emp = document.getElementById('dps_prop_emp').value;
         var nome = <?= json_encode($lead->name); ?>;
         var tel = <?= json_encode($lead->phonenumber); ?>;
         var url = 'https://dpsimobiliario.pt/simuladorportugal/'
             + '?lead_id=' + leadId
+            + '&staff_id=' + staffId
+            + '&token=' + encodeURIComponent(propToken)
             + '&empreendimento=' + encodeURIComponent(emp)
             + '&nome=' + encodeURIComponent(nome || '')
             + '&telefone=' + encodeURIComponent(tel || '');
