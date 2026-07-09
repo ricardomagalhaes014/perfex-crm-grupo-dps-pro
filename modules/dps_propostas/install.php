@@ -17,6 +17,9 @@ if (! $CI->db->table_exists(db_prefix() . 'dps_propostas')) {
         `ficheiro` VARCHAR(255) NULL DEFAULT NULL,
         `detalhe` TEXT NULL,
         `wa_ok` TINYINT(1) NOT NULL DEFAULT 0,
+        `outcome` ENUM('pendente','aceite','recusado') NOT NULL DEFAULT 'pendente',
+        `valor` DECIMAL(15,2) NULL DEFAULT NULL,
+        `outcome_at` DATETIME NULL DEFAULT NULL,
         `created_at` DATETIME NULL DEFAULT NULL,
         PRIMARY KEY (`id`),
         KEY `lead_id` (`lead_id`)

@@ -37,13 +37,14 @@
                                         <th>Empreendimento</th>
                                         <th>Unidade</th>
                                         <th>Estado da lead</th>
+                                        <th>Resultado</th>
                                         <th>Enviada em</th>
-                                        <th>WhatsApp</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php if (empty($propostas)) { ?>
-                                    <tr><td colspan="7" class="text-muted text-center">Sem propostas enviadas.</td></tr>
+                                    <tr><td colspan="8" class="text-muted text-center">Sem propostas enviadas.</td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
                                     <tr>
@@ -52,8 +53,24 @@
                                         <td><?= e($p->empreendimento ?: '—'); ?></td>
                                         <td><strong><?= e($p->unidade ?: '—'); ?></strong></td>
                                         <td><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
+                                        <td>
+                                            <?php if ($p->outcome === 'aceite') { ?>
+                                            <span class="label label-success">Aceite</span> <strong><?= number_format((float) $p->valor, 0, ',', '.'); ?> €</strong>
+                                            <?php } elseif ($p->outcome === 'recusado') { ?>
+                                            <span class="label label-danger">Recusada</span>
+                                            <?php } else { ?>
+                                            <span class="label label-default">Pendente</span>
+                                            <?php } ?>
+                                        </td>
                                         <td class="text-muted" style="font-size:12px;"><?= e($p->created_at); ?></td>
-                                        <td><?= $p->wa_ok ? '<i class="fa fa-check text-success"></i> Enviada' : '<i class="fa fa-times text-danger"></i> Falhou'; ?></td>
+                                        <td>
+                                            <?php if ($p->outcome === 'pendente') { ?>
+                                            <button class="btn btn-success btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
+                                            <button class="btn btn-danger btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
+                                            <?php } else { ?>
+                                            <span class="text-muted" style="font-size:11px;"><?= e($p->outcome_at); ?></span>
+                                            <?php } ?>
+                                        </td>
                                     </tr>
                                     <?php } ?>
                                 </tbody>
@@ -65,4 +82,23 @@
         </div>
     </div>
 </div>
+<script>
+var DPS_CSRF = { name: '<?= $this->security->get_csrf_token_name(); ?>', hash: '<?= $this->security->get_csrf_hash(); ?>' };
+function dpsResultado(id, outcome) {
+    var valor = '';
+    if (outcome === 'aceite') {
+        valor = prompt('Valor da proposta aceite (€):');
+        if (valor === null || valor === '') { return; }
+    } else {
+        if (!confirm('Marcar como RECUSADA? A lead passa para "Para outras oportunidades".')) { return; }
+    }
+    var data = { proposta_id: id, outcome: outcome, valor: valor };
+    data[DPS_CSRF.name] = DPS_CSRF.hash;
+    $.post(admin_url + 'dps_propostas/resultado_proposta', data, function (r) {
+        try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
+        alert_float(r && r.success ? 'success' : 'danger', (r && r.message) || 'Erro.');
+        if (r && r.success) { setTimeout(function () { location.reload(); }, 1000); }
+    }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
+}
+</script>
 <?php init_tail(); ?>

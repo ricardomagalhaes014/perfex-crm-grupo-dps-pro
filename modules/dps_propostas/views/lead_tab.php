@@ -59,7 +59,7 @@
             <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas enviadas</h4>
             <div class="table-responsive">
                 <table class="table table-striped">
-                    <thead><tr><th>Empreendimento</th><th>Unidade</th><th>Estado da lead (no envio)</th><th>Quando</th><th>WA</th></tr></thead>
+                    <thead><tr><th>Empreendimento</th><th>Unidade</th><th>Resultado</th><th>Quando</th><th>Ações</th></tr></thead>
                     <tbody>
                         <?php if (empty($propostas)) { ?>
                         <tr><td colspan="5" class="text-muted text-center">Ainda sem propostas.</td></tr>
@@ -68,9 +68,22 @@
                         <tr>
                             <td><?= e($r->empreendimento); ?></td>
                             <td><strong><?= e($r->unidade ?: '—'); ?></strong></td>
-                            <td><?= e($r->lead_status_nome ?: '—'); ?></td>
+                            <td>
+                                <?php if (($r->outcome ?? 'pendente') === 'aceite') { ?>
+                                <span class="label label-success">Aceite</span> <strong><?= number_format((float) $r->valor, 0, ',', '.'); ?> €</strong>
+                                <?php } elseif (($r->outcome ?? '') === 'recusado') { ?>
+                                <span class="label label-danger">Recusada</span>
+                                <?php } else { ?>
+                                <span class="label label-default">Pendente</span>
+                                <?php } ?>
+                            </td>
                             <td class="text-muted" style="font-size:12px;"><?= e($r->created_at); ?></td>
-                            <td><?= $r->wa_ok ? '<i class="fa fa-check text-success"></i>' : '<i class="fa fa-times text-danger"></i>'; ?></td>
+                            <td>
+                                <?php if (($r->outcome ?? 'pendente') === 'pendente') { ?>
+                                <button type="button" class="btn btn-success btn-xs" onclick="dpsResultado(<?= (int) $r->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
+                                <button type="button" class="btn btn-danger btn-xs" onclick="dpsResultado(<?= (int) $r->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
+                                <?php } ?>
+                            </td>
                         </tr>
                         <?php } ?>
                     </tbody>
@@ -135,6 +148,23 @@
     var csrfName = '<?= $this->security->get_csrf_token_name(); ?>';
     var csrfHash = '<?= $this->security->get_csrf_hash(); ?>';
     var base = (typeof admin_url !== 'undefined') ? admin_url : '<?= admin_url(); ?>';
+
+    window.dpsResultado = function (id, outcome) {
+        var valor = '';
+        if (outcome === 'aceite') {
+            valor = prompt('Valor da proposta aceite (€):');
+            if (valor === null || valor === '') { return; }
+        } else {
+            if (!confirm('Marcar como RECUSADA? A lead passa para "Para outras oportunidades".')) { return; }
+        }
+        var d = { proposta_id: id, outcome: outcome, valor: valor };
+        d[csrfName] = csrfHash;
+        $.post(base + 'dps_propostas/resultado_proposta', d, function (r) {
+            try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
+            if (typeof alert_float === 'function') { alert_float(r && r.success ? 'success' : 'danger', (r && r.message) || 'Erro.'); }
+            if (r && r.success) { setTimeout(function () { location.reload(); }, 1000); }
+        }).fail(function () { if (typeof alert_float === 'function') { alert_float('danger', 'Erro de comunicação.'); } });
+    };
 
     var infoBtn = document.getElementById('dps_info_btn');
     infoBtn.addEventListener('click', function () {

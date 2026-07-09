@@ -343,4 +343,75 @@ class Dps_propostas extends AdminController
             'por_comercial' => $por_comercial,
         ]);
     }
+
+    /**
+     * Marca uma proposta como ACEITE ou RECUSADA e move o estado da lead:
+     *  - aceite  -> Concretizado (13) + guarda o valor (para comissões)
+     *  - recusado-> Para outras oportunidades (3)
+     */
+    public function resultado_proposta()
+    {
+        if (! is_staff_member()) {
+            ajax_access_denied();
+        }
+        $id        = (int) $this->input->post('proposta_id');
+        $outcome   = $this->input->post('outcome');
+        $valor_raw = $this->input->post('valor');
+
+        $prop = $this->db->where('id', $id)->where('tipo', 'proposta')->get(db_prefix() . 'dps_propostas')->row();
+        if (! $prop) {
+            echo json_encode(['success' => false, 'message' => 'Proposta não encontrada.']);
+            return;
+        }
+
+        if ($outcome === 'aceite') {
+            $valor = (float) preg_replace('/[^0-9]/', '', (string) $valor_raw);
+            if ($valor <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Indica o valor da proposta aceite.']);
+                return;
+            }
+            $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
+                'outcome' => 'aceite', 'valor' => $valor, 'outcome_at' => date('Y-m-d H:i:s'),
+            ]);
+            $this->dps_set_lead_status((int) $prop->lead_id, 13);
+            echo json_encode(['success' => true, 'message' => 'Proposta ACEITE — lead marcada como Concretizado (' . number_format($valor, 0, ',', '.') . ' €).']);
+            return;
+        }
+
+        if ($outcome === 'recusado') {
+            $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
+                'outcome' => 'recusado', 'valor' => null, 'outcome_at' => date('Y-m-d H:i:s'),
+            ]);
+            $this->dps_set_lead_status((int) $prop->lead_id, 3);
+            echo json_encode(['success' => true, 'message' => 'Proposta RECUSADA — lead movida para "Para outras oportunidades".']);
+            return;
+        }
+
+        echo json_encode(['success' => false, 'message' => 'Ação inválida.']);
+    }
+
+    private function dps_set_lead_status($lead_id, $new_status)
+    {
+        $old = $this->db->select('status')->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+        if (! $old || (int) $old->status === (int) $new_status) {
+            return;
+        }
+        $this->db->where('id', $lead_id)->update(db_prefix() . 'leads', [
+            'status'             => (int) $new_status,
+            'last_status_change' => date('Y-m-d H:i:s'),
+        ]);
+        $sid = get_staff_user_id();
+        $this->db->insert(db_prefix() . 'lead_activity_log', [
+            'leadid'      => $lead_id,
+            'staffid'     => $sid,
+            'full_name'   => get_staff_full_name($sid),
+            'date'        => date('Y-m-d H:i:s'),
+            'description' => 'Estado alterado (resultado de proposta) para ' . ($this->status_name($new_status) ?: $new_status),
+        ]);
+        hooks()->do_action('lead_status_changed', [
+            'lead_id'    => $lead_id,
+            'old_status' => (int) $old->status,
+            'new_status' => (int) $new_status,
+        ]);
+    }
 }
