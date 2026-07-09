@@ -4423,12 +4423,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v2 -->
+
+
+<!-- DPS_PROPOSTA_INJECT v3 -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
   var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
-  if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; } // só quando aberto pelo CRM
+  if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; }
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
   var last = null, patched = false, iv = null;
 
@@ -4451,7 +4453,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!J || !J.prototype || typeof J.prototype.save !== 'function') { return; }
     var proto = J.prototype, orig = proto.save;
     proto.save = function (filename) {
-      var res = orig.apply(this, arguments); // download real PRIMEIRO — nunca bloqueia a geração
+      var res = orig.apply(this, arguments);
       try { capture(this, filename); } catch (e) {}
       return res;
     };
@@ -4481,6 +4483,7 @@ document.addEventListener('DOMContentLoaded', function() {
       body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
     }).then(function (r) { return r.json(); }).then(function (d) {
       alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
+      try { if (window.parent && window.parent !== window) { window.parent.postMessage({ dps_proposta_enviada: !!(d && d.success) }, '*'); } } catch (e) {}
     }).catch(function () { alert('Erro de comunicação com o CRM.'); })
       .finally(function () { btn.disabled = false; btn.textContent = t0; });
   });

@@ -21,16 +21,30 @@
             <div class="panel_s">
                 <div class="panel-body">
                     <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Proposta</h4>
-                    <p class="text-muted" style="font-size:12px;">Abre o simulador já com os dados do cliente para gerares e enviares a proposta.</p>
+                    <p class="text-muted" style="font-size:12px;">Abre o simulador aqui dentro, gera a proposta da unidade e envia por WhatsApp.</p>
                     <select id="dps_prop_emp" class="form-control">
                         <?php foreach ($emps as $k => $e) { ?>
                         <option value="<?= e($k); ?>"><?= e($e['nome']); ?></option>
                         <?php } ?>
                     </select>
                     <button type="button" id="dps_prop_btn" class="btn btn-danger btn-block mtop10">
-                        <i class="fa fa-external-link"></i> Abrir simulador / proposta
+                        <i class="fa fa-calculator"></i> Abrir simulador aqui
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dps_sim_wrap" style="display:none;margin-bottom:15px;">
+        <div class="panel_s">
+            <div class="panel-body" style="padding:8px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <strong id="dps_sim_title"><i class="fa fa-calculator"></i> Simulador</strong>
+                    <span class="text-muted" style="font-size:12px;">Gera a proposta e usa o botão verde "Enviar proposta ao cliente".</span>
+                    <button type="button" id="dps_sim_open_tab" class="btn btn-default btn-xs" style="margin-left:auto;"><i class="fa fa-external-link"></i> Abrir em nova aba</button>
+                    <button type="button" id="dps_sim_close" class="btn btn-default btn-xs">Fechar</button>
+                </div>
+                <iframe id="dps_sim_iframe" src="about:blank" style="width:100%;height:78vh;min-height:600px;border:1px solid #e3e7ec;border-radius:6px;background:#fff;"></iframe>
             </div>
         </div>
     </div>
@@ -142,18 +156,39 @@
     var propBtn = document.getElementById('dps_prop_btn');
     var staffId = <?= (int) $staff_id; ?>;
     var propToken = <?= json_encode($token); ?>;
-    propBtn.addEventListener('click', function () {
-        var emp = document.getElementById('dps_prop_emp').value;
-        var nome = <?= json_encode($lead->name); ?>;
-        var tel = <?= json_encode($lead->phonenumber); ?>;
-        var url = 'https://dpsimobiliario.pt/simuladorportugal/'
+    var leadNome = <?= json_encode($lead->name); ?>;
+    var leadTel = <?= json_encode($lead->phonenumber); ?>;
+    function buildSimUrl(emp) {
+        return 'https://dpsimobiliario.pt/simuladorportugal/'
             + '?lead_id=' + leadId
             + '&staff_id=' + staffId
             + '&token=' + encodeURIComponent(propToken)
             + '&empreendimento=' + encodeURIComponent(emp)
-            + '&nome=' + encodeURIComponent(nome || '')
-            + '&telefone=' + encodeURIComponent(tel || '');
-        window.open(url, '_blank');
+            + '&nome=' + encodeURIComponent(leadNome || '')
+            + '&telefone=' + encodeURIComponent(leadTel || '');
+    }
+    var simWrap = document.getElementById('dps_sim_wrap');
+    var simFrame = document.getElementById('dps_sim_iframe');
+    var lastSimUrl = '';
+    propBtn.addEventListener('click', function () {
+        var emp = document.getElementById('dps_prop_emp').value;
+        lastSimUrl = buildSimUrl(emp);
+        simFrame.src = lastSimUrl;
+        simWrap.style.display = 'block';
+        try { simWrap.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+    });
+    var closeBtn = document.getElementById('dps_sim_close');
+    if (closeBtn) { closeBtn.addEventListener('click', function () { simWrap.style.display = 'none'; simFrame.src = 'about:blank'; }); }
+    var openTabBtn = document.getElementById('dps_sim_open_tab');
+    if (openTabBtn) { openTabBtn.addEventListener('click', function () { if (lastSimUrl) { window.open(lastSimUrl, '_blank'); } }); }
+
+    // Quando a proposta é enviada dentro do iframe, mostra confirmação no CRM.
+    window.addEventListener('message', function (ev) {
+        if (ev && ev.data && ev.data.dps_proposta_enviada) {
+            if (typeof alert_float === 'function') {
+                alert_float('success', 'Proposta enviada e registada. Reabre a lead para ver o registo.');
+            }
+        }
     });
 })();
 </script>
