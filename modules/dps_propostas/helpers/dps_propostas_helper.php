@@ -101,6 +101,24 @@ function dps_propostas_evo_request($method, $path, $body = null, $timeout = 20)
     return $res;
 }
 
+/**
+ * Traduz o erro da Evolution numa mensagem amigável.
+ */
+function dps_propostas_erro_wa($r, $number)
+{
+    $raw = (string) ($r['raw'] ?? '');
+    if (strpos($raw, '"exists":false') !== false) {
+        return 'O número ' . $number . ' não tem WhatsApp — não é possível enviar por aqui.';
+    }
+    if (strpos($raw, 'No sessions') !== false || strpos($raw, 'does not exist') !== false) {
+        return 'O teu WhatsApp precisa de reconectar (lê o QR no módulo de WhatsApp).';
+    }
+    if ((int) $r['http'] === 0 || (int) $r['http'] >= 500) {
+        return 'A Evolution não respondeu neste momento — tenta de novo daqui a instantes.';
+    }
+    return 'Falha no envio pelo WhatsApp (HTTP ' . (int) $r['http'] . ').';
+}
+
 function dps_propostas_send_text($staff_id, $number, $text)
 {
     return dps_propostas_evo_request('POST', '/message/sendText/' . dps_propostas_instance($staff_id), [
