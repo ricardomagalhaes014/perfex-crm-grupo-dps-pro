@@ -241,8 +241,8 @@ return App_table::find('leads')
                 $row[] = $consentHTML;
             }
             
-            // Empresa
-            $row[] = htmlspecialchars($aRow['company'], ENT_QUOTES, 'UTF-8');
+            // Proposta (DPS) — abre painel de proposta/informação sem abrir a lead
+            $row[] = '<button type="button" class="btn btn-danger btn-xs" onclick="if(typeof dps_open_proposta===\'function\'){dps_open_proposta(' . (int) $aRow['id'] . ');}return false;"><i class="fa fa-file-pdf-o"></i> Proposta</button>';
 
             // Email
             $row[] = ($aRow['email'] != ''

@@ -225,4 +225,32 @@ class Dps_propostas extends AdminController
         $data['comerciais']   = $comerciais;
         $this->load->view('todas', $data);
     }
+
+    /**
+     * Painel de proposta/informação de uma lead (carregado num modal a partir
+     * da lista de leads, sem abrir a lead).
+     */
+    public function painel($lead_id = '')
+    {
+        if (! is_staff_member()) {
+            ajax_access_denied();
+        }
+        $lead = $this->db->select('id, name, phonenumber, status')
+            ->where('id', (int) $lead_id)->get(db_prefix() . 'leads')->row();
+        if (! $lead) {
+            echo '<p class="text-danger">Lead não encontrada.</p>';
+            return;
+        }
+        $staff_id = get_staff_user_id();
+        $rows = $this->db->where('lead_id', (int) $lead->id)->order_by('id', 'DESC')
+            ->get(db_prefix() . 'dps_propostas')->result();
+
+        $this->load->view('painel', [
+            'lead'     => $lead,
+            'emps'     => dps_propostas_empreendimentos(),
+            'rows'     => $rows,
+            'staff_id' => $staff_id,
+            'token'    => dps_propostas_proposta_token($lead->id, $staff_id),
+        ]);
+    }
 }
