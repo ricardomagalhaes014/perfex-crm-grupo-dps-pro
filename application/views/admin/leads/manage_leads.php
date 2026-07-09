@@ -366,7 +366,8 @@
         var note = $('#dps-note-text').val().trim();
         if (!note || !_dpsNoteLeadId) return;
         var $btn = $(this).prop('disabled', true).text('A guardar...');
-        var postData = { description: note };
+        // dps_quick: nota rápida conta como contacto (atualiza último contacto + interação)
+        var postData = { description: note, dps_quick: 1, contacted_indicator: 'no' };
         postData[app.options.csrf_token_name] = app.options.csrf_hash;
         $.post(admin_url + 'leads/add_note/' + _dpsNoteLeadId, postData)
         .done(function(resp) {

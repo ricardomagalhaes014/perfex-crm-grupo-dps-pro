@@ -1092,6 +1092,11 @@ class Leads extends AdminController
                             _dt($contacted_date),
                         ]));
                     }
+                } elseif ($this->input->post('dps_quick')) {
+                    // 📌 DPS: nota rápida pelo lápis conta como contacto → atualiza o último
+                    // contacto. A interação já fica registada pelo log "📝 Nota gravada por…" acima.
+                    $this->db->where('id', $rel_id);
+                    $this->db->update(db_prefix() . 'leads', ['lastcontact' => date('Y-m-d H:i:s')]);
                 }
             }
         }
