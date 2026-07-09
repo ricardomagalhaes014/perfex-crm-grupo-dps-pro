@@ -370,11 +370,18 @@ class Dps_propostas extends AdminController
                 echo json_encode(['success' => false, 'message' => 'Indica o valor da proposta aceite.']);
                 return;
             }
+            $venda = $this->dps_criar_venda($prop, $valor);
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
-                'outcome' => 'aceite', 'valor' => $valor, 'outcome_at' => date('Y-m-d H:i:s'),
+                'outcome'    => 'aceite',
+                'valor'      => $valor,
+                'outcome_at' => date('Y-m-d H:i:s'),
+                'venda_id'   => $venda['id'],
             ]);
             $this->dps_set_lead_status((int) $prop->lead_id, 13);
-            echo json_encode(['success' => true, 'message' => 'Proposta ACEITE — lead marcada como Concretizado (' . number_format($valor, 0, ',', '.') . ' €).']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Proposta ACEITE — Concretizado. Venda registada nas comissões: ' . number_format($valor, 0, ',', '.') . ' € · comissão ' . number_format($venda['comissao'], 2, ',', '.') . ' € (' . rtrim(rtrim(number_format($venda['taxa'], 3, ',', '.'), '0'), ',') . '%).',
+            ]);
             return;
         }
 
@@ -413,5 +420,32 @@ class Dps_propostas extends AdminController
             'old_status' => (int) $old->status,
             'new_status' => (int) $new_status,
         ]);
+    }
+
+    /**
+     * Cria uma venda no módulo de comissões a partir de uma proposta aceite.
+     * Calcula a comissão pela taxa do empreendimento.
+     */
+    private function dps_criar_venda($prop, $valor)
+    {
+        $emp  = $this->db->where('nome', $prop->empreendimento)->get(db_prefix() . 'simulador_empreendimentos')->row();
+        $taxa = $emp ? (float) $emp->taxa : 0;
+        $comissao = round($valor * $taxa / 100, 2);
+
+        $lead = $this->db->select('name')->where('id', (int) $prop->lead_id)->get(db_prefix() . 'leads')->row();
+
+        $this->db->insert(db_prefix() . 'simulador_vendas', [
+            'empreendimento' => $prop->empreendimento,
+            'taxa'           => $taxa,
+            'unidade'        => $prop->unidade,
+            'cliente'        => $lead ? $lead->name : '',
+            'valor'          => $valor,
+            'comissao_total' => $comissao,
+            'data_venda'     => date('Y-m-d'),
+            'staff_id'       => (int) $prop->staff_id,
+            'date_created'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return ['id' => $this->db->insert_id(), 'comissao' => $comissao, 'taxa' => $taxa];
     }
 }

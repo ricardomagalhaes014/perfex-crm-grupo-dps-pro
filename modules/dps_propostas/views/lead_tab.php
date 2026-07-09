@@ -118,23 +118,76 @@
     </div>
 </div>
 
+<?php
+$dps_tl_ic = [
+    'whatsapp' => ['fa-whatsapp', '#25D366'], 'proposta' => ['fa-file-pdf-o', '#c0392b'],
+    'aceite'   => ['fa-check-circle', '#2f9e44'], 'recusado' => ['fa-times-circle', '#c0392b'],
+    'info'     => ['fa-paper-plane', '#1d6fb8'], 'estado' => ['fa-exchange', '#b58105'],
+    'nota'     => ['fa-sticky-note-o', '#7a8798'], 'log' => ['fa-circle-o', '#9aa6b2'],
+];
+?>
+<div role="tabpanel" class="tab-pane" id="dps_historico_tab">
+    <div class="panel_s"><div class="panel-body">
+        <h4 class="no-margin"><i class="fa fa-history"></i> Linha do tempo</h4>
+        <div style="margin-top:14px;">
+            <?php if (empty($timeline)) { ?><p class="text-muted">Sem interações registadas.</p><?php } ?>
+            <?php foreach ($timeline as $ev) {
+                $ic = $dps_tl_ic[$ev['tipo']] ?? ['fa-circle-o', '#9aa6b2'];
+            ?>
+            <div style="display:flex;gap:11px;padding:8px 0;border-bottom:0.5px solid #eef0f2;">
+                <div style="width:30px;height:30px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;background:<?= $ic[1]; ?>1a;color:<?= $ic[1]; ?>;"><i class="fa <?= $ic[0]; ?>"></i></div>
+                <div style="min-width:0;">
+                    <div style="font-size:13px;color:#2b3440;"><?= e($ev['txt']); ?></div>
+                    <div class="text-muted" style="font-size:11px;"><?= e($ev['t']); ?><?= $ev['quem'] ? ' · ' . e($ev['quem']) : ''; ?></div>
+                </div>
+            </div>
+            <?php } ?>
+        </div>
+    </div></div>
+</div>
+
 <script>
 (function () {
     var pane = document.getElementById('dps_propostas_tab');
     if (!pane || pane.getAttribute('data-dps-init') === '1') { return; }
     pane.setAttribute('data-dps-init', '1');
 
-    // Injeta o separador "Propostas" na navegação de abas da ficha da lead.
+    // Injeta separadores (Propostas, Histórico) + barra de ações no topo.
+    function addTab(nav, href, label, icon) {
+        if (nav.querySelector('a[href="' + href + '"]')) { return; }
+        var li = document.createElement('li');
+        li.setAttribute('role', 'presentation');
+        li.innerHTML = '<a href="' + href + '" role="tab" data-toggle="tab"><i class="fa ' + icon + ' menu-icon"></i> ' + label + '</a>';
+        nav.appendChild(li);
+    }
+    function injectActionBar(modal) {
+        var body = modal.querySelector('.modal-body') || modal;
+        if (body.querySelector('#dps_action_bar')) { return; }
+        var tel = <?= json_encode(preg_replace('/[^0-9]/', '', (string) $lead->phonenumber)); ?>;
+        var bar = document.createElement('div');
+        bar.id = 'dps_action_bar';
+        bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px;background:#f7f8fa;border-bottom:1px solid #eaecef;';
+        var html = '';
+        if (tel) {
+            html += '<a href="https://wa.me/' + tel + '" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i> WhatsApp</a>';
+            html += '<a href="tel:' + tel + '" class="btn btn-sm btn-primary"><i class="fa fa-phone"></i> Ligar</a>';
+        }
+        html += '<button type="button" class="btn btn-sm" style="background:#5a4fc4;color:#fff;" onclick="dpsGoProp()"><i class="fa fa-paper-plane"></i> Enviar info / Proposta</button>';
+        bar.innerHTML = html;
+        body.insertBefore(bar, body.firstChild);
+    }
+    window.dpsGoProp = function () {
+        var a = document.querySelector('a[href="#dps_propostas_tab"]');
+        if (a && window.jQuery) { window.jQuery(a).tab('show'); }
+    };
     function injectTab() {
-        var scope = pane.closest('#lead-modal') || pane.closest('.modal') || document;
+        var modal = pane.closest('#lead-modal') || pane.closest('.modal');
+        var scope = modal || document;
         var nav = scope.querySelector('ul.nav-tabs');
         if (!nav) { return false; }
-        if (!nav.querySelector('a[href="#dps_propostas_tab"]')) {
-            var li = document.createElement('li');
-            li.setAttribute('role', 'presentation');
-            li.innerHTML = '<a href="#dps_propostas_tab" role="tab" data-toggle="tab"><i class="fa fa-paper-plane menu-icon"></i> Propostas</a>';
-            nav.appendChild(li);
-        }
+        addTab(nav, '#dps_propostas_tab', 'Propostas', 'fa-paper-plane');
+        addTab(nav, '#dps_historico_tab', 'Histórico', 'fa-history');
+        if (modal) { injectActionBar(modal); }
         return true;
     }
     if (!injectTab()) {

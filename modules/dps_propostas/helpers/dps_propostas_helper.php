@@ -297,7 +297,51 @@ function dps_propostas_render_lead_tab($lead)
         'rows'     => $rows,
         'staff_id' => $staff_id,
         'token'    => dps_propostas_proposta_token($lead->id, $staff_id),
+        'timeline' => dps_propostas_timeline($lead->id),
     ]);
+}
+
+/**
+ * Junta as interações da lead (atividade, notas, WhatsApp, propostas) numa
+ * linha do tempo ordenada (mais recente primeiro).
+ */
+function dps_propostas_timeline($lead_id, $limit = 60)
+{
+    $CI = &get_instance();
+    $p  = db_prefix();
+    $ev = [];
+
+    foreach ($CI->db->select('description, date, full_name')->where('leadid', (int) $lead_id)
+        ->order_by('date', 'DESC')->limit($limit)->get($p . 'lead_activity_log')->result() as $r) {
+        $tipo = 'log';
+        if (stripos($r->description, 'estado') !== false) { $tipo = 'estado'; }
+        $ev[] = ['t' => $r->date, 'tipo' => $tipo, 'txt' => $r->description, 'quem' => $r->full_name];
+    }
+
+    foreach ($CI->db->select('description, dateadded, addedfrom')->where('rel_type', 'lead')->where('rel_id', (int) $lead_id)
+        ->order_by('dateadded', 'DESC')->limit($limit)->get($p . 'notes')->result() as $r) {
+        $tipo = (stripos($r->description, 'whatsapp') !== false) ? 'whatsapp' : 'nota';
+        $ev[] = ['t' => $r->dateadded, 'tipo' => $tipo, 'txt' => $r->description, 'quem' => $r->addedfrom ? get_staff_full_name($r->addedfrom) : ''];
+    }
+
+    foreach ($CI->db->where('lead_id', (int) $lead_id)->order_by('id', 'DESC')->get($p . 'dps_propostas')->result() as $r) {
+        $quem = $r->staff_id ? get_staff_full_name($r->staff_id) : '';
+        if ($r->tipo === 'proposta') {
+            $txt = 'Proposta enviada — ' . $r->empreendimento . ' ' . $r->unidade;
+            $ev[] = ['t' => $r->created_at, 'tipo' => 'proposta', 'txt' => $txt, 'quem' => $quem];
+            if (($r->outcome ?? 'pendente') !== 'pendente' && ! empty($r->outcome_at)) {
+                $ot = $r->outcome === 'aceite'
+                    ? 'Proposta ACEITE (' . number_format((float) $r->valor, 0, ',', '.') . ' €)'
+                    : 'Proposta RECUSADA';
+                $ev[] = ['t' => $r->outcome_at, 'tipo' => ($r->outcome === 'aceite' ? 'aceite' : 'recusado'), 'txt' => $ot, 'quem' => ''];
+            }
+        } else {
+            $ev[] = ['t' => $r->created_at, 'tipo' => 'info', 'txt' => 'Informação enviada — ' . $r->empreendimento, 'quem' => $quem];
+        }
+    }
+
+    usort($ev, function ($a, $b) { return strcmp((string) $b['t'], (string) $a['t']); });
+    return array_slice($ev, 0, $limit);
 }
 
 /**
