@@ -66,22 +66,39 @@ function dps_propostas_evo_request($method, $path, $body = null, $timeout = 20)
     if (empty($url) || empty($key)) {
         return ['ok' => false, 'http' => 0, 'error' => 'Evolution nao configurada'];
     }
-    $ch = curl_init($url . $path);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CUSTOMREQUEST  => $method,
-        CURLOPT_CONNECTTIMEOUT => 8,
-        CURLOPT_TIMEOUT        => $timeout,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'apikey: ' . $key],
-    ]);
-    if ($body !== null) {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-    }
-    $raw  = curl_exec($ch);
-    $err  = curl_error($ch);
-    $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    return ['ok' => ($http >= 200 && $http < 300), 'http' => $http, 'error' => $err, 'raw' => $raw];
+    $payload = ($body !== null) ? json_encode($body) : null;
+
+    // Até 2 tentativas: repete em erro de ligação (http 0) ou 5xx (Evolution
+    // por vezes devolve 500 transitório e à segunda funciona).
+    $attempt = 0;
+    $res = ['ok' => false, 'http' => 0, 'error' => 'sem resposta', 'raw' => ''];
+    do {
+        $attempt++;
+        $ch = curl_init($url . $path);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'apikey: ' . $key],
+        ]);
+        if ($payload !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        }
+        $raw  = curl_exec($ch);
+        $err  = curl_error($ch);
+        $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $res = ['ok' => ($http >= 200 && $http < 300), 'http' => $http, 'error' => $err, 'raw' => $raw];
+        if ($res['ok'] || ($http > 0 && $http < 500)) {
+            break; // sucesso, ou erro definitivo (4xx) — não vale a pena repetir
+        }
+        if ($attempt < 2) {
+            usleep(900000); // 0,9s antes de repetir
+        }
+    } while ($attempt < 2);
+
+    return $res;
 }
 
 function dps_propostas_send_text($staff_id, $number, $text)
