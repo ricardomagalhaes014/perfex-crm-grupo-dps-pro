@@ -97,14 +97,23 @@
     pane.setAttribute('data-dps-init', '1');
 
     // Injeta o separador "Propostas" na navegação de abas da ficha da lead.
-    var content = pane.closest('.tab-content');
-    var container = content ? content.parentNode : document;
-    var nav = container ? container.querySelector('ul.nav-tabs') : null;
-    if (nav && !nav.querySelector('a[href="#dps_propostas_tab"]')) {
-        var li = document.createElement('li');
-        li.setAttribute('role', 'presentation');
-        li.innerHTML = '<a href="#dps_propostas_tab" role="tab" data-toggle="tab"><i class="fa fa-paper-plane menu-icon"></i> Propostas</a>';
-        nav.appendChild(li);
+    function injectTab() {
+        var scope = pane.closest('#lead-modal') || pane.closest('.modal') || document;
+        var nav = scope.querySelector('ul.nav-tabs');
+        if (!nav) { return false; }
+        if (!nav.querySelector('a[href="#dps_propostas_tab"]')) {
+            var li = document.createElement('li');
+            li.setAttribute('role', 'presentation');
+            li.innerHTML = '<a href="#dps_propostas_tab" role="tab" data-toggle="tab"><i class="fa fa-paper-plane menu-icon"></i> Propostas</a>';
+            nav.appendChild(li);
+        }
+        return true;
+    }
+    if (!injectTab()) {
+        var _tries = 0;
+        var _iv = setInterval(function () {
+            if (injectTab() || ++_tries > 20) { clearInterval(_iv); }
+        }, 150);
     }
 
     var leadId = <?= (int) $lead->id; ?>;
