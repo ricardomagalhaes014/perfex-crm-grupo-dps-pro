@@ -448,4 +448,69 @@ class Dps_propostas extends AdminController
 
         return ['id' => $this->db->insert_id(), 'comissao' => $comissao, 'taxa' => $taxa];
     }
+
+    /**
+     * Envia a proposta (PDF gerado no simulador) pelo WhatsApp do utilizador
+     * AUTENTICADO no CRM e regista. Chamado pela ficha da lead (sessão logada).
+     */
+    public function enviar_proposta_pdf()
+    {
+        if (! is_staff_member()) {
+            ajax_access_denied();
+        }
+        $lead_id   = (int) $this->input->post('lead_id');
+        $emp       = trim((string) $this->input->post('empreendimento'));
+        $unidade   = trim((string) $this->input->post('unidade'));
+        $file_name = $this->input->post('file_name') ?: 'Proposta.pdf';
+        $pdf       = (string) $this->input->post('pdf_base64');
+
+        $staff_id = get_staff_user_id(); // utilizador LOGADO
+
+        if (! $lead_id || $pdf === '') {
+            echo json_encode(['success' => false, 'message' => 'Dados da proposta em falta.']);
+            return;
+        }
+        if (! dps_propostas_staff_connected($staff_id)) {
+            echo json_encode(['success' => false, 'message' => 'O teu WhatsApp não está ligado (Definições → WhatsApp).']);
+            return;
+        }
+
+        $lead = $this->db->select('name, phonenumber, status')->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+        if (! $lead) {
+            echo json_encode(['success' => false, 'message' => 'Lead não encontrada.']);
+            return;
+        }
+        $number = preg_replace('/[^0-9]/', '', (string) $lead->phonenumber);
+        if ($number === '') {
+            echo json_encode(['success' => false, 'message' => 'A lead não tem telefone.']);
+            return;
+        }
+
+        $media   = preg_replace('#^data:[^;]+;base64,#', '', $pdf);
+        $site    = dps_propostas_site_por_nome($emp);
+        $caption = 'Proposta' . ($emp ? ' — ' . $emp : '') . ($unidade ? ' — Unidade ' . $unidade : '')
+            . ($site ? "\n\n🌐 Mais informação:\n" . $site : '');
+
+        $r  = dps_propostas_send_document_b64($staff_id, $number, $media, $file_name, $caption);
+        $ok = $r['ok'];
+
+        $this->db->insert(db_prefix() . 'dps_propostas', [
+            'lead_id'          => $lead_id,
+            'staff_id'         => $staff_id,
+            'tipo'             => 'proposta',
+            'empreendimento'   => $emp,
+            'unidade'          => $unidade,
+            'lead_status_id'   => (int) $lead->status,
+            'lead_status_nome' => $this->status_name($lead->status),
+            'ficheiro'         => $file_name,
+            'detalhe'          => 'Enviada pelo comercial (simulador)',
+            'wa_ok'            => $ok ? 1 : 0,
+            'created_at'       => date('Y-m-d H:i:s'),
+        ]);
+
+        echo json_encode([
+            'success' => $ok,
+            'message' => $ok ? 'Proposta enviada ao cliente e registada.' : dps_propostas_erro_wa($r, $number),
+        ]);
+    }
 }

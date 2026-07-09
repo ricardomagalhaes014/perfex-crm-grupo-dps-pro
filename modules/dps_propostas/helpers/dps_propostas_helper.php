@@ -44,6 +44,19 @@ function dps_propostas_units()
     return $cache;
 }
 
+/**
+ * Link do site do empreendimento pelo nome.
+ */
+function dps_propostas_site_por_nome($nome)
+{
+    foreach (dps_propostas_empreendimentos() as $e) {
+        if (mb_strtolower(trim($e['nome'])) === mb_strtolower(trim((string) $nome))) {
+            return $e['site'];
+        }
+    }
+    return '';
+}
+
 /* ---------------- Evolution API (reutiliza opções do dps_whatsapp) ---------------- */
 
 function dps_propostas_evo_url()

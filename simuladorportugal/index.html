@@ -4430,14 +4430,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v5 -->
+
+
+<!-- DPS_PROPOSTA_INJECT v6 -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
   var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
   if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; }
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
-  var last = null, sendBtns = [];
+  var last = null, sendBtns = [], pendingBtn = null, pendingT0 = '';
+  var embedded = !!(window.parent && window.parent !== window);
 
   function capture(doc, filename) {
     try {
@@ -4449,7 +4452,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
       last = { base64: b64, filename: fn, unit: unit, emp: emp || ctx.empreendimento };
       enableSendButtons();
-      try { if (window.parent && window.parent !== window) { window.parent.postMessage({ dps_proposta: last }, '*'); } } catch (e) {}
+      try { if (embedded) { window.parent.postMessage({ dps_proposta: last }, '*'); } } catch (e) {}
     } catch (e) { if (window.console) { console.warn('[DPS] captura falhou:', e); } }
   }
   function patchProto(J) {
@@ -4467,16 +4470,26 @@ document.addEventListener('DOMContentLoaded', function() {
   else { try { var _j; Object.defineProperty(window, 'jspdf', { configurable: true, get: function () { return _j; }, set: function (v) { _j = v; patchProto(v); } }); } catch (e) {} }
   var t1 = 0, iv1 = setInterval(function () { if (patchProto(window.jspdf) || ++t1 > 60) { clearInterval(iv1); } }, 250);
 
+  function resetPending() { if (pendingBtn) { pendingBtn.disabled = false; pendingBtn.innerHTML = pendingT0; pendingBtn = null; } }
+  window.addEventListener('message', function (ev) { if (ev.data && ev.data.dps_send_result !== undefined) { resetPending(); } });
+
   function doSend(btn) {
     if (!last) { alert('Gera primeiro a proposta de uma unidade.'); return; }
     var t0 = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'A enviar...';
-    fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
-    }).then(function (r) { return r.json(); }).then(function (d) {
-      alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
-    }).catch(function () { alert('Erro de comunicação com o CRM.'); })
-      .finally(function () { btn.disabled = false; btn.innerHTML = t0; });
+    if (embedded) {
+      // Enviar pelo CRM, na sessão do utilizador logado.
+      pendingBtn = btn; pendingT0 = t0;
+      try { window.parent.postMessage({ dps_send_now: last }, '*'); } catch (e) {}
+      setTimeout(resetPending, 25000);
+    } else {
+      fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
+      }).catch(function () { alert('Erro de comunicação com o CRM.'); })
+        .finally(function () { btn.disabled = false; btn.innerHTML = t0; });
+    }
   }
   function styleSend(b, ready) {
     b.style.cssText = 'display:inline-flex;align-items:center;gap:8px;margin:10px 6px 0;padding:12px 18px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:' + (ready ? 'pointer' : 'default') + ';color:#fff;background:' + (ready ? '#25D366' : '#7a8798') + ';font-family:sans-serif;';

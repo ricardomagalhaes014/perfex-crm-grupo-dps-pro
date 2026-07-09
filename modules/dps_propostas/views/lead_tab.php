@@ -249,7 +249,7 @@ $dps_tl_ic = [
             + '&token=' + encodeURIComponent(propToken)
             + '&empreendimento=' + encodeURIComponent(emp)
             + '&nome=' + encodeURIComponent(leadNome || '')
-            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709b';
+            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709c';
     }
     var simWrap = document.getElementById('dps_sim_wrap');
     var simFrame = document.getElementById('dps_sim_iframe');
@@ -266,9 +266,21 @@ $dps_tl_ic = [
     var openTabBtn = document.getElementById('dps_sim_open_tab');
     if (openTabBtn) { openTabBtn.addEventListener('click', function () { if (lastSimUrl) { window.open(lastSimUrl, '_blank'); } }); }
 
-    // Recebe a proposta capturada no simulador (iframe) e ativa o botão de envio.
+    // Envia a proposta pelo WhatsApp do UTILIZADOR LOGADO (controller autenticado do CRM).
     var capturedProp = null;
     var sendBtn = document.getElementById('dps_send_prop');
+    function dpsEnviarProposta(prop, srcWin) {
+        var data = { lead_id: leadId, empreendimento: prop.emp, unidade: prop.unit, file_name: prop.filename, pdf_base64: prop.base64 };
+        data[csrfName] = csrfHash;
+        return $.post(base + 'dps_propostas/enviar_proposta_pdf', data, function (r) {
+            try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
+            if (typeof alert_float === 'function') { alert_float(r && r.success ? 'success' : 'danger', (r && r.message) || 'Erro ao enviar.'); }
+            if (srcWin) { try { srcWin.postMessage({ dps_send_result: true, ok: !!(r && r.success) }, '*'); } catch (e) {} }
+        }).fail(function () {
+            if (typeof alert_float === 'function') { alert_float('danger', 'Erro de comunicação.'); }
+            if (srcWin) { try { srcWin.postMessage({ dps_send_result: true, ok: false }, '*'); } catch (e) {} }
+        });
+    }
     window.addEventListener('message', function (ev) {
         if (ev.origin !== 'https://dpsimobiliario.pt') { return; }
         var d = ev && ev.data;
@@ -277,20 +289,16 @@ $dps_tl_ic = [
             sendBtn.disabled = false;
             sendBtn.innerHTML = '<i class="fa fa-whatsapp"></i> Enviar proposta' + (capturedProp.unit ? (' — ' + capturedProp.unit) : '') + ' ao cliente';
         }
+        if (d && d.dps_send_now) {
+            dpsEnviarProposta(d.dps_send_now, ev.source);
+        }
     });
     if (sendBtn) {
         sendBtn.addEventListener('click', function () {
             if (!capturedProp) { return; }
             sendBtn.disabled = true;
             var t = sendBtn.innerHTML; sendBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> A enviar...';
-            fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lead_id: leadId, staff_id: staffId, token: propToken, empreendimento: capturedProp.emp, unidade: capturedProp.unit, file_name: capturedProp.filename, pdf_base64: capturedProp.base64 })
-            }).then(function (r) { return r.json(); }).then(function (d) {
-                if (typeof alert_float === 'function') { alert_float(d && d.success ? 'success' : 'danger', (d && d.message) || 'Erro ao enviar.'); }
-                else { alert((d && d.message) || 'Erro'); }
-            }).catch(function () { if (typeof alert_float === 'function') { alert_float('danger', 'Erro de comunicação.'); } })
-              .finally(function () { sendBtn.disabled = false; sendBtn.innerHTML = t; });
+            dpsEnviarProposta(capturedProp, null).always(function () { sendBtn.disabled = false; sendBtn.innerHTML = t; });
         });
     }
 })();
