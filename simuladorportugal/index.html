@@ -4286,7 +4286,7 @@ function exportBoavistaToPDF() {
       doc.setFontSize(9);
       doc.text('DPS Imobiliário · dpsimobiliario.pt/boavistatowers · ' + new Date().toLocaleDateString('pt-PT'), W/2, 25, { align: 'center' });
       const headers = ['Fracção','Bloco','Piso','Tipologia','ABC (m²)','Varanda (m²)','Total (m²)','Preço (€)','Estado','Orientação'];
-      const rows = BOAVISTA_UNITS.map(u => [u.fraccao, u.bloco, u.piso+'º', u.tipologia, u.abc.toFixed(2), u.varanda.toFixed(2), u.total.toFixed(2), u.preco > 0 ? u.preco.toLocaleString('pt-PT') : '—', u.status, u.orientacao]);
+      const rows = (window.__boavistaFiltered || BOAVISTA_UNITS).map(u => [u.fraccao, u.bloco, u.piso+'º', u.tipologia, u.abc.toFixed(2), u.varanda.toFixed(2), u.total.toFixed(2), u.preco > 0 ? u.preco.toLocaleString('pt-PT') : '—', u.status, u.orientacao]);
       doc.autoTable({
         head: [headers], body: rows, startY: 30,
         styles: { fontSize: 7, cellPadding: 2, textColor: [245, 242, 237], fillColor: [8, 21, 40], lineColor: [30, 50, 80], lineWidth: 0.1 },
@@ -4374,6 +4374,7 @@ function applyBoavistaFilters() {
   });
   const cl = document.getElementById('boavistaCountLabel');
   if (cl) cl.textContent = data.length;
+  window.__boavistaFiltered = data;
   renderBoavistaTable(data);
   renderBoavistaStats();
 }
