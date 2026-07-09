@@ -176,4 +176,53 @@ class Dps_propostas extends AdminController
 
         echo json_encode(['success' => true, 'message' => $ok ? 'Proposta enviada e registada.' : 'Proposta registada (envio WhatsApp não confirmado).']);
     }
+
+    /**
+     * Lista global de propostas enviadas, com filtro por comercial.
+     * Admin (ou quem vê todas as leads) vê todas; os restantes só as suas.
+     */
+    public function todas()
+    {
+        if (! is_staff_member()) {
+            access_denied('propostas');
+        }
+
+        $can_view_all = is_admin() || staff_can('view', 'leads');
+        $comercial    = (int) $this->input->get('comercial');
+        if (! $can_view_all) {
+            $comercial = get_staff_user_id();
+        }
+
+        // Comerciais com propostas (para o dropdown).
+        $comerciais = [];
+        if ($can_view_all) {
+            $comerciais = $this->db->query(
+                'SELECT s.staffid, s.firstname, s.lastname, COUNT(p.id) AS c
+                 FROM ' . db_prefix() . 'dps_propostas p
+                 JOIN ' . db_prefix() . 'staff s ON s.staffid = p.staff_id
+                 WHERE p.tipo = "proposta"
+                 GROUP BY s.staffid ORDER BY s.firstname, s.lastname'
+            )->result_array();
+        }
+
+        // Propostas (com estado ATUAL da lead).
+        $this->db->select('p.*, l.name AS lead_nome, ls.name AS estado_atual');
+        $this->db->from(db_prefix() . 'dps_propostas p');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
+        $this->db->join(db_prefix() . 'leads_status ls', 'ls.id = l.status', 'left');
+        $this->db->where('p.tipo', 'proposta');
+        if ($comercial > 0) {
+            $this->db->where('p.staff_id', $comercial);
+        }
+        $this->db->order_by('p.id', 'DESC');
+        $this->db->limit(1000);
+        $propostas = $this->db->get()->result();
+
+        $data['title']        = 'Propostas Enviadas';
+        $data['propostas']    = $propostas;
+        $data['can_view_all'] = $can_view_all;
+        $data['comercial']    = $comercial;
+        $data['comerciais']   = $comerciais;
+        $this->load->view('todas', $data);
+    }
 }

@@ -27,3 +27,22 @@ $CI->load->helper(DPS_PROPOSTAS_MODULE_NAME . '/dps_propostas');
  * Injeta a aba "Propostas" (com os botões) na ficha da lead.
  */
 hooks()->add_action('after_lead_tabs_content', 'dps_propostas_render_lead_tab');
+
+/**
+ * Item de menu "Propostas Enviadas" (lista global, com filtro por comercial).
+ */
+hooks()->add_action('admin_init', 'dps_propostas_register_menu');
+
+function dps_propostas_register_menu()
+{
+    $CI = &get_instance();
+    if (! (function_exists('is_staff_member') && is_staff_member())) {
+        return;
+    }
+    $CI->app_menu->add_sidebar_menu_item('dps-propostas-enviadas', [
+        'name'     => 'Propostas Enviadas',
+        'href'     => admin_url('dps_propostas/todas'),
+        'icon'     => 'fa fa-file-pdf-o menu-icon',
+        'position' => 17,
+    ]);
+}
