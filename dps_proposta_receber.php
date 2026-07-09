@@ -180,6 +180,28 @@ if ($st = $mysqli->prepare("INSERT INTO {$prefix}dps_propostas
     $st->close();
 }
 
+// --- Envio conta como contacto: atualiza último contacto + regista interação ---
+$now_dt = date('Y-m-d H:i:s');
+if ($st = $mysqli->prepare("UPDATE {$prefix}leads SET lastcontact=? WHERE id=?")) {
+    $st->bind_param('si', $now_dt, $lead_id);
+    $st->execute();
+    $st->close();
+}
+$staff_name = '';
+if ($st = $mysqli->prepare("SELECT CONCAT(firstname,' ',lastname) AS n FROM {$prefix}staff WHERE staffid=?")) {
+    $st->bind_param('i', $staff_id);
+    $st->execute();
+    $rr = $st->get_result()->fetch_assoc();
+    $staff_name = $rr ? $rr['n'] : '';
+    $st->close();
+}
+$act_desc = '📄 Proposta enviada — ' . $emp . ($unidade ? ' ' . $unidade : '');
+if ($st = $mysqli->prepare("INSERT INTO {$prefix}lead_activity_log (leadid, description, date, staffid, full_name, additional_data) VALUES (?, ?, ?, ?, ?, '')")) {
+    $st->bind_param('issis', $lead_id, $act_desc, $now_dt, $staff_id, $staff_name);
+    $st->execute();
+    $st->close();
+}
+
 echo json_encode([
     'success' => $wa_ok,
     'message' => $wa_ok ? 'Proposta enviada e registada.' : ('Registada, mas o envio WhatsApp falhou. ' . $wa_err),

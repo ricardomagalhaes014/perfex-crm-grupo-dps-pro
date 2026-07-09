@@ -20,6 +20,24 @@ class Dps_propostas extends AdminController
     /**
      * Envia informação (dossier + unidades disponíveis) pela WhatsApp do comercial.
      */
+    /**
+     * Marca um contacto com a lead: atualiza o "último contacto" e regista a
+     * interação no log de atividade (para contar na Visão Geral / interações).
+     */
+    private function dps_marcar_contacto($lead_id, $staff_id, $desc)
+    {
+        $now = date('Y-m-d H:i:s');
+        $this->db->where('id', (int) $lead_id)->update(db_prefix() . 'leads', ['lastcontact' => $now]);
+        $this->db->insert(db_prefix() . 'lead_activity_log', [
+            'leadid'          => (int) $lead_id,
+            'description'     => $desc,
+            'date'            => $now,
+            'staffid'         => (int) $staff_id,
+            'full_name'       => get_staff_full_name($staff_id),
+            'additional_data' => '',
+        ]);
+    }
+
     public function enviar_info()
     {
         if (! is_staff_member()) {
@@ -109,6 +127,9 @@ class Dps_propostas extends AdminController
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
+
+        // Envio conta como contacto: atualiza último contacto + interação.
+        $this->dps_marcar_contacto($lead_id, $staff_id, '📤 Informação enviada — ' . $emp['nome']);
 
         echo json_encode([
             'success' => $ok,
@@ -517,6 +538,9 @@ class Dps_propostas extends AdminController
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
+
+        // Envio conta como contacto: atualiza último contacto + interação.
+        $this->dps_marcar_contacto($lead_id, $staff_id, '📄 Proposta enviada — ' . $emp . ($unidade ? ' ' . $unidade : ''));
 
         echo json_encode([
             'success' => $ok,
