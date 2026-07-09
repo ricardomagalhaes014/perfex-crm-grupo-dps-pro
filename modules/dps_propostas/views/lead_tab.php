@@ -35,22 +35,50 @@
         </div>
     </div>
 
+    <?php
+    $propostas = array_values(array_filter($rows, function ($r) { return $r->tipo === 'proposta'; }));
+    $infos     = array_values(array_filter($rows, function ($r) { return $r->tipo === 'info'; }));
+    ?>
     <div class="panel_s">
         <div class="panel-body">
-            <h4 class="no-margin">Registo de envios</h4>
+            <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas enviadas</h4>
             <div class="table-responsive">
                 <table class="table table-striped">
-                    <thead><tr><th>Tipo</th><th>Empreendimento</th><th>Unidade</th><th>Estado da lead</th><th>Quando</th><th>WA</th></tr></thead>
-                    <tbody id="dps_propostas_log">
-                        <?php if (empty($rows)) { ?>
-                        <tr><td colspan="6" class="text-muted text-center">Ainda sem envios.</td></tr>
+                    <thead><tr><th>Empreendimento</th><th>Unidade</th><th>Estado da lead (no envio)</th><th>Quando</th><th>WA</th></tr></thead>
+                    <tbody>
+                        <?php if (empty($propostas)) { ?>
+                        <tr><td colspan="5" class="text-muted text-center">Ainda sem propostas.</td></tr>
                         <?php } ?>
-                        <?php foreach ($rows as $r) { ?>
+                        <?php foreach ($propostas as $r) { ?>
                         <tr>
-                            <td><span class="label label-<?= $r->tipo === 'proposta' ? 'danger' : 'info'; ?>"><?= e($r->tipo); ?></span></td>
                             <td><?= e($r->empreendimento); ?></td>
-                            <td><?= e($r->unidade ?: '—'); ?></td>
+                            <td><strong><?= e($r->unidade ?: '—'); ?></strong></td>
                             <td><?= e($r->lead_status_nome ?: '—'); ?></td>
+                            <td class="text-muted" style="font-size:12px;"><?= e($r->created_at); ?></td>
+                            <td><?= $r->wa_ok ? '<i class="fa fa-check text-success"></i>' : '<i class="fa fa-times text-danger"></i>'; ?></td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel_s">
+        <div class="panel-body">
+            <h4 class="no-margin"><i class="fa fa-paper-plane text-info"></i> Informação enviada</h4>
+            <p class="text-muted" style="font-size:12px;">Envios de informação/disponíveis (não são propostas).</p>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead><tr><th>Empreendimento</th><th>Detalhe</th><th>Quando</th><th>WA</th></tr></thead>
+                    <tbody>
+                        <?php if (empty($infos)) { ?>
+                        <tr><td colspan="4" class="text-muted text-center">Ainda sem envios de informação.</td></tr>
+                        <?php } ?>
+                        <?php foreach ($infos as $r) { ?>
+                        <tr>
+                            <td><?= e($r->empreendimento); ?></td>
+                            <td class="text-muted" style="font-size:12px;"><?= e($r->detalhe ?: '—'); ?></td>
                             <td class="text-muted" style="font-size:12px;"><?= e($r->created_at); ?></td>
                             <td><?= $r->wa_ok ? '<i class="fa fa-check text-success"></i>' : '<i class="fa fa-times text-danger"></i>'; ?></td>
                         </tr>
