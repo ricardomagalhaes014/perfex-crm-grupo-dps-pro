@@ -41,9 +41,21 @@
                 <div class="dps-kpi"><div class="v"><?= number_format($kpi['propostas'], 0, ',', '.'); ?></div><div class="l">Propostas enviadas</div></div>
             </div>
 
+            <?php
+            $estados_chart = array_values(array_filter($por_estado, function ($e) { return mb_strtolower(trim($e['name'])) !== 'novos'; }));
+            usort($estados_chart, function ($a, $b) { return (int) $b['n'] <=> (int) $a['n']; });
+            $novos_count = 0;
+            foreach ($por_estado as $e) { if (mb_strtolower(trim($e['name'])) === 'novos') { $novos_count = (int) $e['n']; } }
+            $est_h = max(240, count($estados_chart) * 30 + 30);
+            ?>
             <div class="row">
-                <div class="col-md-7"><div class="dps-card"><h4>Novas leads por dia (30 dias)</h4><canvas id="ch_dia" height="120"></canvas></div></div>
-                <div class="col-md-5"><div class="dps-card"><h4>Leads por estado</h4><canvas id="ch_estado" height="180"></canvas></div></div>
+                <div class="col-md-12"><div class="dps-card"><h4>Novas leads por dia (30 dias)</h4><div style="height:200px;"><canvas id="ch_dia"></canvas></div></div></div>
+            </div>
+            <div class="row">
+                <div class="col-md-12"><div class="dps-card">
+                    <h4>Leads por estado <small class="text-muted" style="font-weight:400;">— "Novos" (topo do funil): <?= number_format($novos_count, 0, ',', '.'); ?></small></h4>
+                    <div style="height:<?= (int) $est_h; ?>px;"><canvas id="ch_estado"></canvas></div>
+                </div></div>
             </div>
 
             <?php if ($can_view_all && ! empty($por_comercial)) { ?>
@@ -85,17 +97,24 @@
             labels: dia.map(function (d) { return d.dia.substring(5); }),
             datasets: [{ label: 'Novas leads', data: dia.map(function (d) { return d.n; }), borderColor: '#1d6fb8', backgroundColor: 'rgba(29,111,184,.12)', fill: true, tension: 0.3, pointRadius: 2 }]
         },
-        options: { legend: { display: false }, scales: { yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] }, maintainAspectRatio: true }
+        options: { legend: { display: false }, maintainAspectRatio: false, scales: { yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] } }
     });
 
-    var est = <?= json_encode($por_estado); ?>;
+    var est = <?= json_encode($estados_chart); ?>;
     new Chart(document.getElementById('ch_estado').getContext('2d'), {
         type: 'horizontalBar',
         data: {
             labels: est.map(function (e) { return e.name; }),
             datasets: [{ data: est.map(function (e) { return parseInt(e.n, 10); }), backgroundColor: est.map(function (e) { return e.color || '#7a8798'; }) }]
         },
-        options: { legend: { display: false }, scales: { xAxes: [{ ticks: { beginAtZero: true, precision: 0 } }] }, maintainAspectRatio: true }
+        options: {
+            legend: { display: false },
+            maintainAspectRatio: false,
+            scales: {
+                xAxes: [{ ticks: { beginAtZero: true, precision: 0 } }],
+                yAxes: [{ ticks: { autoSkip: false, fontSize: 11 } }]
+            }
+        }
     });
 
     <?php if ($can_view_all && ! empty($por_comercial)) { ?>
