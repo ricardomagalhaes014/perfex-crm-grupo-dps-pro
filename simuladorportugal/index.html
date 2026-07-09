@@ -4421,40 +4421,48 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 
-<!-- DPS_PROPOSTA_INJECT v1 -->
+
+
+<!-- DPS_PROPOSTA_INJECT v2 -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
-  var ctx = {
-    lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'),
-    empreendimento: q.get('empreendimento') || ''
-  };
+  var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
   if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; } // só quando aberto pelo CRM
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
-  var last = null, patched = false;
+  var last = null, patched = false, iv = null;
+
+  function capture(doc, filename) {
+    try {
+      var fn = String(filename || '');
+      if (!/^Proposta_/i.test(fn)) { return; }
+      var b64 = doc.output('datauristring');
+      var emp = '', unit = '';
+      var m = fn.match(/^Proposta_([^_]+)_Fraccao_(.+)\.pdf$/i);
+      if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
+      last = { base64: b64, filename: fn, unit: unit, emp: emp || ctx.empreendimento };
+      updateBtn();
+    } catch (e) { if (window.console) { console.warn('[DPS] captura falhou:', e); } }
+  }
 
   function patch() {
-    if (patched || !(window.jspdf && window.jspdf.jsPDF && window.jspdf.jsPDF.prototype)) { return; }
-    var proto = window.jspdf.jsPDF.prototype, orig = proto.save;
+    if (patched) { if (iv) { clearInterval(iv); } return; }
+    var J = window.jspdf && window.jspdf.jsPDF;
+    if (!J || !J.prototype || typeof J.prototype.save !== 'function') { return; }
+    var proto = J.prototype, orig = proto.save;
     proto.save = function (filename) {
-      try {
-        var fn = String(filename || '');
-        if (/^Proposta_/i.test(fn)) {
-          var b64 = this.output('datauristring');
-          var emp = '', unit = '';
-          var m = fn.match(/^Proposta_([^_]+)_Fraccao_(.+)\.pdf$/i);
-          if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
-          last = { base64: b64, filename: fn, unit: unit, emp: emp || ctx.empreendimento };
-          updateBtn();
-        }
-      } catch (e) {}
-      return orig.apply(this, arguments);
+      var res = orig.apply(this, arguments); // download real PRIMEIRO — nunca bloqueia a geração
+      try { capture(this, filename); } catch (e) {}
+      return res;
     };
     patched = true;
+    if (iv) { clearInterval(iv); }
+    if (window.console) { console.log('[DPS] captura de proposta pronta.'); }
   }
-  var iv = setInterval(patch, 200); patch();
+  iv = setInterval(patch, 200); patch();
 
   var btn = document.createElement('button');
+  btn.type = 'button';
   btn.textContent = '📲 Gera a proposta primeiro';
   btn.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647;padding:12px 18px;border:none;border-radius:26px;background:#9aa0a6;color:#fff;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.28);cursor:default;font-family:sans-serif;';
   function add() { if (document.body) { document.body.appendChild(btn); } else { setTimeout(add, 300); } }
@@ -4466,14 +4474,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   btn.addEventListener('click', function () {
-    if (!last) { return; }
+    if (!last) { alert('Gera primeiro a proposta de uma unidade.'); return; }
     btn.disabled = true; var t0 = btn.textContent; btn.textContent = 'A enviar...';
     fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token,
-        empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64
-      })
+      body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
     }).then(function (r) { return r.json(); }).then(function (d) {
       alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'));
     }).catch(function () { alert('Erro de comunicação com o CRM.'); })
