@@ -1060,6 +1060,9 @@ class Leads extends AdminController
 
             unset($data['contacted_indicator']);
             unset($data['custom_contact_date']);
+            // 'dps_quick' é só um sinal (nota rápida pelo lápis) — não é coluna da tabela de notas.
+            $dps_quick_note = (bool) $this->input->post('dps_quick');
+            unset($data['dps_quick']);
 
             // Causing issues with duplicate ID or if my prefixed file for lead.php is used
             $data['description'] = isset($data['lead_note_description']) ? $data['lead_note_description'] : $data['description'];
@@ -1092,7 +1095,7 @@ class Leads extends AdminController
                             _dt($contacted_date),
                         ]));
                     }
-                } elseif ($this->input->post('dps_quick')) {
+                } elseif ($dps_quick_note) {
                     // 📌 DPS: nota rápida pelo lápis conta como contacto → atualiza o último
                     // contacto. A interação já fica registada pelo log "📝 Nota gravada por…" acima.
                     $this->db->where('id', $rel_id);
