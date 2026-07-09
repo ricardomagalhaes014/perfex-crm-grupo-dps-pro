@@ -130,32 +130,47 @@ function dps_propostas_gerar_pdf_disponiveis($emp_nome, $unidades)
         @include_once APPPATH . 'vendor/autoload.php';
     }
 
+    $fmt_area = function ($v) {
+        return ($v !== null && $v !== '')
+            ? rtrim(rtrim(number_format((float) $v, 1, ',', '.'), '0'), ',') . ' m²'
+            : '—';
+    };
+    $txt = function ($v) {
+        $s = htmlspecialchars((string) ($v ?? ''));
+        return $s !== '' ? $s : '—';
+    };
+
     $rows = '';
     foreach ($unidades as $u) {
-        $area  = ($u['area'] !== null && $u['area'] !== '')
-            ? rtrim(rtrim(number_format((float) $u['area'], 1, ',', '.'), '0'), ',') . ' m²'
-            : '—';
         $preco = ($u['preco'] > 0) ? number_format($u['preco'], 0, ',', '.') . ' €' : '—';
-        $rows .= '<tr><td>' . htmlspecialchars($u['fraccao']) . '</td>'
-            . '<td>' . htmlspecialchars((string) $u['tipologia']) . '</td>'
-            . '<td align="right">' . $area . '</td>'
-            . '<td align="right">' . $preco . '</td></tr>';
+        $rows .= '<tr>'
+            . '<td>' . $txt($u['fraccao']) . '</td>'
+            . '<td>' . $txt($u['bloco'] ?? null) . '</td>'
+            . '<td align="center">' . $txt($u['piso'] ?? null) . '</td>'
+            . '<td>' . $txt($u['tipologia']) . '</td>'
+            . '<td align="right">' . $fmt_area($u['area']) . '</td>'
+            . '<td align="right">' . $fmt_area($u['varanda'] ?? null) . '</td>'
+            . '<td>' . $txt($u['orientacao'] ?? null) . '</td>'
+            . '<td align="right">' . $preco . '</td>'
+            . '</tr>';
     }
 
     $html = '<h2>Unidades Disponíveis — ' . htmlspecialchars($emp_nome) . '</h2>'
         . '<p>' . count($unidades) . ' unidades · ' . date('d/m/Y H:i') . '</p>'
-        . '<table border="1" cellpadding="4" cellspacing="0">'
-        . '<thead><tr style="background-color:#f0f0f0;font-weight:bold;">'
-        . '<th>Fração</th><th>Tipologia</th><th>Área</th><th>Preço</th></tr></thead>'
-        . '<tbody>' . $rows . '</tbody></table>';
+        . '<table border="1" cellpadding="3" cellspacing="0"><thead>'
+        . '<tr style="background-color:#f0f0f0;font-weight:bold;">'
+        . '<th>Fração</th><th>Bloco</th><th>Piso</th><th>Tipologia</th>'
+        . '<th>Área</th><th>Varanda</th><th>Orientação</th><th>Preço</th>'
+        . '</tr></thead><tbody>' . $rows . '</tbody></table>';
 
-    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false, false);
+    $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false, false);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
     $pdf->SetCreator('DPS');
     $pdf->SetTitle('Unidades Disponiveis - ' . $emp_nome);
-    $pdf->SetMargins(12, 12, 12);
-    $pdf->SetAutoPageBreak(true, 12);
+    $pdf->SetMargins(10, 10, 10);
+    $pdf->SetAutoPageBreak(true, 10);
+    $pdf->SetFont('helvetica', '', 9);
     $pdf->AddPage();
     $pdf->writeHTML($html, true, false, true, false, '');
 
@@ -209,7 +224,16 @@ function dps_propostas_disponibilidade($slug)
         if ($preco > 0 && ($byTipo[$tip]['min'] === null || $preco < $byTipo[$tip]['min'])) {
             $byTipo[$tip]['min'] = $preco;
         }
-        $unidades[] = ['fraccao' => $code, 'tipologia' => $tip, 'area' => $area, 'preco' => $preco];
+        $unidades[] = [
+            'fraccao'    => $code,
+            'tipologia'  => $tip,
+            'area'       => $area,
+            'preco'      => $preco,
+            'bloco'      => $u['bloco'] ?? null,
+            'piso'       => $u['piso'] ?? null,
+            'orientacao' => $u['orientacao'] ?? null,
+            'varanda'    => $u['varanda'] ?? null,
+        ];
     }
     ksort($byTipo);
     // Ordenar unidades por tipologia e depois por preço.
