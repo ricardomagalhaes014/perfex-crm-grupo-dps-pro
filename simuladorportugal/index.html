@@ -4434,31 +4434,71 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-<!-- DPS_PROPOSTA_INJECT v7 -->
+<!-- DPS_PROPOSTA_INJECT v8 (gerar = enviar logo, sem download) -->
 <script>
 (function () {
   var q = new URLSearchParams(location.search);
   var ctx = { lead_id: q.get('lead_id'), staff_id: q.get('staff_id'), token: q.get('token'), empreendimento: q.get('empreendimento') || '' };
-  if (!ctx.lead_id || !ctx.staff_id || !ctx.token) { return; }
+  var hasCtx = !!(ctx.lead_id && ctx.staff_id && ctx.token);
+  if (!hasCtx) { return; } // fora do CRM: comportamento normal (download)
   var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
-  var last = null, sendBtns = [], pendingBtn = null, pendingT0 = '';
   var embedded = !!(window.parent && window.parent !== window);
-  function log(){ if(window.console){ try{ console.log.apply(console, arguments); }catch(e){} } }
+  var last = null, sending = false;
+  function log(){ try{ console.log.apply(console, arguments); }catch(e){} }
+
+  // Feedback visível dentro do simulador.
+  var box;
+  function status(msg, kind) {
+    if (!box) {
+      box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483647;max-width:92%;padding:13px 22px;border-radius:12px;font:600 14px/1.35 sans-serif;color:#fff;box-shadow:0 10px 34px rgba(0,0,0,.30);text-align:center;';
+      document.body.appendChild(box);
+    }
+    box.style.background = kind === 'ok' ? '#25D366' : (kind === 'err' ? '#e04545' : '#334155');
+    box.innerHTML = msg; box.style.display = 'block';
+    if (kind === 'ok' || kind === 'err') { setTimeout(function () { if (box) { box.style.display = 'none'; } }, 7000); }
+  }
+  function parseName(fn) {
+    var emp = '', unit = '';
+    var m = String(fn).match(/Proposta_([^_]+)_Fraccao_(.+)\.pdf$/i);
+    if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
+    return { emp: emp || ctx.empreendimento, unit: unit };
+  }
+
+  function send() {
+    if (!last || sending) { return; }
+    sending = true;
+    status('📲 A enviar a proposta ao cliente…', 'wait');
+    if (embedded) {
+      // Envia pelo WhatsApp do utilizador logado no CRM (controller autenticado).
+      try { window.parent.postMessage({ dps_send_now: last }, '*'); } catch (e) {}
+      setTimeout(function () { if (sending) { sending = false; status('⚠️ Sem resposta do CRM — tenta gerar de novo.', 'err'); } }, 30000);
+    } else {
+      fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
+      }).then(function (r) { return r.json(); })
+        .then(function (d) { sending = false; status(d && d.success ? '✅ ' + (d.message || 'Proposta enviada ao cliente!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.'), (d && d.success) ? 'ok' : 'err'); })
+        .catch(function () { sending = false; status('⚠️ Erro de comunicação com o CRM.', 'err'); });
+    }
+  }
+  // Resposta do CRM (modo embebido).
+  window.addEventListener('message', function (ev) {
+    if (ev.data && ev.data.dps_send_result !== undefined) {
+      sending = false;
+      status(ev.data.ok ? '✅ Proposta enviada ao cliente!' : '⚠️ Falha no envio pelo WhatsApp.', ev.data.ok ? 'ok' : 'err');
+    }
+  });
 
   function capture(doc, filename) {
     try {
-      var fn = String(filename || '');
-      log('[DPS] save capturado:', fn);
-      if (!/proposta/i.test(fn)) { return; }
-      var b64 = doc.output('datauristring');
-      var emp = '', unit = '';
-      var m = fn.match(/Proposta_([^_]+)_Fraccao_(.+)\.pdf$/i);
-      if (m) { emp = NICE[m[1]] || m[1]; var segs = m[2].split('_'); segs.pop(); unit = segs.join('_'); }
-      last = { base64: b64, filename: fn, unit: unit, emp: emp || ctx.empreendimento };
-      log('[DPS] proposta pronta a enviar:', last.unit);
-      enableSendButtons();
-      try { if (embedded) { window.parent.postMessage({ dps_proposta: last }, '*'); } } catch (e) {}
-    } catch (e) { log('[DPS] captura falhou:', e); }
+      if (!/proposta/i.test(String(filename))) { return false; }
+      var nm = parseName(filename);
+      last = { base64: doc.output('datauristring'), filename: String(filename), unit: nm.unit, emp: nm.emp };
+      log('[DPS] proposta gerada em memória, a enviar:', last.unit);
+      send();
+      return true;
+    } catch (e) { log('[DPS] captura falhou:', e); status('⚠️ Não consegui preparar o PDF.', 'err'); return false; }
   }
   function patchProto(J) {
     try {
@@ -4466,59 +4506,30 @@ document.addEventListener('DOMContentLoaded', function() {
       var proto = J.jsPDF.prototype;
       if (proto.__dpsPatched) { return true; }
       var orig = proto.save;
-      proto.save = function (filename) { var res = orig.apply(this, arguments); try { capture(this, filename); } catch (e) {} return res; };
+      proto.save = function (filename) {
+        // Propostas -> NÃO descarrega, envia logo. Outras exportações (tabelas de unidades) descarregam normalmente.
+        if (/proposta/i.test(String(filename || ''))) { try { capture(this, filename); } catch (e) {} return this; }
+        return orig.apply(this, arguments);
+      };
       proto.__dpsPatched = true;
-      log('[DPS] jsPDF hook aplicado.');
+      log('[DPS] jsPDF hook aplicado (v8).');
       return true;
     } catch (e) { return false; }
   }
   if (window.jspdf) { patchProto(window.jspdf); }
   else { try { var _j; Object.defineProperty(window, 'jspdf', { configurable: true, get: function () { return _j; }, set: function (v) { _j = v; patchProto(v); } }); } catch (e) {} }
-  // Poll PERSISTENTE até aplicar o hook (cobre gerar tarde).
   var t1 = 0, iv1 = setInterval(function () { if (patchProto(window.jspdf) || ++t1 > 2400) { clearInterval(iv1); } }, 300);
 
-  function resetPending() { if (pendingBtn) { pendingBtn.disabled = false; pendingBtn.innerHTML = pendingT0; pendingBtn = null; } }
-  window.addEventListener('message', function (ev) { if (ev.data && ev.data.dps_send_result !== undefined) { resetPending(); } });
-
-  function doSend(btn) {
-    if (!last) { alert('Gera primeiro a proposta de uma unidade.'); return; }
-    var t0 = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'A enviar...';
-    if (embedded) {
-      pendingBtn = btn; pendingT0 = t0;
-      try { window.parent.postMessage({ dps_send_now: last }, '*'); } catch (e) {}
-      setTimeout(resetPending, 25000);
-    } else {
-      fetch('https://crm.grupo-dps.com/dps_proposta_receber.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead_id: ctx.lead_id, staff_id: ctx.staff_id, token: ctx.token, empreendimento: last.emp, unidade: last.unit, file_name: last.filename, pdf_base64: last.base64 })
-      }).then(function (r) { return r.json(); }).then(function (d) { alert(d && d.success ? '✅ ' + (d.message || 'Proposta enviada!') : '⚠️ ' + ((d && d.message) || 'Falha ao enviar.')); })
-        .catch(function () { alert('Erro de comunicação com o CRM.'); })
-        .finally(function () { btn.disabled = false; btn.innerHTML = t0; });
-    }
-  }
-  function styleSend(b, ready) {
-    b.style.cssText = 'display:inline-flex;align-items:center;gap:8px;margin:10px 6px 0;padding:12px 18px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:' + (ready ? 'pointer' : 'default') + ';color:#fff;background:' + (ready ? '#25D366' : '#7a8798') + ';font-family:sans-serif;';
-  }
-  function makeSendBtn() {
-    var b = document.createElement('button'); b.type = 'button'; b.className = 'dps-send-inline';
-    b.innerHTML = '📲 Gera a proposta primeiro'; styleSend(b, false); b.disabled = true;
-    b.addEventListener('click', function () { doSend(b); });
-    return b;
-  }
-  function enableSendButtons() {
-    sendBtns.forEach(function (b) { b.disabled = false; b.innerHTML = '📲 Enviar proposta ao cliente' + (last.unit ? (' (' + last.unit + ')') : ''); styleSend(b, true); });
-  }
-  function attachInline() {
-    document.querySelectorAll('[onclick*="gerarProposta"]').forEach(function (gen) {
-      if (gen.__dpsSend) { return; }
-      gen.__dpsSend = true;
-      var b = makeSendBtn(); sendBtns.push(b);
-      if (gen.parentNode) { gen.parentNode.insertBefore(b, gen.nextSibling); }
-      if (last) { enableSendButtons(); }
+  // "Gerar Proposta PDF" -> "Enviar Proposta ao Cliente" (dentro do CRM já envia direto).
+  function relabel() {
+    document.querySelectorAll('[onclick*="gerarProposta"]').forEach(function (b) {
+      if (b.__dpsRelabel) { return; }
+      b.__dpsRelabel = true;
+      b.innerHTML = '📲 Enviar Proposta ao Cliente';
     });
   }
-  var t2 = 0, iv2 = setInterval(function () { attachInline(); if (++t2 > 300) { clearInterval(iv2); } }, 500);
-  document.addEventListener('DOMContentLoaded', attachInline);
+  var t2 = 0, iv2 = setInterval(function () { relabel(); if (++t2 > 300) { clearInterval(iv2); } }, 500);
+  document.addEventListener('DOMContentLoaded', relabel);
 })();
 </script>
 

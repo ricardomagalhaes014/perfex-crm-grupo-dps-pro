@@ -51,8 +51,8 @@
             <div class="panel-body" style="padding:8px;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
                     <strong><i class="fa fa-calculator"></i> Simulador</strong>
-                    <span class="text-muted" style="font-size:12px;">Gera a proposta da unidade → depois "Enviar proposta ao cliente".</span>
-                    <button type="button" id="dps_send_prop" class="btn btn-success btn-sm" style="margin-left:auto;" disabled><i class="fa fa-whatsapp"></i> Enviar proposta ao cliente</button>
+                    <span class="text-muted" style="font-size:12px;margin-left:auto;">Escolhe a unidade e clica em <b>Enviar Proposta ao Cliente</b> — é gerada e enviada pelo teu WhatsApp automaticamente.</span>
+                    <button type="button" id="dps_send_prop" class="btn btn-success btn-sm" style="display:none;" disabled><i class="fa fa-whatsapp"></i> Enviar proposta ao cliente</button>
                     <button type="button" id="dps_sim_open_tab" class="btn btn-default btn-xs"><i class="fa fa-external-link"></i> Nova aba</button>
                     <button type="button" id="dps_sim_close" class="btn btn-default btn-xs">Fechar</button>
                 </div>
@@ -159,7 +159,7 @@
             + '&token=' + encodeURIComponent(propToken)
             + '&empreendimento=' + encodeURIComponent(emp)
             + '&nome=' + encodeURIComponent(leadNome || '')
-            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709d';
+            + '&telefone=' + encodeURIComponent(leadTel || '') + '&_sv=20260709e';
     }
     var simWrap = root.querySelector('#dps_sim_wrap');
     var simFrame = root.querySelector('#dps_sim_iframe');
