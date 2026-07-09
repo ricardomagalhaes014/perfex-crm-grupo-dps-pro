@@ -486,13 +486,23 @@ class Dps_propostas extends AdminController
             return;
         }
 
-        $media   = preg_replace('#^data:[^;]+;base64,#', '', $pdf);
+        // jsPDF devolve "data:application/pdf;filename=generated.pdf;base64,..." — cortar tudo até "base64,".
+        $pos     = strpos($pdf, 'base64,');
+        $media   = $pos !== false ? substr($pdf, $pos + 7) : $pdf;
+        $media   = preg_replace('/\s+/', '', $media); // remover quebras de linha do datauri
         $site    = dps_propostas_site_por_nome($emp);
         $caption = 'Proposta' . ($emp ? ' — ' . $emp : '') . ($unidade ? ' — Unidade ' . $unidade : '')
             . ($site ? "\n\n🌐 Mais informação:\n" . $site : '');
 
-        $r  = dps_propostas_send_document_b64($staff_id, $number, $media, $file_name, $caption);
-        $ok = $r['ok'];
+        if ($media === '' || strlen($media) < 100) {
+            echo json_encode(['success' => false, 'message' => 'O PDF da proposta veio vazio — gera de novo.']);
+            return;
+        }
+
+        $r   = dps_propostas_send_document_b64($staff_id, $number, $media, $file_name, $caption);
+        // 2xx só confirma que a Evolution aceitou; a entrega real traz uma "key" na resposta.
+        $raw = (string) ($r['raw'] ?? '');
+        $ok  = $r['ok'] && strpos($raw, '"key"') !== false;
 
         $this->db->insert(db_prefix() . 'dps_propostas', [
             'lead_id'          => $lead_id,

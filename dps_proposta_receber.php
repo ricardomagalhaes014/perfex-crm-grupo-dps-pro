@@ -126,7 +126,10 @@ $evo_key = (string) _dps_opt($mysqli, $prefix, 'dps_whatsapp_evolution_api_key')
 $wa_ok = false;
 $wa_err = '';
 if ($number !== '' && $pdf_b64 !== '' && $evo_url && $evo_key) {
-    $media = preg_replace('#^data:[^;]+;base64,#', '', $pdf_b64); // tirar prefixo data:
+    // jsPDF: "data:application/pdf;filename=generated.pdf;base64,..." — cortar tudo até "base64,".
+    $pos   = strpos($pdf_b64, 'base64,');
+    $media = $pos !== false ? substr($pdf_b64, $pos + 7) : $pdf_b64;
+    $media = preg_replace('/\s+/', '', $media);
     // Link do site do empreendimento (para acrescentar à legenda).
     $sites = [
         'boavista towers' => 'https://dpsimobiliario.pt/boavistatowers/',
@@ -159,9 +162,9 @@ if ($number !== '' && $pdf_b64 !== '' && $evo_url && $evo_key) {
     ]);
     $resp = curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $wa_err = curl_error($ch);
+    $wa_err = curl_error($ch) ?: (string) $resp;
     curl_close($ch);
-    $wa_ok = ($code >= 200 && $code < 300);
+    $wa_ok = ($code >= 200 && $code < 300) && strpos((string) $resp, '"key"') !== false;
 }
 
 // --- Registar na aba Propostas ---
