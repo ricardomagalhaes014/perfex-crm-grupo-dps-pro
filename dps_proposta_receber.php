@@ -202,6 +202,32 @@ if ($st = $mysqli->prepare("INSERT INTO {$prefix}lead_activity_log (leadid, desc
     $st->close();
 }
 
+// --- Boavista Tower: nota com a fração enviada + estado -> VIP 1 (17) ---
+if (stripos($emp, 'boavista') !== false) {
+    // Nota com a fração enviada (aparece no separador Notas da lead).
+    $note_txt = 'Proposta enviada — ' . $emp . ($unidade !== '' ? ' — Fração ' . $unidade : '');
+    if ($st = $mysqli->prepare("INSERT INTO {$prefix}notes (rel_id, rel_type, description, dateadded, addedfrom) VALUES (?, 'lead', ?, ?, ?)")) {
+        $st->bind_param('issi', $lead_id, $note_txt, $now_dt, $staff_id);
+        $st->execute();
+        $st->close();
+    }
+    // Estado -> VIP 1, exceto se já for VIP 1 (17) ou Concretizado (13).
+    $cur_status = (int) ($lead['status'] ?? 0);
+    if ($cur_status !== 17 && $cur_status !== 13) {
+        if ($st = $mysqli->prepare("UPDATE {$prefix}leads SET status=17, last_status_change=? WHERE id=?")) {
+            $st->bind_param('si', $now_dt, $lead_id);
+            $st->execute();
+            $st->close();
+        }
+        if ($st = $mysqli->prepare("INSERT INTO {$prefix}lead_activity_log (leadid, description, date, staffid, full_name, additional_data) VALUES (?, ?, ?, ?, ?, '')")) {
+            $sc_desc = '⭐ Estado alterado para VIP 1 (proposta enviada)';
+            $st->bind_param('issis', $lead_id, $sc_desc, $now_dt, $staff_id, $staff_name);
+            $st->execute();
+            $st->close();
+        }
+    }
+}
+
 echo json_encode([
     'success' => $wa_ok,
     'message' => $wa_ok ? 'Proposta enviada e registada.' : ('Registada, mas o envio WhatsApp falhou. ' . $wa_err),

@@ -542,6 +542,20 @@ class Dps_propostas extends AdminController
         // Envio conta como contacto: atualiza último contacto + interação.
         $this->dps_marcar_contacto($lead_id, $staff_id, '📄 Proposta enviada — ' . $emp . ($unidade ? ' ' . $unidade : ''));
 
+        // Boavista Tower: nota com a fração enviada + estado -> VIP 1 (17).
+        if (stripos($emp, 'boavista') !== false) {
+            $this->db->insert(db_prefix() . 'notes', [
+                'rel_id'      => $lead_id,
+                'rel_type'    => 'lead',
+                'description' => 'Proposta enviada — ' . $emp . ($unidade !== '' ? ' — Fração ' . $unidade : ''),
+                'dateadded'   => date('Y-m-d H:i:s'),
+                'addedfrom'   => $staff_id,
+            ]);
+            if ((int) $lead->status !== 13) {
+                $this->dps_set_lead_status($lead_id, 17); // VIP 1 (dispara hook -> sync WhatsApp)
+            }
+        }
+
         echo json_encode([
             'success' => $ok,
             'message' => $ok ? 'Proposta enviada ao cliente e registada.' : dps_propostas_erro_wa($r, $number),
