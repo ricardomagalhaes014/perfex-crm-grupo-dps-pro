@@ -116,6 +116,22 @@ try {
     ]);
     $lead_id = $pdo->lastInsertId();
     log_debug("Lead inserida com sucesso", $lead_id);
+
+    // --- CAPI Meta: guardar o Facebook Lead ID no custom field (melhor matching na Meta) ---
+    if (!empty($fb_lead_id)) {
+        try {
+            $stmt_fb = $pdo->prepare("SELECT id FROM tblcustomfields WHERE fieldto='leads' AND slug='leads_facebook_lead_id' LIMIT 1");
+            $stmt_fb->execute();
+            $cf_fb = $stmt_fb->fetch(PDO::FETCH_ASSOC);
+            if ($cf_fb) {
+                $stmt_fbv = $pdo->prepare("INSERT INTO tblcustomfieldsvalues (relid, fieldid, fieldto, value) VALUES (?, ?, 'leads', ?)");
+                $stmt_fbv->execute([$lead_id, $cf_fb['id'], $fb_lead_id]);
+                log_debug("Facebook Lead ID guardado no custom field", $fb_lead_id);
+            }
+        } catch (PDOException $e) {
+            log_debug("Erro ao guardar Facebook Lead ID", $e->getMessage());
+        }
+    }
     
     // Activar WhatsApp por defeito (campo customizado fieldid=10)
     try {

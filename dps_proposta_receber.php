@@ -226,13 +226,23 @@ if (stripos($emp, 'boavista') !== false) {
             $st->close();
         }
         // CAPI Meta: VIP 1 = lead_qualified (o hook do CRM não dispara neste caminho direto).
-        $capi = json_encode([
+        $fb_lead_id = '';
+        if ($st = $mysqli->prepare("SELECT cv.value FROM {$prefix}customfieldsvalues cv JOIN {$prefix}customfields cf ON cf.id=cv.fieldid WHERE cv.relid=? AND cv.fieldto='leads' AND cf.slug='leads_facebook_lead_id' LIMIT 1")) {
+            $st->bind_param('i', $lead_id);
+            $st->execute();
+            $rf = $st->get_result()->fetch_assoc();
+            $fb_lead_id = ($rf && $rf['value'] !== '') ? trim($rf['value']) : '';
+            $st->close();
+        }
+        $capi_arr = [
             'event_name'  => 'lead_qualified',
             'event_id'    => 'lead_qualified_' . $lead_id,
             'status_name' => 'VIP 1',
             'email'       => (string) ($lead['email'] ?? ''),
             'phone'       => (string) ($lead['phonenumber'] ?? ''),
-        ]);
+        ];
+        if ($fb_lead_id !== '') { $capi_arr['lead_id'] = $fb_lead_id; }
+        $capi = json_encode($capi_arr);
         $chc = curl_init('https://hook.eu1.make.com/w14e5b8einkrdv49sc8l8lubgb0kudkb');
         curl_setopt_array($chc, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $capi, CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_TIMEOUT => 6]);
         @curl_exec($chc);

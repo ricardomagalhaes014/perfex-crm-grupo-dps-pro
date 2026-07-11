@@ -363,18 +363,22 @@ function dps_capi_event_map()
 /**
  * POST fire-and-forget ao webhook do Make (que reencaminha para a Meta CAPI).
  */
-function dps_capi_send($event_name, $status_name, $email, $phone, $lead_id)
+function dps_capi_send($event_name, $status_name, $email, $phone, $lead_id, $fb_lead_id = '')
 {
     $url = 'https://hook.eu1.make.com/w14e5b8einkrdv49sc8l8lubgb0kudkb';
-    // NB: não enviamos 'lead_id' — o cenário coloca-o em user_data, onde a Meta exige um
-    // lead ID real do Facebook; o ID do CRM daria 400. O match é por email+telefone.
-    $payload = json_encode([
+    // 'lead_id' vai para user_data na Meta -> só se for o Facebook Lead ID REAL
+    // (o ID do CRM daria 400). Sem ele, o match é por email+telefone.
+    $data = [
         'event_name'  => $event_name,
         'event_id'    => $event_name . '_' . (int) $lead_id, // dedup por lead+marco
         'status_name' => (string) $status_name,
         'email'       => (string) $email,
         'phone'       => (string) $phone,
-    ]);
+    ];
+    if ($fb_lead_id !== '') {
+        $data['lead_id'] = (string) $fb_lead_id; // Facebook Lead ID (melhor matching)
+    }
+    $payload = json_encode($data);
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -414,6 +418,14 @@ function dps_capi_status_changed($data)
         return $data; // não é marco de qualidade -> não envia
     }
     $st = $CI->db->select('name')->where('id', $sid)->get(db_prefix() . 'leads_status')->row();
-    dps_capi_send($map[$sid], $st ? $st->name : ('status_' . $sid), $lead->email, $lead->phonenumber, $lead_id);
+
+    // Facebook Lead ID (custom field) para melhor matching na Meta, se existir.
+    $fb = $CI->db->select('cv.value')->from(db_prefix() . 'customfieldsvalues cv')
+        ->join(db_prefix() . 'customfields cf', 'cf.id = cv.fieldid')
+        ->where('cv.relid', $lead_id)->where('cv.fieldto', 'leads')
+        ->where('cf.slug', 'leads_facebook_lead_id')->get()->row();
+    $fb_lead_id = ($fb && ! empty($fb->value)) ? trim($fb->value) : '';
+
+    dps_capi_send($map[$sid], $st ? $st->name : ('status_' . $sid), $lead->email, $lead->phonenumber, $lead_id, $fb_lead_id);
     return $data;
 }
