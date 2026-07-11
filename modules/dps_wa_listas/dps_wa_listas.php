@@ -30,6 +30,12 @@ $CI->load->helper(DPS_WA_LISTAS_MODULE_NAME . '/dps_wa_listas');
 hooks()->add_action('lead_status_changed', 'dps_wa_listas_enqueue');
 
 /**
+ * CAPI Meta: quando o estado muda para um marco de qualidade (VIP 1/2/3, Concretizado),
+ * envia o evento ao webhook do Make (que reencaminha para a Meta Conversions API).
+ */
+hooks()->add_action('lead_status_changed', 'dps_capi_status_changed');
+
+/**
  * O cron do Perfex processa a fila (poucos por execução) e fala com a Evolution API.
  * Hook correto do Perfex = after_cron_run (não 'perfex_cron').
  */

@@ -84,7 +84,7 @@ $mysqli->set_charset('utf8mb4');
 
 // Lead (telefone + estado atual)
 $lead = null;
-if ($st = $mysqli->prepare("SELECT name, phonenumber, status FROM {$prefix}leads WHERE id=?")) {
+if ($st = $mysqli->prepare("SELECT name, phonenumber, status, email FROM {$prefix}leads WHERE id=?")) {
     $st->bind_param('i', $lead_id);
     $st->execute();
     $lead = $st->get_result()->fetch_assoc();
@@ -225,6 +225,18 @@ if (stripos($emp, 'boavista') !== false) {
             $st->execute();
             $st->close();
         }
+        // CAPI Meta: VIP 1 = lead_qualified (o hook do CRM não dispara neste caminho direto).
+        $capi = json_encode([
+            'event_name'  => 'lead_qualified',
+            'event_id'    => 'lead_qualified_' . $lead_id,
+            'status_name' => 'VIP 1',
+            'email'       => (string) ($lead['email'] ?? ''),
+            'phone'       => (string) ($lead['phonenumber'] ?? ''),
+        ]);
+        $chc = curl_init('https://hook.eu1.make.com/w14e5b8einkrdv49sc8l8lubgb0kudkb');
+        curl_setopt_array($chc, [CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_POSTFIELDS => $capi, CURLOPT_HTTPHEADER => ['Content-Type: application/json'], CURLOPT_CONNECTTIMEOUT => 3, CURLOPT_TIMEOUT => 6]);
+        @curl_exec($chc);
+        @curl_close($chc);
     }
 }
 

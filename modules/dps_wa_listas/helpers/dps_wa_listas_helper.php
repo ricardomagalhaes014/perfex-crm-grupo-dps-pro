@@ -346,3 +346,74 @@ function dps_wa_listas_status_name($status_id)
     $row = $CI->db->select('name')->where('id', (int) $status_id)->get(db_prefix() . 'leads_status')->row();
     return $row ? $row->name : null;
 }
+
+/**
+ * Mapa escalonado estado -> evento Meta (CAPI). Só marcos de qualidade.
+ */
+function dps_capi_event_map()
+{
+    return [
+        17 => 'lead_qualified', // VIP 1  (nível 2 - qualificado)
+        14 => 'opportunity',    // VIP 2  (nível 3 - oportunidade)
+        18 => 'Purchase',       // VIP 3  (nível 4 - convertido)
+        13 => 'Purchase',       // Concretizado (nível 4 - convertido)
+    ];
+}
+
+/**
+ * POST fire-and-forget ao webhook do Make (que reencaminha para a Meta CAPI).
+ */
+function dps_capi_send($event_name, $status_name, $email, $phone, $lead_id)
+{
+    $url = 'https://hook.eu1.make.com/w14e5b8einkrdv49sc8l8lubgb0kudkb';
+    // NB: não enviamos 'lead_id' — o cenário coloca-o em user_data, onde a Meta exige um
+    // lead ID real do Facebook; o ID do CRM daria 400. O match é por email+telefone.
+    $payload = json_encode([
+        'event_name'  => $event_name,
+        'event_id'    => $event_name . '_' . (int) $lead_id, // dedup por lead+marco
+        'status_name' => (string) $status_name,
+        'email'       => (string) $email,
+        'phone'       => (string) $phone,
+    ]);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_TIMEOUT        => 6,
+    ]);
+    @curl_exec($ch);
+    @curl_close($ch);
+}
+
+/**
+ * Handler do hook lead_status_changed: dispara o evento CAPI conforme o estado atual.
+ */
+function dps_capi_status_changed($data)
+{
+    $CI = &get_instance();
+    $lead_id = null;
+    if (is_array($data)) {
+        $lead_id = isset($data['lead_id']) ? $data['lead_id'] : (isset($data[0]) ? $data[0] : null);
+    } else {
+        $lead_id = $data;
+    }
+    $lead_id = (int) $lead_id;
+    if (! $lead_id) {
+        return $data;
+    }
+    $lead = $CI->db->select('id, status, email, phonenumber')->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+    if (! $lead) {
+        return $data;
+    }
+    $map = dps_capi_event_map();
+    $sid = (int) $lead->status;
+    if (! isset($map[$sid])) {
+        return $data; // não é marco de qualidade -> não envia
+    }
+    $st = $CI->db->select('name')->where('id', $sid)->get(db_prefix() . 'leads_status')->row();
+    dps_capi_send($map[$sid], $st ? $st->name : ('status_' . $sid), $lead->email, $lead->phonenumber, $lead_id);
+    return $data;
+}
