@@ -3920,7 +3920,7 @@ function openBoavistaDetail(unit) {
   const piso10 = Math.round(unit.preco * 0.10);
   const betao = Math.round(unit.preco * 0.10);
   const escritura = Math.round(unit.preco * 0.50);
-  document.getElementById('boavistaPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">Reforço 15 de Outubro</div><div class="result-val" style="color:var(--gold)">€ ${reforco.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">Conclusão 10.º Piso (Dez 2027)</div><div class="result-val" style="color:var(--gold)">€ ${piso10.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Conclusão Estrutura Betão (Dez 2028)</div><div class="result-val" style="color:var(--gold)">€ ${betao.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura — 50% após início obras</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">50% do preço</div></div>`;
+  document.getElementById('boavistaPagamentoGrid').innerHTML = `<div class="result-box"><div class="result-label">CPCV</div><div class="result-val" style="color:var(--gold)">€ ${cpcv.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">Reforço 15 de Outubro</div><div class="result-val" style="color:var(--gold)">€ ${reforco.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">15% do preço</div></div><div class="result-box"><div class="result-label">Conclusão 10.º Piso (Dez 2027)</div><div class="result-val" style="color:var(--gold)">€ ${piso10.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Conclusão Estrutura Betão (Dez 2028)</div><div class="result-val" style="color:var(--gold)">€ ${betao.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">10% do preço</div></div><div class="result-box"><div class="result-label">Escritura — 50% prevista para 2030</div><div class="result-val" style="color:var(--gold)">€ ${escritura.toLocaleString('pt-PT')}</div><div style="font-size:0.75rem;color:var(--gray);margin-top:4px;">50% do preço</div></div>`;
   document.getElementById('boavistaSimPreco').value = unit.preco;
   document.getElementById('boavistaDetailPanel').style.display = 'block';
   document.getElementById('boavistaDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4056,13 +4056,13 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
       '1. Localiza\u00e7\u00e3o \u00fanica na Avenida da Boavista \u2014 o eixo mais nobre do Porto',
       '2. Vista panor\u00e2mica sobre a cidade e o Oceano Atl\u00e2ntico',
       '3. Arquitectura de assinatura com acabamentos premium',
-      '4. Ginásio, piscina e \u00e1reas comuns de luxo',
+      '4. Ginásio e \u00e1reas comuns de luxo',
       '5. Dois blocos com tipologias T1 SMART, T2 SMART e T2',
       '6. Estacionamento inclu\u00eddo em todas as fra\u00e7\u00f5es',
       '7. Possibilidade de ced\u00eancia de posi\u00e7\u00e3o contratual',
       '8. A 5 minutos da Casa da M\u00fasica e do Parque da Cidade',
       '9. Promotor com provas dadas e v\u00e1rias obras entregues',
-      '10. Plano de pagamento faseado \u2014 apenas 25% at\u00e9 escritura'
+      '10. Plano de pagamento faseado \u2014 apenas 50% at\u00e9 escritura'
     ];
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
@@ -4082,7 +4082,7 @@ async function gerarPropostaBoavista(unit, loadBtn, simData) {
       { fase: 'Refor\u00e7o 15 de Outubro', pct: '15%', valor: preco * 0.15 },
       { fase: 'Conclus\u00e3o do 10.\u00ba piso (Dez 2027)', pct: '10%', valor: preco * 0.10 },
       { fase: 'Conclus\u00e3o estrutura bet\u00e3o (Dez 2028)', pct: '10%', valor: preco * 0.10 },
-      { fase: 'Escritura \u2014 50% ap\u00f3s in\u00edcio de obras', pct: '50%', valor: preco * 0.50 },
+      { fase: 'Escritura \u2014 50% prevista para 2030', pct: '50%', valor: preco * 0.50 },
     ];
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
