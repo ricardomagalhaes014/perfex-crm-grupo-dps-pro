@@ -24,7 +24,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 // ─── 1. Token ─────────────────────────────────────────────────────────────────
-define('DPS_TASK_TOKEN', 'TROCAR_ESTE_TOKEN');   // <── define aqui o teu segredo
+define('DPS_TASK_TOKEN', 'Dps2026#');   // <── define aqui o teu segredo
 if (!hash_equals(DPS_TASK_TOKEN, (string)($_GET['t'] ?? ''))) {
     http_response_code(403);
     echo json_encode(['success' => false, 'error' => 'Forbidden']);
