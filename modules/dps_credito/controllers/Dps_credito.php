@@ -228,6 +228,12 @@ class Dps_credito extends AdminController
             );
             update_option('dps_credito_bloqueio_ativo', $this->input->post('bloqueio_ativo') ? '1' : '0');
 
+            $fontes = $this->input->post('fontes');
+            update_option(
+                'dps_credito_fontes',
+                is_array($fontes) ? implode(',', array_map('intval', $fontes)) : ''
+            );
+
             set_alert('success', 'Definições guardadas.');
             redirect(admin_url('dps_credito/definicoes'));
         }
@@ -243,10 +249,16 @@ class Dps_credito extends AdminController
             ->get(db_prefix() . 'staff')
             ->result_array();
 
-        $data['estados_fecho']   = dps_credito_estados_fecho();
-        $data['notificar_staff'] = array_filter(array_map('intval', explode(',', (string) get_option('dps_credito_notificar_staff'))));
-        $data['bloqueio_ativo']  = get_option('dps_credito_bloqueio_ativo') == '1';
-        $data['title']           = 'Definições — DPS Crédito';
+        $data['fontes'] = $this->db->select('id, name')
+            ->order_by('name', 'ASC')
+            ->get(db_prefix() . 'leads_sources')
+            ->result_array();
+
+        $data['estados_fecho']    = dps_credito_estados_fecho();
+        $data['notificar_staff']  = array_filter(array_map('intval', explode(',', (string) get_option('dps_credito_notificar_staff'))));
+        $data['fontes_aplicaveis'] = dps_credito_fontes_aplicaveis();
+        $data['bloqueio_ativo']   = get_option('dps_credito_bloqueio_ativo') == '1';
+        $data['title']            = 'Definições — DPS Crédito';
 
         $this->load->view('definicoes', $data);
     }

@@ -46,6 +46,24 @@
                         </div>
 
                         <div class="form-group">
+                            <label class="control-label">Fontes de lead a que o questionário se aplica</label>
+                            <select name="fontes[]" class="form-control selectpicker" multiple data-live-search="true"
+                                    data-actions-box="true">
+                                <?php foreach ($fontes as $fonte) { ?>
+                                    <option value="<?php echo $fonte['id']; ?>"
+                                        <?php echo in_array((int) $fonte['id'], $fontes_aplicaveis, true) ? 'selected' : ''; ?>>
+                                        <?php echo html_escape($fonte['name']); ?>
+                                    </option>
+                                <?php } ?>
+                            </select>
+                            <small class="text-muted">
+                                O questionário de crédito só é exigido a leads destas fontes — tipicamente
+                                as de imobiliário em Portugal. Leads de outros países não são afectadas.
+                                Se não escolher nenhuma, aplicam-se as fontes com «Portugal» no nome.
+                            </small>
+                        </div>
+
+                        <div class="form-group">
                             <label class="control-label">Quem é notificado de novos processos de crédito</label>
                             <select name="notificar_staff[]" class="form-control selectpicker" multiple data-live-search="true">
                                 <?php foreach ($staff as $s) { ?>

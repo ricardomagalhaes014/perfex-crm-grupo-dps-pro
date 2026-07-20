@@ -117,6 +117,11 @@ function dps_credito_guarda_fecho()
         return;
     }
 
+    // Só leads de fonte imobiliário Portugal. As de outros países passam.
+    if (!dps_credito_lead_aplicavel($lead_id)) {
+        return;
+    }
+
     // Já respondeu? Então segue.
     if (dps_credito_lead_tem_resposta($lead_id)) {
         return;
@@ -164,6 +169,7 @@ function dps_credito_coluna_sql($colunas)
 
     $colunas[] = '(SELECT abordado FROM ' . $t . ' WHERE lead_id = ' . db_prefix() . 'leads.id LIMIT 1) as dps_credito_abordado';
     $colunas[] = '(SELECT interessado_proposta FROM ' . $t . ' WHERE lead_id = ' . db_prefix() . 'leads.id LIMIT 1) as dps_credito_interessado';
+    $colunas[] = db_prefix() . 'leads.source as dps_credito_source';
 
     return $colunas;
 }
@@ -173,6 +179,15 @@ function dps_credito_coluna_celula($row, $aRow)
     $lead_id     = (int) $aRow['id'];
     $abordado    = $aRow['dps_credito_abordado'] ?? null;
     $interessado = $aRow['dps_credito_interessado'] ?? null;
+
+    // Leads de fora do imobiliário Portugal não entram no questionário —
+    // a coluna fica vazia para não sugerir uma acção que não se aplica.
+    $aplicaveis = dps_credito_fontes_aplicaveis();
+    if (!empty($aplicaveis) && !in_array((int) ($aRow['dps_credito_source'] ?? 0), $aplicaveis, true)) {
+        $row[] = '<span class="text-muted">—</span>';
+
+        return $row;
+    }
 
     if ($abordado === null) {
         // Sem resposta: é isto que trava o fecho, por isso mostra-se como acção.

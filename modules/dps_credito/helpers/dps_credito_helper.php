@@ -23,6 +23,54 @@ function dps_credito_estado_e_fecho($status_id)
 }
 
 /**
+ * Fontes de lead a que o questionário se aplica. O crédito só faz sentido para
+ * leads de imobiliário em Portugal — as de outros países não devem ser
+ * incomodadas com esta pergunta.
+ *
+ * Se o administrador não escolher fontes, tentamos adivinhar pelas que têm
+ * "portugal" no nome. Melhor um palpite razoável do que bloquear tudo.
+ */
+function dps_credito_fontes_aplicaveis()
+{
+    $raw = get_option('dps_credito_fontes');
+
+    if (!empty($raw)) {
+        return array_filter(array_map('intval', explode(',', $raw)));
+    }
+
+    $CI = &get_instance();
+    $CI->db->like('LOWER(name)', 'portugal');
+    $fontes = $CI->db->get(db_prefix() . 'leads_sources')->result_array();
+
+    return array_map('intval', array_column($fontes, 'id'));
+}
+
+/**
+ * Esta lead está sujeita ao questionário de crédito? Só se a sua fonte estiver
+ * na lista aplicável. Se não houver nenhuma fonte configurada nem detectável,
+ * ninguém é bloqueado — assim uma configuração em falta nunca trava o CRM todo.
+ */
+function dps_credito_lead_aplicavel($lead_id)
+{
+    $aplicaveis = dps_credito_fontes_aplicaveis();
+
+    if (empty($aplicaveis)) {
+        return false;
+    }
+
+    $CI = &get_instance();
+    $CI->db->select('source');
+    $CI->db->where('id', (int) $lead_id);
+    $lead = $CI->db->get(db_prefix() . 'leads')->row_array();
+
+    if (!$lead) {
+        return false;
+    }
+
+    return in_array((int) $lead['source'], $aplicaveis, true);
+}
+
+/**
  * Uma resposta só conta como completa se for coerente: dizer "sim, abordei" e
  * deixar o resto em branco não deve destrancar o fecho da lead.
  */
