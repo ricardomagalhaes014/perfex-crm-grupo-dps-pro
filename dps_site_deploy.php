@@ -1,8 +1,20 @@
 <?php
 // Script de deploy do bundle do site dpsimobiliario.pt
 // Verifica se tem acesso ao filesystem do site e faz upload
-$token = $_GET['t'] ?? '';
-if ($token !== 'dps2026deploy') {
+// O token vive fora da raiz web. Não há valor por omissão: se o ficheiro não
+// existir, este script não abre. A versão anterior tinha o token escrito aqui
+// dentro, o que o tornava público a quem lesse o repositório.
+$ficheiro_segredo = '/home/u172337921/.dps_deploy_secret';
+
+if (!is_readable($ficheiro_segredo)) {
+    http_response_code(503);
+    die('Not configured');
+}
+
+$segredo = trim((string) file_get_contents($ficheiro_segredo));
+$token   = $_GET['t'] ?? '';
+
+if ($segredo === '' || !hash_equals($segredo, (string) $token)) {
     http_response_code(403);
     die('Forbidden');
 }

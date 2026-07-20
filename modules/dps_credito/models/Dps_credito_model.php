@@ -1,0 +1,352 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+
+class Dps_credito_model extends App_Model
+{
+    public function tabela_respostas()
+    {
+        return db_prefix() . 'dps_credito_respostas';
+    }
+
+    public function tabela_processos()
+    {
+        return db_prefix() . 'simulador_credito';
+    }
+
+    public function tabela_docs()
+    {
+        return db_prefix() . 'dps_credito_docs';
+    }
+
+    /* ---------------------------------------------------------------------
+     * Respostas ao questionário
+     * ------------------------------------------------------------------ */
+
+    public function get_resposta_por_lead($lead_id)
+    {
+        $this->db->where('lead_id', (int) $lead_id);
+
+        return $this->db->get($this->tabela_respostas())->row_array();
+    }
+
+    /**
+     * Guarda a resposta e, se houver interesse em proposta, abre o processo de
+     * crédito. É este o momento em que a lead passa a ser trabalho do Ricardo.
+     *
+     * @return array [resposta_id, credito_id|null, criou_processo]
+     */
+    public function guardar_resposta($lead_id, $data)
+    {
+        $lead_id  = (int) $lead_id;
+        $abordado = $data['abordado'] === 'sim' ? 'sim' : 'nao';
+
+        $payload = [
+            'lead_id'  => $lead_id,
+            'abordado' => $abordado,
+            'staff_id' => get_staff_user_id(),
+        ];
+
+        if ($abordado === 'sim') {
+            $payload['situacao']             = $data['situacao'] ?? null;
+            $payload['banco']                = !empty($data['banco']) ? trim($data['banco']) : null;
+            $payload['montante']             = isset($data['montante']) && $data['montante'] !== ''
+                ? $this->limpar_numero($data['montante'])
+                : null;
+            $payload['interessado_proposta'] = $data['interessado_proposta'] ?? null;
+        } else {
+            // Mudou de ideias para "não": limpamos o resto para não ficarem
+            // dados órfãos a sugerir um crédito que afinal não existe.
+            $payload['situacao']             = null;
+            $payload['banco']                = null;
+            $payload['montante']             = null;
+            $payload['interessado_proposta'] = null;
+        }
+
+        $payload['observacoes'] = $data['observacoes'] ?? null;
+
+        $existente = $this->get_resposta_por_lead($lead_id);
+
+        if ($existente) {
+            $payload['dateupdated'] = date('Y-m-d H:i:s');
+            $this->db->where('id', $existente['id']);
+            $this->db->update($this->tabela_respostas(), $payload);
+            $resposta_id = $existente['id'];
+        } else {
+            $payload['dateadded'] = date('Y-m-d H:i:s');
+            $this->db->insert($this->tabela_respostas(), $payload);
+            $resposta_id = $this->db->insert_id();
+        }
+
+        $credito_id     = null;
+        $criou_processo = false;
+
+        if ($abordado === 'sim' && ($data['interessado_proposta'] ?? null) === 'sim') {
+            $ja_existe = $this->get_processo_por_lead($lead_id);
+
+            if ($ja_existe) {
+                $credito_id = $ja_existe['id'];
+                $this->atualizar_processo_da_resposta($credito_id, $lead_id, $resposta_id, $payload);
+            } else {
+                $credito_id     = $this->criar_processo($lead_id, $resposta_id, $payload);
+                $criou_processo = true;
+            }
+        }
+
+        return [
+            'resposta_id'    => $resposta_id,
+            'credito_id'     => $credito_id,
+            'criou_processo' => $criou_processo,
+        ];
+    }
+
+    /* ---------------------------------------------------------------------
+     * Processos de crédito
+     * ------------------------------------------------------------------ */
+
+    public function get_processo_por_lead($lead_id)
+    {
+        $this->db->where('lead_id', (int) $lead_id);
+
+        return $this->db->get($this->tabela_processos())->row_array();
+    }
+
+    private function criar_processo($lead_id, $resposta_id, $payload)
+    {
+        $lead = $this->db->where('id', $lead_id)->get(db_prefix() . 'leads')->row_array();
+
+        $this->db->insert($this->tabela_processos(), [
+            'cliente'      => $lead['name'] ?? 'Lead #' . $lead_id,
+            'lead_id'      => $lead_id,
+            'resposta_id'  => $resposta_id,
+            'banco'        => $payload['banco'],
+            'situacao'     => $payload['situacao'],
+            'montante'     => $payload['montante'],
+            'valor'        => $payload['montante'] ?: 0,
+            'estado'       => 'novo',
+            'origem'       => 'lead',
+            'staff_id'     => $payload['staff_id'],
+            'date_created' => date('Y-m-d H:i:s'),
+        ]);
+
+        $credito_id = $this->db->insert_id();
+
+        hooks()->do_action('dps_credito_processo_criado', $credito_id);
+
+        return $credito_id;
+    }
+
+    private function atualizar_processo_da_resposta($credito_id, $lead_id, $resposta_id, $payload)
+    {
+        $this->db->where('id', $credito_id);
+        $this->db->update($this->tabela_processos(), [
+            'banco'       => $payload['banco'],
+            'situacao'    => $payload['situacao'],
+            'montante'    => $payload['montante'],
+            'resposta_id' => $resposta_id,
+            'dateupdated' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function get_processos($filtros = [], $apenas_meus = false)
+    {
+        $this->db->select('c.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome, l.name AS lead_nome, l.phonenumber AS lead_telefone, l.email AS lead_email');
+        $this->db->from($this->tabela_processos() . ' c');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = c.staff_id', 'left');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = c.lead_id', 'left');
+
+        if ($apenas_meus) {
+            $this->db->where('c.staff_id', get_staff_user_id());
+        }
+
+        if (!empty($filtros['estado'])) {
+            $this->db->where('c.estado', $filtros['estado']);
+        }
+
+        if (!empty($filtros['banco'])) {
+            $this->db->where('c.banco', $filtros['banco']);
+        }
+
+        $this->db->order_by('c.id', 'DESC');
+
+        return $this->db->get()->result_array();
+    }
+
+    public function get_processo($id)
+    {
+        $this->db->select('c.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome, l.name AS lead_nome, l.phonenumber AS lead_telefone, l.email AS lead_email');
+        $this->db->from($this->tabela_processos() . ' c');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = c.staff_id', 'left');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = c.lead_id', 'left');
+        $this->db->where('c.id', $id);
+
+        return $this->db->get()->row_array();
+    }
+
+    public function update_processo($id, $data)
+    {
+        $update = [
+            'banco'       => $data['banco'] ?? null,
+            'situacao'    => $data['situacao'] ?? null,
+            'montante'    => isset($data['montante']) && $data['montante'] !== '' ? $this->limpar_numero($data['montante']) : null,
+            'estado'      => $data['estado'] ?? 'novo',
+            'observacoes' => $data['observacoes'] ?? null,
+            'dateupdated' => date('Y-m-d H:i:s'),
+        ];
+
+        if (isset($data['taxa']) && $data['taxa'] !== '') {
+            $update['taxa'] = $this->limpar_numero($data['taxa']);
+        }
+
+        if (isset($data['valor']) && $data['valor'] !== '') {
+            $update['valor'] = $this->limpar_numero($data['valor']);
+        }
+
+        // A comissão do crédito é valor * taxa, tal como nas vendas
+        $valor = $update['valor'] ?? null;
+        $taxa  = $update['taxa'] ?? null;
+
+        if ($valor !== null && $taxa !== null) {
+            $update['comissao_total'] = round((float) $valor * (float) $taxa / 100, 2);
+        }
+
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_processos(), $update);
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    public function delete_processo($id)
+    {
+        foreach ($this->get_docs($id) as $doc) {
+            $this->delete_doc($doc['id']);
+        }
+
+        $this->db->where('id', $id)->delete($this->tabela_processos());
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    /* ---------------------------------------------------------------------
+     * Documentos
+     * ------------------------------------------------------------------ */
+
+    public function get_docs($credito_id)
+    {
+        $this->db->where('credito_id', $credito_id);
+        $this->db->order_by('id', 'ASC');
+
+        return $this->db->get($this->tabela_docs())->result_array();
+    }
+
+    public function get_doc($id)
+    {
+        $this->db->where('id', $id);
+
+        return $this->db->get($this->tabela_docs())->row_array();
+    }
+
+    public function add_doc($credito_id, $filename, $original_name, $descricao = null)
+    {
+        $this->db->insert($this->tabela_docs(), [
+            'credito_id'    => $credito_id,
+            'filename'      => $filename,
+            'original_name' => $original_name,
+            'descricao'     => $descricao,
+            'uploaded_by'   => get_staff_user_id(),
+            'dateadded'     => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->insert_id();
+    }
+
+    public function delete_doc($id)
+    {
+        $doc = $this->get_doc($id);
+        if (!$doc) {
+            return false;
+        }
+
+        $caminho = FCPATH . DPS_CREDITO_UPLOAD_PATH . $doc['credito_id'] . '/' . $doc['filename'];
+        if (file_exists($caminho)) {
+            unlink($caminho);
+        }
+
+        $this->db->where('id', $id)->delete($this->tabela_docs());
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    /* ---------------------------------------------------------------------
+     * Notificação
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Avisa quem trata do crédito de que há um processo novo. Sem isto, o
+     * processo nasce e fica à espera que alguém repare nele.
+     */
+    public function notificar_novo_processo($credito_id)
+    {
+        $processo = $this->get_processo($credito_id);
+        if (!$processo) {
+            return;
+        }
+
+        $destinatarios = $this->get_destinatarios();
+
+        foreach ($destinatarios as $staff_id) {
+            add_notification([
+                'description'     => 'Novo processo de crédito: ' . $processo['cliente'],
+                'touserid'        => $staff_id,
+                'fromcompany'     => 1,
+                'fromuserid'      => null,
+                'link'            => 'dps_credito/view/' . $credito_id,
+                'additional_data' => serialize([$processo['cliente']]),
+            ]);
+        }
+
+        if (!empty($destinatarios)) {
+            pusher_trigger_notification($destinatarios);
+        }
+    }
+
+    private function get_destinatarios()
+    {
+        $configurado = get_option('dps_credito_notificar_staff');
+
+        if (!empty($configurado)) {
+            return array_filter(array_map('intval', explode(',', $configurado)));
+        }
+
+        // Sem configuração explícita, avisamos os administradores
+        $admins = $this->db->select('staffid')
+            ->where('admin', 1)
+            ->where('active', 1)
+            ->get(db_prefix() . 'staff')
+            ->result_array();
+
+        return array_map('intval', array_column($admins, 'staffid'));
+    }
+
+    private function limpar_numero($valor)
+    {
+        if (is_numeric($valor)) {
+            return (float) $valor;
+        }
+
+        $valor = preg_replace('/[^0-9,.\-]/', '', (string) $valor);
+
+        if (strpos($valor, ',') !== false && strpos($valor, '.') !== false) {
+            if (strrpos($valor, ',') > strrpos($valor, '.')) {
+                $valor = str_replace('.', '', $valor);
+                $valor = str_replace(',', '.', $valor);
+            } else {
+                $valor = str_replace(',', '', $valor);
+            }
+        } elseif (strpos($valor, ',') !== false) {
+            $valor = str_replace(',', '.', $valor);
+        }
+
+        return (float) $valor;
+    }
+}
