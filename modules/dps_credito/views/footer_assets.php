@@ -69,9 +69,18 @@
         var $botao = $(this);
         $botao.prop('disabled', true).text('A guardar...');
 
+        // O Perfex exige o token CSRF em todos os POST (senão devolve 419
+        // "Page Expired"). O serialize() do formulário não o inclui, por isso
+        // acrescentamo-lo a partir da variável global csrfData do Perfex.
+        var dadosPost = $form.serialize();
+        if (typeof csrfData !== 'undefined') {
+            dadosPost += '&' + encodeURIComponent(csrfData.token_name)
+                + '=' + encodeURIComponent(csrfData.hash);
+        }
+
         $.post(
             adminUrl + 'dps_credito/guardar_resposta/' + $form.data('lead'),
-            $form.serialize(),
+            dadosPost,
             function (resposta) {
                 $botao.prop('disabled', false).text('Guardar');
 
