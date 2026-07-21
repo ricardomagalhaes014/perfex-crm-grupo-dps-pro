@@ -31,3 +31,6 @@ jobs:
             **/application/logs/**
             **/application/cache/**
             **/backups/**
+            **/vendor/**
+            modules/modules/**
+            **/.github/**
