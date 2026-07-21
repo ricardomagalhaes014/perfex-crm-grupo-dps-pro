@@ -21,10 +21,11 @@ get_instance()->load->helper(DPS_CREDITO_MODULE_NAME . '/dps_credito');
 hooks()->add_action('admin_init', 'dps_credito_menu');
 hooks()->add_action('admin_init', 'dps_credito_permissions');
 
-// A guarda tem de correr antes do controller. O admin_init dispara no
-// construtor do AdminController, ou seja, antes de qualquer método — é o único
-// ponto onde ainda dá para travar a escrita.
-hooks()->add_action('admin_init', 'dps_credito_guarda_fecho', 1);
+// A obrigatoriedade é imposta do lado do cliente (ver footer_assets.php):
+// intercetamos as funções globais do Perfex que mudam o estado da lead
+// (lead_profile_form_handler e leads_kanban_update) ANTES de submeterem. Assim
+// nunca travamos um POST a meio — o que evita os "419 página expirada" e o
+// "só grava depois de refrescar" que o bloqueio no servidor provocava.
 
 // Coluna "DPS Crédito" na listagem de leads
 hooks()->add_filter('leads_table_columns', 'dps_credito_coluna_cabecalho');
@@ -62,90 +63,6 @@ function dps_credito_permissions()
         'download_docs' => 'Descarregar documentos de crédito',
         'definicoes'    => 'Gerir definições do módulo',
     ], 'DPS Crédito');
-}
-
-/* -------------------------------------------------------------------------
- * A guarda
- * ---------------------------------------------------------------------- */
-
-/**
- * Impede que uma lead seja fechada sem o questionário de crédito respondido.
- *
- * Porque é feito aqui e não num hook próprio de leads: o Perfex dispara
- * `lead_status_changed` DEPOIS da escrita, e é um do_action — o valor de
- * retorno é ignorado. Não existe nenhum filtro `before_lead_updated`. Além
- * disso, `convert_to_customer` e a acção em massa escrevem o estado em SQL
- * cru, sem hook nenhum. Logo, o único sítio onde ainda dá para travar é antes
- * do controller arrancar.
- */
-function dps_credito_guarda_fecho()
-{
-    if (get_option('dps_credito_bloqueio_ativo') != '1') {
-        return;
-    }
-
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        return;
-    }
-
-    $CI = &get_instance();
-
-    // Só nos metemos no caminho das leads
-    $uri = $CI->uri->uri_string();
-    if (strpos($uri, 'leads/') === false) {
-        return;
-    }
-
-    $lead_id     = null;
-    $novo_estado = null;
-
-    if (strpos($uri, 'leads/update_lead_status') !== false) {
-        // Arrastar no kanban
-        $lead_id     = $CI->input->post('leadid') ?: $CI->input->post('lead_id');
-        $novo_estado = $CI->input->post('status');
-    } elseif (preg_match('#leads/lead/(\d+)#', $uri, $m)) {
-        // Formulário da ficha da lead
-        $lead_id     = $m[1];
-        $novo_estado = $CI->input->post('status');
-    }
-
-    if (!$lead_id || !$novo_estado) {
-        return;
-    }
-
-    if (!dps_credito_estado_e_fecho($novo_estado)) {
-        return;
-    }
-
-    // Só leads de fonte imobiliário Portugal. As de outros países passam.
-    if (!dps_credito_lead_aplicavel($lead_id)) {
-        return;
-    }
-
-    // Já respondeu? Então segue.
-    if (dps_credito_lead_tem_resposta($lead_id)) {
-        return;
-    }
-
-    $mensagem = 'Antes de fechar esta lead tem de responder ao questionário de crédito '
-        . '(Crédito abordado? Sim/Não). Abra o separador "DPS Crédito" na ficha da lead, '
-        . 'ou use o botão da coluna DPS Crédito na listagem.';
-
-    // O kanban ignora o corpo da resposta, por isso marcamos a resposta com uma
-    // bandeira que o JS do módulo apanha para avisar e recarregar a página.
-    if (dps_credito_pedido_ajax()) {
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success'                 => false,
-            'dps_credito_bloqueado'   => true,
-            'lead_id'                 => (int) $lead_id,
-            'message'                 => $mensagem,
-        ]);
-        exit;
-    }
-
-    set_alert('danger', $mensagem);
-    redirect(admin_url('leads'));
 }
 
 /* -------------------------------------------------------------------------

@@ -112,6 +112,24 @@ class Dps_credito extends AdminController
         $this->load->view('form_questionario', $data);
     }
 
+    /**
+     * Consulta rápida (GET, sem CSRF) usada pelo JS antes de deixar fechar uma
+     * lead: diz se esta lead precisa mesmo do questionário respondido.
+     */
+    public function estado_lead($lead_id)
+    {
+        $aplicavel  = dps_credito_lead_aplicavel($lead_id);
+        $respondido = dps_credito_lead_tem_resposta($lead_id);
+        $ativo      = get_option('dps_credito_bloqueio_ativo') == '1';
+
+        echo json_encode([
+            'aplicavel'  => $aplicavel,
+            'respondido' => $respondido,
+            'precisa'    => $ativo && $aplicavel && !$respondido,
+        ]);
+        die;
+    }
+
     public function guardar_resposta($lead_id)
     {
         if (!$this->input->post()) {
