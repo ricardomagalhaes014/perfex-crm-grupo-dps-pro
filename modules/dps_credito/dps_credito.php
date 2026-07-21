@@ -107,9 +107,10 @@ function dps_credito_coluna_celula($row, $aRow)
     }
 
     if ($abordado === null) {
-        // Sem resposta: é isto que trava o fecho, por isso mostra-se como acção.
-        $row[] = '<button type="button" class="btn btn-warning btn-xs dps-credito-abrir" data-lead="' . $lead_id . '">'
-            . 'Por responder</button>';
+        // Sem resposta ainda: mostra-se como "Não" (por omissão), clicável para
+        // preencher. Continua a ser o estado que pede o questionário ao fechar.
+        $row[] = '<button type="button" class="btn btn-default btn-xs dps-credito-abrir" data-lead="' . $lead_id . '">'
+            . 'Não</button>';
 
         return $row;
     }
