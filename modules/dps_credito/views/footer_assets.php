@@ -67,6 +67,11 @@
         var situacao = $('#dps-credito-situacao').val();
         var interessado = $('input[name="interessado_proposta"]:checked').val();
 
+        // Assim que há escolha, tira o destaque de campo em falta.
+        if (abordado) {
+            $('#dps-credito-abordado-sim').closest('.form-group').removeClass('has-error');
+        }
+
         $('#dps-credito-detalhes').toggle(abordado === 'sim');
 
         var jaFinanciado = situacao === 'financiamento_existente';
@@ -92,6 +97,15 @@
     $(document).on('click', '#dps-credito-guardar', function () {
         var $form = $('#dps-credito-form');
         if (!$form.length) {
+            return;
+        }
+
+        // Obrigatório: para alterar o estado, o crédito tem SEMPRE de estar
+        // marcado como Sim ou Não. Sem isso não avançamos e dizemos porquê.
+        var abordado = $form.find('input[name="abordado"]:checked').val();
+        if (!abordado) {
+            $('#dps-credito-abordado-sim').closest('.form-group').addClass('has-error');
+            alert_float('warning', 'O campo "Crédito abordado?" não está selecionado. Escolha Sim ou Não para alterar o estado.');
             return;
         }
 
