@@ -4,15 +4,18 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Leads_imo_model extends App_Model
 {
     /**
-     * Grupos de fontes definidos por nome (não por ID fixo).
-     * Após a migração 344 os nomes duplicados e "DPS Portugal" estão consolidados.
+     * Grupos de fontes definidos por nome NORMALIZADO (minúsculas, espaços
+     * unicode/escondidos colapsados) — não por ID fixo, e não sensível a
+     * maiúsculas/espaços invisíveis que possam existir nos dados reais.
+     * "expansao_imo" inclui todas as variantes históricas que ainda podem
+     * existir enquanto a consolidação de fontes não corre/não apanha tudo.
      */
     private $sourceGroupNames = [
-        'expansao_imo'     => ['IMO Portugal', 'Imo Portugal'],
-        'imo'              => ['Imo Brasil', 'IMO Brasil'],
-        'imo_dubai'        => ['IMO Dubai', 'Imo Dubai'],
-        'bsx'              => ['BSX'],
-        'contacto_pessoal' => ['Contacto Pessoal', 'Contacto pessoal'],
+        'expansao_imo'     => ['imo portugal', 'expansao imo', 'expansão imo', 'dps portugal', 'dps-portugal'],
+        'imo'              => ['imo brasil'],
+        'imo_dubai'        => ['imo dubai'],
+        'bsx'              => ['bsx leads', 'bsx'],
+        'contacto_pessoal' => ['contacto pessoal'],
     ];
 
     /**
@@ -30,21 +33,39 @@ class Leads_imo_model extends App_Model
     }
 
     /**
+     * Normaliza um nome de fonte: colapsa espaços unicode/escondidos e minúsculas.
+     * Tem de ser idêntica à usada em Leads_imo::normalizeSourceName() no controller
+     * para que a consolidação e os relatórios concordem sobre o que é "o mesmo nome".
+     */
+    private function normalizeSourceName(string $name): string
+    {
+        $s = preg_replace('/[\x{00A0}\x{1680}\x{2000}-\x{200D}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', ' ', $name);
+        $s = preg_replace('/\s+/u', ' ', $s);
+        $s = trim($s);
+        return mb_strtolower($s, 'UTF-8');
+    }
+
+    /**
      * Resolve os IDs da tabela leads_sources a partir dos nomes do grupo.
-     * Robusto contra IDs que variam por instalação.
+     * Busca TODAS as fontes e compara por nome normalizado em PHP — não confia
+     * em WHERE name IN (...) do SQL, que falha com espaços unicode escondidos
+     * ou depende da collation da coluna para (in)sensibilidade a maiúsculas.
      */
     private function resolveSourceIds(string $group): array
     {
         if (!isset($this->sourceGroupNames[$group])) {
             return [];
         }
-        $names = $this->sourceGroupNames[$group];
-        $rows  = $this->db
-            ->select('id')
-            ->where_in('name', $names)
-            ->get(db_prefix() . 'leads_sources')
-            ->result_array();
-        return array_column($rows, 'id');
+        $aliases = $this->sourceGroupNames[$group];
+        $all     = $this->db->select('id, name')->get(db_prefix() . 'leads_sources')->result_array();
+
+        $ids = [];
+        foreach ($all as $row) {
+            if (in_array($this->normalizeSourceName($row['name']), $aliases, true)) {
+                $ids[] = (int) $row['id'];
+            }
+        }
+        return $ids;
     }
 
     /**

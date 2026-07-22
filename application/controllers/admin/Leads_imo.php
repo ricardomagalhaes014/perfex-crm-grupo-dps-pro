@@ -110,8 +110,27 @@ class Leads_imo extends AdminController
     }
 
     /**
+     * Normaliza um nome de fonte de forma robusta a variações "invisíveis":
+     * espaços não-separáveis (NBSP), espaços largos unicode, zero-width chars,
+     * espaços duplicados, maiúsculas/minúsculas.
+     */
+    private function normalizeSourceName(string $name): string
+    {
+        // Substitui vários tipos de espaço unicode "escondidos" por espaço normal
+        $s = preg_replace('/[\x{00A0}\x{1680}\x{2000}-\x{200D}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', ' ', $name);
+        // Colapsa espaços múltiplos
+        $s = preg_replace('/\s+/u', ' ', $s);
+        $s = trim($s);
+        return mb_strtolower($s, 'UTF-8');
+    }
+
+    /**
      * Consolidação de fontes — corre uma vez pelo browser (só admin).
      * URL: crm.grupo-dps.com/admin/leads_imo/consolidar_fontes
+     *
+     * Usa normalização robusta em PHP (não confia em LOWER(TRIM()) do MySQL,
+     * que não remove espaços não-separáveis/unicode escondidos e por isso
+     * pode falhar a detectar "duplicados" visualmente idênticos).
      */
     public function consolidar_fontes()
     {
@@ -122,77 +141,105 @@ class Leads_imo extends AdminController
         $prefix = db_prefix();
         $log    = [];
 
-        // 1. Fundir todas as variantes de IMO Portugal + DPS Portugal
-        $imoAll = $this->db->query("
-            SELECT id, name FROM {$prefix}leads_sources
-            WHERE LOWER(TRIM(name)) IN (
-                'imo portugal','expansao imo','expansão imo','dps portugal','dps-portugal'
-            )
-            ORDER BY id ASC
-        ")->result_array();
+        $this->db->trans_start();
 
-        if (count($imoAll) >= 2) {
-            $keepId    = (int) $imoAll[0]['id'];
-            $removeIds = array_map('intval', array_slice(array_column($imoAll, 'id'), 1));
+        // Estado ANTES — para diagnóstico, mostra bytes escondidos se existirem
+        $before = $this->db->select('id, name')->order_by('id', 'asc')->get($prefix . 'leads_sources')->result_array();
+
+        // Nomes-alvo a fundir todos em "IMO Portugal"
+        $imoAliases = ['imo portugal', 'expansao imo', 'expansão imo', 'dps portugal', 'dps-portugal'];
+
+        $imoRows = array_values(array_filter($before, function ($r) use ($imoAliases) {
+            return in_array($this->normalizeSourceName($r['name']), $imoAliases, true);
+        }));
+
+        if (count($imoRows) >= 2) {
+            usort($imoRows, fn($a, $b) => $a['id'] <=> $b['id']);
+            $keepId    = (int) $imoRows[0]['id'];
+            $removeIds = array_map(fn($r) => (int) $r['id'], array_slice($imoRows, 1));
+
             $this->db->where('id', $keepId)->update($prefix . 'leads_sources', ['name' => 'IMO Portugal']);
+
             $affected = 0;
             foreach ($removeIds as $rid) {
                 $this->db->where('source', $rid)->update($prefix . 'leads', ['source' => $keepId]);
                 $affected += $this->db->affected_rows();
             }
             $this->db->where_in('id', $removeIds)->delete($prefix . 'leads_sources');
-            $log[] = "✅ IMO Portugal consolidado (manteve id=$keepId, removeu " . implode(',', $removeIds) . "). Leads re-apontadas: $affected.";
-        } elseif (count($imoAll) === 1) {
-            $keepId = (int) $imoAll[0]['id'];
+
+            $removedNames = implode(', ', array_map(fn($r) => "\"{$r['name']}\" (id={$r['id']})", array_slice($imoRows, 1)));
+            $log[] = "✅ IMO Portugal consolidado — manteve id=$keepId, fundiu: $removedNames. Leads re-apontadas: $affected.";
+        } elseif (count($imoRows) === 1) {
+            $keepId = (int) $imoRows[0]['id'];
             $this->db->where('id', $keepId)->update($prefix . 'leads_sources', ['name' => 'IMO Portugal']);
             $log[] = "✅ IMO Portugal — já único (id=$keepId), nome normalizado.";
         } else {
             $log[] = "ℹ️ Nenhuma fonte com variante de 'IMO Portugal' encontrada.";
         }
 
-        // 2. Consolidar quaisquer outros nomes duplicados exactos
-        $dups = $this->db->query("
-            SELECT LOWER(TRIM(name)) as norm_name, MIN(id) as keep_id, GROUP_CONCAT(id ORDER BY id) as all_ids
-            FROM {$prefix}leads_sources
-            GROUP BY LOWER(TRIM(name))
-            HAVING COUNT(*) > 1
-        ")->result_array();
-
-        foreach ($dups as $dup) {
-            $keepId    = (int) $dup['keep_id'];
-            $allIds    = array_map('intval', explode(',', $dup['all_ids']));
-            $removeIds = array_filter($allIds, fn($id) => $id !== $keepId);
-            if (empty($removeIds)) continue;
-            $this->db->where_in('source', $removeIds)->update($prefix . 'leads', ['source' => $keepId]);
-            $this->db->where_in('id', $removeIds)->delete($prefix . 'leads_sources');
-            $log[] = "✅ Duplicado '{$dup['norm_name']}' consolidado em id=$keepId.";
+        // Consolidar quaisquer outros duplicados exactos (por nome normalizado), à parte do bloco IMO Portugal já tratado
+        $remaining = $this->db->select('id, name')->get($prefix . 'leads_sources')->result_array();
+        $groups    = [];
+        foreach ($remaining as $r) {
+            $key = $this->normalizeSourceName($r['name']);
+            $groups[$key][] = $r;
         }
 
-        if (empty($dups)) {
+        $otherDupsFound = false;
+        foreach ($groups as $key => $rows) {
+            if (count($rows) < 2) continue;
+            $otherDupsFound = true;
+            usort($rows, fn($a, $b) => $a['id'] <=> $b['id']);
+            $keepId    = (int) $rows[0]['id'];
+            $removeIds = array_map(fn($r) => (int) $r['id'], array_slice($rows, 1));
+
+            $this->db->where_in('source', $removeIds)->update($prefix . 'leads', ['source' => $keepId]);
+            $this->db->where_in('id', $removeIds)->delete($prefix . 'leads_sources');
+            $log[] = "✅ Duplicado '{$rows[0]['name']}' consolidado em id=$keepId (removidos: " . implode(',', $removeIds) . ").";
+        }
+        if (!$otherDupsFound) {
             $log[] = "ℹ️ Sem outros duplicados encontrados.";
         }
 
-        // 3. Apagar Media e Dentária
-        $toDelete = $this->db->query("
-            SELECT id, name FROM {$prefix}leads_sources
-            WHERE LOWER(TRIM(name)) IN ('media','média','dentaria','dentária')
-        ")->result_array();
+        // Apagar Media e Dentária (todas as variantes)
+        $mediaAliases = ['media', 'média', 'dentaria', 'dentária'];
+        $stillLeft    = $this->db->select('id, name')->get($prefix . 'leads_sources')->result_array();
+        $toDelete     = array_values(array_filter($stillLeft, function ($r) use ($mediaAliases) {
+            return in_array($this->normalizeSourceName($r['name']), $mediaAliases, true);
+        }));
 
         if (!empty($toDelete)) {
-            $deleteIds = array_map('intval', array_column($toDelete, 'id'));
+            $deleteIds = array_map(fn($r) => (int) $r['id'], $toDelete);
             $this->db->where_in('source', $deleteIds)->update($prefix . 'leads', ['source' => null]);
             $this->db->where_in('id', $deleteIds)->delete($prefix . 'leads_sources');
-            $names = implode(', ', array_column($toDelete, 'name'));
+            $names = implode(', ', array_map(fn($r) => $r['name'], $toDelete));
             $log[] = "🗑️ Fontes apagadas: $names.";
         } else {
             $log[] = "ℹ️ Media/Dentária já não existem.";
         }
 
-        // Resultado
-        echo '<pre style="font-family:monospace;font-size:15px;padding:20px;">';
+        $this->db->trans_complete();
+
+        if ($this->db->trans_status() === false) {
+            echo '<pre style="font-family:monospace;font-size:15px;padding:20px;color:red;">';
+            echo "<b>Erro — a transacção falhou, nada foi alterado.</b>\n\n";
+            echo implode("\n", $log);
+            echo '</pre>';
+            exit;
+        }
+
+        // Estado final — lista todas as fontes com o respectivo comprimento em bytes
+        // (ajuda a detectar no futuro nomes visualmente iguais mas com caracteres escondidos)
+        $after = $this->db->select('id, name')->order_by('id', 'asc')->get($prefix . 'leads_sources')->result_array();
+
+        echo '<pre style="font-family:monospace;font-size:14px;padding:20px;">';
         echo "<b>Consolidação de fontes de lead</b>\n\n";
         echo implode("\n", $log);
-        echo "\n\n<b>Concluído.</b> Pode fechar esta página.";
+        echo "\n\n<b>Fontes finais (id | nome | bytes):</b>\n";
+        foreach ($after as $r) {
+            echo str_pad($r['id'], 4) . ' | ' . str_pad($r['name'], 25) . ' | ' . strlen($r['name']) . "\n";
+        }
+        echo "\n<b>Concluído.</b> Pode fechar esta página.";
         echo '</pre>';
         exit;
     }
