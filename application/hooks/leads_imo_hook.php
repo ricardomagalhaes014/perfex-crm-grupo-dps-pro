@@ -237,8 +237,8 @@ document.addEventListener("DOMContentLoaded", function () {
               <option value="expansao_imo" selected>IMO Portugal</option>
               <option value="imo">IMO Brasil</option>
               <option value="imo_dubai">IMO Dubai</option>
-              <option value="media">Media</option>
-              <option value="dental">Dentária</option>
+              <option value="bsx">BSX</option>
+              <option value="contacto_pessoal">Contacto Pessoal</option>
             </select>
           </div>
           <div class="col-md-3">
@@ -286,8 +286,8 @@ document.addEventListener("DOMContentLoaded", function () {
               <option value="expansao_imo" selected>IMO Portugal</option>
               <option value="imo">IMO Brasil</option>
               <option value="imo_dubai">IMO Dubai</option>
-              <option value="media">Media</option>
-              <option value="dental">Dentária</option>
+              <option value="bsx">BSX</option>
+              <option value="contacto_pessoal">Contacto Pessoal</option>
             </select>
           </div>
           <div class="col-md-3">
