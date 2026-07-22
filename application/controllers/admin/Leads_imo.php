@@ -12,7 +12,7 @@ class Leads_imo extends AdminController
     /**
      * Retorna o relatório em JSON para o popup (comerciais × statuses)
      * GET params:
-     *  - group: expansao_imo | imo | imo_dubai | media | dental
+     *  - group: expansao_imo | imo | imo_dubai | bsx | contacto_pessoal
      *  - from:  YYYY-MM-DD (opcional)
      *  - to:    YYYY-MM-DD (opcional)
      */
@@ -36,7 +36,7 @@ class Leads_imo extends AdminController
      * Distribuição de leads por comercial para um status específico.
      * GET params:
      *  - status_id: int
-     *  - group:     expansao_imo | imo | imo_dubai | media | dental
+     *  - group:     expansao_imo | imo | imo_dubai | bsx | contacto_pessoal
      *  - from:      YYYY-MM-DD (opcional)
      *  - to:        YYYY-MM-DD (opcional)
      */
@@ -89,15 +89,25 @@ class Leads_imo extends AdminController
         $separator = ';';
         $out = fopen('php://output', 'w');
 
+        // Neutraliza injecção de fórmulas: um valor que comece por = + - @ é
+        // interpretado como fórmula pelo Excel/Sheets ao abrir o CSV.
+        $csvSafe = function ($value) {
+            $value = (string) $value;
+            if ($value !== '' && strpbrk($value[0], '=+-@') !== false) {
+                return "'" . $value;
+            }
+            return $value;
+        };
+
         $header = ['Comercial'];
         foreach ($report['statuses'] as $s) {
-            $header[] = $s['name'];
+            $header[] = $csvSafe($s['name']);
         }
         $header[] = 'Total';
         fputcsv($out, $header, $separator);
 
         foreach ($report['rows'] as $row) {
-            $line = [$row['staff_name']];
+            $line = [$csvSafe($row['staff_name'])];
             foreach ($report['statuses'] as $s) {
                 $line[] = $row['counts'][$s['id']] ?? 0;
             }
@@ -128,6 +138,10 @@ class Leads_imo extends AdminController
      * Consolidação de fontes — corre uma vez pelo browser (só admin).
      * URL: crm.grupo-dps.com/admin/leads_imo/consolidar_fontes
      *
+     * GET mostra uma página de confirmação; a acção só executa em POST
+     * (evita que um link/imagem partilhado dispare a consolidação sem querer —
+     * um pedido GET nunca consegue accionar um formulário POST sozinho).
+     *
      * Usa normalização robusta em PHP (não confia em LOWER(TRIM()) do MySQL,
      * que não remove espaços não-separáveis/unicode escondidos e por isso
      * pode falhar a detectar "duplicados" visualmente idênticos).
@@ -136,6 +150,17 @@ class Leads_imo extends AdminController
     {
         if (!is_admin()) {
             access_denied('Leads IMO');
+        }
+
+        if ($this->input->method() !== 'post') {
+            echo '<div style="font-family:sans-serif;padding:30px;max-width:500px;">';
+            echo '<h3>Consolidação de fontes de lead</h3>';
+            echo '<p>Isto vai fundir fontes duplicadas (IMO Portugal, DPS Portugal) e apagar Media/Dentária. Confirmar?</p>';
+            echo form_open(current_url());
+            echo '<button type="submit" class="btn btn-primary" style="padding:8px 20px;">Executar consolidação</button>';
+            echo form_close();
+            echo '</div>';
+            exit;
         }
 
         $prefix = db_prefix();
@@ -167,7 +192,10 @@ class Leads_imo extends AdminController
             }
             $this->db->where_in('id', $removeIds)->delete($prefix . 'leads_sources');
 
-            $removedNames = implode(', ', array_map(fn($r) => "\"{$r['name']}\" (id={$r['id']})", array_slice($imoRows, 1)));
+            $removedNames = implode(', ', array_map(
+                fn($r) => '"' . htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8') . "\" (id={$r['id']})",
+                array_slice($imoRows, 1)
+            ));
             $log[] = "✅ IMO Portugal consolidado — manteve id=$keepId, fundiu: $removedNames. Leads re-apontadas: $affected.";
         } elseif (count($imoRows) === 1) {
             $keepId = (int) $imoRows[0]['id'];
@@ -195,7 +223,8 @@ class Leads_imo extends AdminController
 
             $this->db->where_in('source', $removeIds)->update($prefix . 'leads', ['source' => $keepId]);
             $this->db->where_in('id', $removeIds)->delete($prefix . 'leads_sources');
-            $log[] = "✅ Duplicado '{$rows[0]['name']}' consolidado em id=$keepId (removidos: " . implode(',', $removeIds) . ").";
+            $safeName = htmlspecialchars($rows[0]['name'], ENT_QUOTES, 'UTF-8');
+            $log[] = "✅ Duplicado '$safeName' consolidado em id=$keepId (removidos: " . implode(',', $removeIds) . ").";
         }
         if (!$otherDupsFound) {
             $log[] = "ℹ️ Sem outros duplicados encontrados.";
@@ -212,7 +241,7 @@ class Leads_imo extends AdminController
             $deleteIds = array_map(fn($r) => (int) $r['id'], $toDelete);
             $this->db->where_in('source', $deleteIds)->update($prefix . 'leads', ['source' => null]);
             $this->db->where_in('id', $deleteIds)->delete($prefix . 'leads_sources');
-            $names = implode(', ', array_map(fn($r) => $r['name'], $toDelete));
+            $names = implode(', ', array_map(fn($r) => htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8'), $toDelete));
             $log[] = "🗑️ Fontes apagadas: $names.";
         } else {
             $log[] = "ℹ️ Media/Dentária já não existem.";
@@ -237,7 +266,8 @@ class Leads_imo extends AdminController
         echo implode("\n", $log);
         echo "\n\n<b>Fontes finais (id | nome | bytes):</b>\n";
         foreach ($after as $r) {
-            echo str_pad($r['id'], 4) . ' | ' . str_pad($r['name'], 25) . ' | ' . strlen($r['name']) . "\n";
+            $safeName = htmlspecialchars($r['name'], ENT_QUOTES, 'UTF-8');
+            echo str_pad($r['id'], 4) . ' | ' . str_pad($safeName, 25) . ' | ' . strlen($r['name']) . "\n";
         }
         echo "\n<b>Concluído.</b> Pode fechar esta página.";
         echo '</pre>';
