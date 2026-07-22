@@ -4,20 +4,21 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Leads_imo_model extends App_Model
 {
     /**
-     * Grupos de fontes (após migração 344 os duplicados estão consolidados):
+     * Grupos de fontes:
      *
-     *  id 1 = Imo Brasil (Google + Meta — unificados)
+     *  id 1 = Imo Brasil (Google)
+     *  id 2 = Imo Brasil (Meta)
      *  id 3 = DENTARIA
      *  id 4 = MEDIA
-     *  id 5 = Imo Portugal
-     *  id 6 = Imo Dubai (futuro)
+     *  id 5 = Imo Portugal (após migração 344, o duplicado é consolidado aqui)
+     *  id 6 = Imo Dubai
      */
     private $sourceGroups = [
-        'imo'          => [1],   // IMO BRASIL (unificado)
-        'expansao_imo' => [5],   // IMO PORTUGAL
-        'imo_dubai'    => [6],   // IMO DUBAI
-        'media'        => [4],   // MEDIA
-        'dental'       => [3],   // DENTARIA
+        'imo'          => [1, 2], // IMO BRASIL (Google + Meta)
+        'expansao_imo' => [5],    // IMO PORTUGAL (duplicado consolidado pela migração 344)
+        'imo_dubai'    => [6],    // IMO DUBAI
+        'media'        => [4],    // MEDIA
+        'dental'       => [3],    // DENTARIA
     ];
 
     /**
