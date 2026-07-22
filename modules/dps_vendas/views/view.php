@@ -88,9 +88,19 @@
                                 <td><?php echo html_escape($venda['cliente_email'] ?: '—'); ?></td>
                             </tr>
                             <tr>
-                                <td><strong>Regime civil</strong></td>
+                                <td><strong>Estado civil</strong></td>
                                 <td><?php echo html_escape($venda['regime_civil'] ?: '—'); ?></td>
                             </tr>
+                            <tr>
+                                <td><strong>Tipo</strong></td>
+                                <td><?php echo html_escape(($venda['cliente_tipo'] ?? '') ?: '—'); ?></td>
+                            </tr>
+                            <?php if (!empty($venda['cliente_crc'])) { ?>
+                                <tr>
+                                    <td><strong>CRC (empresa)</strong></td>
+                                    <td><?php echo html_escape($venda['cliente_crc']); ?></td>
+                                </tr>
+                            <?php } ?>
                         </table>
 
                         <h5>Documentos</h5>
@@ -213,8 +223,30 @@
                         <?php echo form_close(); ?>
                         <p class="text-muted mtop10">
                             <small>
-                                Só se avança uma etapa de cada vez. Recuar é permitido e fica registado.
+                                Escolha livremente o estado. A comissão é fixada em <strong>Vendido</strong>.
                             </small>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="panel_s">
+                    <div class="panel-body">
+                        <h5 class="no-margin">Enviar ao promotor</h5>
+                        <hr>
+                        <?php echo form_open(admin_url('dps_vendas/enviar_email/' . $venda['id'])); ?>
+                        <div class="form-group">
+                            <label class="control-label">Email do destinatário</label>
+                            <input type="email" name="email_para" class="form-control" placeholder="promotor@exemplo.pt" required>
+                        </div>
+                        <div class="form-group">
+                            <textarea name="email_mensagem" class="form-control" rows="2" placeholder="Mensagem (opcional)"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-info btn-block">
+                            <i class="fa fa-envelope"></i> Enviar reserva por email
+                        </button>
+                        <?php echo form_close(); ?>
+                        <p class="text-muted mtop10">
+                            <small>Envia os dados do cliente e anexa os documentos (incl. Cartão de Cidadão).</small>
                         </p>
                     </div>
                 </div>

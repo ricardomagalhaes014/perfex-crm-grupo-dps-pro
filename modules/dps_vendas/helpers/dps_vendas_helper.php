@@ -9,10 +9,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 function dps_vendas_cor_estado($estado)
 {
     $cores = [
-        'pendente'  => 'label-warning',
-        'contrato'  => 'label-info',
+        'reservado' => 'label-warning',
+        'vendido'   => 'label-info',
         'concluido' => 'label-success',
-        'falhou'    => 'label-danger',
+        'cancelado' => 'label-danger',
     ];
 
     return $cores[$estado] ?? 'label-default';
@@ -21,14 +21,14 @@ function dps_vendas_cor_estado($estado)
 function dps_vendas_nome_estado($estado)
 {
     if (empty($estado)) {
-        return 'Pendente';
+        return 'Reservado';
     }
 
     $nomes = [
-        'pendente'  => 'Pendente',
-        'contrato'  => 'Contrato',
+        'reservado' => 'Reservado',
+        'vendido'   => 'Vendido',
         'concluido' => 'Concluído',
-        'falhou'    => 'Falhou',
+        'cancelado' => 'Cancelado',
     ];
 
     return $nomes[$estado] ?? ucfirst(str_replace('_', ' ', $estado));

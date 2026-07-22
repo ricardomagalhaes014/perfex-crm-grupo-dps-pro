@@ -272,52 +272,76 @@ if ($accao === 'importar') {
         @$stmt->execute();
     }
 
-    $cliente = $tipologia !== ''
-        ? 'A preencher (' . $tipologia . ')'
-        : 'A preencher';
+    // Dados do cliente recolhidos na reserva pelo comercial
+    $cli_nome   = trim((string) ($_POST['cliente'] ?? ''));
+    if ($cli_nome === '') {
+        $cli_nome = $tipologia !== '' ? 'A preencher (' . $tipologia . ')' : 'A preencher';
+    }
+    $cli_morada = trim((string) ($_POST['morada'] ?? '')) ?: null;
+    $cli_tel    = trim((string) ($_POST['telefone'] ?? '')) ?: null;
+    $cli_email  = trim((string) ($_POST['email'] ?? '')) ?: null;
+    $cli_civil  = trim((string) ($_POST['estado_civil'] ?? '')) ?: null;
+    $cli_tipo   = trim((string) ($_POST['tipo'] ?? '')) ?: null;
+    $cli_crc    = trim((string) ($_POST['crc'] ?? '')) ?: null;
 
     $agora = date('Y-m-d H:i:s');
     $hoje  = date('Y-m-d');
 
     $stmt = $bd->prepare(
         "INSERT INTO tblsimulador_vendas
-            (empreendimento, unidade, cliente, valor, taxa, cpcv_taxa, escritura_taxa,
+            (empreendimento, unidade, cliente, cliente_morada, cliente_telefone, cliente_email,
+             regime_civil, cliente_tipo, cliente_crc, valor, taxa, cpcv_taxa, escritura_taxa,
              data_venda, estado, origem, staff_id, comissao_estado, date_created, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendente', 'simulador', ?, 'na', ?, ?)"
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reservado', 'simulador', ?, 'na', ?, ?)"
     );
 
-    // 11 valores: 3 texto, 4 decimais, data, comercial, data/hora, comercial
+    // 9 strings, 4 decimais, data(s), comercial(i), data/hora(s), comercial(i)
     $stmt->bind_param(
-        'sssddddsisi',
-        $empreendimento,
-        $unidade,
-        $cliente,
-        $valor,
-        $taxa,
-        $cpcv_taxa,
-        $escritura_taxa,
-        $hoje,
-        $comercial_id,
-        $agora,
-        $comercial_id
+        'sssssssssddddsisi',
+        $empreendimento, $unidade, $cli_nome, $cli_morada, $cli_tel, $cli_email,
+        $cli_civil, $cli_tipo, $cli_crc, $valor, $taxa, $cpcv_taxa, $escritura_taxa,
+        $hoje, $comercial_id, $agora, $comercial_id
     );
 
     if (!$stmt->execute()) {
-        responder(['success' => false, 'error' => 'Não foi possível criar a venda.'], 500);
+        responder(['success' => false, 'error' => 'Não foi possível criar a reserva.'], 500);
     }
 
     $venda_id = (int) $bd->insert_id;
 
     $bd->query(
         "INSERT INTO tblvendas_historico (venda_id, estado_de, estado_para, staff_id, nota, dateadded)
-         VALUES ({$venda_id}, NULL, 'pendente', {$comercial_id},
-                 'Importada do simulador ao marcar a unidade como Vendido', '{$agora}')"
+         VALUES ({$venda_id}, NULL, 'reservado', {$comercial_id},
+                 'Reserva criada no simulador pelo comercial', '{$agora}')"
     );
+
+    // Documento: Cartão de Cidadão anexado na reserva
+    $doc_msg = '';
+    if (!empty($_FILES['cc']['name']) && ($_FILES['cc']['error'] ?? 1) === UPLOAD_ERR_OK) {
+        $ext = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true) && $_FILES['cc']['size'] <= 10485760) {
+            $dir = __DIR__ . '/uploads/dps_vendas/' . $venda_id . '/';
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+                @file_put_contents($dir . '.htaccess', "Deny from all\n");
+            }
+            $fn = 'cc_' . bin2hex(random_bytes(8)) . '.' . $ext;
+            if (@move_uploaded_file($_FILES['cc']['tmp_name'], $dir . $fn)) {
+                $orig  = $bd->real_escape_string($_FILES['cc']['name']);
+                $fnesc = $bd->real_escape_string($fn);
+                $bd->query(
+                    "INSERT INTO tblvendas_docs (venda_id, tipo, filename, original_name, uploaded_by, dateadded)
+                     VALUES ({$venda_id}, 'cc_frente', '{$fnesc}', '{$orig}', {$comercial_id}, '{$agora}')"
+                );
+                $doc_msg = ' Cartão de Cidadão anexado.';
+            }
+        }
+    }
 
     responder([
         'success'  => true,
         'venda_id' => $venda_id,
-        'message'  => 'Venda criada em Pendente. Complete os dados do cliente e os documentos no CRM.',
+        'message'  => 'Reserva registada no CRM.' . $doc_msg . ' A equipa vai dar seguimento.',
     ]);
 }
 

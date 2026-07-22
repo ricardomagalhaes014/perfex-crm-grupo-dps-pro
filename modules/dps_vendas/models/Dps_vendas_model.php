@@ -5,10 +5,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Dps_vendas_model extends App_Model
 {
     /**
-     * Estados da venda. O admin escolhe livremente entre eles.
-     * A comissão é fixada ao chegar a "concluido".
+     * Estados da venda. Comercial cria em "reservado"; o admin passa a
+     * "vendido" (CPCV — fixa a comissão), "concluido" (escritura) ou "cancelado".
      */
-    public static $fluxo = ['pendente', 'contrato', 'concluido', 'falhou'];
+    public static $fluxo = ['reservado', 'vendido', 'concluido', 'cancelado'];
 
     public function __construct()
     {
@@ -207,8 +207,8 @@ class Dps_vendas_model extends App_Model
             'dateupdated' => date('Y-m-d H:i:s'),
         ];
 
-        // É ao chegar a "concluído" que a comissão passa a ser devida.
-        if ($novo_estado === 'concluido') {
+        // É ao passar a "vendido" (CPCV) que a comissão passa a ser devida.
+        if ($novo_estado === 'vendido') {
             $calculo = $this->calcular_comissao($venda);
 
             // Fixar uma comissão de 0 € em silêncio seria o pior desfecho:
@@ -218,14 +218,14 @@ class Dps_vendas_model extends App_Model
                     'ok'   => false,
                     'erro' => 'Não há taxa de comissão definida para "' . $venda['empreendimento'] . '". '
                         . 'Defina a regra em Vendas &gt; Regras de Comissão, ou indique a taxa na própria venda, '
-                        . 'antes de a marcar como Concluída.',
+                        . 'antes de a marcar como Vendida.',
                 ];
             }
 
             $update['comissao_total']  = $calculo['valor'];
             $update['comissao_estado'] = 'a_receber';
-        } elseif ($novo_estado === 'falhou') {
-            // Venda falhada não gera comissão.
+        } elseif ($novo_estado === 'cancelado') {
+            // Venda cancelada não gera comissão.
             $update['comissao_estado'] = 'na';
             $update['comissao_total']  = 0;
         }

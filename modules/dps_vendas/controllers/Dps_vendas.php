@@ -128,6 +128,76 @@ class Dps_vendas extends AdminController
         $this->load->view('view', $data);
     }
 
+    /**
+     * Envia a reserva ao promotor por email, com os documentos anexados.
+     * O admin escolhe o destinatário.
+     */
+    public function enviar_email($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!is_admin() && !staff_can('view', 'dps_vendas')) {
+            access_denied('dps_vendas');
+        }
+
+        $para = trim((string) $this->input->post('email_para'));
+        if (!filter_var($para, FILTER_VALIDATE_EMAIL)) {
+            set_alert('danger', 'Indique um email de destinatário válido.');
+            redirect(admin_url('dps_vendas/view/' . $id));
+        }
+
+        $extra = trim((string) $this->input->post('email_mensagem'));
+
+        $linhas = [
+            'Empreendimento: ' . $venda['empreendimento'],
+            'Unidade/Fracção: ' . $venda['unidade'],
+            'Valor: ' . app_format_money($venda['valor'], get_base_currency()),
+            'Estado: ' . dps_vendas_nome_estado($venda['estado']),
+            '',
+            'CLIENTE',
+            'Nome: ' . $venda['cliente'],
+            'Tipo: ' . (($venda['cliente_tipo'] ?? '') ?: '—'),
+        ];
+        if (!empty($venda['cliente_crc'])) {
+            $linhas[] = 'CRC: ' . $venda['cliente_crc'];
+        }
+        $linhas = array_merge($linhas, [
+            'Morada: ' . ($venda['cliente_morada'] ?: '—'),
+            'Telefone: ' . ($venda['cliente_telefone'] ?: '—'),
+            'Email: ' . ($venda['cliente_email'] ?: '—'),
+            'Estado civil: ' . ($venda['regime_civil'] ?: '—'),
+        ]);
+
+        $corpo = '<p>' . ($extra !== '' ? nl2br(html_escape($extra)) . '<br><br>' : '') . '</p>';
+        $corpo .= '<p>' . implode('<br>', array_map('html_escape', $linhas)) . '</p>';
+        $corpo .= '<p style="color:#888;font-size:12px;">Enviado por ' . html_escape(get_staff_full_name()) . ' via CRM DPS.</p>';
+
+        $this->load->library('email');
+        $this->email->clear(true);
+        $this->email->from(get_option('smtp_email') ?: get_option('email'), get_option('companyname') ?: 'DPS');
+        $this->email->to($para);
+        $this->email->subject('Reserva — ' . $venda['empreendimento'] . ' — Fracção ' . $venda['unidade']);
+        $this->email->message($corpo);
+
+        foreach ($this->dps_vendas_model->get_docs($id) as $doc) {
+            $caminho = FCPATH . DPS_VENDAS_UPLOAD_PATH . $id . '/' . $doc['filename'];
+            if (file_exists($caminho)) {
+                $this->email->attach($caminho, 'attachment', $doc['original_name'] ?: $doc['filename']);
+            }
+        }
+
+        if ($this->email->send(false)) {
+            set_alert('success', 'Reserva enviada por email para ' . $para . '.');
+        } else {
+            set_alert('danger', 'Não foi possível enviar o email. Verifique a configuração de SMTP do CRM.');
+        }
+
+        redirect(admin_url('dps_vendas/view/' . $id));
+    }
+
     public function change_status($id)
     {
         if (!$this->input->post()) {
