@@ -1,5 +1,15 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <?php init_head(); ?>
+<?php
+// Separar os documentos do circuito CPCV/pagamento dos de identificação,
+// para cada um viver no seu painel.
+$cpcv_docs         = array_values(array_filter($docs, function ($d) { return $d['tipo'] === 'cpcv'; }));
+$comprovativo_docs = array_values(array_filter($docs, function ($d) { return $d['tipo'] === 'comprovativo'; }));
+$docs_identificacao = array_values(array_filter($docs, function ($d) {
+    return !in_array($d['tipo'], ['cpcv', 'comprovativo'], true);
+}));
+$pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
+?>
 <div id="wrapper">
     <div class="content">
         <div class="row">
@@ -103,8 +113,8 @@
                             <?php } ?>
                         </table>
 
-                        <h5>Documentos</h5>
-                        <?php if (empty($docs)) { ?>
+                        <h5>Documentos de identificação</h5>
+                        <?php if (empty($docs_identificacao)) { ?>
                             <p class="text-muted">Sem documentos anexados.</p>
                         <?php } else { ?>
                             <table class="table">
@@ -117,7 +127,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($docs as $doc) { ?>
+                                    <?php foreach ($docs_identificacao as $doc) { ?>
                                         <tr>
                                             <td><?php echo dps_vendas_nome_doc($doc['tipo']); ?></td>
                                             <td><?php echo html_escape($doc['original_name']); ?></td>
@@ -141,6 +151,117 @@
                                 </tbody>
                             </table>
                         <?php } ?>
+
+                    </div>
+                </div>
+
+                <div class="panel_s">
+                    <div class="panel-body">
+                        <h4 class="no-margin">CPCV &amp; Pagamento</h4>
+                        <hr>
+
+                        <p>
+                            <strong>CPCV:</strong>
+                            <?php if (!empty($venda['cpcv_assinado'])) { ?>
+                                <span class="label label-success"><i class="fa fa-check"></i> Assinado</span>
+                                <small class="text-muted"><?php echo _dt($venda['cpcv_assinado_em']); ?></small>
+                            <?php } elseif (!empty($cpcv_docs)) { ?>
+                                <span class="label label-info">Enviado</span>
+                                <small class="text-muted">— aguarda assinatura</small>
+                            <?php } else { ?>
+                                <span class="label label-default">Por enviar</span>
+                            <?php } ?>
+                            &nbsp;·&nbsp;
+                            <strong>Pagamento:</strong>
+                            <?php if (!empty($venda['pago'])) { ?>
+                                <span class="label label-success"><i class="fa fa-check"></i> Pago</span>
+                                <small class="text-muted"><?php echo _dt($venda['pago_em']); ?></small>
+                            <?php } else { ?>
+                                <span class="label label-default">Pendente</span>
+                            <?php } ?>
+                        </p>
+
+                        <div class="row mtop15">
+                            <div class="col-md-6">
+                                <h5>CPCV</h5>
+                                <?php if (!empty($cpcv_docs)) { ?>
+                                    <?php foreach ($cpcv_docs as $doc) { ?>
+                                        <p>
+                                            <i class="fa fa-file-pdf-o"></i>
+                                            <?php echo html_escape($doc['original_name']); ?>
+                                            <a href="<?php echo admin_url('dps_vendas/download_doc/' . $doc['id']); ?>"
+                                               class="btn btn-default btn-xs">
+                                                <i class="fa fa-download"></i> Descarregar
+                                            </a>
+                                            <?php if ($pode_gerir_cpcv) { ?>
+                                                <a href="<?php echo admin_url('dps_vendas/delete_doc/' . $doc['id']); ?>"
+                                                   class="btn btn-danger btn-xs _delete"><i class="fa fa-remove"></i></a>
+                                            <?php } ?>
+                                        </p>
+                                    <?php } ?>
+                                <?php } else { ?>
+                                    <p class="text-muted">Ainda sem CPCV.</p>
+                                <?php } ?>
+
+                                <?php if ($pode_gerir_cpcv) { ?>
+                                    <?php echo form_open_multipart(admin_url('dps_vendas/upload_cpcv/' . $venda['id'])); ?>
+                                    <div class="form-group">
+                                        <input type="file" name="cpcv_file" accept=".pdf,.jpg,.jpeg,.png" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-info btn-sm">
+                                        <i class="fa fa-upload"></i> Carregar CPCV
+                                    </button>
+                                    <?php echo form_close(); ?>
+                                    <p class="text-muted mtop10"><small>O comercial vê e descarrega o CPCV para enviar ao cliente.</small></p>
+                                <?php } ?>
+
+                                <?php if (!empty($cpcv_docs) && empty($venda['cpcv_assinado'])) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/marcar_cpcv_assinado/' . $venda['id']); ?>"
+                                       class="btn btn-success btn-sm mtop10"
+                                       onclick="return confirm('Confirmar que o CPCV está assinado?');">
+                                        <i class="fa fa-check"></i> Marcar como assinado
+                                    </a>
+                                <?php } ?>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5>Comprovativo de pagamento</h5>
+                                <?php if (!empty($comprovativo_docs)) { ?>
+                                    <?php foreach ($comprovativo_docs as $doc) { ?>
+                                        <p>
+                                            <i class="fa fa-file-o"></i>
+                                            <?php echo html_escape($doc['original_name']); ?>
+                                            <a href="<?php echo admin_url('dps_vendas/download_doc/' . $doc['id']); ?>"
+                                               class="btn btn-default btn-xs">
+                                                <i class="fa fa-download"></i> Descarregar
+                                            </a>
+                                            <a href="<?php echo admin_url('dps_vendas/delete_doc/' . $doc['id']); ?>"
+                                               class="btn btn-danger btn-xs _delete"><i class="fa fa-remove"></i></a>
+                                        </p>
+                                    <?php } ?>
+                                <?php } else { ?>
+                                    <p class="text-muted">Ainda sem comprovativo.</p>
+                                <?php } ?>
+
+                                <?php echo form_open_multipart(admin_url('dps_vendas/upload_comprovativo/' . $venda['id'])); ?>
+                                <div class="form-group">
+                                    <input type="file" name="comprovativo_file" accept=".pdf,.jpg,.jpeg,.png" required>
+                                </div>
+                                <button type="submit" class="btn btn-info btn-sm">
+                                    <i class="fa fa-upload"></i> Carregar comprovativo
+                                </button>
+                                <?php echo form_close(); ?>
+                                <p class="text-muted mtop10"><small>Quando o cliente envia o comprovativo, o comercial anexa-o aqui.</small></p>
+
+                                <?php if (!empty($comprovativo_docs) && empty($venda['pago'])) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/marcar_pago/' . $venda['id']); ?>"
+                                       class="btn btn-success btn-sm mtop10"
+                                       onclick="return confirm('Confirmar pagamento? A venda passa a Concluída.');">
+                                        <i class="fa fa-check"></i> Marcar pago (&rarr; Concluído)
+                                    </a>
+                                <?php } ?>
+                            </div>
+                        </div>
 
                     </div>
                 </div>

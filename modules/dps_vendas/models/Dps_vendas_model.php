@@ -268,6 +268,68 @@ class Dps_vendas_model extends App_Model
     }
 
     /* ---------------------------------------------------------------------
+     * Circuito CPCV / Pagamento
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Visto de "assinado" no CPCV. O admin carrega o CPCV, o comercial envia-o
+     * ao cliente e, quando volta assinado, é aqui que fica o registo — e passa
+     * a aparecer assinado do lado do admin.
+     */
+    public function marcar_cpcv_assinado($id, $assinado = true)
+    {
+        $venda = $this->get_venda($id);
+        if (!$venda) {
+            return false;
+        }
+
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_vendas(), [
+            'cpcv_assinado'    => $assinado ? 1 : 0,
+            'cpcv_assinado_em' => $assinado ? date('Y-m-d H:i:s') : null,
+            'dateupdated'      => date('Y-m-d H:i:s'),
+        ]);
+
+        $this->registar_historico(
+            $id,
+            null,
+            $venda['estado'],
+            $assinado ? 'CPCV assinado' : 'CPCV marcado como não assinado'
+        );
+
+        return true;
+    }
+
+    /**
+     * Confirma o pagamento (o comercial já carregou o comprovativo) e conclui a
+     * venda automaticamente. A comissão não é tocada aqui: foi fixada quando a
+     * venda passou a "vendido".
+     */
+    public function marcar_pago($id)
+    {
+        $venda = $this->get_venda($id);
+        if (!$venda) {
+            return false;
+        }
+
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_vendas(), [
+            'pago'        => 1,
+            'pago_em'     => date('Y-m-d H:i:s'),
+            'dateupdated' => date('Y-m-d H:i:s'),
+        ]);
+
+        if ($venda['estado'] !== 'concluido') {
+            // mudar_estado trata do histórico da transição
+            $this->mudar_estado($id, 'concluido', 'Pagamento confirmado — concluída automaticamente');
+        } else {
+            $this->registar_historico($id, null, 'concluido', 'Pagamento confirmado');
+        }
+
+        return true;
+    }
+
+    /* ---------------------------------------------------------------------
      * Comissões
      * ------------------------------------------------------------------ */
 

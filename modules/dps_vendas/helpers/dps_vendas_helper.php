@@ -37,9 +37,11 @@ function dps_vendas_nome_estado($estado)
 function dps_vendas_nome_doc($tipo)
 {
     $nomes = [
-        'cc_frente' => 'Cartão de Cidadão (frente)',
-        'cc_verso'  => 'Cartão de Cidadão (verso)',
-        'outro'     => 'Outro documento',
+        'cc_frente'    => 'Cartão de Cidadão (frente)',
+        'cc_verso'     => 'Cartão de Cidadão (verso)',
+        'cpcv'         => 'CPCV',
+        'comprovativo' => 'Comprovativo de pagamento',
+        'outro'        => 'Outro documento',
     ];
 
     return $nomes[$tipo] ?? $tipo;

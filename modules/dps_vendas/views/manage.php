@@ -102,6 +102,12 @@
                                             <span class="label <?php echo dps_vendas_cor_estado($v['estado']); ?>">
                                                 <?php echo dps_vendas_nome_estado($v['estado']); ?>
                                             </span>
+                                            <?php if (!empty($v['cpcv_assinado'])) { ?>
+                                                <br><span class="label label-success" style="font-size:.7em;" title="CPCV assinado">CPCV assinado</span>
+                                            <?php } ?>
+                                            <?php if (!empty($v['pago'])) { ?>
+                                                <span class="label label-success" style="font-size:.7em;" title="Pagamento confirmado">Pago</span>
+                                            <?php } ?>
                                         </td>
                                         <td>
                                             <?php if ($v['comissao_estado'] !== 'na') { ?>

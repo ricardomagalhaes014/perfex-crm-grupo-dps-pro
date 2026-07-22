@@ -244,6 +244,99 @@ class Dps_vendas extends AdminController
     }
 
     /* ---------------------------------------------------------------------
+     * CPCV / Pagamento
+     * ------------------------------------------------------------------ */
+
+    /**
+     * O admin carrega o CPCV. Fica visível para o comercial descarregar e
+     * enviar ao cliente.
+     */
+    public function upload_cpcv($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!is_admin() && !staff_can('edit', 'dps_vendas')) {
+            access_denied('dps_vendas');
+        }
+
+        $this->guardar_documento_unico($id, 'cpcv_file', 'cpcv', 'CPCV');
+        redirect(admin_url('dps_vendas/view/' . $id));
+    }
+
+    /**
+     * Visto de "assinado". Fica ao alcance do comercial dono da venda (é ele
+     * que lida com o cliente) e do admin.
+     */
+    public function marcar_cpcv_assinado($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!$this->pode_mexer($id)) {
+            access_denied('dps_vendas');
+        }
+
+        $this->dps_vendas_model->marcar_cpcv_assinado($id, true);
+        set_alert('success', 'CPCV marcado como assinado.');
+        redirect(admin_url('dps_vendas/view/' . $id));
+    }
+
+    /**
+     * O comercial carrega o comprovativo de pagamento que o cliente lhe enviou.
+     */
+    public function upload_comprovativo($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!$this->pode_mexer($id)) {
+            access_denied('dps_vendas');
+        }
+
+        $this->guardar_documento_unico($id, 'comprovativo_file', 'comprovativo', 'Comprovativo de pagamento');
+        redirect(admin_url('dps_vendas/view/' . $id));
+    }
+
+    /**
+     * Visto de "pago": exige comprovativo carregado e conclui a venda.
+     */
+    public function marcar_pago($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!$this->pode_mexer($id)) {
+            access_denied('dps_vendas');
+        }
+
+        $tem_comprovativo = false;
+        foreach ($this->dps_vendas_model->get_docs($id) as $doc) {
+            if ($doc['tipo'] === 'comprovativo') {
+                $tem_comprovativo = true;
+                break;
+            }
+        }
+
+        if (!$tem_comprovativo) {
+            set_alert('warning', 'Carregue primeiro o comprovativo de pagamento antes de marcar como pago.');
+            redirect(admin_url('dps_vendas/view/' . $id));
+        }
+
+        $this->dps_vendas_model->marcar_pago($id);
+        set_alert('success', 'Pagamento confirmado. Venda marcada como Concluída.');
+        redirect(admin_url('dps_vendas/view/' . $id));
+    }
+
+    /* ---------------------------------------------------------------------
      * Documentos
      * ------------------------------------------------------------------ */
 
@@ -504,6 +597,30 @@ class Dps_vendas extends AdminController
         }
 
         return null;
+    }
+
+    /**
+     * Upload de um único ficheiro (CPCV, comprovativo) fora do fluxo da criação
+     * da venda. Reutiliza a validação de conteúdo de guardar_ficheiro().
+     */
+    private function guardar_documento_unico($id, $campo, $tipo, $label)
+    {
+        if (empty($_FILES[$campo]['name'])) {
+            set_alert('warning', 'Selecione o ficheiro do ' . $label . '.');
+            return;
+        }
+
+        $destino = FCPATH . DPS_VENDAS_UPLOAD_PATH . $id . '/';
+        if (!file_exists($destino)) {
+            mkdir($destino, 0755, true);
+        }
+
+        $erro = $this->guardar_ficheiro($_FILES[$campo], $id, $tipo, $destino);
+        if ($erro) {
+            set_alert('danger', $erro);
+        } else {
+            set_alert('success', $label . ' carregado.');
+        }
     }
 
     private function guardar_ficheiro($ficheiro, $venda_id, $tipo, $destino)

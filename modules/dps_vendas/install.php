@@ -38,6 +38,11 @@ if ($CI->db->table_exists($vendas)) {
         'comissao_estado'  => "ENUM('na','a_receber','recebida') NOT NULL DEFAULT 'na'",
         'dateupdated'      => 'DATETIME NULL DEFAULT NULL',
         'created_by'       => 'INT NULL DEFAULT NULL',
+        // Circuito CPCV / pagamento
+        'cpcv_assinado'    => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'cpcv_assinado_em' => 'DATETIME NULL DEFAULT NULL',
+        'pago'             => 'TINYINT(1) NOT NULL DEFAULT 0',
+        'pago_em'          => 'DATETIME NULL DEFAULT NULL',
     ];
 
     foreach ($novas_colunas as $coluna => $definicao) {
@@ -67,7 +72,7 @@ if (!$CI->db->table_exists($docs)) {
     $CI->db->query('CREATE TABLE `' . $docs . "` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
         `venda_id` INT NOT NULL,
-        `tipo` ENUM('cc_frente','cc_verso','outro') NOT NULL DEFAULT 'outro',
+        `tipo` VARCHAR(40) NOT NULL DEFAULT 'outro',
         `filename` VARCHAR(255) NOT NULL,
         `original_name` VARCHAR(255) NULL,
         `uploaded_by` INT NULL,
@@ -76,6 +81,11 @@ if (!$CI->db->table_exists($docs)) {
         KEY `venda_id` (`venda_id`),
         KEY `tipo` (`tipo`)
     ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+} else {
+    // Tabela já existe de uma instalação anterior: o `tipo` era um ENUM fechado
+    // (cc_frente/cc_verso/outro). Passa a VARCHAR para aceitar 'cpcv' e
+    // 'comprovativo' sem os rejeitar silenciosamente.
+    $CI->db->query("ALTER TABLE `{$docs}` MODIFY `tipo` VARCHAR(40) NOT NULL DEFAULT 'outro'");
 }
 
 /*
