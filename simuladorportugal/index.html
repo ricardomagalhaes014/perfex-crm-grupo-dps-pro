@@ -1494,8 +1494,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const _validEmps = ['boavista','bh','lake','raizes','gg','gp','sjp','tp','cerveira','gaiadouro'];
   const _onReady = (_hash && _validEmps.includes(_hash)) ? () => selectEmp(_hash) : null;
   loadSavedStates(_onReady);
-  renderStats();
-  applyFilters();
   // Mostrar boavista por default (ocultar bh-section)
   const bhSec = document.getElementById('bh-section');
   if (bhSec) bhSec.style.display = 'none';
@@ -1533,6 +1531,7 @@ function selectEmp(emp) {
   if (emp === 'bh') applyFilters();
   if (emp === 'boavista') applyBoavistaFilters();
   if (emp === 'gaiadouro') applyGaiadouroFilters();
+  if (emp === 'lake') { applyLakeFilters(); renderLakeStats(); }
 }
 
 // ============================================================
@@ -2163,6 +2162,28 @@ let pendingEditTable = null;
 const EDIT_PASSWORD = 'dpsinterno';
 const ESTADOS = ['Disponível', 'Reservado', 'Vendido', 'DPS'];
 
+// Actualiza contadores da sidebar sem renderizar tabelas completas
+function _updateDispCounts() {
+  const bhEl = document.getElementById('bh-disp-count');
+  if (bhEl) bhEl.textContent = BH_UNITS.filter(u => u.status === 'Disponível').length;
+  if (typeof LAKE_UNITS !== 'undefined') {
+    const lkEl = document.getElementById('lake-disp-count');
+    if (lkEl) lkEl.textContent = LAKE_UNITS.filter(u => u.status === 'Disponível').length;
+  }
+  if (typeof raizesData !== 'undefined') {
+    const rzEl = document.getElementById('raizes-disp-count');
+    if (rzEl) rzEl.textContent = raizesData.filter(u => u.status === 'Disponível').length;
+  }
+  if (typeof BOAVISTA_UNITS !== 'undefined') {
+    const bvEl = document.getElementById('boavista-disp-count');
+    if (bvEl) bvEl.textContent = BOAVISTA_UNITS.filter(u => u.status === 'Disponível').length;
+  }
+  if (typeof GAIADOURO_UNITS !== 'undefined') {
+    const gdEl = document.getElementById('gaiadouro-disp-count');
+    if (gdEl) gdEl.textContent = GAIADOURO_UNITS.filter(u => u.status === 'Disponível').length;
+  }
+}
+
 // Carregar estados guardados do servidor
 function loadSavedStates(onReady) {
   // Carregar do servidor
@@ -2201,11 +2222,15 @@ function loadSavedStates(onReady) {
       if (typeof BOAVISTA_UNITS !== 'undefined') BOAVISTA_UNITS.forEach(u => { if (boavistaStates[u.fraccao]) u.status = boavistaStates[u.fraccao]; });
       const gaiadouroStates = data.gaiadouro_states || {};
       if (typeof GAIADOURO_UNITS !== 'undefined') GAIADOURO_UNITS.forEach(u => { if (gaiadouroStates[u.fraccao]) u.status = gaiadouroStates[u.fraccao]; });
-      applyFilters();
-      applyLakeFilters();
-      if (typeof applyRaizesFilters === 'function') applyRaizesFilters();
-      if (typeof applyBoavistaFilters === 'function') applyBoavistaFilters();
+      // Renderizar apenas o empreendimento activo (lazy render)
       renderStats();
+      _updateDispCounts();
+      if (currentEmp === 'bh') applyFilters();
+      else if (currentEmp === 'lake') { applyLakeFilters(); if (typeof renderLakeStats === 'function') renderLakeStats(); }
+      else if (currentEmp === 'raizes' && typeof applyRaizesFilters === 'function') applyRaizesFilters();
+      else if (currentEmp === 'boavista' && typeof applyBoavistaFilters === 'function') applyBoavistaFilters();
+      else if (currentEmp === 'gaiadouro' && typeof applyGaiadouroFilters === 'function') applyGaiadouroFilters();
+      else if (currentEmp === 'gp' && typeof applyGpFilters === 'function') applyGpFilters();
       if (typeof onReady === 'function') onReady();
     })
     .catch(() => {
@@ -2214,7 +2239,11 @@ function loadSavedStates(onReady) {
         const lakeStates = JSON.parse(localStorage.getItem('lake_states') || '{}');
         BH_UNITS.forEach(u => { if (bhStates[u.fraccao]) u.status = bhStates[u.fraccao]; });
         LAKE_UNITS.forEach(u => { const key = u.torre + '_' + u.fraccao; if (lakeStates[key]) u.status = lakeStates[key]; });
-        applyFilters(); applyLakeFilters(); renderStats();
+        renderStats();
+        if (currentEmp === 'bh') applyFilters();
+        else if (currentEmp === 'lake') { applyLakeFilters(); if (typeof renderLakeStats === 'function') renderLakeStats(); }
+        else if (currentEmp === 'boavista' && typeof applyBoavistaFilters === 'function') applyBoavistaFilters();
+        else applyFilters();
       } catch(e) {}
     });
 }
@@ -3076,15 +3105,8 @@ function exportBHtoPDF() {
 }
 
 // ============================================================
-// LAKE TOWERS — INIT
+// LAKE TOWERS — INIT (rendering handled by loadSavedStates)
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  loadSavedStates();
-  renderStats();
-  applyFilters();
-  renderLakeStats();
-  applyLakeFilters();
-});
 // ============================================================
 // RAÍZES FANZERES — DADOS E FUNÇÕES
 // ============================================================
@@ -3907,20 +3929,7 @@ async function saveRaizesStates() {
   } catch(e) { console.error('Erro ao guardar estados Raízes:', e); }
 }
 
-// Carregar estados Raízes ao iniciar
-document.addEventListener('DOMContentLoaded', function() {
-  fetch('save_states.php')
-    .then(r => r.json())
-    .then(data => {
-      if (data.raizes_states) {
-        Object.entries(data.raizes_states).forEach(([fraccao, status]) => {
-          const unit = raizesData.find(u => u.fraccao === fraccao);
-          if (unit) unit.status = status;
-        });
-      }
-    })
-    .catch(() => {});
-});
+// Estados Raízes carregados em loadSavedStates
 
 
 // ============================================================
@@ -4026,20 +4035,6 @@ function calcularGp() {
 }
 
 // (São João Premium, Trofa Premium e Cerveira Premium removidos)
-
-document.addEventListener('DOMContentLoaded', function() {
-  fetch('save_states.php')
-    .then(r => r.json())
-    .then(data => {
-      if (data.raizes_states) {
-        Object.entries(data.raizes_states).forEach(([fraccao, status]) => {
-          const unit = raizesData.find(u => u.fraccao === fraccao);
-          if (unit) unit.status = status;
-        });
-      }
-    })
-    .catch(() => {});
-})
 
 
 // ============================================================
@@ -4783,9 +4778,7 @@ function applyBoavistaFilters() {
   renderBoavistaStats();
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  applyBoavistaFilters();
-});
+// applyBoavistaFilters chamado em loadSavedStates
 
 function simLogin() {
   const input = document.getElementById('simLoginInput');
