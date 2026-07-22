@@ -231,6 +231,18 @@ return App_table::find('leads')
 
             $row[] = $nameRow;
 
+            // Coluna "Proposta": acções rápidas de contacto sem abrir a lead
+            if ($aRow['phonenumber'] != '') {
+                $phone_clean = preg_replace('/\D/', '', $aRow['phonenumber']);
+                $row[] = '<span style="white-space:nowrap;">'
+                    . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;margin-bottom:2px;"><i class="fa fa-whatsapp"></i></a> '
+                    . '<a href="tel:' . $phone_clean . '" title="Ligar" class="btn btn-xs btn-dark" style="margin-bottom:2px;"><i class="fa fa-phone"></i></a> '
+                    . '<a href="#" onclick="init_lead(' . $aRow['id'] . '); return false;" title="Enviar info / Proposta" class="btn btn-xs btn-primary" style="margin-bottom:2px;"><i class="fa fa-paper-plane"></i></a>'
+                    . '</span>';
+            } else {
+                $row[] = '';
+            }
+
             if (is_gdpr() && $consentLeads == '1') {
                 $consentHTML = '<p class="bold"><a href="#" onclick="view_lead_consent(' . $aRow['id'] . '); return false;">' . _l('view_consent') . '</a></p>';
                 $consents    = $this->ci->gdpr_model->get_consent_purposes($aRow['id'], 'lead');

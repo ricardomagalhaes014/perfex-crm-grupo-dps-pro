@@ -213,6 +213,10 @@
                                         'name'     => _l('leads_dt_name'),
                                         'th_attrs' => ['class' => 'toggleable', 'id' => 'th-name'],
                                     ],
+                                    [
+                                        'name'     => 'Proposta',
+                                        'th_attrs' => ['class' => 'toggleable not-export', 'id' => 'th-proposta'],
+                                    ],
                                 ];
                                 if (is_gdpr() && get_option('gdpr_enable_consent_for_leads') == '1') {
                                     $_table_data[] = [
