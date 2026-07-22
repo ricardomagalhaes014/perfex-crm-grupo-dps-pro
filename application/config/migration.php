@@ -69,7 +69,7 @@ $config['migration_auto_latest'] = false;
 | be upgraded / downgraded to.
 |
 */
-$config['migration_version'] = 340; // 3.4.0
+$config['migration_version'] = 344; // 3.4.0 + DPS custom
 
 /*
 |--------------------------------------------------------------------------

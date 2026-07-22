@@ -4,66 +4,75 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Leads_imo_model extends App_Model
 {
     /**
-     * Grupos de fontes:
-     *
-     *  id 1 = Imo Brasil (anteriormente Google)
-     *  id 2 = Imo Brasil (anteriormente Meta)  → ambos agrupados como "Imo Brasil"
-     *  id 3 = DENTARIA
-     *  id 4 = MEDIA
-     *  id 5 = Imo Portugal
-     *  id 6 = Imo Dubai (futuro)
+     * Grupos de fontes definidos por nome (não por ID fixo).
+     * Após a migração 344 os nomes duplicados e "DPS Portugal" estão consolidados.
      */
-    private $sourceGroups = [
-        // IMO BRASIL = fontes id 1 e id 2 (renomeadas de Google/Meta para Imo Brasil)
-        'imo'          => [1, 2],
-
-        // IMO PORTUGAL
-        'expansao_imo' => [5],
-
-        // IMO DUBAI (futuro)
-        'imo_dubai'    => [6],
-
-        // MEDIA
-        'media'        => [4],
-
-        // DENTARIA
-        'dental'       => [3],
+    private $sourceGroupNames = [
+        'expansao_imo'     => ['IMO Portugal', 'Imo Portugal'],
+        'imo'              => ['Imo Brasil', 'IMO Brasil'],
+        'imo_dubai'        => ['IMO Dubai', 'Imo Dubai'],
+        'bsx'              => ['BSX'],
+        'contacto_pessoal' => ['Contacto Pessoal', 'Contacto pessoal'],
     ];
+
+    /**
+     * Rótulos legíveis para o frontend.
+     */
+    public function get_source_groups(): array
+    {
+        return [
+            'expansao_imo'     => 'IMO Portugal',
+            'imo'              => 'IMO Brasil',
+            'imo_dubai'        => 'IMO Dubai',
+            'bsx'              => 'BSX',
+            'contacto_pessoal' => 'Contacto Pessoal',
+        ];
+    }
+
+    /**
+     * Resolve os IDs da tabela leads_sources a partir dos nomes do grupo.
+     * Robusto contra IDs que variam por instalação.
+     */
+    private function resolveSourceIds(string $group): array
+    {
+        if (!isset($this->sourceGroupNames[$group])) {
+            return [];
+        }
+        $names = $this->sourceGroupNames[$group];
+        $rows  = $this->db
+            ->select('id')
+            ->where_in('name', $names)
+            ->get(db_prefix() . 'leads_sources')
+            ->result_array();
+        return array_column($rows, 'id');
+    }
 
     /**
      * Retorna:
      *  - lista de statuses (Quente, Morno, Frio, etc.)
      *  - linhas por comercial com contagem de cada status
-     * para um grupo de fonte (imo, expansao_imo, media, dental)
-     *
-     * @param string      $group    Chave do grupo de fontes (imo, expansao_imo, media, dental)
-     * @param string|null $fromDate Data início (YYYY-MM-DD) ou null
-     * @param string|null $toDate   Data fim (YYYY-MM-DD) ou null
+     * para um grupo de fonte.
      */
     public function report_by_source_group($group, $fromDate = null, $toDate = null)
     {
-        if (!isset($this->sourceGroups[$group])) {
+        $sourceIds = $this->resolveSourceIds($group);
+        if (empty($sourceIds)) {
             return ['statuses' => [], 'rows' => []];
         }
 
-        $sourceIds = $this->sourceGroups[$group];
-
-        // 1) Todos os status de lead
+        // Todos os status de lead
         $statuses = $this->db
             ->order_by('statusorder', 'asc')
             ->get(db_prefix() . 'leads_status')
             ->result_array();
 
-        // 2) Contagem de leads por comercial + status, filtrando pelas fontes
+        // Contagem por comercial + status
         $this->db->select('l.assigned as staff_id, s.id as status_id, COUNT(*) as total');
         $this->db->from(db_prefix() . 'leads l');
         $this->db->join(db_prefix() . 'leads_status s', 's.id = l.status', 'left');
         $this->db->where_in('l.source', $sourceIds);
         $this->db->where('l.assigned IS NOT NULL', null, false);
 
-        // FILTRO POR DATA
-        // Aqui estamos a usar a coluna last_status_change para medir "movimentação".
-        // Se quiser filtrar pela data de criação da lead, troque por: DATE(l.dateadded)
         if (!empty($fromDate)) {
             $this->db->where('DATE(l.last_status_change) >=', $fromDate);
         }
@@ -72,66 +81,95 @@ class Leads_imo_model extends App_Model
         }
 
         $this->db->group_by(['l.assigned', 's.id']);
-
         $rows = $this->db->get()->result_array();
 
-        // indexar contagens: [staff_id][status_id] = total
         $byStaff = [];
         foreach ($rows as $r) {
-            $sid       = (int) $r['staff_id'];
-            $status_id = (int) $r['status_id'];
-            if (!isset($byStaff[$sid])) {
-                $byStaff[$sid] = [];
-            }
-            $byStaff[$sid][$status_id] = (int) $r['total'];
+            $sid = (int) $r['staff_id'];
+            $byStaff[$sid][(int) $r['status_id']] = (int) $r['total'];
         }
 
-        // 3) Todos os comerciais ativos
-        $staff = $this->db
-            ->where('active', 1)
-            ->get(db_prefix() . 'staff')
-            ->result_array();
+        $staff = $this->db->where('active', 1)->get(db_prefix() . 'staff')->result_array();
 
         $outRows = [];
         foreach ($staff as $st) {
             $sid = (int) $st['staffid'];
-
             $row = [
                 'staff_id'   => $sid,
                 'staff_name' => trim($st['firstname'] . ' ' . $st['lastname']),
                 'counts'     => [],
                 'total'      => 0,
             ];
-
             foreach ($statuses as $s) {
-                $status_id = (int) $s['id'];
-                $cnt       = isset($byStaff[$sid][$status_id]) ? (int) $byStaff[$sid][$status_id] : 0;
-                $row['counts'][$status_id] = $cnt;
-                $row['total']              += $cnt;
+                $sid2 = (int) $s['id'];
+                $cnt  = $byStaff[$sid][$sid2] ?? 0;
+                $row['counts'][$sid2] = $cnt;
+                $row['total']        += $cnt;
             }
-
-            // Só entra se tiver pelo menos 1 lead nessa fonte
             if ($row['total'] > 0) {
                 $outRows[] = $row;
             }
         }
 
-        // Ordena por total desc
-        usort($outRows, function ($a, $b) {
-            if ($a['total'] == $b['total']) {
-                return 0;
-            }
-            return ($a['total'] < $b['total']) ? 1 : -1;
-        });
+        usort($outRows, fn($a, $b) => $b['total'] <=> $a['total']);
 
         return [
-            'statuses' => array_map(function ($s) {
-                return [
-                    'id'   => (int) $s['id'],
-                    'name' => $s['name'],
-                ];
-            }, $statuses),
-            'rows' => $outRows,
+            'statuses' => array_map(fn($s) => ['id' => (int) $s['id'], 'name' => $s['name']], $statuses),
+            'rows'     => $outRows,
         ];
+    }
+
+    /**
+     * Distribuição de leads por comercial para um status específico,
+     * filtrada por grupo de fonte e datas opcionais.
+     */
+    public function get_status_distribution(int $statusId, string $group, $fromDate = null, $toDate = null): array
+    {
+        $sourceIds = $this->resolveSourceIds($group);
+        if (empty($sourceIds)) {
+            return ['status_name' => '', 'rows' => []];
+        }
+
+        $statusRow  = $this->db->where('id', $statusId)->get(db_prefix() . 'leads_status')->row_array();
+        $statusName = $statusRow ? $statusRow['name'] : '';
+
+        $this->db->select('l.assigned as staff_id, COUNT(*) as total');
+        $this->db->from(db_prefix() . 'leads l');
+        $this->db->where('l.status', $statusId);
+        $this->db->where_in('l.source', $sourceIds);
+        $this->db->where('l.assigned IS NOT NULL', null, false);
+
+        if (!empty($fromDate)) {
+            $this->db->where('DATE(l.last_status_change) >=', $fromDate);
+        }
+        if (!empty($toDate)) {
+            $this->db->where('DATE(l.last_status_change) <=', $toDate);
+        }
+
+        $this->db->group_by('l.assigned');
+        $rows = $this->db->get()->result_array();
+
+        $byStaff = [];
+        foreach ($rows as $r) {
+            $byStaff[(int) $r['staff_id']] = (int) $r['total'];
+        }
+
+        $staff   = $this->db->where('active', 1)->get(db_prefix() . 'staff')->result_array();
+        $outRows = [];
+        foreach ($staff as $st) {
+            $sid = (int) $st['staffid'];
+            $cnt = $byStaff[$sid] ?? 0;
+            if ($cnt > 0) {
+                $outRows[] = [
+                    'staff_id'   => $sid,
+                    'staff_name' => trim($st['firstname'] . ' ' . $st['lastname']),
+                    'total'      => $cnt,
+                ];
+            }
+        }
+
+        usort($outRows, fn($a, $b) => $b['total'] <=> $a['total']);
+
+        return ['status_name' => $statusName, 'rows' => $outRows];
     }
 }
