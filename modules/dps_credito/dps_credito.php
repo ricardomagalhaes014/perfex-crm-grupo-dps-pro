@@ -18,6 +18,7 @@ register_activation_hook(DPS_CREDITO_MODULE_NAME, 'dps_credito_activate');
 
 get_instance()->load->helper(DPS_CREDITO_MODULE_NAME . '/dps_credito');
 
+hooks()->add_action('admin_init', 'dps_credito_setup_estados');
 hooks()->add_action('admin_init', 'dps_credito_menu');
 hooks()->add_action('admin_init', 'dps_credito_permissions');
 
@@ -39,6 +40,69 @@ hooks()->add_action('app_admin_footer', 'dps_credito_footer');
 function dps_credito_activate()
 {
     require_once __DIR__ . '/install.php';
+}
+
+/**
+ * Configura, uma única vez, os estados de lead que passam a exigir a resposta
+ * de crédito (Sim/Não) para poderem ser aplicados — e cria o estado "Crédito",
+ * onde ficam as leads a trabalhar só para crédito.
+ *
+ * Corre no admin_init mas sai de imediato quando já correu (guardada por
+ * opção), por isso aplica-se sozinha depois de um deploy só de ficheiros, sem
+ * reactivar o módulo. Os IDs são resolvidos por NOME (não fixados), para
+ * aguentar diferenças de numeração entre instalações.
+ */
+function dps_credito_setup_estados()
+{
+    $marca = '2026-07-22';
+    if (get_option('dps_credito_setup_estados') === $marca) {
+        return;
+    }
+
+    $CI  = &get_instance();
+    $tbl = db_prefix() . 'leads_status';
+
+    // 1) Criar o estado "Crédito" se ainda não existir.
+    $credito    = $CI->db->where('name', 'Crédito')->get($tbl)->row_array();
+    $credito_id = $credito ? (int) $credito['id'] : null;
+
+    if (!$credito_id) {
+        $CI->load->model('leads_model');
+        $novo = $CI->leads_model->add_status(['name' => 'Crédito', 'color' => '#8e44ad']);
+        $credito_id = $novo ?: null;
+    }
+
+    // 2) Estados que passam a pedir o crédito: VIP 1/2/3, Necessidades,
+    //    Outras Oportunidades e o próprio Crédito. Casados por nome.
+    $todos = $CI->db->get($tbl)->result_array();
+    $ids   = [];
+
+    foreach ($todos as $s) {
+        $nome = strtoupper($s['name']);
+        if (strpos($nome, 'VIP') !== false
+            || strpos($nome, 'NECESSIDADE') !== false
+            || strpos($nome, 'OPORTUNIDADE') !== false) {
+            $ids[] = (int) $s['id'];
+        }
+    }
+
+    if ($credito_id) {
+        $ids[] = (int) $credito_id;
+    }
+
+    $ids = array_values(array_unique(array_filter($ids)));
+
+    if (!empty($ids)) {
+        update_option('dps_credito_estados_fecho', implode(',', $ids));
+    }
+
+    // Garantir que o bloqueio está ligado.
+    $ativo = get_option('dps_credito_bloqueio_ativo');
+    if ($ativo === false || $ativo === '' || $ativo === null) {
+        update_option('dps_credito_bloqueio_ativo', '1');
+    }
+
+    update_option('dps_credito_setup_estados', $marca);
 }
 
 function dps_credito_menu()
