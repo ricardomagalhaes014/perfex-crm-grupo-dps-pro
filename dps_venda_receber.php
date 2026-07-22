@@ -35,8 +35,12 @@ const NOME_SEGREDO = '.dps_venda_secret';
 function localizar_segredo(): ?string
 {
     $candidatos = [
-        // Preferido: dentro do docroot, mas numa pasta com .htaccess a negar
-        // acesso web (a conta FTP só escreve dentro do docroot).
+        // Preferido: dentro de uploads/, que o deploy por FTP EXCLUI do sync
+        // (`**/uploads/**`). Ficheiros fora do repo em qualquer outro sítio do
+        // docroot são apagados a cada push — foi o que matou o dps_secure/.
+        // Protegido do browser pelo .htaccess "Deny from all" na mesma pasta.
+        __DIR__ . '/uploads/dps_secure/venda_secret',
+        // Alternativa histórica (é apagada pelos deploys — manter só por compat.)
         __DIR__ . '/dps_secure/venda_secret',
         '/home/u172337921/' . NOME_SEGREDO,
         dirname(__DIR__) . '/' . NOME_SEGREDO,
@@ -206,12 +210,45 @@ if ($accao === 'importar') {
     $comercial_id   = (int) ($_POST['comercial_id'] ?? 0);
     $tipologia      = trim((string) ($_POST['tipologia'] ?? ''));
 
+    /*
+     * Dois caminhos, o mesmo destino:
+     *  - 'reserva' (omissão): é o COMERCIAL a registar no simulador → entra
+     *    já como "reservado".
+     *  - 'pedido': é o CLIENTE a submeter pela proposta que recebeu → entra
+     *    como "pedido", à espera de confirmação, e NÃO bloqueia a unidade.
+     */
+    $e_pedido = (($_POST['tipo_registo'] ?? '') === 'pedido');
+    $estado   = $e_pedido ? 'pedido' : 'reservado';
+    $origem   = $e_pedido ? 'formulario' : 'simulador';
+
     if ($empreendimento === '' || $unidade === '' || $comercial_id <= 0) {
         responder(['success' => false, 'error' => 'Faltam dados obrigatórios.'], 400);
     }
 
     if ($valor <= 0) {
         responder(['success' => false, 'error' => 'Valor inválido.'], 400);
+    }
+
+    // No pedido feito pelo cliente o Cartão de Cidadão é obrigatório. Validar
+    // ANTES de criar seja o que for, para não ficar um pedido órfão sem documento.
+    if ($e_pedido) {
+        if (empty($_FILES['cc']['name']) || ($_FILES['cc']['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            responder(['success' => false, 'error' => 'É obrigatório anexar o Cartão de Cidadão.'], 400);
+        }
+
+        $ext_cc = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext_cc, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+            responder(['success' => false, 'error' => 'O documento tem de ser PDF, JPG ou PNG.'], 400);
+        }
+        if (($_FILES['cc']['size'] ?? 0) > 10485760) {
+            responder(['success' => false, 'error' => 'O documento excede 10 MB.'], 400);
+        }
+
+        foreach (['cliente' => 'nome', 'morada' => 'morada', 'telefone' => 'telefone', 'email' => 'email', 'estado_civil' => 'estado civil'] as $campo => $etiqueta) {
+            if (trim((string) ($_POST[$campo] ?? '')) === '') {
+                responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
+            }
+        }
     }
 
     $bd = ligar_bd();
@@ -292,15 +329,15 @@ if ($accao === 'importar') {
             (empreendimento, unidade, cliente, cliente_morada, cliente_telefone, cliente_email,
              regime_civil, cliente_tipo, cliente_crc, valor, taxa, cpcv_taxa, escritura_taxa,
              data_venda, estado, origem, staff_id, comissao_estado, date_created, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'reservado', 'simulador', ?, 'na', ?, ?)"
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'na', ?, ?)"
     );
 
-    // 9 strings, 4 decimais, data(s), comercial(i), data/hora(s), comercial(i)
+    // 9 strings, 4 decimais, data(s), estado(s), origem(s), comercial(i), data/hora(s), comercial(i)
     $stmt->bind_param(
-        'sssssssssddddsisi',
+        'sssssssssddddsssisi',
         $empreendimento, $unidade, $cli_nome, $cli_morada, $cli_tel, $cli_email,
         $cli_civil, $cli_tipo, $cli_crc, $valor, $taxa, $cpcv_taxa, $escritura_taxa,
-        $hoje, $comercial_id, $agora, $comercial_id
+        $hoje, $estado, $origem, $comercial_id, $agora, $comercial_id
     );
 
     if (!$stmt->execute()) {
@@ -309,11 +346,16 @@ if ($accao === 'importar') {
 
     $venda_id = (int) $bd->insert_id;
 
-    $bd->query(
-        "INSERT INTO tblvendas_historico (venda_id, estado_de, estado_para, staff_id, nota, dateadded)
-         VALUES ({$venda_id}, NULL, 'reservado', {$comercial_id},
-                 'Reserva criada no simulador pelo comercial', '{$agora}')"
+    $nota_hist = $e_pedido
+        ? 'Pedido de reserva submetido pelo CLIENTE a partir da proposta. Aguarda confirmação.'
+        : 'Reserva criada no simulador pelo comercial';
+
+    $stmt = $bd->prepare(
+        'INSERT INTO tblvendas_historico (venda_id, estado_de, estado_para, staff_id, nota, dateadded)
+         VALUES (?, NULL, ?, ?, ?, ?)'
     );
+    $stmt->bind_param('isiss', $venda_id, $estado, $comercial_id, $nota_hist, $agora);
+    @$stmt->execute();
 
     // Documento: Cartão de Cidadão anexado na reserva
     $doc_msg = '';
@@ -341,7 +383,10 @@ if ($accao === 'importar') {
     responder([
         'success'  => true,
         'venda_id' => $venda_id,
-        'message'  => 'Reserva registada no CRM.' . $doc_msg . ' A equipa vai dar seguimento.',
+        'pedido'   => $e_pedido,
+        'message'  => $e_pedido
+            ? 'Pedido de reserva enviado com sucesso.' . $doc_msg . ' O seu consultor entrará em contacto para confirmar.'
+            : 'Reserva registada no CRM.' . $doc_msg . ' A equipa vai dar seguimento.',
     ]);
 }
 

@@ -9,6 +9,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
 function dps_vendas_cor_estado($estado)
 {
     $cores = [
+        'pedido'    => 'label-danger',
         'reservado' => 'label-warning',
         'vendido'   => 'label-info',
         'concluido' => 'label-success',
@@ -25,6 +26,7 @@ function dps_vendas_nome_estado($estado)
     }
 
     $nomes = [
+        'pedido'    => 'Pedido (por confirmar)',
         'reservado' => 'Reservado',
         'vendido'   => 'Vendido',
         'concluido' => 'Concluído',

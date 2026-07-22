@@ -8,7 +8,7 @@ class Dps_vendas_model extends App_Model
      * Estados da venda. Comercial cria em "reservado"; o admin passa a
      * "vendido" (CPCV — fixa a comissão), "concluido" (escritura) ou "cancelado".
      */
-    public static $fluxo = ['reservado', 'vendido', 'concluido', 'cancelado'];
+    public static $fluxo = ['pedido', 'reservado', 'vendido', 'concluido', 'cancelado'];
 
     public function __construct()
     {
