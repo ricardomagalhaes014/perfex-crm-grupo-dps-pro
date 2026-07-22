@@ -385,6 +385,21 @@ class Dps_vendas_model extends App_Model
             'updated_by'     => get_staff_user_id(),
         ];
 
+        // O empreendimento é UNIQUE. Se já existir uma regra com esse nome
+        // (ex.: editar uma das regras semeadas), actualizamos essa em vez de
+        // tentar inserir — senão o INSERT rebenta com erro de chave duplicada
+        // (que dava página em branco).
+        if (!$id) {
+            $existente = $this->db
+                ->where('LOWER(TRIM(empreendimento))', strtolower(trim($payload['empreendimento'])))
+                ->get($this->tabela_regras())
+                ->row_array();
+
+            if ($existente) {
+                $id = $existente['id'];
+            }
+        }
+
         if ($id) {
             $this->db->where('id', $id);
             $this->db->update($this->tabela_regras(), $payload);
