@@ -42,6 +42,8 @@ $module_groups = [
         'modules/dps_webmail/migrations/100_version_100.php',
         'modules/dps_whatsapp/migrations/100_version_100.php',
         'modules/dps_credito/migrations/100_version_100.php',
+        'modules/dps_vendas/migrations/100_version_100.php',
+        'modules/dps_vendas/migrations/110_version_110.php',
     ],
 ];
 
