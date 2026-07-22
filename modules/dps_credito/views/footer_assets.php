@@ -76,6 +76,7 @@
         );
 
         $('#dps-credito-aviso-proposta').toggle(interessado === 'sim');
+        $('#dps-credito-docs-grupo').toggle(interessado === 'sim');
     }
 
     $(document).on('change',
@@ -97,37 +98,69 @@
         var $botao = $(this);
         $botao.prop('disabled', true).text('A guardar...');
 
-        // O Perfex exige o token CSRF em todos os POST (senão devolve 419).
-        var dadosPost = $form.serialize();
+        // FormData para levar os ficheiros; token CSRF acrescentado (o Perfex
+        // devolve 419 sem ele).
+        var fd = new FormData($form[0]);
         if (typeof csrfData !== 'undefined') {
-            dadosPost += '&' + encodeURIComponent(csrfData.token_name)
-                + '=' + encodeURIComponent(csrfData.hash);
+            fd.append(csrfData.token_name, csrfData.hash);
         }
 
-        $.post(adminUrl + 'dps_credito/guardar_resposta/' + $form.data('lead'), dadosPost, function (resposta) {
-            $botao.prop('disabled', false).text('Guardar e continuar');
+        $.ajax({
+            url: adminUrl + 'dps_credito/guardar_resposta/' + $form.data('lead'),
+            method: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function (resposta) {
+                $botao.prop('disabled', false).text('Guardar e continuar');
 
-            if (!resposta.success) {
-                alert_float('danger', resposta.message);
-                return;
+                if (!resposta.success) {
+                    alert_float('danger', resposta.message);
+                    return;
+                }
+
+                $('#dps-credito-modal').modal('hide');
+                alert_float('success', resposta.message);
+
+                var accao = accaoPendente;
+                accaoPendente = null;
+
+                if (typeof accao === 'function') {
+                    setTimeout(accao, 300);
+                } else {
+                    setTimeout(function () { window.location.reload(); }, 1000);
+                }
+            },
+            error: function () {
+                $botao.prop('disabled', false).text('Guardar e continuar');
+                alert_float('danger', 'Não foi possível guardar o questionário.');
             }
+        });
+    });
 
-            $('#dps-credito-modal').modal('hide');
-            alert_float('success', resposta.message);
+    // Comercial: anexar documentos em falta e voltar a submeter (do painel da lead)
+    $(document).on('click', '#dps-credito-resubmeter-btn', function () {
+        var $form = $('#dps-credito-resubmeter');
+        var $btn = $(this);
+        $btn.prop('disabled', true).text('A submeter...');
 
-            var accao = accaoPendente;
-            accaoPendente = null;
+        var fd = new FormData($form[0]);
+        if (typeof csrfData !== 'undefined') {
+            fd.append(csrfData.token_name, csrfData.hash);
+        }
 
-            if (typeof accao === 'function') {
-                // Aplicar o fecho que ficou a meio — sem refrescar nem repetir.
-                setTimeout(accao, 300);
-            } else {
-                // Resposta dada a partir da coluna/painel: recarregar para reflectir.
+        $.ajax({
+            url: adminUrl + 'dps_credito/resubmeter/' + $form.data('credito'),
+            method: 'POST', data: fd, processData: false, contentType: false, dataType: 'json',
+            success: function (r) {
+                alert_float('success', (r && r.message) || 'Submetido.');
                 setTimeout(function () { window.location.reload(); }, 1000);
+            },
+            error: function () {
+                $btn.prop('disabled', false).text('Anexar e voltar a submeter');
+                alert_float('danger', 'Não foi possível submeter.');
             }
-        }, 'json').fail(function () {
-            $botao.prop('disabled', false).text('Guardar e continuar');
-            alert_float('danger', 'Não foi possível guardar o questionário.');
         });
     });
 

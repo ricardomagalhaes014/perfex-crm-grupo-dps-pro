@@ -123,7 +123,7 @@ class Dps_credito_model extends App_Model
             'situacao'     => $payload['situacao'],
             'montante'     => $payload['montante'],
             'valor'        => $payload['montante'] ?: 0,
-            'estado'       => 'novo',
+            'estado'       => 'submetido',
             'origem'       => 'lead',
             'staff_id'     => $payload['staff_id'],
             'date_created' => date('Y-m-d H:i:s'),
@@ -189,31 +189,106 @@ class Dps_credito_model extends App_Model
             'banco'       => $data['banco'] ?? null,
             'situacao'    => $data['situacao'] ?? null,
             'montante'    => isset($data['montante']) && $data['montante'] !== '' ? $this->limpar_numero($data['montante']) : null,
-            'estado'      => $data['estado'] ?? 'novo',
             'observacoes' => $data['observacoes'] ?? null,
             'dateupdated' => date('Y-m-d H:i:s'),
         ];
-
-        if (isset($data['taxa']) && $data['taxa'] !== '') {
-            $update['taxa'] = $this->limpar_numero($data['taxa']);
-        }
-
-        if (isset($data['valor']) && $data['valor'] !== '') {
-            $update['valor'] = $this->limpar_numero($data['valor']);
-        }
-
-        // A comissão do crédito é valor * taxa, tal como nas vendas
-        $valor = $update['valor'] ?? null;
-        $taxa  = $update['taxa'] ?? null;
-
-        if ($valor !== null && $taxa !== null) {
-            $update['comissao_total'] = round((float) $valor * (float) $taxa / 100, 2);
-        }
 
         $this->db->where('id', $id);
         $this->db->update($this->tabela_processos(), $update);
 
         return $this->db->affected_rows() > 0;
+    }
+
+    /* ---------------------------------------------------------------------
+     * Fluxo de estados
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Admin: pedir documentos em falta. Guarda o que falta (o comercial vê-o)
+     * e devolve o processo a "documentos_em_falta".
+     */
+    public function marcar_documentos_em_falta($id, $nota)
+    {
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_processos(), [
+            'estado'        => 'documentos_em_falta',
+            'docs_em_falta' => $nota,
+            'dateupdated'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Comercial: voltar a submeter depois de anexar o que faltava.
+     */
+    public function resubmeter($id)
+    {
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_processos(), [
+            'estado'        => 'submetido',
+            'docs_em_falta' => null,
+            'dateupdated'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    public function marcar_estado($id, $estado)
+    {
+        if (!in_array($estado, dps_credito_estados_processo(), true)) {
+            return false;
+        }
+
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_processos(), [
+            'estado'      => $estado,
+            'dateupdated' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Admin: aprovar. Regista o valor do crédito recebido e fixa a comissão do
+     * comercial (0,5% por omissão). É o que alimenta o mapa de comissões.
+     */
+    public function marcar_sucesso($id, $valor_credito)
+    {
+        $valor = $this->limpar_numero($valor_credito);
+        $taxa  = dps_credito_taxa_comissao();
+
+        $this->db->where('id', $id);
+        $this->db->update($this->tabela_processos(), [
+            'estado'         => 'sucesso',
+            'valor_credito'  => $valor,
+            'taxa'           => $taxa,
+            'comissao_total' => round($valor * $taxa / 100, 2),
+            'dateupdated'    => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Mapa de comissões de crédito (só as que chegaram a "sucesso").
+     */
+    public function get_comissoes($apenas_minhas = false)
+    {
+        $this->db->select('c.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome, l.name AS lead_nome');
+        $this->db->from($this->tabela_processos() . ' c');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = c.staff_id', 'left');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = c.lead_id', 'left');
+        $this->db->where('c.estado', 'sucesso');
+
+        if ($apenas_minhas) {
+            $this->db->where('c.staff_id', get_staff_user_id());
+        }
+
+        $this->db->order_by('c.staff_id', 'ASC');
+        $this->db->order_by('c.id', 'DESC');
+
+        return $this->db->get()->result_array();
     }
 
     public function delete_processo($id)
@@ -308,6 +383,28 @@ class Dps_credito_model extends App_Model
         if (!empty($destinatarios)) {
             pusher_trigger_notification($destinatarios);
         }
+    }
+
+    /**
+     * Avisa o comercial (dono do processo) de que faltam documentos.
+     */
+    public function notificar_documentos_em_falta($credito_id)
+    {
+        $processo = $this->get_processo($credito_id);
+        if (!$processo || empty($processo['staff_id'])) {
+            return;
+        }
+
+        add_notification([
+            'description'     => 'Crédito: faltam documentos — ' . $processo['cliente'],
+            'touserid'        => (int) $processo['staff_id'],
+            'fromcompany'     => 1,
+            'fromuserid'      => null,
+            'link'            => 'leads/index/' . $processo['lead_id'],
+            'additional_data' => serialize([$processo['cliente']]),
+        ]);
+
+        pusher_trigger_notification([(int) $processo['staff_id']]);
     }
 
     private function get_destinatarios()

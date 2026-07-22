@@ -46,6 +46,13 @@
                         </div>
 
                         <div class="form-group">
+                            <label class="control-label">Comissão do comercial (% sobre o valor do crédito recebido)</label>
+                            <input type="text" name="taxa_comissao" class="form-control" style="max-width:160px;"
+                                   value="<?php echo rtrim(rtrim(number_format(dps_credito_taxa_comissao(), 2, ',', ''), '0'), ','); ?>">
+                            <small class="text-muted">Aplicada quando um processo é marcado como Sucesso. Por omissão 0,5%.</small>
+                        </div>
+
+                        <div class="form-group">
                             <label class="control-label">Fontes de lead a que o questionário se aplica</label>
                             <select name="fontes[]" class="form-control selectpicker" multiple data-live-search="true"
                                     data-actions-box="true">

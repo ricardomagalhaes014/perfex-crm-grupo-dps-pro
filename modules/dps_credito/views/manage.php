@@ -32,7 +32,7 @@
                                     <label>Estado</label>
                                     <select name="estado" class="form-control selectpicker">
                                         <option value="">Todos</option>
-                                        <?php foreach (['novo', 'em_analise', 'enviado_banco', 'aprovado', 'recusado', 'concluido'] as $e) { ?>
+                                        <?php foreach (dps_credito_estados_processo() as $e) { ?>
                                             <option value="<?php echo $e; ?>" <?php echo $filtros['estado'] === $e ? 'selected' : ''; ?>>
                                                 <?php echo dps_credito_nome_estado($e); ?>
                                             </option>

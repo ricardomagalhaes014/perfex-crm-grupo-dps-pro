@@ -189,7 +189,9 @@ BLOCO = """
     var original = window.changeStatus;
 
     window.changeStatus = function (table, key, newStatus) {
-      if (newStatus !== 'Vendido') {
+      // "DPS" = venda fechada pela DPS (gera comissão). "Vendido" costuma ser
+      // venda de terceiros — não entra no CRM.
+      if (newStatus !== 'DPS') {
         return original.apply(this, arguments);
       }
 

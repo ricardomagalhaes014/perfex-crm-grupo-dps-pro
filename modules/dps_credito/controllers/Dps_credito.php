@@ -146,13 +146,18 @@ class Dps_credito extends AdminController
 
         $resultado = $this->dps_credito_model->guardar_resposta($lead_id, $post);
 
+        // Documentos anexados pelo comercial no próprio questionário.
+        if (!empty($resultado['credito_id']) && !empty($_FILES['documentos']['name'][0])) {
+            $this->processar_uploads($resultado['credito_id']);
+        }
+
         if ($resultado['criou_processo']) {
             $this->dps_credito_model->notificar_novo_processo($resultado['credito_id']);
         }
 
         $mensagem = 'Questionário de crédito guardado.';
         if ($resultado['criou_processo']) {
-            $mensagem .= ' Foi aberto um processo em DPS Crédito e a equipa foi notificada.';
+            $mensagem .= ' Processo aberto em DPS Crédito; a equipa foi notificada.';
         }
 
         echo json_encode([
@@ -162,6 +167,100 @@ class Dps_credito extends AdminController
             'criou_processo' => $resultado['criou_processo'],
         ]);
         die;
+    }
+
+    /**
+     * Comercial: anexar documentos em falta e voltar a submeter.
+     */
+    public function resubmeter($credito_id)
+    {
+        $processo = $this->dps_credito_model->get_processo($credito_id);
+        if (!$processo) {
+            show_404();
+        }
+
+        $e_dono = (int) $processo['staff_id'] === (int) get_staff_user_id();
+        if (!is_admin() && !staff_can('edit', 'dps_credito') && !$e_dono) {
+            access_denied('dps_credito');
+        }
+
+        if (!empty($_FILES['documentos']['name'][0])) {
+            $this->processar_uploads($credito_id);
+        }
+
+        $this->dps_credito_model->resubmeter($credito_id);
+
+        if (dps_credito_pedido_ajax()) {
+            echo json_encode(['success' => true, 'message' => 'Documentos submetidos.']);
+            die;
+        }
+
+        set_alert('success', 'Documentos submetidos.');
+        redirect(admin_url('leads/index/' . $processo['lead_id']));
+    }
+
+    /* ---------------------------------------------------------------------
+     * Ações de estado (admin)
+     * ------------------------------------------------------------------ */
+
+    public function documentos_em_falta($credito_id)
+    {
+        $this->so_admin();
+        $this->dps_credito_model->marcar_documentos_em_falta($credito_id, $this->input->post('nota'));
+        $this->dps_credito_model->notificar_documentos_em_falta($credito_id);
+        set_alert('success', 'Pedido de documentos enviado ao comercial.');
+        redirect(admin_url('dps_credito/view/' . $credito_id));
+    }
+
+    public function estado($credito_id)
+    {
+        $this->so_admin();
+        $novo = $this->input->post('estado');
+
+        if ($novo === 'sucesso') {
+            $valor = $this->input->post('valor_credito');
+            if ($valor === null || trim($valor) === '') {
+                set_alert('danger', 'Para marcar Sucesso tem de indicar o valor do crédito recebido.');
+                redirect(admin_url('dps_credito/view/' . $credito_id));
+            }
+            $this->dps_credito_model->marcar_sucesso($credito_id, $valor);
+            set_alert('success', 'Processo concluído com sucesso. Comissão gerada para o comercial.');
+        } else {
+            $this->dps_credito_model->marcar_estado($credito_id, $novo);
+            set_alert('success', 'Estado actualizado.');
+        }
+
+        redirect(admin_url('dps_credito/view/' . $credito_id));
+    }
+
+    /* ---------------------------------------------------------------------
+     * Mapa de comissões
+     * ------------------------------------------------------------------ */
+
+    public function comissoes()
+    {
+        $comissoes = $this->dps_credito_model->get_comissoes(!$this->pode_ver_todos());
+
+        $por_comercial = [];
+        foreach ($comissoes as $c) {
+            $chave = $c['staff_id'] ?: 0;
+            if (!isset($por_comercial[$chave])) {
+                $por_comercial[$chave] = ['nome' => $c['staff_nome'] ?: 'Sem comercial', 'linhas' => [], 'total' => 0];
+            }
+            $por_comercial[$chave]['linhas'][] = $c;
+            $por_comercial[$chave]['total'] += (float) $c['comissao_total'];
+        }
+
+        $data['por_comercial'] = $por_comercial;
+        $data['title']         = 'Comissões — DPS Crédito';
+        $this->load->view('comissoes', $data);
+    }
+
+    private function so_admin()
+    {
+        if (!is_admin() && !staff_can('edit', 'dps_credito')) {
+            access_denied('dps_credito');
+        }
     }
 
     /* ---------------------------------------------------------------------
@@ -245,6 +344,9 @@ class Dps_credito extends AdminController
                 is_array($staff) ? implode(',', array_map('intval', $staff)) : ''
             );
             update_option('dps_credito_bloqueio_ativo', $this->input->post('bloqueio_ativo') ? '1' : '0');
+
+            $taxa = str_replace(',', '.', (string) $this->input->post('taxa_comissao'));
+            update_option('dps_credito_taxa_comissao', $taxa !== '' ? (float) $taxa : 0.5);
 
             $fontes = $this->input->post('fontes');
             update_option(

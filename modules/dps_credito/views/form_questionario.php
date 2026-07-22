@@ -74,6 +74,16 @@
                 com os dados desta lead, e a equipa é notificada para dar seguimento.
             </div>
         </div>
+
+        <div class="form-group" id="dps-credito-docs-grupo" style="display:none;">
+            <label class="control-label">Documentos do cliente</label>
+            <input type="file" name="documentos[]" class="form-control" multiple
+                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+            <small class="text-muted">
+                Anexe os documentos para o pedido de crédito. Ficam no processo e a equipa recebe-os.
+                Pode acrescentar mais depois.
+            </small>
+        </div>
     </div>
 
     <div class="form-group">

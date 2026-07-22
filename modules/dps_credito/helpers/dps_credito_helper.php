@@ -111,32 +111,50 @@ function dps_credito_nome_situacao($situacao)
     return $nomes[$situacao] ?? '—';
 }
 
+/**
+ * Estados do processo de crédito, pela ordem do fluxo:
+ * submetido → (documentos_em_falta ↔ submetido) → em_analise → sucesso / recusado
+ */
+function dps_credito_estados_processo()
+{
+    return ['submetido', 'documentos_em_falta', 'em_analise', 'sucesso', 'recusado'];
+}
+
 function dps_credito_nome_estado($estado)
 {
     $nomes = [
-        'novo'          => 'Novo',
-        'em_analise'    => 'Em análise',
-        'enviado_banco' => 'Enviado ao banco',
-        'aprovado'      => 'Aprovado',
-        'recusado'      => 'Recusado',
-        'concluido'     => 'Concluído',
+        'submetido'           => 'Submetida',
+        'documentos_em_falta' => 'Documentos em falta',
+        'em_analise'          => 'Em análise',
+        'sucesso'             => 'Sucesso',
+        'recusado'            => 'Recusado',
     ];
 
-    return $nomes[$estado] ?? ucfirst(str_replace('_', ' ', $estado));
+    return $nomes[$estado] ?? ucfirst(str_replace('_', ' ', (string) $estado));
 }
 
 function dps_credito_cor_estado($estado)
 {
     $cores = [
-        'novo'          => 'label-warning',
-        'em_analise'    => 'label-info',
-        'enviado_banco' => 'label-primary',
-        'aprovado'      => 'label-success',
-        'recusado'      => 'label-danger',
-        'concluido'     => 'label-success',
+        'submetido'           => 'label-info',
+        'documentos_em_falta' => 'label-warning',
+        'em_analise'          => 'label-primary',
+        'sucesso'             => 'label-success',
+        'recusado'            => 'label-danger',
     ];
 
     return $cores[$estado] ?? 'label-default';
+}
+
+/**
+ * Percentagem de comissão do comercial sobre o valor do crédito recebido.
+ * Configurável nas Definições; por omissão 0,5%.
+ */
+function dps_credito_taxa_comissao()
+{
+    $t = get_option('dps_credito_taxa_comissao');
+
+    return ($t === '' || $t === null) ? 0.5 : (float) $t;
 }
 
 /**

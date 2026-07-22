@@ -49,8 +49,21 @@ function dps_credito_menu()
         'slug'     => 'dps_credito',
         'name'     => 'DPS Crédito',
         'icon'     => 'fa fa-university',
-        'href'     => admin_url('dps_credito'),
         'position' => 27,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_credito', [
+        'slug'     => 'dps_credito_processos',
+        'name'     => 'Processos',
+        'href'     => admin_url('dps_credito'),
+        'position' => 1,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_credito', [
+        'slug'     => 'dps_credito_comissoes',
+        'name'     => 'Comissões',
+        'href'     => admin_url('dps_credito/comissoes'),
+        'position' => 2,
     ]);
 }
 
@@ -151,10 +164,12 @@ function dps_credito_painel_lead($lead)
     $CI->load->model('dps_credito/dps_credito_model');
 
     $resposta = $CI->dps_credito_model->get_resposta_por_lead($lead->id);
+    $processo = $CI->dps_credito_model->get_processo_por_lead($lead->id);
 
     $CI->load->view('dps_credito/painel_lead', [
         'lead'     => $lead,
         'resposta' => $resposta,
+        'processo' => $processo,
     ]);
 }
 
