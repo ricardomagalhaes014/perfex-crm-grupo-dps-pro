@@ -333,6 +333,9 @@ class Dps_vendas extends AdminController
             redirect(admin_url('dps_vendas/regras'));
         }
 
+        // Traz para a lista qualquer empreendimento que já teve vendas.
+        $this->dps_vendas_model->sincronizar_regras_com_vendas();
+
         $data['regras']          = $this->dps_vendas_model->get_regras();
         $data['empreendimentos'] = $this->dps_vendas_model->get_empreendimentos();
         $data['title']           = 'Regras de Comissão';

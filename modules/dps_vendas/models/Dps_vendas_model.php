@@ -5,10 +5,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Dps_vendas_model extends App_Model
 {
     /**
-     * Ordem do circuito. A posição no array define o que é avançar e o que é
-     * recuar — não há saltos: de "pendente" não se vai directo a "pago".
+     * Estados da venda. O admin escolhe livremente entre eles.
+     * A comissão é fixada ao chegar a "concluido".
      */
-    public static $fluxo = ['pendente', 'para_assinatura', 'assinado', 'pago', 'recebido'];
+    public static $fluxo = ['pendente', 'contrato', 'concluido', 'falhou'];
 
     public function __construct()
     {
@@ -179,29 +179,10 @@ class Dps_vendas_model extends App_Model
      * Workflow de estados
      * ------------------------------------------------------------------ */
 
-    /**
-     * Só se avança uma casa de cada vez. Recuar é permitido a quem pode editar,
-     * porque enganos acontecem, mas fica sempre registado no histórico.
-     */
     public function transicao_valida($de, $para)
     {
-        if (!in_array($para, self::$fluxo, true)) {
-            return false;
-        }
-
-        // Venda histórica (estado NULL): deixamos entrar no circuito por "pendente"
-        if ($de === null) {
-            return $para === 'pendente';
-        }
-
-        $i_de   = array_search($de, self::$fluxo, true);
-        $i_para = array_search($para, self::$fluxo, true);
-
-        if ($i_de === false) {
-            return false;
-        }
-
-        return $i_para === $i_de + 1 || $i_para < $i_de;
+        // O admin escolhe livremente qualquer estado do fluxo.
+        return in_array($para, self::$fluxo, true);
     }
 
     public function mudar_estado($id, $novo_estado, $nota = null)
@@ -218,14 +199,7 @@ class Dps_vendas_model extends App_Model
         }
 
         if (!$this->transicao_valida($estado_atual, $novo_estado)) {
-            return [
-                'ok'   => false,
-                'erro' => 'Transição inválida: não se pode passar de "' . ($estado_atual ?: 'histórico') . '" para "' . $novo_estado . '".',
-            ];
-        }
-
-        if ($novo_estado === 'recebido' && !is_admin() && !staff_can('marcar_recebido', 'dps_vendas')) {
-            return ['ok' => false, 'erro' => 'Não tem permissão para marcar vendas como Recebidas.'];
+            return ['ok' => false, 'erro' => 'Estado inválido.'];
         }
 
         $update = [
@@ -233,25 +207,27 @@ class Dps_vendas_model extends App_Model
             'dateupdated' => date('Y-m-d H:i:s'),
         ];
 
-        // É ao chegar a "recebido" que a comissão passa a ser devida — e é o
-        // ponto sem retorno prático, porque é este valor que vai a pagamento.
-        if ($novo_estado === 'recebido') {
+        // É ao chegar a "concluído" que a comissão passa a ser devida.
+        if ($novo_estado === 'concluido') {
             $calculo = $this->calcular_comissao($venda);
 
             // Fixar uma comissão de 0 € em silêncio seria o pior desfecho:
-            // ninguém repara e o comercial não recebe. Preferimos travar e
-            // dizer porquê. Quem quiser mesmo 0 põe a taxa a 0 na venda.
+            // ninguém repara e o comercial não recebe. Travamos e dizemos porquê.
             if ($calculo['taxa'] <= 0) {
                 return [
                     'ok'   => false,
                     'erro' => 'Não há taxa de comissão definida para "' . $venda['empreendimento'] . '". '
                         . 'Defina a regra em Vendas &gt; Regras de Comissão, ou indique a taxa na própria venda, '
-                        . 'antes de a marcar como Recebida.',
+                        . 'antes de a marcar como Concluída.',
                 ];
             }
 
             $update['comissao_total']  = $calculo['valor'];
             $update['comissao_estado'] = 'a_receber';
+        } elseif ($novo_estado === 'falhou') {
+            // Venda falhada não gera comissão.
+            $update['comissao_estado'] = 'na';
+            $update['comissao_total']  = 0;
         }
 
         $this->db->where('id', $id);
@@ -351,6 +327,37 @@ class Dps_vendas_model extends App_Model
     /* ---------------------------------------------------------------------
      * Regras de comissão
      * ------------------------------------------------------------------ */
+
+    /**
+     * Garante que todo o empreendimento que já teve uma venda tem uma regra na
+     * tabela (mesmo que a 0%), para aparecer sempre em Regras de Comissão.
+     */
+    public function sincronizar_regras_com_vendas()
+    {
+        $emps = $this->db->select('DISTINCT(empreendimento) AS empreendimento')
+            ->where('empreendimento IS NOT NULL')
+            ->where('empreendimento <>', '')
+            ->where('empreendimento <>', 'undefined')
+            ->get($this->tabela_vendas())
+            ->result_array();
+
+        foreach ($emps as $e) {
+            $emp = trim($e['empreendimento']);
+            $existe = $this->db
+                ->where('LOWER(TRIM(empreendimento))', strtolower($emp))
+                ->count_all_results($this->tabela_regras());
+
+            if (!$existe) {
+                $this->db->insert($this->tabela_regras(), [
+                    'empreendimento' => $emp,
+                    'taxa'           => 0,
+                    'ativo'          => 1,
+                    'notas'          => 'TAXA POR DEFINIR — apareceu numa venda.',
+                    'dateadded'      => date('Y-m-d H:i:s'),
+                ]);
+            }
+        }
+    }
 
     public function get_regras()
     {

@@ -36,7 +36,8 @@ BLOCO = """
     raizes: 'Raízes Fanzeres',
     gp: 'Gaia Premium',
     boavista: 'Boavista Towers',
-    lake: 'Lake Towers'
+    lake: 'Lake Towers',
+    gaiadouro: 'Gaia Douro'
   };
 
   var comerciaisCache = null;
@@ -47,6 +48,7 @@ BLOCO = """
       if (table === 'raizes') return raizesData.find(function (u) { return u.fraccao === key; });
       if (table === 'gp') return gpData.find(function (u) { return u.fraccao === key; });
       if (table === 'boavista') return BOAVISTA_UNITS.find(function (u) { return u.fraccao === key; });
+      if (table === 'gaiadouro') { var pg = key.split('_'); return (typeof GAIADOURO_UNITS !== 'undefined') ? GAIADOURO_UNITS.find(function (u) { return String(u.torre) === String(pg[0]) && u.fraccao === pg[1]; }) : null; }
       var partes = key.split('_');
       return LAKE_UNITS.find(function (u) { return u.torre === partes[0] && u.fraccao === partes[1]; });
     } catch (e) {
@@ -104,7 +106,7 @@ BLOCO = """
     erro.style.display = 'none';
     document.getElementById('dpsVendaResumo').textContent =
       EMPREENDIMENTOS[table] + ' · Fracção ' + key + (unidade && unidade.tipologia ? ' · ' + unidade.tipologia : '');
-    campoValor.value = unidade && unidade.preco ? unidade.preco : '';
+    campoValor.value = unidade ? (unidade.preco || unidade.pvp || unidade.pre_sale || unidade.preco_lancamento || '') : '';
 
     select.innerHTML = '<option>A carregar...</option>';
     modal.style.display = 'flex';

@@ -21,17 +21,16 @@
                                 <a href="<?php echo admin_url('dps_vendas/form/' . $venda['id']); ?>" class="btn btn-default btn-sm">
                                     <i class="fa fa-pencil"></i> Editar
                                 </a>
+                                <?php if (is_admin() || staff_can('delete', 'dps_vendas')) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/delete/' . $venda['id']); ?>"
+                                       class="btn btn-danger btn-sm _delete" data-toggle="tooltip" title="Eliminar venda">
+                                        <i class="fa fa-trash"></i> Eliminar
+                                    </a>
+                                <?php } ?>
                             </div>
                         </div>
 
                         <hr>
-
-                        <?php if (empty($venda['estado'])) { ?>
-                            <div class="alert alert-info">
-                                Esta venda vem do simulador e é anterior ao circuito de estados.
-                                Ao mudar o estado, entra no circuito a partir de <strong>Pendente</strong>.
-                            </div>
-                        <?php } ?>
 
                         <table class="table table-borderless">
                             <tr>

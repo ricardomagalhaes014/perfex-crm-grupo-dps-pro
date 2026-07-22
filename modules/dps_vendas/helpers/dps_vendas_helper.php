@@ -9,11 +9,10 @@ defined('BASEPATH') or exit('No direct script access allowed');
 function dps_vendas_cor_estado($estado)
 {
     $cores = [
-        'pendente'        => 'label-default',
-        'para_assinatura' => 'label-warning',
-        'assinado'        => 'label-info',
-        'pago'            => 'label-primary',
-        'recebido'        => 'label-success',
+        'pendente'  => 'label-warning',
+        'contrato'  => 'label-info',
+        'concluido' => 'label-success',
+        'falhou'    => 'label-danger',
     ];
 
     return $cores[$estado] ?? 'label-default';
@@ -22,15 +21,14 @@ function dps_vendas_cor_estado($estado)
 function dps_vendas_nome_estado($estado)
 {
     if (empty($estado)) {
-        return 'Histórico';
+        return 'Pendente';
     }
 
     $nomes = [
-        'pendente'        => 'Pendente',
-        'para_assinatura' => 'Para Assinatura',
-        'assinado'        => 'Assinado',
-        'pago'            => 'Pago',
-        'recebido'        => 'Recebido',
+        'pendente'  => 'Pendente',
+        'contrato'  => 'Contrato',
+        'concluido' => 'Concluído',
+        'falhou'    => 'Falhou',
     ];
 
     return $nomes[$estado] ?? ucfirst(str_replace('_', ' ', $estado));

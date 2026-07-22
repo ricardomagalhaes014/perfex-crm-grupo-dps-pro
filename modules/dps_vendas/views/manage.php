@@ -82,6 +82,7 @@
                                     <th>Estado</th>
                                     <th>Comissão</th>
                                     <th>Data</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -98,13 +99,9 @@
                                         <td><?php echo app_format_money($v['valor'], get_base_currency()); ?></td>
                                         <td><?php echo html_escape($v['comercial_nome']); ?></td>
                                         <td>
-                                            <?php if (empty($v['estado'])) { ?>
-                                                <span class="label label-default">Histórico</span>
-                                            <?php } else { ?>
-                                                <span class="label <?php echo dps_vendas_cor_estado($v['estado']); ?>">
-                                                    <?php echo ucfirst(str_replace('_', ' ', $v['estado'])); ?>
-                                                </span>
-                                            <?php } ?>
+                                            <span class="label <?php echo dps_vendas_cor_estado($v['estado']); ?>">
+                                                <?php echo dps_vendas_nome_estado($v['estado']); ?>
+                                            </span>
                                         </td>
                                         <td>
                                             <?php if ($v['comissao_estado'] !== 'na') { ?>
@@ -117,6 +114,14 @@
                                             <?php } ?>
                                         </td>
                                         <td><?php echo $v['data_venda'] ? _d($v['data_venda']) : '—'; ?></td>
+                                        <td class="text-right">
+                                            <?php if (is_admin() || staff_can('delete', 'dps_vendas')) { ?>
+                                                <a href="<?php echo admin_url('dps_vendas/delete/' . $v['id']); ?>"
+                                                   class="btn btn-danger btn-xs _delete" title="Eliminar">
+                                                    <i class="fa fa-trash"></i>
+                                                </a>
+                                            <?php } ?>
+                                        </td>
                                     </tr>
                                 <?php } ?>
                             </tbody>

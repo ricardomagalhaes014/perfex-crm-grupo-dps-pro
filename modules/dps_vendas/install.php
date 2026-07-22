@@ -28,7 +28,7 @@ if ($CI->db->table_exists($vendas)) {
     }, $CI->db->field_data($vendas));
 
     $novas_colunas = [
-        'estado'           => "ENUM('pendente','para_assinatura','assinado','pago','recebido') NULL DEFAULT 'pendente'",
+        'estado'           => "VARCHAR(30) NULL DEFAULT 'pendente'",
         'origem'           => "ENUM('formulario','simulador','manual') NOT NULL DEFAULT 'manual'",
         'lead_id'          => 'INT NULL DEFAULT NULL',
         'cliente_morada'   => 'VARCHAR(255) NULL DEFAULT NULL',

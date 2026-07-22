@@ -35,6 +35,9 @@ const NOME_SEGREDO = '.dps_venda_secret';
 function localizar_segredo(): ?string
 {
     $candidatos = [
+        // Preferido: dentro do docroot, mas numa pasta com .htaccess a negar
+        // acesso web (a conta FTP só escreve dentro do docroot).
+        __DIR__ . '/dps_secure/venda_secret',
         '/home/u172337921/' . NOME_SEGREDO,
         dirname(__DIR__) . '/' . NOME_SEGREDO,
         dirname(__DIR__, 2) . '/' . NOME_SEGREDO,
@@ -252,9 +255,22 @@ if ($accao === 'importar') {
     $stmt->execute();
     $regra = $stmt->get_result()->fetch_assoc();
 
+    // As colunas cpcv_taxa/escritura_taxa não aceitam NULL — usar 0 quando a
+    // regra não as define.
     $taxa           = $regra ? (float) $regra['taxa'] : 0.0;
-    $cpcv_taxa      = $regra && $regra['cpcv_taxa'] !== null ? (float) $regra['cpcv_taxa'] : null;
-    $escritura_taxa = $regra && $regra['escritura_taxa'] !== null ? (float) $regra['escritura_taxa'] : null;
+    $cpcv_taxa      = $regra && $regra['cpcv_taxa'] !== null ? (float) $regra['cpcv_taxa'] : 0.0;
+    $escritura_taxa = $regra && $regra['escritura_taxa'] !== null ? (float) $regra['escritura_taxa'] : 0.0;
+
+    // Empreendimento novo (sem regra) → criar já uma regra "por definir", para
+    // aparecer em Vendas > Regras de Comissão e o admin lá pôr a percentagem.
+    if (!$regra) {
+        $stmt = $bd->prepare(
+            "INSERT INTO tblcomissao_regras (empreendimento, taxa, ativo, notas, dateadded)
+             VALUES (?, 0, 1, 'TAXA POR DEFINIR (criada automaticamente a partir de uma venda)', NOW())"
+        );
+        $stmt->bind_param('s', $empreendimento);
+        @$stmt->execute();
+    }
 
     $cliente = $tipologia !== ''
         ? 'A preencher (' . $tipologia . ')'
