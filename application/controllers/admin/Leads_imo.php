@@ -10,9 +10,9 @@ class Leads_imo extends AdminController
     }
 
     /**
-     * Retorna o relatório em JSON para o popup (usado pelo fetch no JavaScript)
+     * Retorna o relatório em JSON para o popup (comerciais × statuses)
      * GET params:
-     *  - group: imo | expansao_imo | media | dental
+     *  - group: expansao_imo | imo | imo_dubai | media | dental
      *  - from:  YYYY-MM-DD (opcional)
      *  - to:    YYYY-MM-DD (opcional)
      */
@@ -22,14 +22,9 @@ class Leads_imo extends AdminController
             ajax_access_denied();
         }
 
-        $group = $this->input->get('group') ?: 'imo';
-
-        $from  = $this->input->get('from');
-        $to    = $this->input->get('to');
-
-        // Deixa null se vier vazio
-        $from = $from ? $from : null;
-        $to   = $to ? $to : null;
+        $group = $this->input->get('group') ?: 'expansao_imo';
+        $from  = $this->input->get('from') ?: null;
+        $to    = $this->input->get('to')   ?: null;
 
         $data = $this->leads_imo_model->report_by_source_group($group, $from, $to);
 
@@ -38,8 +33,37 @@ class Leads_imo extends AdminController
     }
 
     /**
-     * Exporta o mesmo relatório para CSV (abre no Excel)
-     * Usa os mesmos parâmetros de filtro do source_report
+     * Distribuição de leads por comercial para um status específico.
+     * GET params:
+     *  - status_id: int
+     *  - group:     expansao_imo | imo | imo_dubai | media | dental
+     *  - from:      YYYY-MM-DD (opcional)
+     *  - to:        YYYY-MM-DD (opcional)
+     */
+    public function status_distribution()
+    {
+        if (!is_admin()) {
+            ajax_access_denied();
+        }
+
+        $statusId = (int) $this->input->get('status_id');
+        $group    = $this->input->get('group') ?: 'expansao_imo';
+        $from     = $this->input->get('from')  ?: null;
+        $to       = $this->input->get('to')    ?: null;
+
+        if ($statusId <= 0) {
+            echo json_encode(['status_name' => '', 'rows' => []]);
+            die;
+        }
+
+        $data = $this->leads_imo_model->get_status_distribution($statusId, $group, $from, $to);
+
+        echo json_encode($data);
+        die;
+    }
+
+    /**
+     * Exporta o relatório comerciais × statuses para CSV
      */
     public function export_excel()
     {
@@ -47,52 +71,37 @@ class Leads_imo extends AdminController
             access_denied('Leads IMO Export');
         }
 
-        $group = $this->input->get('group') ?: 'imo';
-        $from  = $this->input->get('from');
-        $to    = $this->input->get('to');
-
-        $from = $from ? $from : null;
-        $to   = $to ? $to : null;
+        $group = $this->input->get('group') ?: 'expansao_imo';
+        $from  = $this->input->get('from')  ?: null;
+        $to    = $this->input->get('to')    ?: null;
 
         $report = $this->leads_imo_model->report_by_source_group($group, $from, $to);
 
-        // Monta nome do arquivo
         $filenameParts = ['leads', $group];
-        if ($from) {
-            $filenameParts[] = 'de_' . $from;
-        }
-        if ($to) {
-            $filenameParts[] = 'ate_' . $to;
-        }
+        if ($from) { $filenameParts[] = 'de_' . $from; }
+        if ($to)   { $filenameParts[] = 'ate_' . $to; }
         $filenameParts[] = date('Ymd_His');
         $filename = implode('_', $filenameParts) . '.csv';
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
-        // Em PT normalmente o Excel prefere ; como separador
         $separator = ';';
-
         $out = fopen('php://output', 'w');
 
-        // Cabeçalho
         $header = ['Comercial'];
         foreach ($report['statuses'] as $s) {
             $header[] = $s['name'];
         }
         $header[] = 'Total';
-
         fputcsv($out, $header, $separator);
 
-        // Linhas
         foreach ($report['rows'] as $row) {
-            $line   = [$row['staff_name']];
+            $line = [$row['staff_name']];
             foreach ($report['statuses'] as $s) {
-                $statusId = $s['id'];
-                $line[]   = isset($row['counts'][$statusId]) ? $row['counts'][$statusId] : 0;
+                $line[] = $row['counts'][$s['id']] ?? 0;
             }
             $line[] = $row['total'];
-
             fputcsv($out, $line, $separator);
         }
 
