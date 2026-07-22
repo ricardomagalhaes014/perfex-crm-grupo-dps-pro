@@ -51,6 +51,8 @@ class Dps_credito extends AdminController
 
         $data['processo']      = $processo;
         $data['docs']          = $this->dps_credito_model->get_docs($id);
+        $data['docs_tipados']  = $this->dps_credito_model->get_docs_tipados($id);
+        $data['titulares']     = $this->dps_credito_model->get_titulares($id);
         $data['pode_download'] = is_admin() || staff_can('download_docs', 'dps_credito');
         $data['title']         = 'Processo de Crédito #' . $id;
 
@@ -317,6 +319,135 @@ class Dps_credito extends AdminController
         set_alert('success', 'Documento removido.');
 
         redirect(admin_url('dps_credito/view/' . $doc['credito_id']));
+    }
+
+    /* ---------------------------------------------------------------------
+     * AJAX: eliminar documento tipado
+     * ------------------------------------------------------------------ */
+
+    public function delete_doc_ajax($doc_id)
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $doc = $this->dps_credito_model->get_doc($doc_id);
+        if (!$doc) {
+            echo json_encode(['success' => false, 'message' => 'Documento não encontrado.']);
+            return;
+        }
+
+        $processo = $this->dps_credito_model->get_processo($doc['credito_id']);
+        $e_dono   = $processo && (int) $processo['staff_id'] === (int) get_staff_user_id();
+
+        if (!is_admin() && !staff_can('edit', 'dps_credito') && !$e_dono) {
+            echo json_encode(['success' => false, 'message' => 'Sem permissão.']);
+            return;
+        }
+
+        $ok = $this->dps_credito_model->delete_doc($doc_id);
+        echo json_encode(['success' => $ok]);
+    }
+
+    /* ---------------------------------------------------------------------
+     * AJAX: upload de documento tipado por titular/tipo
+     * ------------------------------------------------------------------ */
+
+    public function upload_doc_tipado($processo_id)
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $processo = $this->dps_credito_model->get_processo($processo_id);
+        if (!$processo) {
+            echo json_encode(['success' => false, 'message' => 'Processo não encontrado.']);
+            return;
+        }
+
+        $e_dono = (int) $processo['staff_id'] === (int) get_staff_user_id();
+        if (!is_admin() && !staff_can('edit', 'dps_credito') && !$e_dono) {
+            echo json_encode(['success' => false, 'message' => 'Sem permissão.']);
+            return;
+        }
+
+        if (empty($_FILES['doc']['name'])) {
+            echo json_encode(['success' => false, 'message' => 'Nenhum ficheiro recebido.']);
+            return;
+        }
+
+        $num_titular = (int) ($this->input->post('num_titular') ?? 0);
+        $tipo_doc    = preg_replace('/[^a-z0-9_]/', '', strtolower($this->input->post('tipo_doc') ?? ''));
+
+        $ext = strtolower(pathinfo($_FILES['doc']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, $this->extensoes_permitidas, true)) {
+            echo json_encode(['success' => false, 'message' => 'Extensão não permitida: ' . $ext]);
+            return;
+        }
+
+        if ($_FILES['doc']['size'] > $this->tamanho_maximo) {
+            echo json_encode(['success' => false, 'message' => 'Ficheiro demasiado grande (máx 10 MB).']);
+            return;
+        }
+
+        $dir = FCPATH . DPS_CREDITO_UPLOAD_PATH . $processo_id . '/';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $filename = uniqid('doc_', true) . '.' . $ext;
+        if (!move_uploaded_file($_FILES['doc']['tmp_name'], $dir . $filename)) {
+            echo json_encode(['success' => false, 'message' => 'Erro ao guardar o ficheiro.']);
+            return;
+        }
+
+        $doc_id = $this->dps_credito_model->add_doc_tipado(
+            $processo_id,
+            $filename,
+            $_FILES['doc']['name'],
+            $_FILES['doc']['size'],
+            $num_titular,
+            $tipo_doc
+        );
+
+        echo json_encode([
+            'success'       => true,
+            'doc_id'        => $doc_id,
+            'original_name' => $_FILES['doc']['name'],
+            'size'          => $_FILES['doc']['size'],
+        ]);
+    }
+
+    /* ---------------------------------------------------------------------
+     * AJAX: guardar dados de titular
+     * ------------------------------------------------------------------ */
+
+    public function guardar_titular($processo_id)
+    {
+        if (!$this->input->is_ajax_request()) {
+            show_404();
+        }
+
+        $processo = $this->dps_credito_model->get_processo($processo_id);
+        if (!$processo) {
+            echo json_encode(['success' => false, 'message' => 'Processo não encontrado.']);
+            return;
+        }
+
+        $e_dono = (int) $processo['staff_id'] === (int) get_staff_user_id();
+        if (!is_admin() && !staff_can('edit', 'dps_credito') && !$e_dono) {
+            echo json_encode(['success' => false, 'message' => 'Sem permissão.']);
+            return;
+        }
+
+        $num_titular = (int) $this->input->post('num_titular');
+        if (!in_array($num_titular, [1, 2], true)) {
+            echo json_encode(['success' => false, 'message' => 'Titular inválido.']);
+            return;
+        }
+
+        $id = $this->dps_credito_model->guardar_titular($processo_id, $num_titular, $this->input->post());
+        echo json_encode(['success' => (bool) $id, 'titular_id' => $id]);
     }
 
     /* ---------------------------------------------------------------------

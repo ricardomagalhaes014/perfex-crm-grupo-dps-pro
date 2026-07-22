@@ -92,10 +92,48 @@ if (!$CI->db->table_exists($docs)) {
         `filename` VARCHAR(255) NOT NULL,
         `original_name` VARCHAR(255) NULL,
         `descricao` VARCHAR(191) NULL,
+        `num_titular` TINYINT NULL DEFAULT NULL,
+        `tipo_doc` VARCHAR(60) NULL DEFAULT NULL,
+        `size` INT NULL DEFAULT NULL,
         `uploaded_by` INT NULL,
         `dateadded` DATETIME NOT NULL,
         PRIMARY KEY (`id`),
-        KEY `credito_id` (`credito_id`)
+        KEY `credito_id` (`credito_id`),
+        KEY `titular_tipo` (`credito_id`,`num_titular`,`tipo_doc`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+} else {
+    $existing_docs = array_map(fn($f) => $f->name, $CI->db->field_data($docs));
+    foreach (['num_titular' => 'TINYINT NULL DEFAULT NULL', 'tipo_doc' => 'VARCHAR(60) NULL DEFAULT NULL', 'size' => 'INT NULL DEFAULT NULL'] as $col => $def) {
+        if (!in_array($col, $existing_docs, true)) {
+            $CI->db->query("ALTER TABLE `{$docs}` ADD `{$col}` {$def}");
+        }
+    }
+}
+
+/*
+ * -------------------------------------------------------------------------
+ * 3b. Titulares do processo de crédito
+ * -------------------------------------------------------------------------
+ */
+$titulares = db_prefix() . 'dps_credito_titulares';
+if (!$CI->db->table_exists($titulares)) {
+    $CI->db->query('CREATE TABLE `' . $titulares . "` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `credito_id` INT NOT NULL,
+        `num_titular` TINYINT NOT NULL,
+        `nome` VARCHAR(191) NULL,
+        `nif` VARCHAR(20) NULL,
+        `data_nascimento` DATE NULL,
+        `morada` TEXT NULL,
+        `regime_casamento` VARCHAR(60) NULL,
+        `profissao` VARCHAR(191) NULL,
+        `rendimento_mensal` DECIMAL(10,2) NULL,
+        `telefone` VARCHAR(30) NULL,
+        `email` VARCHAR(191) NULL,
+        `dateadded` DATETIME NOT NULL,
+        `dateupdated` DATETIME NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `credito_titular` (`credito_id`,`num_titular`)
     ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
 }
 
