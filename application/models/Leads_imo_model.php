@@ -87,12 +87,11 @@ class Leads_imo_model extends App_Model
             ->get(db_prefix() . 'leads_status')
             ->result_array();
 
-        // Contagem por comercial + status
+        // Contagem por comercial + status (assigned=0 = não atribuído, incluído propositadamente)
         $this->db->select('l.assigned as staff_id, s.id as status_id, COUNT(*) as total');
         $this->db->from(db_prefix() . 'leads l');
         $this->db->join(db_prefix() . 'leads_status s', 's.id = l.status', 'left');
         $this->db->where_in('l.source', $sourceIds);
-        $this->db->where('l.assigned IS NOT NULL', null, false);
 
         if (!empty($fromDate)) {
             $this->db->where('DATE(l.last_status_change) >=', $fromDate);
@@ -112,12 +111,16 @@ class Leads_imo_model extends App_Model
 
         $staff = $this->db->where('active', 1)->get(db_prefix() . 'staff')->result_array();
 
+        // Adiciona um "comercial" virtual para leads sem atribuição (staff_id = 0),
+        // para que o total bata certo com o badge nativo do Perfex (que não filtra por assigned).
+        $staff[] = ['staffid' => 0, 'firstname' => 'Não atribuído', 'lastname' => ''];
+
         $outRows = [];
         foreach ($staff as $st) {
             $sid = (int) $st['staffid'];
             $row = [
                 'staff_id'   => $sid,
-                'staff_name' => trim($st['firstname'] . ' ' . $st['lastname']),
+                'staff_name' => $sid === 0 ? 'Não atribuído' : trim($st['firstname'] . ' ' . $st['lastname']),
                 'counts'     => [],
                 'total'      => 0,
             ];
@@ -158,7 +161,6 @@ class Leads_imo_model extends App_Model
         $this->db->from(db_prefix() . 'leads l');
         $this->db->where('l.status', $statusId);
         $this->db->where_in('l.source', $sourceIds);
-        $this->db->where('l.assigned IS NOT NULL', null, false);
 
         if (!empty($fromDate)) {
             $this->db->where('DATE(l.last_status_change) >=', $fromDate);
@@ -175,7 +177,9 @@ class Leads_imo_model extends App_Model
             $byStaff[(int) $r['staff_id']] = (int) $r['total'];
         }
 
-        $staff   = $this->db->where('active', 1)->get(db_prefix() . 'staff')->result_array();
+        $staff = $this->db->where('active', 1)->get(db_prefix() . 'staff')->result_array();
+        $staff[] = ['staffid' => 0, 'firstname' => 'Não atribuído', 'lastname' => ''];
+
         $outRows = [];
         foreach ($staff as $st) {
             $sid = (int) $st['staffid'];
@@ -183,7 +187,7 @@ class Leads_imo_model extends App_Model
             if ($cnt > 0) {
                 $outRows[] = [
                     'staff_id'   => $sid,
-                    'staff_name' => trim($st['firstname'] . ' ' . $st['lastname']),
+                    'staff_name' => $sid === 0 ? 'Não atribuído' : trim($st['firstname'] . ' ' . $st['lastname']),
                     'total'      => $cnt,
                 ];
             }

@@ -33,6 +33,15 @@ document.addEventListener("DOMContentLoaded", function () {
     /*  Helpers                                                             */
     /* ------------------------------------------------------------------ */
 
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     function getSourceGroup(prefix) {
         var el = document.getElementById((prefix || '') + 'lead_source_group');
         return el ? el.value : 'expansao_imo';
@@ -97,7 +106,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(function (data) {
                 theadRow.innerHTML = '<th>Comercial</th>';
                 data.statuses.forEach(function (s) {
-                    theadRow.innerHTML += '<th>' + s.name + '</th>';
+                    theadRow.innerHTML += '<th>' + escapeHtml(s.name) + '</th>';
                 });
                 theadRow.innerHTML += '<th>Total</th>';
 
@@ -107,7 +116,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
                 data.rows.forEach(function (r) {
-                    var html = '<tr><td>' + r.staff_name + '</td>';
+                    var html = '<tr><td>' + escapeHtml(r.staff_name) + '</td>';
                     data.statuses.forEach(function (s) {
                         html += '<td>' + ((r.counts && r.counts[s.id] !== undefined) ? r.counts[s.id] : 0) + '</td>';
                     });
@@ -132,9 +141,12 @@ document.addEventListener("DOMContentLoaded", function () {
     /* ------------------------------------------------------------------ */
     var overview = document.querySelector('.leads-overview');
     if (overview) {
-        // MutationObserver: apanha os botões após o Vue os renderizar
-        var clickAttached = false;
-        var mo = new MutationObserver(function () {
+
+        // Marca com data-status-id os botões de estado ainda não marcados.
+        // Chamada imediatamente (cobre os botões já renderizados pelo Vue
+        // quando este script corre) E outra vez sempre que o MutationObserver
+        // detectar que o Vue voltou a renderizar a lista (ex: refresh de dados).
+        function tagStatusButtons() {
             overview.querySelectorAll('button:not([data-imo-tagged])').forEach(function (btn) {
                 // Span com color = nome do status
                 var nameSpan = btn.querySelector('span[style*="color"]');
@@ -148,27 +160,38 @@ document.addEventListener("DOMContentLoaded", function () {
                 btn.setAttribute('data-status-id',   statusId);
                 btn.setAttribute('data-status-name', statusName);
             });
+        }
 
-            if (!clickAttached) {
-                clickAttached = true;
-                overview.addEventListener('click', function (e) {
-                    var btn = e.target.closest('button[data-status-id]');
-                    if (!btn) return;
+        // Corre já, para os botões que já existem no DOM neste momento.
+        tagStatusButtons();
 
-                    var statusId   = btn.getAttribute('data-status-id');
-                    var statusName = btn.getAttribute('data-status-name');
-
-                    var titleEl = document.getElementById('statusDistTitle');
-                    if (titleEl) titleEl.textContent = 'Distribuição — ' + statusName;
-
-                    window._imoStatusId = statusId;
-
-                    $('#statusDistModal').modal('show');
-                    loadStatusDistribution();
-                });
-            }
-        });
+        // Re-marca sempre que o Vue re-renderizar a lista de estados no futuro.
+        var mo = new MutationObserver(tagStatusButtons);
         mo.observe(overview, { childList: true, subtree: true });
+
+        // Listener em fase de CAPTURA: intercepta o clique ANTES de chegar ao
+        // botão, para poder bloquear o @click nativo do Vue (que filtraria a
+        // tabela) e mostrar em vez disso o popup de distribuição por comercial.
+        // Um listener normal (fase de bolha) chegaria tarde demais — o handler
+        // do Vue, ligado directamente ao botão, já teria corrido.
+        overview.addEventListener('click', function (e) {
+            var btn = e.target.closest('button[data-status-id]');
+            if (!btn) return;
+
+            e.stopPropagation();
+            e.preventDefault();
+
+            var statusId   = btn.getAttribute('data-status-id');
+            var statusName = btn.getAttribute('data-status-name');
+
+            var titleEl = document.getElementById('statusDistTitle');
+            if (titleEl) titleEl.textContent = 'Distribuição — ' + statusName;
+
+            window._imoStatusId = statusId;
+
+            $('#statusDistModal').modal('show');
+            loadStatusDistribution();
+        }, true); // true = fase de captura
     }
 
     /* ------------------------------------------------------------------ */
@@ -202,7 +225,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     total += r.total;
                     tbody.innerHTML += '<tr>'
                         + '<td>' + (i + 1) + '</td>'
-                        + '<td>' + r.staff_name + '</td>'
+                        + '<td>' + escapeHtml(r.staff_name) + '</td>'
                         + '<td><b>' + r.total + '</b></td>'
                         + '</tr>';
                 });
