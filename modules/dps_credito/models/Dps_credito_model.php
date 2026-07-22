@@ -19,6 +19,11 @@ class Dps_credito_model extends App_Model
         return db_prefix() . 'dps_credito_docs';
     }
 
+    public function tabela_titulares()
+    {
+        return db_prefix() . 'dps_credito_titulares';
+    }
+
     /* ---------------------------------------------------------------------
      * Respostas ao questionário
      * ------------------------------------------------------------------ */
@@ -333,6 +338,91 @@ class Dps_credito_model extends App_Model
         ]);
 
         return $this->db->insert_id();
+    }
+
+    public function add_doc_tipado($credito_id, $filename, $original_name, $size, $num_titular, $tipo_doc)
+    {
+        $this->db->insert($this->tabela_docs(), [
+            'credito_id'    => (int) $credito_id,
+            'filename'      => $filename,
+            'original_name' => $original_name,
+            'size'          => (int) $size,
+            'num_titular'   => (int) $num_titular,
+            'tipo_doc'      => $tipo_doc,
+            'uploaded_by'   => get_staff_user_id(),
+            'dateadded'     => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->insert_id();
+    }
+
+    public function get_docs_tipados($credito_id)
+    {
+        $this->db->where('credito_id', (int) $credito_id);
+        $this->db->where('num_titular IS NOT NULL');
+        $this->db->order_by('num_titular ASC, tipo_doc ASC, id ASC');
+
+        return $this->db->get($this->tabela_docs())->result_array();
+    }
+
+    /* ---------------------------------------------------------------------
+     * Titulares
+     * ------------------------------------------------------------------ */
+
+    public function get_titular($credito_id, $num_titular)
+    {
+        $this->db->where('credito_id', (int) $credito_id);
+        $this->db->where('num_titular', (int) $num_titular);
+
+        return $this->db->get($this->tabela_titulares())->row_array();
+    }
+
+    public function get_titulares($credito_id)
+    {
+        $this->db->where('credito_id', (int) $credito_id);
+        $this->db->order_by('num_titular', 'ASC');
+
+        return $this->db->get($this->tabela_titulares())->result_array();
+    }
+
+    public function guardar_titular($credito_id, $num_titular, $data)
+    {
+        $payload = [
+            'nome'             => $data['nome'] ?? null,
+            'nif'              => $data['nif'] ?? null,
+            'data_nascimento'  => !empty($data['data_nascimento']) ? $data['data_nascimento'] : null,
+            'morada'           => $data['morada'] ?? null,
+            'regime_casamento' => $data['regime_casamento'] ?? null,
+            'profissao'        => $data['profissao'] ?? null,
+            'rendimento_mensal'=> isset($data['rendimento_mensal']) && $data['rendimento_mensal'] !== ''
+                ? $this->limpar_numero($data['rendimento_mensal']) : null,
+            'telefone'         => $data['telefone'] ?? null,
+            'email'            => $data['email'] ?? null,
+        ];
+
+        $existente = $this->get_titular($credito_id, $num_titular);
+
+        if ($existente) {
+            $payload['dateupdated'] = date('Y-m-d H:i:s');
+            $this->db->where('id', $existente['id']);
+            $this->db->update($this->tabela_titulares(), $payload);
+
+            return $existente['id'];
+        }
+
+        $payload['credito_id']  = (int) $credito_id;
+        $payload['num_titular'] = (int) $num_titular;
+        $payload['dateadded']   = date('Y-m-d H:i:s');
+        $this->db->insert($this->tabela_titulares(), $payload);
+
+        return $this->db->insert_id();
+    }
+
+    public function delete_titular($credito_id, $num_titular)
+    {
+        $this->db->where('credito_id', (int) $credito_id);
+        $this->db->where('num_titular', (int) $num_titular);
+        $this->db->delete($this->tabela_titulares());
     }
 
     public function delete_doc($id)
