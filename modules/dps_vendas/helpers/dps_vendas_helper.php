@@ -11,6 +11,7 @@ function dps_vendas_cor_estado($estado)
     $cores = [
         'pedido'    => 'label-danger',
         'reservado' => 'label-warning',
+        'submetido' => 'label-primary',
         'vendido'   => 'label-info',
         'concluido' => 'label-success',
         'cancelado' => 'label-danger',
@@ -28,7 +29,8 @@ function dps_vendas_nome_estado($estado)
     $nomes = [
         'pedido'    => 'Pedido (por confirmar)',
         'reservado' => 'Reservado',
-        'vendido'   => 'Vendido',
+        'submetido' => 'Submetido',
+        'vendido'   => 'CPCV',
         'concluido' => 'Concluído',
         'cancelado' => 'Cancelado',
     ];
