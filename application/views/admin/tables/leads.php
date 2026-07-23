@@ -87,6 +87,12 @@ return App_table::find('leads')
             '1',
             db_prefix() . 'leads.id as id',
             db_prefix() . 'leads.name as name',
+
+            // 🔹 Placeholder para a coluna "Proposta" (alinha os índices).
+            // Sem ele, o cabeçalho tem mais uma coluna do que a $aColumns e o
+            // processamento server-side da DataTable indexa fora do intervalo
+            // → /admin/leads/table devolvia HTTP 500.
+            '1',
         ];
 
         if (is_gdpr() && $consentLeads == '1') {

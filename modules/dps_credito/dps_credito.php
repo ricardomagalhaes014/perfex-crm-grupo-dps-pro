@@ -59,50 +59,59 @@ function dps_credito_setup_estados()
         return;
     }
 
-    $CI  = &get_instance();
-    $tbl = db_prefix() . 'leads_status';
-
-    // 1) Criar o estado "Crédito" se ainda não existir.
-    $credito    = $CI->db->where('name', 'Crédito')->get($tbl)->row_array();
-    $credito_id = $credito ? (int) $credito['id'] : null;
-
-    if (!$credito_id) {
-        $CI->load->model('leads_model');
-        $novo = $CI->leads_model->add_status(['name' => 'Crédito', 'color' => '#8e44ad']);
-        $credito_id = $novo ?: null;
-    }
-
-    // 2) Estados que passam a pedir o crédito: VIP 1/2/3, Necessidades,
-    //    Outras Oportunidades e o próprio Crédito. Casados por nome.
-    $todos = $CI->db->get($tbl)->result_array();
-    $ids   = [];
-
-    foreach ($todos as $s) {
-        $nome = strtoupper($s['name']);
-        if (strpos($nome, 'VIP') !== false
-            || strpos($nome, 'NECESSIDADE') !== false
-            || strpos($nome, 'OPORTUNIDADE') !== false) {
-            $ids[] = (int) $s['id'];
-        }
-    }
-
-    if ($credito_id) {
-        $ids[] = (int) $credito_id;
-    }
-
-    $ids = array_values(array_unique(array_filter($ids)));
-
-    if (!empty($ids)) {
-        update_option('dps_credito_estados_fecho', implode(',', $ids));
-    }
-
-    // Garantir que o bloqueio está ligado.
-    $ativo = get_option('dps_credito_bloqueio_ativo');
-    if ($ativo === false || $ativo === '' || $ativo === null) {
-        update_option('dps_credito_bloqueio_ativo', '1');
-    }
-
+    // Blindagem: isto corre no admin_init, em TODAS as páginas de admin. Uma
+    // exceção aqui bloquearia o CRM inteiro. Marca-se como feito ANTES e todo
+    // o trabalho vai dentro de try/catch — na pior das hipóteses o setup fica
+    // por aplicar, mas nunca deita o admin abaixo. (Se falhar, o admin
+    // reactiva/repete manualmente.)
     update_option('dps_credito_setup_estados', $marca);
+
+    try {
+        $CI  = &get_instance();
+        $tbl = db_prefix() . 'leads_status';
+
+        // 1) Criar o estado "Crédito" se ainda não existir.
+        $credito    = $CI->db->where('name', 'Crédito')->get($tbl)->row_array();
+        $credito_id = $credito ? (int) $credito['id'] : null;
+
+        if (!$credito_id) {
+            $CI->load->model('leads_model');
+            $novo = $CI->leads_model->add_status(['name' => 'Crédito', 'color' => '#8e44ad']);
+            $credito_id = $novo ?: null;
+        }
+
+        // 2) Estados que passam a pedir o crédito: VIP 1/2/3, Necessidades,
+        //    Outras Oportunidades e o próprio Crédito. Casados por nome.
+        $todos = $CI->db->get($tbl)->result_array();
+        $ids   = [];
+
+        foreach ($todos as $s) {
+            $nome = strtoupper($s['name']);
+            if (strpos($nome, 'VIP') !== false
+                || strpos($nome, 'NECESSIDADE') !== false
+                || strpos($nome, 'OPORTUNIDADE') !== false) {
+                $ids[] = (int) $s['id'];
+            }
+        }
+
+        if ($credito_id) {
+            $ids[] = (int) $credito_id;
+        }
+
+        $ids = array_values(array_unique(array_filter($ids)));
+
+        if (!empty($ids)) {
+            update_option('dps_credito_estados_fecho', implode(',', $ids));
+        }
+
+        // Garantir que o bloqueio está ligado.
+        $ativo = get_option('dps_credito_bloqueio_ativo');
+        if ($ativo === false || $ativo === '' || $ativo === null) {
+            update_option('dps_credito_bloqueio_ativo', '1');
+        }
+    } catch (\Throwable $e) {
+        log_activity('dps_credito_setup_estados falhou: ' . $e->getMessage());
+    }
 }
 
 function dps_credito_menu()
