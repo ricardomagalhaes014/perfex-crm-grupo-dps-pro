@@ -25,6 +25,25 @@ class Dps_vendas extends AdminController
      * Vendas
      * ------------------------------------------------------------------ */
 
+    /**
+     * Abre o simulador (dpsimobiliario.pt) já com a identidade do comercial.
+     *
+     * O botão da barra lateral aponta para aqui em vez de ir direto ao
+     * simulador: como o simulador não tem sessão do CRM, é este redirect —
+     * feito com o utilizador já autenticado no CRM — que lhe diz quem é.
+     * Passa `crm=1` (o simulador salta o ecrã de password) e `staff_id`
+     * (identifica o comercial para reservas/propostas). Nota de honestidade:
+     * isto é conveniência de interface, não segurança — o staff_id vai em
+     * claro no URL, tal como o link pessoal.
+     */
+    public function simulador()
+    {
+        $id  = (int) get_staff_user_id();
+        $url = 'https://dpsimobiliario.pt/simuladorportugal/?crm=1&staff_id=' . $id;
+
+        redirect($url);
+    }
+
     public function index()
     {
         $filtros = [

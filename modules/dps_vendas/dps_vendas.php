@@ -81,6 +81,17 @@ function dps_vendas_menu()
 {
     $CI = &get_instance();
 
+    // "Simulador" — atalho que leva a identidade do utilizador logado para o
+    // simulador (dpsimobiliario.pt). Assim entra sem password e o simulador
+    // sabe já quem está a reservar / a enviar propostas. Ver Dps_vendas::simulador().
+    $CI->app_menu->add_sidebar_menu_item('dps_simulador', [
+        'slug'     => 'dps_simulador',
+        'name'     => 'Simulador',
+        'href'     => admin_url('dps_vendas/simulador'),
+        'icon'     => 'fa fa-building-o',
+        'position' => 25,
+    ]);
+
     $CI->app_menu->add_sidebar_menu_item('dps_vendas', [
         'slug'     => 'dps_vendas',
         'name'     => 'Vendas & Comissões',
