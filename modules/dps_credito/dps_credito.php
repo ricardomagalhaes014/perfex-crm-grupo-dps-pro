@@ -18,6 +18,7 @@ register_activation_hook(DPS_CREDITO_MODULE_NAME, 'dps_credito_activate');
 
 get_instance()->load->helper(DPS_CREDITO_MODULE_NAME . '/dps_credito');
 
+hooks()->add_action('admin_init', 'dps_credito_ensure_historico');
 hooks()->add_action('admin_init', 'dps_credito_setup_estados');
 hooks()->add_action('admin_init', 'dps_credito_menu');
 hooks()->add_action('admin_init', 'dps_credito_permissions');
@@ -52,6 +53,45 @@ function dps_credito_activate()
  * reactivar o módulo. Os IDs são resolvidos por NOME (não fixados), para
  * aguentar diferenças de numeração entre instalações.
  */
+/**
+ * Tabela de histórico das respostas de crédito.
+ * A tabela de respostas guarda só o estado actual; sem histórico não é
+ * possível medir quantas vezes um comercial passou uma lead a "sim".
+ */
+function dps_credito_ensure_historico()
+{
+    if (get_option('dps_credito_historico_v') === '1') {
+        return;
+    }
+
+    try {
+        $CI  = &get_instance();
+        $tbl = db_prefix() . 'dps_credito_historico';
+
+        if (!$CI->db->table_exists($tbl)) {
+            $CI->db->query('CREATE TABLE `' . $tbl . "` (
+                `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `lead_id` INT NOT NULL,
+                `staff_id` INT NULL,
+                `abordado` VARCHAR(10) NULL,
+                `abordado_anterior` VARCHAR(10) NULL,
+                `mudou` TINYINT(1) NOT NULL DEFAULT 0,
+                `interessado_proposta` VARCHAR(10) NULL,
+                `montante` DECIMAL(15,2) NULL,
+                `dateadded` DATETIME NOT NULL,
+                PRIMARY KEY (`id`),
+                KEY `lead_id` (`lead_id`),
+                KEY `staff_id` (`staff_id`),
+                KEY `dateadded` (`dateadded`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+        }
+    } catch (\Throwable $e) {
+        log_activity('dps_credito_ensure_historico falhou: ' . $e->getMessage());
+    }
+
+    update_option('dps_credito_historico_v', '1');
+}
+
 function dps_credito_setup_estados()
 {
     $marca = '2026-07-22';
@@ -137,6 +177,13 @@ function dps_credito_menu()
         'name'     => 'Comissões',
         'href'     => admin_url('dps_credito/comissoes'),
         'position' => 2,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_credito', [
+        'slug'     => 'dps_credito_analise',
+        'name'     => 'Análise Comercial',
+        'href'     => admin_url('dps_credito/analise'),
+        'position' => 3,
     ]);
 }
 

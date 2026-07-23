@@ -83,6 +83,28 @@ class Dps_credito_model extends App_Model
             $resposta_id = $this->db->insert_id();
         }
 
+        /*
+         * Histórico: a tabela de respostas guarda só o estado ACTUAL (uma
+         * linha por lead). Para a análise de direcção — quantas vezes o
+         * comercial mudou para "sim", evolução no tempo — é preciso o registo
+         * de cada resposta. Nunca falhar a resposta por causa do histórico.
+         */
+        try {
+            $anterior = $existente ? ($existente['abordado'] ?? null) : null;
+            $this->db->insert(db_prefix() . 'dps_credito_historico', [
+                'lead_id'              => $lead_id,
+                'staff_id'             => (int) get_staff_user_id(),
+                'abordado'             => $abordado,
+                'abordado_anterior'    => $anterior,
+                'mudou'                => ($anterior !== $abordado) ? 1 : 0,
+                'interessado_proposta' => $payload['interessado_proposta'],
+                'montante'             => $payload['montante'],
+                'dateadded'            => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            log_activity('dps_credito historico falhou: ' . $e->getMessage());
+        }
+
         $credito_id     = null;
         $criou_processo = false;
 
