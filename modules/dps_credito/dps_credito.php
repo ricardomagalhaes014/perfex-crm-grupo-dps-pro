@@ -239,39 +239,37 @@ function dps_credito_coluna_celula($row, $aRow)
         return $row;
     }
 
-    if ($abordado === null) {
-        /*
-         * Sem resposta = INDEFINIDO (antes dizia "Não", o que confundia
-         * "não abordou" com "ninguém respondeu" — e é essa diferença que a
-         * análise mede). Responder Sim/Não é feito AQUI, sem abrir a lead:
-         * "Não" grava logo; "Sim" abre o questionário porque ainda faltam
-         * os restantes campos (situação, banco, montante, proposta).
-         */
-        $row[] = '<span class="dps-credito-inline" data-lead="' . $lead_id . '">'
-            . '<span class="label label-warning" style="margin-right:4px;">Indefinido</span>'
-            . '<button type="button" class="btn btn-success btn-xs dps-credito-sim" data-lead="' . $lead_id . '" '
-            . 'title="Crédito abordado — abre para completar">Sim</button> '
-            . '<button type="button" class="btn btn-default btn-xs dps-credito-nao" data-lead="' . $lead_id . '" '
-            . 'title="Crédito não abordado">Não</button>'
-            . '</span>';
-
-        return $row;
-    }
-
+    /*
+     * A coluna é sempre editável na própria tabela — o objectivo é responder
+     * (e corrigir) sem abrir a lead. Mostra o estado actual e os dois botões:
+     *  - "Não" grava directamente por AJAX;
+     *  - "Sim" abre o questionário, porque a resposta afirmativa exige
+     *    situação/banco/montante/proposta — gravar só o "sim" deixaria o
+     *    processo incompleto.
+     * Sem resposta = "Indefinido" (distinto de "não abordou", que é o que a
+     * análise de direcção precisa de medir).
+     */
     if ($abordado === 'nao') {
-        $html = '<span class="label label-default">Não abordado</span>';
-    } else {
-        $html = '<span class="label label-success">Abordado</span>';
-
+        $estado = '<span class="label label-default">Não abordado</span>';
+    } elseif ($abordado === 'sim') {
+        $estado = '<span class="label label-success">Abordado</span>';
         if ($interessado === 'sim') {
-            $html .= ' <span class="label label-info">Quer proposta</span>';
+            $estado .= ' <span class="label label-info">Quer proposta</span>';
         }
+    } else {
+        $estado = '<span class="label label-warning">Indefinido</span>';
     }
 
-    $html .= ' <button type="button" class="btn btn-default btn-xs dps-credito-abrir" data-lead="' . $lead_id . '">'
-        . '<i class="fa fa-pencil"></i></button>';
+    $btnSim = '<button type="button" class="btn btn-xs ' . ($abordado === 'sim' ? 'btn-success' : 'btn-default')
+        . ' dps-credito-sim" data-lead="' . $lead_id . '" title="Crédito abordado — abre para completar">Sim</button>';
+    $btnNao = '<button type="button" class="btn btn-xs ' . ($abordado === 'nao' ? 'btn-success' : 'btn-default')
+        . ' dps-credito-nao" data-lead="' . $lead_id . '" title="Crédito não abordado">Não</button>';
 
-    $row[] = $html;
+    $row[] = '<span class="dps-credito-inline" data-lead="' . $lead_id . '" style="white-space:nowrap;">'
+        . $estado . ' ' . $btnSim . ' ' . $btnNao
+        . ' <button type="button" class="btn btn-default btn-xs dps-credito-abrir" data-lead="' . $lead_id . '" '
+        . 'title="Abrir questionário completo"><i class="fa fa-pencil"></i></button>'
+        . '</span>';
 
     return $row;
 }

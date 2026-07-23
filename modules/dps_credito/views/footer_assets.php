@@ -179,8 +179,14 @@
         $.post(adminUrl + 'dps_credito/responder_rapido/' + leadId, dados, null, 'json')
             .done(function (r) {
                 if (r && r.success) {
-                    $b.closest('.dps-credito-inline')
-                      .html('<span class="label label-default">Não abordado</span>');
+                    // Actualizar a célula no sítio: etiqueta passa a "Não
+                    // abordado" e o botão Não fica realçado como activo.
+                    var $cel = $b.closest('.dps-credito-inline');
+                    $cel.find('.label').remove();
+                    $cel.prepend('<span class="label label-default">Não abordado</span> ');
+                    $cel.find('.dps-credito-sim').removeClass('btn-success').addClass('btn-default');
+                    $b.prop('disabled', false).text('Não')
+                      .removeClass('btn-default').addClass('btn-success');
                     if (typeof alert_float === 'function') { alert_float('success', 'Crédito: Não abordado.'); }
                 } else {
                     $b.prop('disabled', false).text('Não');
