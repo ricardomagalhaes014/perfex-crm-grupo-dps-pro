@@ -31,18 +31,35 @@ if (!function_exists('dps_sidebar_reorg_register_filter')) {
 if (!function_exists('dps_sidebar_reorg_apply')) {
     function dps_sidebar_reorg_apply($items)
     {
+        // Estes itens já aparecem num bloco fixo só-do-servidor (a secção
+        // "IMOBILIARIO" e afins) que fica onde está, por pedido. Para não
+        // duplicar, escondemo-los aqui do lado dinâmico — só se vêem através
+        // desse bloco fixo.
+        foreach ([
+            'perfex-dashboard-module-menu-master',
+            'wiki-module-menu-wiki-master',
+            'customers',
+            'importsync',
+            'agenda',
+            'video_library',
+            'dps_teams',
+            'dps_imoveis',
+            'projects',
+            'tasks',
+            'support',
+            'leads',
+        ] as $slug_duplicado) {
+            unset($items[$slug_duplicado]);
+        }
+
         // Posições dos itens de topo que reconhecemos (ordem pedida).
         // Os 4 itens só-servidor ficam fora desta lista e não são mexidos.
         $ordem = [
-            'leads'          => 1,
             'dps_automacoes' => 2,
-            'tasks'          => 3,
             'reminder'       => 4,
             'dps_credito'    => 5,
             'dps_vendas'     => 6,
             'dps_webmail'    => 7,
-            'dps_imoveis'    => 8,
-            'customers'      => 9,
             'dps_outros'     => 10,
         ];
 
@@ -84,16 +101,15 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             ];
         }
 
-        // 2. "Outros" — junta os módulos secundários como filhos
+        // 2. "Outros" — junta os módulos secundários como filhos.
+        //    video_library/wiki-module-menu-wiki-master/projects/support já
+        //    foram removidos acima (duplicavam o bloco fixo), por isso não
+        //    aparecem aqui.
         $outros_slugs = [
-            'video_library',
-            'wiki-module-menu-wiki-master',
             'dps-meetings',
             'dps-interacoes',
             'dps-chatbot',
             'dps_voip',
-            'projects',
-            'support',
         ];
         $outros_children = [];
         $pos = 1;
@@ -142,7 +158,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         }
 
         // 4. Posições explícitas dos restantes itens de topo reconhecidos
-        foreach (['leads', 'tasks', 'reminder', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'customers'] as $slug) {
+        foreach (['reminder', 'dps_credito', 'dps_webmail'] as $slug) {
             if (isset($items[$slug])) {
                 $items[$slug]['position'] = $ordem[$slug];
             }
