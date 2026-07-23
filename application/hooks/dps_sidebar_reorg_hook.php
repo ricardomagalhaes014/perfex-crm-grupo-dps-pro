@@ -170,6 +170,14 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         //    "Admin" (visível só a admins). O dashboard fica sempre visível.
         $mantidos_visiveis = array_merge(array_keys($ordem), ['dashboard']);
 
+        // Itens só-do-servidor identificados pelo NOME (não sabemos o slug,
+        // porque o código deles não está no git) — ficam sempre de fora,
+        // tal como "Simulador", "Painel" e "IMOBILIARIO".
+        $nomes_protegidos = ['propostas enviadas', 'simulador', 'painel', 'funil de leads', 'funil de vendas'];
+        $eh_protegido_por_nome = function ($item) use ($nomes_protegidos) {
+            return in_array(mb_strtolower(trim((string) ($item['name'] ?? '')), 'UTF-8'), $nomes_protegidos, true);
+        };
+
         if (is_admin()) {
             $admin_children = [];
             $pos = 1;
@@ -181,7 +189,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
 
             foreach ($items as $slug => $item) {
-                if (in_array($slug, $mantidos_visiveis, true) || $slug === 'dps_admin_menu') {
+                if (in_array($slug, $mantidos_visiveis, true) || $slug === 'dps_admin_menu' || $eh_protegido_por_nome($item)) {
                     continue;
                 }
                 $child                 = $item;
@@ -204,7 +212,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
         } else {
             foreach ($items as $slug => $item) {
-                if (in_array($slug, $mantidos_visiveis, true)) {
+                if (in_array($slug, $mantidos_visiveis, true) || $eh_protegido_por_nome($item)) {
                     continue;
                 }
                 unset($items[$slug]);
