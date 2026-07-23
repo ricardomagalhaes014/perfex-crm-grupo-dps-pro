@@ -211,19 +211,22 @@ class Dps_vendas_model extends App_Model
             'dateupdated' => date('Y-m-d H:i:s'),
         ];
 
+        $aviso = null;
+
         // É ao passar a "vendido" (CPCV) que a comissão passa a ser devida.
         if ($novo_estado === 'vendido') {
             $calculo = $this->calcular_comissao($venda);
 
-            // Fixar uma comissão de 0 € em silêncio seria o pior desfecho:
-            // ninguém repara e o comercial não recebe. Travamos e dizemos porquê.
+            // Sem taxa definida a comissão fica a 0. Antes travávamos a
+            // mudança de estado; isso impedia o admin de trabalhar quando a
+            // regra ainda não estava criada. Agora deixa passar e AVISA — o
+            // risco de uma comissão a zero passar despercebida fica coberto
+            // pelo aviso, e a venda pode seguir o seu circuito.
             if ($calculo['taxa'] <= 0) {
-                return [
-                    'ok'   => false,
-                    'erro' => 'Não há taxa de comissão definida para "' . $venda['empreendimento'] . '". '
-                        . 'Defina a regra em Vendas &gt; Regras de Comissão, ou indique a taxa na própria venda, '
-                        . 'antes de a marcar como Vendida.',
-                ];
+                $aviso = 'Estado actualizado, mas não há taxa de comissão definida para "'
+                    . $venda['empreendimento'] . '" — a comissão ficou a 0 €. '
+                    . 'Defina a regra em Vendas &gt; Regras de Comissão (ou a taxa na própria venda) '
+                    . 'e volte a guardar para a recalcular.';
             }
 
             $update['comissao_total']  = $calculo['valor'];
@@ -245,7 +248,7 @@ class Dps_vendas_model extends App_Model
             'estado_para' => $novo_estado,
         ]);
 
-        return ['ok' => true];
+        return ['ok' => true, 'aviso' => $aviso];
     }
 
     public function registar_historico($venda_id, $de, $para, $nota = null)

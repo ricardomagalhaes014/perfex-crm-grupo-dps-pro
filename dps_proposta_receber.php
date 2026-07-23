@@ -194,8 +194,9 @@ if (!preg_match('/\.pdf$/i', $file_name)) {
     $file_name .= '.pdf';
 }
 
-$legenda = 'Proposta' . ($empreendimento !== '' ? ' — ' . $empreendimento : '')
-    . ($unidade !== '' ? ' — Fracção ' . $unidade : '');
+// Legenda sempre igual, para o cliente: nada de chaves internas
+// ("boavista") nem de nomes que possam não bater com o PDF anexado.
+$legenda = 'Proposta DPS';
 
 $corpo = json_encode([
     'number'       => $numero,

@@ -226,9 +226,19 @@ class Dps_vendas extends AdminController
         );
 
         if ($resultado['ok']) {
-            set_alert('success', 'Estado actualizado.');
+            if (!empty($resultado['aviso'])) {
+                set_alert('warning', $resultado['aviso']);
+            } else {
+                set_alert('success', 'Estado actualizado.');
+            }
         } else {
             set_alert('danger', $resultado['erro']);
+        }
+
+        // Quando a mudança vem da listagem, volta-se para lá — obrigar a
+        // passar pela ficha a cada alteração tornava a lista inutilizável.
+        if ($this->input->post('voltar') === 'lista') {
+            redirect(admin_url('dps_vendas'));
         }
 
         redirect(admin_url('dps_vendas/view/' . $id));

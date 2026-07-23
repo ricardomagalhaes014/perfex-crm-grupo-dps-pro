@@ -99,9 +99,32 @@
                                         <td><?php echo app_format_money($v['valor'], get_base_currency()); ?></td>
                                         <td><?php echo html_escape($v['comercial_nome']); ?></td>
                                         <td>
-                                            <span class="label <?php echo dps_vendas_cor_estado($v['estado']); ?>">
-                                                <?php echo dps_vendas_nome_estado($v['estado']); ?>
-                                            </span>
+                                            <?php if (is_admin() || staff_can('edit', 'dps_vendas')) { ?>
+                                                <?php
+                                                // Mudança de estado directamente na lista: o admin gere
+                                                // dezenas de vendas e abrir a ficha para cada uma era
+                                                // o que tornava isto pesado. O form_open leva o CSRF.
+                                                echo form_open(admin_url('dps_vendas/change_status/' . $v['id']), [
+                                                    'class' => 'dps-estado-form',
+                                                    'style' => 'margin:0;',
+                                                ]);
+                                                ?>
+                                                <input type="hidden" name="voltar" value="lista">
+                                                <select name="estado" class="form-control input-sm dps-estado-sel"
+                                                        style="min-width:150px;padding:3px 6px;height:auto;font-size:.85em;"
+                                                        onchange="this.form.submit();">
+                                                    <?php foreach (Dps_vendas_model::$fluxo as $estado) { ?>
+                                                        <option value="<?php echo $estado; ?>" <?php echo $v['estado'] === $estado ? 'selected' : ''; ?>>
+                                                            <?php echo dps_vendas_nome_estado($estado); ?>
+                                                        </option>
+                                                    <?php } ?>
+                                                </select>
+                                                <?php echo form_close(); ?>
+                                            <?php } else { ?>
+                                                <span class="label <?php echo dps_vendas_cor_estado($v['estado']); ?>">
+                                                    <?php echo dps_vendas_nome_estado($v['estado']); ?>
+                                                </span>
+                                            <?php } ?>
                                             <?php if (!empty($v['cpcv_assinado'])) { ?>
                                                 <br><span class="label label-success" style="font-size:.7em;" title="CPCV assinado">CPCV assinado</span>
                                             <?php } ?>
