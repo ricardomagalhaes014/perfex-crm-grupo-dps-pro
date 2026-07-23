@@ -4,14 +4,14 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: DPS Vendas & Comissões
 Description: Processo de venda (documentos, workflow de estados) sobre a tabela de vendas do simulador, com regras de comissão por empreendimento.
-Version: 1.1.0
+Version: 1.2.0
 Requires at least: 2.3.*
 Author: Grupo DPS
 Author URI: https://grupo-dps.com
 */
 
 define('DPS_VENDAS_MODULE_NAME', 'dps_vendas');
-define('DPS_VENDAS_VERSION', '1.1.0');
+define('DPS_VENDAS_VERSION', '1.2.0');
 define('DPS_VENDAS_UPLOAD_PATH', 'uploads/dps_vendas/');
 
 register_activation_hook(DPS_VENDAS_MODULE_NAME, 'dps_vendas_activate');
