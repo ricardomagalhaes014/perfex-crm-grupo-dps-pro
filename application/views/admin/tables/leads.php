@@ -100,7 +100,6 @@ return App_table::find('leads')
         }
 
         $aColumns = array_merge($aColumns, [
-            'company',
             db_prefix() . 'leads.email as email',
             db_prefix() . 'leads.phonenumber as phonenumber',
         
@@ -259,9 +258,6 @@ return App_table::find('leads')
                 $row[] = $consentHTML;
             }
             
-            // Empresa
-            $row[] = htmlspecialchars($aRow['company'], ENT_QUOTES, 'UTF-8');
-
             // Email
             $row[] = ($aRow['email'] != ''
                 ? '<a href="mailto:' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '</a>'

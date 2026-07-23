@@ -153,6 +153,53 @@
         });
     });
 
+    /* ------------------------------------------------------------------
+     * Gravar nota exige o crédito respondido
+     * ------------------------------------------------------------------
+     * Cada interação registada é o momento natural para saber se o crédito
+     * foi abordado. Intercetamos o "Guardar" da nota (popup da tabela de
+     * leads): se a lead ainda estiver INDEFINIDA, abre-se o questionário e
+     * a nota é gravada logo a seguir, sem o comercial perder o que escreveu.
+     */
+    var _dpsNotaLiberta = false;
+
+    // Fase de CAPTURA: o handler que grava a nota está registado em document
+    // (bubble) e foi registado antes deste. Só apanhando o clique na captura
+    // é que conseguimos decidir ANTES de ele gravar.
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest('#dps-note-save') : null;
+        if (!btn) { return; }
+
+        if (_dpsNotaLiberta) { _dpsNotaLiberta = false; return; }   // já validado
+
+        var leadId = window._dpsNoteLeadId || null;
+        if (!leadId) { return; }
+
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        var reenviar = function () {
+            _dpsNotaLiberta = true;
+            btn.click();
+        };
+
+        precisaQuestionario(leadId).then(function (precisa) {
+            if (!precisa) { reenviar(); return; }
+
+            // Não perder o que já estava escrito.
+            var notaEscrita = $('#dps-note-text').val();
+            $('#dps-note-popup').modal('hide');
+
+            abrirQuestionario(leadId, function () {
+                $('#dps-note-popup').modal('show');
+                setTimeout(function () {
+                    $('#dps-note-text').val(notaEscrita);
+                    reenviar();
+                }, 500);
+            });
+        }).catch(function () { reenviar(); });   // em dúvida, não travar o trabalho
+    }, true);
+
     // Comercial: anexar documentos em falta e voltar a submeter (do painel da lead)
     $(document).on('click', '#dps-credito-resubmeter-btn', function () {
         var $form = $('#dps-credito-resubmeter');

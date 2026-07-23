@@ -193,10 +193,12 @@ function dps_credito_coluna_celula($row, $aRow)
     }
 
     if ($abordado === null) {
-        // Sem resposta ainda: mostra-se como "Não" (por omissão), clicável para
-        // preencher. Continua a ser o estado que pede o questionário ao fechar.
-        $row[] = '<button type="button" class="btn btn-default btn-xs dps-credito-abrir" data-lead="' . $lead_id . '">'
-            . 'Não</button>';
+        // Sem resposta ainda = INDEFINIDO. Antes mostrava "Não", o que era
+        // enganador: confundia "o comercial disse que não abordou" com
+        // "ninguém respondeu ainda" — e essa diferença é precisamente o que a
+        // análise de direcção precisa de medir.
+        $row[] = '<button type="button" class="btn btn-warning btn-xs dps-credito-abrir" data-lead="' . $lead_id . '" '
+            . 'title="Por responder — clique para preencher">Indefinido</button>';
 
         return $row;
     }

@@ -181,8 +181,11 @@ $accao = (string) ($_GET['a'] ?? $_POST['a'] ?? '');
 if ($accao === 'comerciais') {
     $bd = ligar_bd();
 
+    // O flag `admin` serve ao simulador: um comercial vê a reserva já
+    // atribuída a si e não a pode desviar para outro; o admin continua a
+    // poder escolher (é ele que regista reservas por terceiros).
     $res = $bd->query(
-        "SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome
+        "SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome, admin
          FROM tblstaff
          WHERE active = 1
          ORDER BY firstname ASC"
@@ -191,8 +194,9 @@ if ($accao === 'comerciais') {
     $comerciais = [];
     while ($linha = $res->fetch_assoc()) {
         $comerciais[] = [
-            'id'   => (int) $linha['staffid'],
-            'nome' => $linha['nome'],
+            'id'    => (int) $linha['staffid'],
+            'nome'  => $linha['nome'],
+            'admin' => ((int) $linha['admin'] === 1),
         ];
     }
 
@@ -229,25 +233,29 @@ if ($accao === 'importar') {
         responder(['success' => false, 'error' => 'Valor inválido.'], 400);
     }
 
-    // No pedido feito pelo cliente o Cartão de Cidadão é obrigatório. Validar
-    // ANTES de criar seja o que for, para não ficar um pedido órfão sem documento.
-    if ($e_pedido) {
-        if (empty($_FILES['cc']['name']) || ($_FILES['cc']['error'] ?? 1) !== UPLOAD_ERR_OK) {
-            responder(['success' => false, 'error' => 'É obrigatório anexar o Cartão de Cidadão.'], 400);
-        }
+    /*
+     * Dados completos + Cartão de Cidadão são obrigatórios nos DOIS caminhos:
+     * na reserva feita pelo comercial e no pedido feito pelo cliente. A
+     * validação do browser é conveniência; esta é a que conta — sem ela era
+     * possível gravar uma reserva incompleta contornando o formulário.
+     * Validar ANTES de criar o que quer que seja, para não ficar um registo
+     * órfão sem documento.
+     */
+    if (empty($_FILES['cc']['name']) || ($_FILES['cc']['error'] ?? 1) !== UPLOAD_ERR_OK) {
+        responder(['success' => false, 'error' => 'É obrigatório anexar o Cartão de Cidadão.'], 400);
+    }
 
-        $ext_cc = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext_cc, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
-            responder(['success' => false, 'error' => 'O documento tem de ser PDF, JPG ou PNG.'], 400);
-        }
-        if (($_FILES['cc']['size'] ?? 0) > 10485760) {
-            responder(['success' => false, 'error' => 'O documento excede 10 MB.'], 400);
-        }
+    $ext_cc = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext_cc, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+        responder(['success' => false, 'error' => 'O documento tem de ser PDF, JPG ou PNG.'], 400);
+    }
+    if (($_FILES['cc']['size'] ?? 0) > 10485760) {
+        responder(['success' => false, 'error' => 'O documento excede 10 MB.'], 400);
+    }
 
-        foreach (['cliente' => 'nome', 'morada' => 'morada', 'telefone' => 'telefone', 'email' => 'email', 'estado_civil' => 'estado civil'] as $campo => $etiqueta) {
-            if (trim((string) ($_POST[$campo] ?? '')) === '') {
-                responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
-            }
+    foreach (['cliente' => 'nome', 'morada' => 'morada', 'telefone' => 'telefone', 'email' => 'email', 'estado_civil' => 'estado civil'] as $campo => $etiqueta) {
+        if (trim((string) ($_POST[$campo] ?? '')) === '') {
+            responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
         }
     }
 
