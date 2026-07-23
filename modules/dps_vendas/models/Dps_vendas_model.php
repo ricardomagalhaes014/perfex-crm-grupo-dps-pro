@@ -5,10 +5,14 @@ defined('BASEPATH') or exit('No direct script access allowed');
 class Dps_vendas_model extends App_Model
 {
     /**
-     * Estados da venda. Comercial cria em "reservado"; o admin passa a
-     * "vendido" (CPCV — fixa a comissão), "concluido" (escritura) ou "cancelado".
+     * Estados da venda:
+     *  reservado -> submetido (automático ao enviar o email ao promotor)
+     *            -> vendido (rótulo "CPCV" — o admin muda manualmente depois
+     *               de o promotor aceitar; fixa a comissão)
+     *            -> concluido (automático ao confirmar o pagamento)
+     *  Qualquer estado pode ir para "cancelado".
      */
-    public static $fluxo = ['pedido', 'reservado', 'vendido', 'concluido', 'cancelado'];
+    public static $fluxo = ['pedido', 'reservado', 'submetido', 'vendido', 'concluido', 'cancelado'];
 
     public function __construct()
     {

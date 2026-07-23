@@ -30,7 +30,7 @@
                                         <option value="">Todos</option>
                                         <?php foreach (Dps_vendas_model::$fluxo as $estado) { ?>
                                             <option value="<?php echo $estado; ?>" <?php echo $filtros['estado'] === $estado ? 'selected' : ''; ?>>
-                                                <?php echo ucfirst(str_replace('_', ' ', $estado)); ?>
+                                                <?php echo dps_vendas_nome_estado($estado); ?>
                                             </option>
                                         <?php } ?>
                                         <option value="historico" <?php echo $filtros['estado'] === 'historico' ? 'selected' : ''; ?>>

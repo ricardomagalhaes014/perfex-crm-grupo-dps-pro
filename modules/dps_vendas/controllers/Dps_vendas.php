@@ -190,6 +190,12 @@ class Dps_vendas extends AdminController
         }
 
         if ($this->email->send(false)) {
+            // Enviar o email ao promotor marca automaticamente a venda como
+            // Submetida — só a partir de Reservado, para não sobrepor um
+            // estado mais avançado se o email for reenviado mais tarde.
+            if ($venda['estado'] === 'reservado') {
+                $this->dps_vendas_model->mudar_estado($id, 'submetido', 'Reserva enviada por email ao promotor (' . $para . ')');
+            }
             set_alert('success', 'Reserva enviada por email para ' . $para . '.');
         } else {
             set_alert('danger', 'Não foi possível enviar o email. Verifique a configuração de SMTP do CRM.');
