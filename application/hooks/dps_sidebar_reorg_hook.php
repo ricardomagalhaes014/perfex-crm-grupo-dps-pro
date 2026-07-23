@@ -14,6 +14,16 @@ defined('BASEPATH') or exit('No direct script access allowed');
 if (!function_exists('dps_sidebar_reorg_register')) {
     function dps_sidebar_reorg_register()
     {
+        // Regista-se no mesmo ponto (admin_init) onde todos os módulos
+        // registam os seus próprios itens de menu, com prioridade alta para
+        // correr depois de tudo já ter sido adicionado.
+        hooks()->add_action('admin_init', 'dps_sidebar_reorg_register_filter', 999);
+    }
+}
+
+if (!function_exists('dps_sidebar_reorg_register_filter')) {
+    function dps_sidebar_reorg_register_filter()
+    {
         hooks()->add_filter('sidebar_menu_items', 'dps_sidebar_reorg_apply');
     }
 }
@@ -24,19 +34,20 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         // Posições dos itens de topo que reconhecemos (ordem pedida).
         // Os 4 itens só-servidor ficam fora desta lista e não são mexidos.
         $ordem = [
-            'leads'            => 1,
-            'dps_automacoes'   => 2,
-            'tasks'            => 3,
-            'reminder'         => 4,
-            'dps_credito'      => 5,
-            'dps_vendas'       => 6,
-            'dps_webmail'      => 7,
-            'dps_imoveis'      => 8,
-            'customers'        => 9,
-            'dps_outros'       => 10,
+            'leads'          => 1,
+            'dps_automacoes' => 2,
+            'tasks'          => 3,
+            'reminder'       => 4,
+            'dps_credito'    => 5,
+            'dps_vendas'     => 6,
+            'dps_webmail'    => 7,
+            'dps_imoveis'    => 8,
+            'customers'      => 9,
+            'dps_outros'     => 10,
         ];
 
-        // 1. "Automações" — junta WhatsApp e Sofia Calls como filhos
+        // 1. "Automações" — junta WhatsApp, Sofia Calls e o item "Automação"
+        //    (que estava escondido dentro de Utilities) como filhos
         $automacoes_children = [];
         foreach (['dps_whatsapp' => 1, 'dps_sofia_calls' => 2] as $slug => $pos) {
             if (isset($items[$slug])) {
@@ -45,6 +56,19 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 $child['position']     = $pos;
                 $automacoes_children[] = $child;
                 unset($items[$slug]);
+            }
+        }
+        // "Automação" (automation_manager) vive como filho de "utilities" —
+        // vai buscá-lo lá antes de "utilities" cair no balde do Admin.
+        if (!empty($items['utilities']['children'])) {
+            foreach ($items['utilities']['children'] as $i => $sub) {
+                if (($sub['slug'] ?? null) === 'automation_manager') {
+                    $sub['parent_slug']    = 'dps_automacoes';
+                    $sub['position']       = 3;
+                    $automacoes_children[] = $sub;
+                    unset($items['utilities']['children'][$i]);
+                    break;
+                }
             }
         }
         if (!empty($automacoes_children)) {
@@ -95,16 +119,25 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             ];
         }
 
-        // 3. "Vendas & Comissões" -> renomeado para "Simulador de Comissões",
-        //    removendo o filho "Vendas" (apagado a pedido).
+        // 3. "Vendas & Comissões" -> renomeado para "Simulador de Comissões".
+        //    Remove "Vendas" (apagado) e "Regras de Comissão" (vai para Admin).
+        $regras_comissao_extraida = null;
         if (isset($items['dps_vendas'])) {
             $items['dps_vendas']['name']     = 'Simulador de Comissões';
             $items['dps_vendas']['position'] = $ordem['dps_vendas'];
             if (!empty($items['dps_vendas']['children'])) {
-                $items['dps_vendas']['children'] = array_values(array_filter(
-                    $items['dps_vendas']['children'],
-                    fn ($c) => $c['slug'] !== 'dps_vendas_lista'
-                ));
+                $nova_lista = [];
+                foreach ($items['dps_vendas']['children'] as $c) {
+                    if ($c['slug'] === 'dps_vendas_lista') {
+                        continue; // "Vendas" — apagado
+                    }
+                    if ($c['slug'] === 'dps_vendas_regras') {
+                        $regras_comissao_extraida = $c; // "Regras de Comissão" — vai para Admin
+                        continue;
+                    }
+                    $nova_lista[] = $c;
+                }
+                $items['dps_vendas']['children'] = array_values($nova_lista);
             }
         }
 
@@ -122,6 +155,13 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         if (is_admin()) {
             $admin_children = [];
             $pos = 1;
+
+            if ($regras_comissao_extraida) {
+                $regras_comissao_extraida['parent_slug'] = 'dps_admin_menu';
+                $regras_comissao_extraida['position']    = $pos++;
+                $admin_children[]                        = $regras_comissao_extraida;
+            }
+
             foreach ($items as $slug => $item) {
                 if (in_array($slug, $mantidos_visiveis, true) || $slug === 'dps_admin_menu') {
                     continue;
