@@ -41,7 +41,7 @@ define('FORM_CONFIG', [
         'email'      => 'ricardomagalhaes@grupo-dps.com',
         'name'       => 'Ricardo Magalhães',
         'status'     => 4,                                  // estado "Novos"
-        'source'     => 2,                                  // fonte "Facebook/Meta"
+        'source'     => 1,                                  // IMO Portugal (por omissão; Brasil/Dubai têm formulário próprio)
         'tags'       => '',
     ],
     // Ricardo Magalhães - Formulário MV
@@ -50,7 +50,7 @@ define('FORM_CONFIG', [
         'email'      => 'ricardomagalhaes@grupo-dps.com',
         'name'       => 'Ricardo Magalhães',
         'status'     => 4,                                  // estado "Novos"
-        'source'     => 2,                                  // fonte "Facebook/Meta"
+        'source'     => 1,                                  // IMO Portugal (por omissão; Brasil/Dubai têm formulário próprio)
         'tags'       => 'MV',
     ],
 ]);
