@@ -47,14 +47,16 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'projects',
             'tasks',
             'support',
-            'leads',
         ] as $slug_duplicado) {
             unset($items[$slug_duplicado]);
         }
 
         // Posições dos itens de topo que reconhecemos (ordem pedida).
         // Os 4 itens só-servidor ficam fora desta lista e não são mexidos.
+        // "leads" fica de fora da lista de escondidos: aparece sempre em
+        // primeiro lugar, controlado por aqui.
         $ordem = [
+            'leads'          => 1,
             'dps_automacoes' => 2,
             'reminder'       => 4,
             'dps_credito'    => 5,
@@ -158,7 +160,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         }
 
         // 4. Posições explícitas dos restantes itens de topo reconhecidos
-        foreach (['reminder', 'dps_credito', 'dps_webmail'] as $slug) {
+        foreach (['leads', 'reminder', 'dps_credito', 'dps_webmail'] as $slug) {
             if (isset($items[$slug])) {
                 $items[$slug]['position'] = $ordem[$slug];
             }
