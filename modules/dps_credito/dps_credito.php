@@ -230,10 +230,10 @@ function dps_credito_coluna_celula($row, $aRow)
     $abordado    = $aRow['dps_credito_abordado'] ?? null;
     $interessado = $aRow['dps_credito_interessado'] ?? null;
 
-    // Leads de fora do imobiliário Portugal não entram no questionário —
-    // a coluna fica vazia para não sugerir uma acção que não se aplica.
-    $aplicaveis = dps_credito_fontes_aplicaveis();
-    if (!empty($aplicaveis) && !in_array((int) ($aRow['dps_credito_source'] ?? 0), $aplicaveis, true)) {
+    // Só as leads de fora de Portugal ficam de fora do questionário. As que
+    // têm a fonte por preencher entram (antes apareciam como "—" e não havia
+    // forma de responder).
+    if (!dps_credito_fonte_entra($aRow['dps_credito_source'] ?? 0)) {
         $row[] = '<span class="text-muted">—</span>';
 
         return $row;

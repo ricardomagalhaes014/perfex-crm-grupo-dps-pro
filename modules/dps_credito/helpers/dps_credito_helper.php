@@ -46,18 +46,59 @@ function dps_credito_fontes_aplicaveis()
 }
 
 /**
+ * Fontes de FORA de Portugal — as únicas excluídas do questionário.
+ *
+ * Antes exigia-se que a fonte fosse explicitamente "IMO Portugal"; as leads
+ * com a fonte por preencher (as novas, por exemplo) ficavam de fora e a
+ * coluna mostrava só "—", sem forma de responder. Passa a ser ao contrário:
+ * entra tudo excepto o que é claramente de outro país.
+ */
+function dps_credito_fontes_excluidas()
+{
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $CI  = &get_instance();
+    $ids = [];
+
+    foreach ($CI->db->get(db_prefix() . 'leads_sources')->result_array() as $f) {
+        $n = strtoupper((string) $f['name']);
+        if (strpos($n, 'BRASIL') !== false || strpos($n, 'BRAZIL') !== false || strpos($n, 'DUBAI') !== false) {
+            $ids[] = (int) $f['id'];
+        }
+    }
+
+    $cache = $ids;
+
+    return $cache;
+}
+
+/**
+ * Esta lead entra no questionário de crédito?
+ * Se o administrador definiu fontes explícitas, manda essa lista; caso
+ * contrário entra tudo menos as fontes de fora de Portugal.
+ */
+function dps_credito_fonte_entra($source_id)
+{
+    $source_id = (int) $source_id;
+
+    $raw = get_option('dps_credito_fontes');
+    if (!empty($raw)) {
+        return in_array($source_id, array_filter(array_map('intval', explode(',', $raw))), true);
+    }
+
+    return !in_array($source_id, dps_credito_fontes_excluidas(), true);
+}
+
+/**
  * Esta lead está sujeita ao questionário de crédito? Só se a sua fonte estiver
  * na lista aplicável. Se não houver nenhuma fonte configurada nem detectável,
  * ninguém é bloqueado — assim uma configuração em falta nunca trava o CRM todo.
  */
 function dps_credito_lead_aplicavel($lead_id)
 {
-    $aplicaveis = dps_credito_fontes_aplicaveis();
-
-    if (empty($aplicaveis)) {
-        return false;
-    }
-
     $CI = &get_instance();
     $CI->db->select('source');
     $CI->db->where('id', (int) $lead_id);
@@ -67,7 +108,10 @@ function dps_credito_lead_aplicavel($lead_id)
         return false;
     }
 
-    return in_array((int) $lead['source'], $aplicaveis, true);
+    // Mesma regra da coluna: entra tudo menos as fontes de fora de Portugal.
+    // Assim as leads sem fonte também exigem a resposta antes de mudar de
+    // estado — antes escapavam por completo à obrigatoriedade.
+    return dps_credito_fonte_entra($lead['source']);
 }
 
 /**
