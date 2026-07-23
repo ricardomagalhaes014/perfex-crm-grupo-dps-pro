@@ -85,6 +85,13 @@ $hook['post_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['post_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_sidebar_reorg_register',
+    'filename' => 'dps_sidebar_reorg_hook.php',
+    'filepath' => 'hooks'
+];
+
 $hook['post_controller'] = function () {
     $ci = get_instance();
 
