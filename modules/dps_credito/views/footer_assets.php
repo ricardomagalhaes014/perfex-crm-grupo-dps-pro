@@ -161,6 +161,42 @@
      * leads): se a lead ainda estiver INDEFINIDA, abre-se o questionário e
      * a nota é gravada logo a seguir, sem o comercial perder o que escreveu.
      */
+    /* ------------------------------------------------------------------
+     * Responder Sim/Não na própria tabela de leads (sem abrir a lead)
+     * ------------------------------------------------------------------
+     * "Não" grava directamente. "Sim" tem de abrir o questionário, porque
+     * a resposta afirmativa exige situação/banco/montante/proposta — gravar
+     * só "sim" deixaria o processo incompleto.
+     */
+    $(document).on('click', '.dps-credito-nao', function () {
+        var $b = $(this), leadId = $b.data('lead');
+        if (!leadId || $b.prop('disabled')) { return; }
+        $b.prop('disabled', true).text('...');
+
+        var dados = { abordado: 'nao' };
+        if (typeof csrfData !== 'undefined') { dados[csrfData.token_name] = csrfData.hash; }
+
+        $.post(adminUrl + 'dps_credito/responder_rapido/' + leadId, dados, null, 'json')
+            .done(function (r) {
+                if (r && r.success) {
+                    $b.closest('.dps-credito-inline')
+                      .html('<span class="label label-default">Não abordado</span>');
+                    if (typeof alert_float === 'function') { alert_float('success', 'Crédito: Não abordado.'); }
+                } else {
+                    $b.prop('disabled', false).text('Não');
+                    alert_float('danger', (r && r.message) || 'Não foi possível gravar.');
+                }
+            })
+            .fail(function () {
+                $b.prop('disabled', false).text('Não');
+                alert_float('danger', 'Não foi possível gravar.');
+            });
+    });
+
+    $(document).on('click', '.dps-credito-sim', function () {
+        abrirQuestionario($(this).data('lead'), null);
+    });
+
     var _dpsNotaLiberta = false;
 
     // Fase de CAPTURA: o handler que grava a nota está registado em document

@@ -240,12 +240,20 @@ function dps_credito_coluna_celula($row, $aRow)
     }
 
     if ($abordado === null) {
-        // Sem resposta ainda = INDEFINIDO. Antes mostrava "Não", o que era
-        // enganador: confundia "o comercial disse que não abordou" com
-        // "ninguém respondeu ainda" — e essa diferença é precisamente o que a
-        // análise de direcção precisa de medir.
-        $row[] = '<button type="button" class="btn btn-warning btn-xs dps-credito-abrir" data-lead="' . $lead_id . '" '
-            . 'title="Por responder — clique para preencher">Indefinido</button>';
+        /*
+         * Sem resposta = INDEFINIDO (antes dizia "Não", o que confundia
+         * "não abordou" com "ninguém respondeu" — e é essa diferença que a
+         * análise mede). Responder Sim/Não é feito AQUI, sem abrir a lead:
+         * "Não" grava logo; "Sim" abre o questionário porque ainda faltam
+         * os restantes campos (situação, banco, montante, proposta).
+         */
+        $row[] = '<span class="dps-credito-inline" data-lead="' . $lead_id . '">'
+            . '<span class="label label-warning" style="margin-right:4px;">Indefinido</span>'
+            . '<button type="button" class="btn btn-success btn-xs dps-credito-sim" data-lead="' . $lead_id . '" '
+            . 'title="Crédito abordado — abre para completar">Sim</button> '
+            . '<button type="button" class="btn btn-default btn-xs dps-credito-nao" data-lead="' . $lead_id . '" '
+            . 'title="Crédito não abordado">Não</button>'
+            . '</span>';
 
         return $row;
     }

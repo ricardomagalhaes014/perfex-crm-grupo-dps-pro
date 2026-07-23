@@ -132,6 +132,28 @@ class Dps_credito extends AdminController
         die;
     }
 
+    /**
+     * Resposta rápida a partir da tabela de leads, sem abrir a lead.
+     * Só aceita "nao" — dizer "sim" obriga aos restantes campos e por isso
+     * passa pelo questionário completo.
+     */
+    public function responder_rapido($lead_id)
+    {
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        if ($this->input->post('abordado') !== 'nao') {
+            echo json_encode(['success' => false, 'message' => 'Só "Não" pode ser gravado directamente.']);
+            die;
+        }
+
+        $this->dps_credito_model->guardar_resposta((int) $lead_id, ['abordado' => 'nao']);
+
+        echo json_encode(['success' => true, 'message' => 'Crédito marcado como não abordado.']);
+        die;
+    }
+
     public function guardar_resposta($lead_id)
     {
         if (!$this->input->post()) {
