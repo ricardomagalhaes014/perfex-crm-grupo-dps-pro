@@ -110,7 +110,6 @@ return App_table::find('leads')
             '(SELECT GROUP_CONCAT(name SEPARATOR ",") FROM ' . db_prefix() . 'taggables JOIN ' . db_prefix() . 'tags ON ' . db_prefix() . 'taggables.tag_id = ' . db_prefix() . 'tags.id WHERE rel_id = ' . db_prefix() . 'leads.id and rel_type="lead" ORDER by tag_order ASC LIMIT 1) as tags',
             'firstname as assigned_firstname',
             db_prefix() . 'leads_status.name as status_name',
-            db_prefix() . 'leads_sources.name as source_name',
             db_prefix() . 'leads.lastcontact as lastcontact',
             db_prefix() . 'leads.dateadded as dateadded',
         ]);
@@ -360,7 +359,6 @@ return App_table::find('leads')
 
             $row[] = $outputStatus;
 
-            $row[] = htmlspecialchars((string)$aRow['source_name'], ENT_QUOTES, 'UTF-8');
 
             $row[] = ($aRow['lastcontact'] == '0000-00-00 00:00:00' || ! is_date($aRow['lastcontact']) ? '' : '<span data-toggle="tooltip" data-title="' . e(_dt($aRow['lastcontact'])) . '" class="text-has-action is-date">' . e(time_ago($aRow['lastcontact'])) . '</span>');
 

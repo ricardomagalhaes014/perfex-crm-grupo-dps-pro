@@ -249,10 +249,6 @@
                                     'th_attrs' => ['class' => 'toggleable', 'id' => 'th-status'],
                                 ];
                                 $_table_data[] = [
-                                    'name'     => _l('leads_source'),
-                                    'th_attrs' => ['class' => 'toggleable', 'id' => 'th-source'],
-                                ];
-                                $_table_data[] = [
                                     'name'     => _l('leads_dt_last_contact'),
                                     'th_attrs' => ['class' => 'toggleable', 'id' => 'th-last-contact'],
                                 ];
