@@ -143,7 +143,11 @@
                                             <?php } ?>
                                         </td>
                                         <td><?php echo $v['data_venda'] ? _d($v['data_venda']) : '—'; ?></td>
-                                        <td class="text-right">
+                                        <td class="text-right" style="white-space:nowrap;">
+                                            <a href="<?php echo admin_url('dps_vendas/view/' . $v['id']); ?>"
+                                               class="btn btn-info btn-xs" title="Abrir venda (editar, documentos, enviar email)">
+                                                <i class="fa fa-eye"></i> Abrir
+                                            </a>
                                             <?php if (is_admin() || staff_can('delete', 'dps_vendas')) { ?>
                                                 <a href="<?php echo admin_url('dps_vendas/delete/' . $v['id']); ?>"
                                                    class="btn btn-danger btn-xs _delete" title="Eliminar">
