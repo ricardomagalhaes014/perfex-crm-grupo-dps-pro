@@ -265,9 +265,21 @@ $stmt->bind_param(
  * ------------------------------------------------------------------ */
 
 if ($wa_ok) {
-    $desc = '📄 Proposta enviada ao cliente'
+    $detalhe = 'Proposta enviada ao cliente'
         . ($empreendimento !== '' ? ' — ' . $empreendimento : '')
         . ($unidade !== '' ? ' — Fracção ' . $unidade : '');
+
+    // A nota guarda o texto simples...
+    $desc = $detalhe;
+
+    /*
+     * ...mas o REGISTO DE ATIVIDADE tem de seguir a convenção das notas
+     * ('📝 Nota: ...'), senão não conta como interação: o contador do CRM
+     * procura descrições que comecem por esse prefixo (dps_interacoes) e é
+     * assim que o dps_teams regista as notas. Sem isto, a proposta ficava
+     * de fora das interações do comercial.
+     */
+    $desc_atividade = '📝 Nota: ' . $detalhe;
 
     // Nome do comercial, para a nota/atividade ficarem atribuídas
     $nome_staff = '';
@@ -294,35 +306,39 @@ if ($wa_ok) {
         'INSERT INTO `' . $prefixo . "lead_activity_log` (leadid, description, date, staffid, full_name, additional_data)
          VALUES (?, ?, ?, ?, ?, '')"
     );
-    $stmt->bind_param('issis', $lead_id, $desc, $agora, $staff_id, $nome_staff);
+    $stmt->bind_param('issis', $lead_id, $desc_atividade, $agora, $staff_id, $nome_staff);
     @$stmt->execute();
 
     /*
-     * 2. Estado → VIP 1.
-     * Resolvido por NOME e não por id fixo: os estados já foram renomeados
-     * uma vez (VIP PORTO → VIP 1) e um id à mão partiria em silêncio.
-     * Preferimos o que tem "1"/"UM"/"PORTO"; se não houver, o primeiro VIP
-     * pela ordem definida no CRM.
+     * 2. Estado → "PROPOSTAS ENVIADAS".
+     * Resolvido por NOME (nunca por id fixo: os estados já foram renomeados
+     * uma vez e um id à mão partia em silêncio). Se ainda não existir, é
+     * criado — assim não é preciso configurar nada à mão no CRM.
      */
     $vip_row = null;
-    $res_vip = $bd->query(
+    $res_st = $bd->query(
         "SELECT id, name FROM `" . $prefixo . "leads_status`
-         WHERE UPPER(name) LIKE '%VIP%' ORDER BY statusorder, id"
+         WHERE UPPER(REPLACE(name,'S','S')) LIKE '%PROPOSTA%' AND UPPER(name) LIKE '%ENVIAD%'
+         ORDER BY statusorder, id LIMIT 1"
     );
-    if ($res_vip) {
-        $candidatos = [];
-        while ($linha = $res_vip->fetch_assoc()) {
-            $candidatos[] = $linha;
-        }
-        foreach ($candidatos as $linha) {
-            $n = strtoupper((string) $linha['name']);
-            if (strpos($n, '1') !== false || strpos($n, 'UM') !== false || strpos($n, 'PORTO') !== false) {
-                $vip_row = $linha;
-                break;
-            }
-        }
-        if (!$vip_row && !empty($candidatos)) {
-            $vip_row = $candidatos[0];
+    if ($res_st) {
+        $vip_row = $res_st->fetch_assoc() ?: null;
+    }
+
+    if (!$vip_row) {
+        // Criar o estado, no fim da ordem existente.
+        $ordem = 1;
+        $r_ord = $bd->query("SELECT COALESCE(MAX(statusorder),0)+1 AS o FROM `" . $prefixo . "leads_status`");
+        if ($r_ord && ($x = $r_ord->fetch_assoc())) { $ordem = (int) $x['o']; }
+
+        $nome_novo = 'PROPOSTAS ENVIADAS';
+        $cor_nova  = '#1d6fb8';
+        $stmt = $bd->prepare(
+            'INSERT INTO `' . $prefixo . 'leads_status` (name, color, statusorder, isdefault) VALUES (?, ?, ?, 0)'
+        );
+        $stmt->bind_param('ssi', $nome_novo, $cor_nova, $ordem);
+        if (@$stmt->execute()) {
+            $vip_row = ['id' => $bd->insert_id, 'name' => $nome_novo];
         }
     }
 
