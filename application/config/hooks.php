@@ -92,6 +92,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_dashboard_widgets_register',
+    'filename' => 'dps_dashboard_widgets_hook.php',
+    'filepath' => 'hooks'
+];
+
 $hook['post_controller'] = function () {
     $ci = get_instance();
 

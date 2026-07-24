@@ -124,6 +124,18 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 unset($items[$slug]);
             }
         }
+        // "IMOBILIARIO" (link personalizado — slug desconhecido, apanhado
+        // pelo nome) também entra em "Outros", no fim da lista.
+        foreach ($items as $slug => $item) {
+            if (dps_sidebar_norm($item['name'] ?? '') === 'imobiliario') {
+                $child                = $item;
+                $child['parent_slug'] = 'dps_outros';
+                $child['position']    = $pos++;
+                $outros_children[]    = $child;
+                unset($items[$slug]);
+                break;
+            }
+        }
         if (!empty($outros_children)) {
             $items['dps_outros'] = [
                 'slug'     => 'dps_outros',
