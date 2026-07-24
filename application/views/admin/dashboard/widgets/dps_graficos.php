@@ -172,8 +172,23 @@ $dps_charts = [
 <script>
 (function () {
     var D = <?php echo json_encode($dps_charts); ?>;
+
+    // O Chart.js não vem nos scripts do admin (só no portal de clientes) —
+    // carregamo-lo aqui uma única vez.
+    function ensureChart(cb) {
+        if (typeof Chart !== 'undefined') { return cb(); }
+        if (window._dpsChartLoading) {
+            return setTimeout(function () { ensureChart(cb); }, 200);
+        }
+        window._dpsChartLoading = true;
+        var s = document.createElement('script');
+        s.src = '<?php echo base_url('assets/plugins/Chart.js/Chart.min.js'); ?>';
+        s.onload = cb;
+        document.head.appendChild(s);
+    }
+
     function init() {
-        if (typeof Chart === 'undefined') { return setTimeout(init, 400); }
+        if (typeof Chart === 'undefined') { return ensureChart(init); }
         function mk(id, tipo, labels, data, cores) {
             var el = document.getElementById(id);
             if (!el) { return; }
@@ -192,9 +207,10 @@ $dps_charts = [
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: tipo === 'doughnut', position: 'bottom' } },
                     legend: { display: tipo === 'doughnut', position: 'bottom' },
-                    scales: tipo === 'doughnut' ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } }, yAxes: [{ ticks: { beginAtZero: true } }] }
+                    scales: tipo === 'doughnut'
+                        ? {}
+                        : { yAxes: [{ ticks: { beginAtZero: true } }] }
                 }
             });
         }
