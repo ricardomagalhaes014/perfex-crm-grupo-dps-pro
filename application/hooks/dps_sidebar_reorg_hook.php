@@ -2,31 +2,28 @@
 defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Reorganiza o menu lateral para todos os utilizadores, sem editar cada
- * módulo individualmente — filtra a lista final de itens já registada.
+ * Reorganiza o menu lateral para todos os utilizadores.
  *
  * Ordem pedida:
- *   Leads, Simulador*, Propostas Enviadas*, Automações (WhatsApp, Sofia
- *   Calls, Automação), Tarefas, Lembrete, Funil de Vendas*, DPS Crédito,
- *   Simulador de Comissões, Webmail, DPS Imóveis, Clientes,
- *   Outros (Biblioteca de Vídeos, Wiki Book, Reuniões Online, Interações,
- *   Chatbot Interno, VOIP Central, Projectos, Suporte).
- *   Tudo o resto: escondido para não-admins; agrupado num botão "Admin"
- *   visível só para admins.
+ *   1 Leads · 2 Simulador · 3 Propostas Enviadas · 4 Automações (WhatsApp,
+ *   Sofia Calls, Automação) · 5 Tarefas · 6 Lembrete · 7 Funil de Vendas ·
+ *   8 DPS Crédito · 9 Simulador de Comissões · 10 Webmail · 11 DPS Imóveis ·
+ *   12 Clientes · 13 Outros (Biblioteca de Vídeos, Wiki Book, Reuniões
+ *   Online, Interações, Chatbot Interno, VOIP Central, Projectos, Suporte).
  *
- * * Simulador, Propostas Enviadas e Funil de Vendas são itens que só
- *   existem no servidor (código nunca commitado) — não sabemos o slug
- *   exacto, por isso protegemo-los por NOME: ficam sempre visíveis, fora
- *   do grupo Admin, mas não conseguimos controlar a sua posição exacta
- *   até localizarmos e trazermos esse código para o repositório.
+ * Tudo o resto: escondido para não-admins; para admins agrupado num botão
+ * "Admin" no fim.
+ *
+ * Simulador / Propostas Enviadas / Funil de Vendas / Painel / IMOBILIARIO
+ * são links personalizados (módulo custom_links) criados no próprio CRM —
+ * chegam a este filtro como itens normais, e são identificados pelo NOME.
+ * Alguns duplicam módulos reais (ex.: um link personalizado "Wiki Book" a
+ * apontar para o módulo Wiki Book) — nesses casos fica só um.
  */
 
 if (!function_exists('dps_sidebar_reorg_register')) {
     function dps_sidebar_reorg_register()
     {
-        // Regista-se no mesmo ponto (admin_init) onde todos os módulos
-        // registam os seus próprios itens de menu, com prioridade alta para
-        // correr depois de tudo já ter sido adicionado.
         hooks()->add_action('admin_init', 'dps_sidebar_reorg_register_filter', 999);
     }
 }
@@ -38,25 +35,30 @@ if (!function_exists('dps_sidebar_reorg_register_filter')) {
     }
 }
 
+if (!function_exists('dps_sidebar_norm')) {
+    function dps_sidebar_norm($nome)
+    {
+        $s = mb_strtolower(trim((string) $nome), 'UTF-8');
+        // Remover acentos comuns para comparação robusta
+        $s = strtr($s, [
+            'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a',
+            'é' => 'e', 'ê' => 'e',
+            'í' => 'i',
+            'ó' => 'o', 'õ' => 'o', 'ô' => 'o',
+            'ú' => 'u',
+            'ç' => 'c',
+        ]);
+
+        return preg_replace('/\s+/', ' ', $s);
+    }
+}
+
 if (!function_exists('dps_sidebar_reorg_apply')) {
     function dps_sidebar_reorg_apply($items)
     {
-        // Posições dos itens de topo que reconhecemos, na ordem pedida.
-        $ordem = [
-            'leads'          => 1,
-            'dps_automacoes' => 4,
-            'tasks'          => 5,
-            'reminder'       => 6,
-            'dps_credito'    => 8,
-            'dps_vendas'     => 9,
-            'dps_webmail'    => 10,
-            'dps_imoveis'    => 11,
-            'customers'      => 12,
-            'dps_outros'     => 13,
-        ];
-
-        // 1. "Automações" — junta WhatsApp, Sofia Calls e o item "Automação"
-        //    (que estava escondido dentro de Utilities) como filhos
+        /* -----------------------------------------------------------------
+         * 1. Agrupar "Automações": WhatsApp + Sofia Calls + Automação
+         * ---------------------------------------------------------------- */
         $automacoes_children = [];
         foreach (['dps_whatsapp' => 1, 'dps_sofia_calls' => 2] as $slug => $pos) {
             if (isset($items[$slug])) {
@@ -67,8 +69,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 unset($items[$slug]);
             }
         }
-        // "Automação" (automation_manager) vive como filho de "utilities" —
-        // vai buscá-lo lá antes de "utilities" cair no balde do Admin.
+        // "Automação" (SMS/Email) vive como filho de "utilities"
         if (!empty($items['utilities']['children'])) {
             foreach ($items['utilities']['children'] as $i => $sub) {
                 if (($sub['slug'] ?? null) === 'automation_manager') {
@@ -87,13 +88,14 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 'icon'     => 'fa fa-cogs',
                 'href'     => '#',
                 'collapse' => true,
-                'position' => $ordem['dps_automacoes'],
                 'children' => $automacoes_children,
                 'badge'    => [],
             ];
         }
 
-        // 2. "Outros" — junta os módulos secundários como filhos
+        /* -----------------------------------------------------------------
+         * 2. Agrupar "Outros"
+         * ---------------------------------------------------------------- */
         $outros_slugs = [
             'video_library',
             'wiki-module-menu-wiki-master',
@@ -122,26 +124,26 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 'icon'     => 'fa fa-ellipsis-h',
                 'href'     => '#',
                 'collapse' => true,
-                'position' => $ordem['dps_outros'],
                 'children' => $outros_children,
                 'badge'    => [],
             ];
         }
 
-        // 3. "Vendas & Comissões" -> renomeado para "Simulador de Comissões".
-        //    Remove "Vendas" (apagado) e "Regras de Comissão" (vai para Admin).
+        /* -----------------------------------------------------------------
+         * 3. "Vendas & Comissões" -> "Simulador de Comissões";
+         *    remove "Vendas"; "Regras de Comissão" vai para Admin
+         * ---------------------------------------------------------------- */
         $regras_comissao_extraida = null;
         if (isset($items['dps_vendas'])) {
-            $items['dps_vendas']['name']     = 'Simulador de Comissões';
-            $items['dps_vendas']['position'] = $ordem['dps_vendas'];
+            $items['dps_vendas']['name'] = 'Simulador de Comissões';
             if (!empty($items['dps_vendas']['children'])) {
                 $nova_lista = [];
                 foreach ($items['dps_vendas']['children'] as $c) {
                     if ($c['slug'] === 'dps_vendas_lista') {
-                        continue; // "Vendas" — apagado
+                        continue;
                     }
                     if ($c['slug'] === 'dps_vendas_regras') {
-                        $regras_comissao_extraida = $c; // "Regras de Comissão" — vai para Admin
+                        $regras_comissao_extraida = $c;
                         continue;
                     }
                     $nova_lista[] = $c;
@@ -150,26 +152,62 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
         }
 
-        // 4. Posições explícitas dos restantes itens de topo reconhecidos
-        foreach (['leads', 'tasks', 'reminder', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'customers'] as $slug) {
-            if (isset($items[$slug])) {
-                $items[$slug]['position'] = $ordem[$slug];
+        /* -----------------------------------------------------------------
+         * 4. Ordem final por NOME normalizado (apanha tanto módulos como
+         *    links personalizados, independentemente do slug)
+         * ---------------------------------------------------------------- */
+        $ordem_por_nome = [
+            'leads'                  => 1,
+            'simulador'              => 2,
+            'propostas enviadas'     => 3,
+            'automacoes'             => 4,
+            'tarefas'                => 5,
+            'lembrete'               => 6,
+            'funil de vendas'        => 7,
+            'funil de leads'         => 7,
+            'dps credito'            => 8,
+            'simulador de comissoes' => 9,
+            'webmail'                => 10,
+            'dps imoveis'            => 11,
+            'clientes'               => 12,
+            'outros'                 => 13,
+        ];
+
+        // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
+        $alias = [
+            'tasks'     => 'tarefas',
+            'customers' => 'clientes',
+            'reminder'  => 'lembrete',
+        ];
+
+        $visiveis   = [];   // slug => posição
+        $vistos     = [];   // nome normalizado => slug (deduplicação)
+        foreach ($items as $slug => $item) {
+            $nome = dps_sidebar_norm($item['name'] ?? '');
+            if (isset($alias[$nome])) {
+                $nome = $alias[$nome];
             }
+
+            if (!isset($ordem_por_nome[$nome])) {
+                continue;
+            }
+
+            // Duplicado (ex.: link personalizado + módulo com o mesmo nome):
+            // fica só o primeiro; o repetido é removido.
+            if (isset($vistos[$nome])) {
+                unset($items[$slug]);
+                continue;
+            }
+
+            $vistos[$nome]                = $slug;
+            $items[$slug]['position']     = $ordem_por_nome[$nome];
+            $visiveis[$slug]              = true;
         }
 
-        // 5. Tudo o resto: escondido para não-admins; agrupado num botão
-        //    "Admin" (visível só a admins). O dashboard fica sempre visível.
-        $mantidos_visiveis = array_merge(array_keys($ordem), ['dashboard']);
-
-        // Itens só-do-servidor identificados pelo NOME (não sabemos o slug,
-        // porque o código deles não está no git): Simulador, Propostas
-        // Enviadas, Funil de Vendas/Leads, Painel. Ficam sempre visíveis,
-        // fora do grupo Admin — não controlamos a posição exacta deles.
-        $nomes_protegidos = ['propostas enviadas', 'simulador', 'painel', 'funil de leads', 'funil de vendas'];
-        $eh_protegido_por_nome = function ($item) use ($nomes_protegidos) {
-            return in_array(mb_strtolower(trim((string) ($item['name'] ?? '')), 'UTF-8'), $nomes_protegidos, true);
-        };
-
+        /* -----------------------------------------------------------------
+         * 5. Tudo o resto: só admins veem, dentro de "Admin" no fim.
+         *    (dashboard fica sempre visível)
+         * ---------------------------------------------------------------- */
         if (is_admin()) {
             $admin_children = [];
             $pos = 1;
@@ -181,13 +219,13 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
 
             foreach ($items as $slug => $item) {
-                if (in_array($slug, $mantidos_visiveis, true) || $slug === 'dps_admin_menu' || $eh_protegido_por_nome($item)) {
+                if (isset($visiveis[$slug]) || $slug === 'dashboard' || $slug === 'dps_admin_menu') {
                     continue;
                 }
-                $child                 = $item;
-                $child['parent_slug']  = 'dps_admin_menu';
-                $child['position']     = $pos++;
-                $admin_children[]      = $child;
+                $child                = $item;
+                $child['parent_slug'] = 'dps_admin_menu';
+                $child['position']    = $pos++;
+                $admin_children[]     = $child;
                 unset($items[$slug]);
             }
             if (!empty($admin_children)) {
@@ -204,7 +242,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
         } else {
             foreach ($items as $slug => $item) {
-                if (in_array($slug, $mantidos_visiveis, true) || $eh_protegido_por_nome($item)) {
+                if (isset($visiveis[$slug]) || $slug === 'dashboard') {
                     continue;
                 }
                 unset($items[$slug]);
