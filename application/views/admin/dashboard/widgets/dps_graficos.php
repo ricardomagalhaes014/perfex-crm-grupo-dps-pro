@@ -168,7 +168,9 @@ $dps_charts = [
             </div>
         </div>
     </div>
-</div>
+<?php /* O <script> TEM de ficar dentro da div raiz: o renderizador de
+   widgets (render_dashboard_widgets) só aproveita o primeiro elemento
+   HTML do ficheiro e descarta o resto. */ ?>
 <script>
 (function () {
     var D = <?php echo json_encode($dps_charts); ?>;
@@ -227,3 +229,4 @@ $dps_charts = [
     }
 })();
 </script>
+</div>
