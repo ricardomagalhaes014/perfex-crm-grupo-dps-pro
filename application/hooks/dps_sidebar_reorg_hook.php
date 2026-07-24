@@ -88,6 +88,28 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 }
             }
         }
+        // Se já existia um botão "Automações" (item só-do-servidor, com o
+        // envio de SMS configurado lá dentro), absorvemos o que ele tem —
+        // filhos e, se for um link directo, o próprio item — em vez de o
+        // deixar ser descartado pela deduplicação de nomes.
+        $pos_abs = 4;
+        foreach ($items as $slug => $item) {
+            if ($slug === 'dps_automacoes' || dps_sidebar_norm($item['name'] ?? '') !== 'automacoes') {
+                continue;
+            }
+            if (!empty($item['children'])) {
+                foreach ($item['children'] as $sub) {
+                    $sub['parent_slug']    = 'dps_automacoes';
+                    $sub['position']       = $pos_abs++;
+                    $automacoes_children[] = $sub;
+                }
+            } elseif (!empty($item['href']) && $item['href'] !== '#') {
+                $item['parent_slug']   = 'dps_automacoes';
+                $item['position']      = $pos_abs++;
+                $automacoes_children[] = $item;
+            }
+            unset($items[$slug]);
+        }
         if (!empty($automacoes_children)) {
             $items['dps_automacoes'] = [
                 'slug'     => 'dps_automacoes',
