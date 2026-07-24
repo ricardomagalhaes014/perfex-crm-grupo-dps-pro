@@ -5,10 +5,20 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Reorganiza o menu lateral para todos os utilizadores, sem editar cada
  * módulo individualmente — filtra a lista final de itens já registada.
  *
- * Nota: 4 itens que só existem no servidor (Simulador, Painel, Funil de
- * Leads/Vendas, Propostas Enviadas) não são tocados aqui de propósito —
- * continuam a aparecer onde já estavam, fora desta ordem, até serem
- * localizados e trazidos para o repositório.
+ * Ordem pedida:
+ *   Leads, Simulador*, Propostas Enviadas*, Automações (WhatsApp, Sofia
+ *   Calls, Automação), Tarefas, Lembrete, Funil de Vendas*, DPS Crédito,
+ *   Simulador de Comissões, Webmail, DPS Imóveis, Clientes,
+ *   Outros (Biblioteca de Vídeos, Wiki Book, Reuniões Online, Interações,
+ *   Chatbot Interno, VOIP Central, Projectos, Suporte).
+ *   Tudo o resto: escondido para não-admins; agrupado num botão "Admin"
+ *   visível só para admins.
+ *
+ * * Simulador, Propostas Enviadas e Funil de Vendas são itens que só
+ *   existem no servidor (código nunca commitado) — não sabemos o slug
+ *   exacto, por isso protegemo-los por NOME: ficam sempre visíveis, fora
+ *   do grupo Admin, mas não conseguimos controlar a sua posição exacta
+ *   até localizarmos e trazermos esse código para o repositório.
  */
 
 if (!function_exists('dps_sidebar_reorg_register')) {
@@ -31,38 +41,18 @@ if (!function_exists('dps_sidebar_reorg_register_filter')) {
 if (!function_exists('dps_sidebar_reorg_apply')) {
     function dps_sidebar_reorg_apply($items)
     {
-        // Estes itens já aparecem num bloco fixo só-do-servidor (a secção
-        // "IMOBILIARIO" e afins) que fica onde está, por pedido. Para não
-        // duplicar, escondemo-los aqui do lado dinâmico — só se vêem através
-        // desse bloco fixo.
-        foreach ([
-            'perfex-dashboard-module-menu-master',
-            'wiki-module-menu-wiki-master',
-            'customers',
-            'importsync',
-            'agenda',
-            'video_library',
-            'dps_teams',
-            'dps_imoveis',
-            'projects',
-            'tasks',
-            'support',
-        ] as $slug_duplicado) {
-            unset($items[$slug_duplicado]);
-        }
-
-        // Posições dos itens de topo que reconhecemos (ordem pedida).
-        // Os 4 itens só-servidor ficam fora desta lista e não são mexidos.
-        // "leads" fica de fora da lista de escondidos: aparece sempre em
-        // primeiro lugar, controlado por aqui.
+        // Posições dos itens de topo que reconhecemos, na ordem pedida.
         $ordem = [
             'leads'          => 1,
-            'dps_automacoes' => 2,
-            'reminder'       => 4,
-            'dps_credito'    => 5,
-            'dps_vendas'     => 6,
-            'dps_webmail'    => 7,
-            'dps_outros'     => 10,
+            'dps_automacoes' => 4,
+            'tasks'          => 5,
+            'reminder'       => 6,
+            'dps_credito'    => 8,
+            'dps_vendas'     => 9,
+            'dps_webmail'    => 10,
+            'dps_imoveis'    => 11,
+            'customers'      => 12,
+            'dps_outros'     => 13,
         ];
 
         // 1. "Automações" — junta WhatsApp, Sofia Calls e o item "Automação"
@@ -103,15 +93,16 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             ];
         }
 
-        // 2. "Outros" — junta os módulos secundários como filhos.
-        //    video_library/wiki-module-menu-wiki-master/projects/support já
-        //    foram removidos acima (duplicavam o bloco fixo), por isso não
-        //    aparecem aqui.
+        // 2. "Outros" — junta os módulos secundários como filhos
         $outros_slugs = [
+            'video_library',
+            'wiki-module-menu-wiki-master',
             'dps-meetings',
             'dps-interacoes',
             'dps-chatbot',
             'dps_voip',
+            'projects',
+            'support',
         ];
         $outros_children = [];
         $pos = 1;
@@ -160,7 +151,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         }
 
         // 4. Posições explícitas dos restantes itens de topo reconhecidos
-        foreach (['leads', 'reminder', 'dps_credito', 'dps_webmail'] as $slug) {
+        foreach (['leads', 'tasks', 'reminder', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'customers'] as $slug) {
             if (isset($items[$slug])) {
                 $items[$slug]['position'] = $ordem[$slug];
             }
@@ -171,8 +162,9 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         $mantidos_visiveis = array_merge(array_keys($ordem), ['dashboard']);
 
         // Itens só-do-servidor identificados pelo NOME (não sabemos o slug,
-        // porque o código deles não está no git) — ficam sempre de fora,
-        // tal como "Simulador", "Painel" e "IMOBILIARIO".
+        // porque o código deles não está no git): Simulador, Propostas
+        // Enviadas, Funil de Vendas/Leads, Painel. Ficam sempre visíveis,
+        // fora do grupo Admin — não controlamos a posição exacta deles.
         $nomes_protegidos = ['propostas enviadas', 'simulador', 'painel', 'funil de leads', 'funil de vendas'];
         $eh_protegido_por_nome = function ($item) use ($nomes_protegidos) {
             return in_array(mb_strtolower(trim((string) ($item['name'] ?? '')), 'UTF-8'), $nomes_protegidos, true);
