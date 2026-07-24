@@ -31,7 +31,14 @@ if (!function_exists('dps_sidebar_reorg_register')) {
 if (!function_exists('dps_sidebar_reorg_register_filter')) {
     function dps_sidebar_reorg_register_filter()
     {
-        hooks()->add_filter('sidebar_menu_items', 'dps_sidebar_reorg_apply');
+        // Prioridade 9999: o módulo menu_setup (Menu Builder) corre nos
+        // 998/999 e RECONSTRÓI o menu inteiro segundo a ordem antiga que
+        // está guardada na opção 'aside_menu_active' da base de dados.
+        // Sem isto, tudo o que este filtro fizer é desfeito logo a seguir —
+        // foi exactamente o que aconteceu nas primeiras tentativas.
+        // Registado acima de 999, este filtro corre em último e é a
+        // palavra final sobre ordem, agrupamento e visibilidade.
+        hooks()->add_filter('sidebar_menu_items', 'dps_sidebar_reorg_apply', 9999);
     }
 }
 
@@ -208,6 +215,18 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
          * 5. Tudo o resto: só admins veem, dentro de "Admin" no fim.
          *    (dashboard fica sempre visível)
          * ---------------------------------------------------------------- */
+
+        // Nomes já em uso no menu visível — inclui os filhos de Automações
+        // e Outros. Um link personalizado homónimo (ex.: "Wiki Book" a
+        // duplicar o módulo Wiki Book que já está em Outros) é removido em
+        // vez de ir parar ao Admin.
+        $nomes_em_uso = $vistos;
+        foreach (['dps_automacoes', 'dps_outros'] as $grupo) {
+            foreach ($items[$grupo]['children'] ?? [] as $filho) {
+                $nomes_em_uso[dps_sidebar_norm($filho['name'] ?? '')] = true;
+            }
+        }
+
         if (is_admin()) {
             $admin_children = [];
             $pos = 1;
@@ -222,11 +241,21 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 if (isset($visiveis[$slug]) || $slug === 'dashboard' || $slug === 'dps_admin_menu') {
                     continue;
                 }
+                unset($items[$slug]);
+
+                // Homónimo de algo já visível: remover em vez de duplicar no Admin
+                $nome = dps_sidebar_norm($item['name'] ?? '');
+                if (isset($alias[$nome])) {
+                    $nome = $alias[$nome];
+                }
+                if (isset($nomes_em_uso[$nome])) {
+                    continue;
+                }
+
                 $child                = $item;
                 $child['parent_slug'] = 'dps_admin_menu';
                 $child['position']    = $pos++;
                 $admin_children[]     = $child;
-                unset($items[$slug]);
             }
             if (!empty($admin_children)) {
                 $items['dps_admin_menu'] = [
