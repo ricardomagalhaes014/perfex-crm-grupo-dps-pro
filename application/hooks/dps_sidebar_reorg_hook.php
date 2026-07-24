@@ -201,7 +201,20 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
 
         $visiveis   = [];   // slug => posição
         $vistos     = [];   // nome normalizado => slug (deduplicação)
-        foreach ($items as $slug => $item) {
+
+        // Em caso de nomes duplicados, estes slugs têm SEMPRE prioridade —
+        // são os itens "certos" criados por este filtro ou pelos módulos.
+        // Ex.: sem isto, um link personalizado antigo chamado "Vendas"
+        // (a apontar para outro sítio) ganhava ao mapa de vendas real.
+        $slugs_prioritarios = ['dps_vendas_mapa', 'dps_automacoes', 'dps_outros', 'dps_vendas', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'leads', 'tasks', 'reminder', 'customers'];
+
+        $ordem_iteracao = array_merge(
+            array_values(array_intersect($slugs_prioritarios, array_keys($items))),
+            array_values(array_diff(array_keys($items), $slugs_prioritarios))
+        );
+
+        foreach ($ordem_iteracao as $slug) {
+            $item = $items[$slug];
             $nome = dps_sidebar_norm($item['name'] ?? '');
             if (isset($alias[$nome])) {
                 $nome = $alias[$nome];
@@ -212,7 +225,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             }
 
             // Duplicado (ex.: link personalizado + módulo com o mesmo nome):
-            // fica só o primeiro; o repetido é removido.
+            // fica só o prioritário/primeiro; o repetido é removido.
             if (isset($vistos[$nome])) {
                 unset($items[$slug]);
                 continue;
