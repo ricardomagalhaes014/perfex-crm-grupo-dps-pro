@@ -138,7 +138,9 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
 
         /* -----------------------------------------------------------------
          * 3. "Vendas & Comissões" -> "Simulador de Comissões";
-         *    remove "Vendas"; "Regras de Comissão" vai para Admin
+         *    "Vendas" (mapa de vendas, recebe as reservas) sobe a item
+         *    próprio, logo abaixo de Propostas Enviadas;
+         *    "Regras de Comissão" vai para Admin
          * ---------------------------------------------------------------- */
         $regras_comissao_extraida = null;
         if (isset($items['dps_vendas'])) {
@@ -147,6 +149,15 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
                 $nova_lista = [];
                 foreach ($items['dps_vendas']['children'] as $c) {
                     if ($c['slug'] === 'dps_vendas_lista') {
+                        // Mapa de vendas: promovido a item de topo
+                        $items['dps_vendas_mapa'] = [
+                            'slug'     => 'dps_vendas_mapa',
+                            'name'     => 'Vendas',
+                            'icon'     => 'fa fa-handshake-o',
+                            'href'     => $c['href'],
+                            'children' => [],
+                            'badge'    => [],
+                        ];
                         continue;
                     }
                     if ($c['slug'] === 'dps_vendas_regras') {
@@ -167,17 +178,18 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'leads'                  => 1,
             'simulador'              => 2,
             'propostas enviadas'     => 3,
-            'automacoes'             => 4,
-            'tarefas'                => 5,
-            'lembrete'               => 6,
-            'funil de vendas'        => 7,
-            'funil de leads'         => 7,
-            'dps credito'            => 8,
-            'simulador de comissoes' => 9,
-            'webmail'                => 10,
-            'dps imoveis'            => 11,
-            'clientes'               => 12,
-            'outros'                 => 13,
+            'vendas'                 => 4,
+            'automacoes'             => 5,
+            'tarefas'                => 6,
+            'lembrete'               => 7,
+            'funil de vendas'        => 8,
+            'funil de leads'         => 8,
+            'dps credito'            => 9,
+            'simulador de comissoes' => 10,
+            'webmail'                => 11,
+            'dps imoveis'            => 12,
+            'clientes'               => 13,
+            'outros'                 => 14,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
