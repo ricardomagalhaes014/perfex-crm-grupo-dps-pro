@@ -117,14 +117,7 @@ try {
     $lead_id = $pdo->lastInsertId();
     log_debug("Lead inserida com sucesso", $lead_id);
     
-    // Activar WhatsApp por defeito (campo customizado fieldid=10)
-    try {
-        $stmt_cf = $pdo->prepare("INSERT INTO tblcustomfieldsvalues (relid, fieldid, fieldto, value) VALUES (?, 10, 'leads', 'Enable')");
-        $stmt_cf->execute([$lead_id]);
-        log_debug("WhatsApp activado para a lead");
-    } catch (PDOException $e) {
-        log_debug("Erro ao activar WhatsApp", $e->getMessage());
-    }
+    // DESATIVADO (2026-07-11): nao marcar WhatsApp=Enable por defeito (evitar envios automaticos).
 } catch (PDOException $e) {
     log_debug("Erro ao inserir lead", $e->getMessage());
     http_response_code(500);
@@ -163,7 +156,10 @@ try {
 $wa_sent = false;
 $wa_error = '';
 
-if (!empty($phone)) {
+// DESATIVADO (2026-07-11): envio automatico de WhatsApp de boas-vindas desligado.
+// Motivo: a Evolution API (nao-oficial) faz banir os numeros. Migracao p/ Cloud API oficial.
+// Para reativar SO com a API oficial, repor a condicao original: if (!empty($phone))
+if (false) {
     try {
         // Obter configurações da Evolution API
         $stmt = $pdo->prepare("SELECT name, value FROM tbloptions WHERE name IN ('dps_whatsapp_evolution_url', 'dps_whatsapp_evolution_api_key')");
