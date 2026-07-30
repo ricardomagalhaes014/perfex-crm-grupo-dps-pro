@@ -9,7 +9,7 @@
         </div>
 
         <div class=" text-center tw-mb-5">
-            <h1 class="tw-text-neutral-800 tw-text-2xl tw-font-bold tw-mb-1">DEPLOY AUTOMATICO OK</h1>
+            <h1 class="tw-text-neutral-800 tw-text-2xl tw-font-bold tw-mb-1">AQUI TU VENCES</h1>
             <p class="tw-text-neutral-600">
                 <?= _l('welcome_back_sign_in'); ?>
             </p>

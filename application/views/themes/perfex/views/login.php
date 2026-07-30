@@ -1,7 +1,7 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <div class="mtop40">
     <div class="col-md-4 col-md-offset-4 text-center">
-        <h1>DEPLOY AUTOMATICO OK</h1>
+        <h1>AQUI TU VENCES</h1>
     </div>
     <div class="col-md-4 col-md-offset-4 col-sm-8 col-sm-offset-2">
         <?= form_open($this->uri->uri_string(), ['class' => 'login-form']); ?>
