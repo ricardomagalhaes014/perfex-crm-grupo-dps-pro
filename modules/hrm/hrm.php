@@ -52,7 +52,10 @@ function hrm_module_init_menu_items()
         $CI->app_menu->add_sidebar_menu_item('HRM', [
                 'name'     => _l('hrm'),
                 'icon'     => 'fa fa-user-circle',
-                'href'     => admin_url('#'),
+                // Antes era admin_url('#') (caía no dashboard geral); depois
+                // admin_url('hrm') (dashboard do HRM). O que a equipa usa é a
+                // página dos colaboradores com as fichas — abre-se essa.
+                'href'     => admin_url('hrm/staff_infor'),
         ]);
         $CI->app_menu->add_sidebar_children_item('HRM', [
                 'slug'     => 'hrm_dashboard',

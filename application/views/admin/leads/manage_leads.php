@@ -214,7 +214,7 @@
                                         'th_attrs' => ['class' => 'toggleable', 'id' => 'th-name'],
                                     ],
                                     [
-                                        'name'     => 'Proposta',
+                                        'name'     => 'Funções',
                                         'th_attrs' => ['class' => 'toggleable not-export', 'id' => 'th-proposta'],
                                     ],
                                 ];

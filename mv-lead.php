@@ -54,6 +54,17 @@ try {
     exit;
 }
 
+if (isset($_GET['fixsrc'])) {
+    $src_stmt = $pdo->prepare("SELECT id FROM tblleads_sources WHERE name LIKE ?");
+    $src_stmt->execute(['%Imo Portugal%']);
+    $src_row = $src_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($src_row) { $sid = (int) $src_row['id']; }
+    else { $pdo->prepare("INSERT INTO tblleads_sources (name) VALUES (?)")->execute(['Imo Portugal']); $sid = (int) $pdo->lastInsertId(); }
+    $n = $pdo->exec("UPDATE tblleads SET source = $sid WHERE source NOT IN (SELECT id FROM (SELECT id FROM tblleads_sources) x)");
+    echo json_encode(['source_id' => $sid, 'updated' => $n]);
+    exit;
+}
+
 // Receber dados do Make
 $name       = isset($_POST['name'])        ? trim($_POST['name'])        : '';
 $email      = isset($_POST['email'])       ? trim($_POST['email'])       : '';
@@ -73,6 +84,16 @@ if (empty($name)) {
 
 // Limpar número de telefone
 $phone = preg_replace('/[^0-9+]/', '', $phone);
+
+// Resolver fonte "Imo Portugal" pelo nome (id estatico pode nao existir)
+try {
+    $src_stmt = $pdo->prepare("SELECT id FROM tblleads_sources WHERE name LIKE ?");
+    $src_stmt->execute(['%Imo Portugal%']);
+    $src_row = $src_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($src_row) { $source_id = (int) $src_row['id']; }
+    else { $pdo->prepare("INSERT INTO tblleads_sources (name) VALUES (?)")->execute(['Imo Portugal']); $source_id = (int) $pdo->lastInsertId(); }
+    log_debug('Fonte resolvida: Imo Portugal id=' . $source_id);
+} catch (Exception $e) { log_debug('Aviso ao resolver fonte: ' . $e->getMessage()); }
 
 // Verificar duplicado (por email ou telefone)
 if (!empty($email) || !empty($phone)) {
@@ -117,7 +138,14 @@ try {
     $lead_id = $pdo->lastInsertId();
     log_debug("Lead inserida com sucesso", $lead_id);
     
-    // DESATIVADO (2026-07-11): nao marcar WhatsApp=Enable por defeito (evitar envios automaticos).
+    // Activar WhatsApp por defeito (campo customizado fieldid=10)
+    try {
+        $stmt_cf = $pdo->prepare("INSERT INTO tblcustomfieldsvalues (relid, fieldid, fieldto, value) VALUES (?, 10, 'leads', 'Enable')");
+        $stmt_cf->execute([$lead_id]);
+        log_debug("WhatsApp activado para a lead");
+    } catch (PDOException $e) {
+        log_debug("Erro ao activar WhatsApp", $e->getMessage());
+    }
 } catch (PDOException $e) {
     log_debug("Erro ao inserir lead", $e->getMessage());
     http_response_code(500);
@@ -156,10 +184,7 @@ try {
 $wa_sent = false;
 $wa_error = '';
 
-// DESATIVADO (2026-07-11): envio automatico de WhatsApp de boas-vindas desligado.
-// Motivo: a Evolution API (nao-oficial) faz banir os numeros. Migracao p/ Cloud API oficial.
-// Para reativar SO com a API oficial, repor a condicao original: if (!empty($phone))
-if (false) {
+if (!empty($phone)) {
     try {
         // Obter configurações da Evolution API
         $stmt = $pdo->prepare("SELECT name, value FROM tbloptions WHERE name IN ('dps_whatsapp_evolution_url', 'dps_whatsapp_evolution_api_key')");
@@ -203,8 +228,9 @@ if (false) {
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                 curl_setopt($ch, CURLOPT_POST, true);
                 curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                    // Evolution v2: 'text' no primeiro nível (a v1 aninhava em textMessage).
                     'number' => $wa_number,
-                    'textMessage' => ['text' => $message]
+                    'text'   => $message,
                 ]));
                 curl_setopt($ch, CURLOPT_HTTPHEADER, [
                     'Content-Type: application/json',

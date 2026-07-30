@@ -7,6 +7,9 @@ class Dps_webmail_model extends CI_Model
     // CONFIGURAÇÕES DA CONTA
     // ---------------------------------------------------------------
 
+    /** Motivo da última falha de envio (para se mostrar ao utilizador). */
+    public $ultimo_erro = '';
+
     public function get_config($staff_id = null)
     {
         if (!$staff_id) $staff_id = get_staff_user_id();
@@ -223,11 +226,21 @@ class Dps_webmail_model extends CI_Model
         $smtp_host  = $config['smtp_host'];
         $smtp_port  = (int)$config['smtp_port'];
 
-        // Usar PHPMailer se disponível, senão usar a classe Email do CI
+        /*
+         * Onde está mesmo o PHPMailer neste Perfex: application/vendor/ (o
+         * composer da aplicação). Os dois caminhos antigos — vendor/ na raiz
+         * e application/third_party/ — NÃO existem aqui, por isso o envio caía
+         * sempre no recurso de último caso (a classe Email do CI), que estava
+         * mal configurada e falhava. Era esta a origem do "erro ao enviar".
+         */
+        $phpmailer_app  = FCPATH . 'application/vendor/phpmailer/phpmailer/src/PHPMailer.php';
         $phpmailer_path = FCPATH . 'vendor/phpmailer/phpmailer/src/PHPMailer.php';
         $perfex_mailer  = FCPATH . 'application/third_party/PHPMailer/PHPMailerAutoload.php';
 
-        if (file_exists($phpmailer_path)) {
+        if (file_exists($phpmailer_app)) {
+            require_once FCPATH . 'application/vendor/autoload.php';
+            return $this->_do_phpmailer($data, $email_addr, $pass, $smtp_host, $smtp_port, $config);
+        } elseif (file_exists($phpmailer_path)) {
             return $this->_send_via_phpmailer_composer($config, $data, $email_addr, $pass, $smtp_host, $smtp_port);
         } elseif (file_exists($perfex_mailer)) {
             return $this->_send_via_phpmailer_perfex($config, $data, $email_addr, $pass, $smtp_host, $smtp_port);
@@ -241,11 +254,13 @@ class Dps_webmail_model extends CI_Model
         $this->load->library('email');
         $this->email->initialize([
             'protocol'   => 'smtp',
-            'smtp_host'  => 'ssl://' . $smtp_host,
+            // A porta 465 é SSL implícito (precisa do prefixo ssl://); a 587 é
+            // STARTTLS (o prefixo ssl:// aí faz a ligação encravar).
+            'smtp_host'  => ($smtp_port === 465 ? 'ssl://' : '') . $smtp_host,
             'smtp_port'  => $smtp_port,
             'smtp_user'  => $email_addr,
             'smtp_pass'  => $pass,
-            'smtp_crypto'=> 'tls',
+            'smtp_crypto'=> ($smtp_port === 465 ? 'ssl' : 'tls'),
             'charset'    => 'utf-8',
             'mailtype'   => 'html',
             'newline'    => "\r\n",
@@ -312,9 +327,14 @@ class Dps_webmail_model extends CI_Model
             }
 
             $mail->send();
+            $this->ultimo_erro = '';
             return true;
         } catch (Exception $e) {
-            log_message('error', 'DPS Webmail send error: ' . $mail->ErrorInfo);
+            // Guardar o motivo real: sem isto o utilizador via só "erro ao
+            // enviar" e não havia forma de saber se era password errada,
+            // servidor inacessível ou destinatário inválido.
+            $this->ultimo_erro = $mail->ErrorInfo ?: $e->getMessage();
+            log_message('error', 'DPS Webmail send error: ' . $this->ultimo_erro);
             return false;
         }
     }

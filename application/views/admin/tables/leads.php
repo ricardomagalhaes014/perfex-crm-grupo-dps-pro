@@ -235,16 +235,20 @@ return App_table::find('leads')
 
             $row[] = $nameRow;
 
-            // Coluna "Proposta": acções rápidas de contacto sem abrir a lead
+            // Coluna "Funções": tudo o que se faz à lead sem a abrir —
+            // WhatsApp, ligar, e os dois envios (proposta e disponibilidades).
+            // Os botões "Ligar"/"VoIP" repetidos ficam SÓ aqui: na coluna
+            // Telefone eram duplicados e enchiam a linha (pedido do Ricardo).
             if ($aRow['phonenumber'] != '') {
                 $phone_clean = preg_replace('/\D/', '', $aRow['phonenumber']);
-                $row[] = '<span style="white-space:nowrap;">'
-                    . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;margin-bottom:2px;"><i class="fa fa-whatsapp"></i></a> '
-                    . '<a href="tel:' . $phone_clean . '" title="Ligar" class="btn btn-xs btn-dark" style="margin-bottom:2px;"><i class="fa fa-phone"></i></a> '
-                    . '<a href="#" onclick="init_lead(' . $aRow['id'] . '); return false;" title="Enviar info / Proposta" class="btn btn-xs btn-primary" style="margin-bottom:2px;"><i class="fa fa-paper-plane"></i></a>'
+                $row[] = '<span style="white-space:nowrap;display:inline-flex;gap:3px;flex-wrap:wrap;">'
+                    . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
+                    . '<a href="tel:' . $phone_clean . '" title="Ligar" class="btn btn-xs btn-dark"><i class="fa fa-phone"></i></a>'
+                    . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
+                    . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'disponiveis\'); return false;" title="Enviar unidades disponíveis" class="btn btn-xs" style="background:#1d6fb8;color:#fff;font-weight:600;">Disponíveis</a>'
                     . '</span>';
             } else {
-                $row[] = '';
+                $row[] = '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>';
             }
 
             if (is_gdpr() && $consentLeads == '1') {
@@ -262,13 +266,13 @@ return App_table::find('leads')
                 ? '<a href="mailto:' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($aRow['email'], ENT_QUOTES, 'UTF-8') . '</a>'
                 : '');
 
-            // Telefone (link WhatsApp + ícone chamada)
+            // Telefone: SÓ o número (com link para o WhatsApp). Os botões de
+            // ligar/VoIP vivem na coluna "Funções" — aqui eram repetição.
             if ($aRow['phonenumber'] != '') {
                 $phone_clean   = preg_replace('/\D/', '', $aRow['phonenumber']);
                 $phone_display = htmlspecialchars($aRow['phonenumber'], ENT_QUOTES, 'UTF-8');
-                $row[] = '<span style="white-space:nowrap;">' .
+                $row[] = '<span style="white-space:nowrap;" class="dps-tel-simples">' .
                     '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="Abrir WhatsApp">' . $phone_display . '</a>' .
-                    '&nbsp;<a href="tel:' . $phone_clean . '" title="Ligar" style="color:#27ae60;font-size:13px;vertical-align:middle;"><i class="fa fa-phone"></i></a>' .
                     '</span>';
             } else {
                 $row[] = '';

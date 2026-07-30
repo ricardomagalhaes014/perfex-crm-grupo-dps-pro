@@ -288,8 +288,24 @@ class Dps_webmail extends AdminController
         if ($this->input->post()) {
             $post = $this->input->post();
 
-            // Validar email @grupo-dps.com
-            $email = trim($post['email']);
+            /*
+             * Ser tolerante com o que vem do formulário: houve utilizadores a
+             * escrever só o nome (sem domínio) e outros a repetir o domínio
+             * por causa do adorno que o campo tinha ao lado. Em vez de
+             * mandar o comercial de volta com um erro, arruma-se o endereço.
+             */
+            $email = strtolower(trim($post['email']));
+
+            // "nome@grupo-dps.com@grupo-dps.com" -> "nome@grupo-dps.com"
+            while (substr_count($email, '@') > 1 && str_ends_with($email, '@grupo-dps.com')) {
+                $email = substr($email, 0, -strlen('@grupo-dps.com'));
+            }
+
+            // Só o nome, sem domínio -> acrescenta-se
+            if ($email !== '' && strpos($email, '@') === false) {
+                $email .= '@grupo-dps.com';
+            }
+
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 set_alert('danger', 'Endereço de email inválido.');
             } elseif (!str_ends_with(strtolower($email), '@grupo-dps.com')) {

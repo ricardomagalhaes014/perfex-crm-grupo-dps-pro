@@ -31,7 +31,7 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                 <a href="<?php echo admin_url('dps_vendas/form/' . $venda['id']); ?>" class="btn btn-default btn-sm">
                                     <i class="fa fa-pencil"></i> Editar
                                 </a>
-                                <?php if (is_admin() || staff_can('delete', 'dps_vendas')) { ?>
+                                <?php if (is_admin()) { ?>
                                     <a href="<?php echo admin_url('dps_vendas/delete/' . $venda['id']); ?>"
                                        class="btn btn-danger btn-sm _delete" data-toggle="tooltip" title="Eliminar venda">
                                         <i class="fa fa-trash"></i> Eliminar
@@ -88,6 +88,10 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                             <tr>
                                 <td><strong>Morada</strong></td>
                                 <td><?php echo html_escape($venda['cliente_morada'] ?: '—'); ?></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Código postal</strong></td>
+                                <td><?php echo html_escape($venda['cliente_codigo_postal'] ?? '' ?: '—'); ?></td>
                             </tr>
                             <tr>
                                 <td><strong>Telefone</strong></td>
@@ -215,12 +219,22 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                     <p class="text-muted mtop10"><small>O comercial vê e descarrega o CPCV para enviar ao cliente.</small></p>
                                 <?php } ?>
 
-                                <?php if (!empty($cpcv_docs) && empty($venda['cpcv_assinado'])) { ?>
+                                <?php if (is_admin() && !empty($venda['cpcv_assinado'])) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/desmarcar_cpcv/' . $venda['id']); ?>"
+                                       class="btn btn-default btn-xs mtop10"
+                                       onclick="return confirm('Desmarcar o CPCV como assinado?');">
+                                        <i class="fa fa-undo"></i> Corrigir — não estava assinado
+                                    </a>
+                                <?php } ?>
+
+                                <?php if (is_admin() && !empty($cpcv_docs) && empty($venda['cpcv_assinado'])) { ?>
                                     <a href="<?php echo admin_url('dps_vendas/marcar_cpcv_assinado/' . $venda['id']); ?>"
                                        class="btn btn-success btn-sm mtop10"
                                        onclick="return confirm('Confirmar que o CPCV está assinado?');">
                                         <i class="fa fa-check"></i> Marcar como assinado
                                     </a>
+                                <?php } elseif (!is_admin() && !empty($cpcv_docs) && empty($venda['cpcv_assinado'])) { ?>
+                                    <p class="text-muted mtop10"><small>A validação do "assinado" é feita pela direção.</small></p>
                                 <?php } ?>
                             </div>
 
@@ -253,12 +267,22 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                 <?php echo form_close(); ?>
                                 <p class="text-muted mtop10"><small>Quando o cliente envia o comprovativo, o comercial anexa-o aqui.</small></p>
 
-                                <?php if (!empty($comprovativo_docs) && empty($venda['pago'])) { ?>
+                                <?php if (is_admin() && !empty($venda['pago'])) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/desmarcar_pago/' . $venda['id']); ?>"
+                                       class="btn btn-default btn-xs mtop10"
+                                       onclick="return confirm('Desmarcar o pagamento desta venda? A comissão deixa de ser devida até voltar a validar.');">
+                                        <i class="fa fa-undo"></i> Corrigir — não estava pago
+                                    </a>
+                                <?php } ?>
+
+                                <?php if (is_admin() && !empty($comprovativo_docs) && empty($venda['pago'])) { ?>
                                     <a href="<?php echo admin_url('dps_vendas/marcar_pago/' . $venda['id']); ?>"
                                        class="btn btn-success btn-sm mtop10"
                                        onclick="return confirm('Confirmar pagamento? A venda passa a Concluída.');">
                                         <i class="fa fa-check"></i> Marcar pago (&rarr; Concluído)
                                     </a>
+                                <?php } elseif (!is_admin() && !empty($comprovativo_docs) && empty($venda['pago'])) { ?>
+                                    <p class="text-muted mtop10"><small>A confirmação do pagamento é feita pela direção.</small></p>
                                 <?php } ?>
                             </div>
                         </div>
@@ -288,6 +312,25 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                 <td><strong>Valor calculado</strong></td>
                                 <td><?php echo app_format_money($calculo['valor'], get_base_currency()); ?></td>
                             </tr>
+                            <?php if (!empty($calculo['cpcv_taxa']) || !empty($calculo['escritura_taxa'])) {
+                                $pct_cpcv = $calculo['taxa'] > 0 ? round($calculo['cpcv_taxa'] / $calculo['taxa'] * 100) : 0;
+                                $pct_escr = $calculo['taxa'] > 0 ? round($calculo['escritura_taxa'] / $calculo['taxa'] * 100) : 0;
+                            ?>
+                            <tr>
+                                <td><strong>— No CPCV</strong></td>
+                                <td>
+                                    <?php echo app_format_money($calculo['valor_cpcv'], get_base_currency()); ?>
+                                    <small class="text-muted">(<?php echo rtrim(rtrim(number_format((float) $calculo['cpcv_taxa'], 2, ',', ''), '0'), ','); ?>% da comissão)</small>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>— Na Escritura</strong></td>
+                                <td>
+                                    <?php echo app_format_money($calculo['valor_escritura'], get_base_currency()); ?>
+                                    <small class="text-muted">(<?php echo rtrim(rtrim(number_format((float) $calculo['escritura_taxa'], 2, ',', ''), '0'), ','); ?>% da comissão)</small>
+                                </td>
+                            </tr>
+                            <?php } ?>
                             <tr>
                                 <td><strong>Estado</strong></td>
                                 <td>
@@ -302,6 +345,18 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                 </td>
                             </tr>
                         </table>
+                        <?php if (!empty($calculo['reconciliado'])) { ?>
+                            <div class="alert alert-warning">
+                                <strong>Repartição ajustada.</strong>
+                                A regra reparte <?php echo $calculo['soma_parciais']; ?>% (CPCV + Escritura),
+                                mas a taxa desta venda é <?php echo $calculo['taxa']; ?>%. As parcelas foram
+                                reproporcionadas para somarem exactamente a comissão da venda — corrija a
+                                regra do empreendimento (ou a taxa da venda) para deixarem de divergir.
+                                <?php if (is_admin() || staff_can('gerir_regras', 'dps_vendas')) { ?>
+                                    <br><a href="<?php echo admin_url('dps_vendas/regras'); ?>">Rever regras</a>
+                                <?php } ?>
+                            </div>
+                        <?php } ?>
                         <?php if ($calculo['taxa'] <= 0) { ?>
                             <div class="alert alert-warning">
                                 <strong>Sem taxa definida.</strong>
@@ -320,6 +375,7 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                     </div>
                 </div>
 
+                <?php if (is_admin()) { ?>
                 <div class="panel_s">
                     <div class="panel-body">
                         <h5 class="no-margin">Mudar estado</h5>
@@ -349,7 +405,69 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                         </p>
                     </div>
                 </div>
+                <?php } else { ?>
+                <div class="panel_s">
+                    <div class="panel-body">
+                        <h5 class="no-margin">Estado</h5>
+                        <hr>
+                        <span class="label <?php echo dps_vendas_cor_estado($venda['estado']); ?>">
+                            <?php echo dps_vendas_nome_estado($venda['estado']); ?>
+                        </span>
+                        <p class="text-muted mtop10">
+                            <small>A confirmação e as mudanças de estado são feitas pela direção.</small>
+                        </p>
+                    </div>
+                </div>
+                <?php } ?>
 
+                <?php
+                /*
+                 * CPCV do Aura. Só aparece neste empreendimento: o modelo é do
+                 * Meixomil, com a FAMIMAR como vendedora e cláusulas próprias.
+                 * Os outros têm contratos diferentes e mostrar-lhes um botão
+                 * que gera o contrato errado seria pior do que não ter botão.
+                 */
+                if (stripos((string) $venda['empreendimento'], 'aura') !== false) {
+                    $falta_cpcv = [];
+                    foreach ([
+                        'cliente_nif' => 'NIF', 'cliente_cc' => 'n.º CC',
+                        'cliente_cc_validade' => 'validade CC',
+                        'cliente_naturalidade' => 'naturalidade',
+                        'cliente_nacionalidade' => 'nacionalidade',
+                        'cliente_freguesia' => 'freguesia', 'cliente_concelho' => 'concelho',
+                    ] as $k => $et) {
+                        if (trim((string) ($venda[$k] ?? '')) === '') { $falta_cpcv[] = $et; }
+                    }
+                    ?>
+                    <div class="panel_s">
+                        <div class="panel-body">
+                            <h5 class="no-margin"><i class="fa fa-file-word-o"></i> Contrato-promessa (CPCV)</h5>
+                            <hr>
+                            <?php if ($falta_cpcv) { ?>
+                                <p class="text-muted">
+                                    Falta preencher: <strong><?php echo html_escape(implode(', ', $falta_cpcv)); ?></strong>.
+                                    <br>Reservas anteriores a 30/07/2026 não recolhiam estes dados.
+                                </p>
+                            <?php } else { ?>
+                                <p class="text-muted">
+                                    Gera o contrato em Word já preenchido com os dados do comprador e o plano
+                                    de pagamento calculado do preço da fracção.
+                                    <br><strong>Fica por preencher</strong> o IBAN do comprador e a fracção
+                                    (letra, tipologia e piso) — estão assinalados no documento.
+                                </p>
+                                <a href="<?php echo admin_url('dps_vendas/cpcv/' . (int) $venda['id']); ?>"
+                                   class="btn btn-info">
+                                    <i class="fa fa-download"></i> Descarregar CPCV em Word
+                                </a>
+                                <p class="text-muted mtop10" style="font-size:.85em;">
+                                    É um rascunho. Reveja antes de enviar seja a quem for.
+                                </p>
+                            <?php } ?>
+                        </div>
+                    </div>
+                <?php } ?>
+
+                <?php if (is_admin()) {   // só a direção contacta o promotor ?>
                 <div class="panel_s">
                     <div class="panel-body">
                         <h5 class="no-margin">Enviar ao promotor</h5>
@@ -371,6 +489,7 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                         </p>
                     </div>
                 </div>
+                <?php } ?>
 
                 <div class="panel_s">
                     <div class="panel-body">

@@ -23,6 +23,10 @@
 
 declare(strict_types=1);
 
+// Fora do CodeIgniter não se herda o fuso do CRM: sem isto as reservas
+// ficavam gravadas com menos uma hora (o servidor corre em UTC).
+date_default_timezone_set('Europe/Lisbon');
+
 const ORIGEM_PERMITIDA = 'https://dpsimobiliario.pt';
 const NOME_SEGREDO = '.dps_venda_secret';
 
@@ -172,6 +176,36 @@ function ligar_bd(): mysqli
     return $ligacao;
 }
 
+/**
+ * Nome livre do empreendimento ("Boavista Towers") -> chave do simulador.
+ * A ordem importa: "Gaia Premium" tem de bater antes de "Gaia" (Douro).
+ */
+function chave_simulador(string $empreendimento): ?string
+{
+    $nome = mb_strtolower($empreendimento);
+    $nome = strtr($nome, ['á'=>'a','à'=>'a','ã'=>'a','â'=>'a','é'=>'e','ê'=>'e',
+                          'í'=>'i','ó'=>'o','õ'=>'o','ô'=>'o','ú'=>'u','ç'=>'c']);
+
+    foreach ([
+        'boavista'  => 'boavista',
+        'premium'   => 'gp',
+        'douro'     => 'gaiadouro',
+        'gaia'      => 'gaiadouro',
+        'horizonte' => 'bh',
+        'belo'      => 'bh',
+        'raiz'      => 'raizes',
+        'fanzeres'  => 'raizes',
+        'aura'      => 'aura',
+        'lake'      => 'lake',
+    ] as $pedaco => $chave) {
+        if (strpos($nome, $pedaco) !== false) {
+            return $chave;
+        }
+    }
+
+    return null;
+}
+
 /* ---------------------------------------------------------------------
  * Acções
  * ------------------------------------------------------------------ */
@@ -241,8 +275,103 @@ if ($accao === 'importar') {
      * Validar ANTES de criar o que quer que seja, para não ficar um registo
      * órfão sem documento.
      */
+    /*
+     * A unidade ainda está disponível? Esta é a validação que conta — sem ela
+     * dois comerciais a trabalhar ao mesmo tempo reservavam a mesma fração e
+     * só se descobria com os dois clientes já a contar com ela.
+     * Só bloqueia com certeza: se o simulador não responder, deixa passar.
+     */
+    $chave_emp = chave_simulador($empreendimento);
+
+    if ($chave_emp !== null) {
+        $ch = curl_init('https://dpsimobiliario.pt/simuladorportugal/save_states.php');
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10]);
+        $estados_sim = json_decode((string) curl_exec($ch), true);
+        curl_close($ch);
+
+        if (is_array($estados_sim) && isset($estados_sim[$chave_emp . '_states'][$unidade])) {
+            $estado_unidade = (string) $estados_sim[$chave_emp . '_states'][$unidade];
+
+            if ($estado_unidade !== '' && $estado_unidade !== 'Disponível') {
+                responder([
+                    'success' => false,
+                    'error'   => 'Esta unidade já não está disponível (' . $estado_unidade
+                        . '). Escolha outra — actualize o simulador para ver as livres.',
+                ], 409);
+            }
+        }
+    }
+
+    /*
+     * Campos de texto primeiro: é mais barato do que validar ficheiros e a
+     * mensagem que o utilizador recebe é a que interessa.
+     */
+    foreach ([
+        'cliente'       => 'nome',
+        'morada'        => 'morada',
+        'codigo_postal' => 'código postal',
+        'telefone'      => 'telefone',
+        'email'         => 'email',
+        'estado_civil'  => 'estado civil',
+    ] as $campo => $etiqueta) {
+        if (trim((string) ($_POST[$campo] ?? '')) === '') {
+            responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
+        }
+    }
+
+    /*
+     * CAMPOS EXTRA DO CPCV — SÓ NO AURA.
+     *
+     * O contrato-promessa do Meixomil identifica o comprador com estes dados.
+     * Recolhê-los na reserva evita ter de os ler à mão do CC fotografado.
+     *
+     * A exigência é deliberadamente restrita a este empreendimento: os outros
+     * têm modelos de contrato diferentes e não se lhes acrescenta atrito por
+     * causa de um contrato que não é o deles.
+     */
+    $e_aura = stripos($empreendimento, 'aura') !== false;
+
+    if ($e_aura) {
+        foreach ([
+            'nif'            => 'NIF',
+            'cc_numero'      => 'número do Cartão de Cidadão',
+            'cc_validade'    => 'validade do Cartão de Cidadão',
+            'naturalidade'   => 'naturalidade',
+            'nacionalidade'  => 'nacionalidade',
+            'freguesia'      => 'freguesia',
+            'concelho'       => 'concelho',
+        ] as $campo => $etiqueta) {
+            if (trim((string) ($_POST[$campo] ?? '')) === '') {
+                responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
+            }
+        }
+
+        // NIF português: 9 dígitos. Não se valida o dígito de controlo — há
+        // compradores estrangeiros com NIF atribuído que não o cumprem.
+        $nif_so_digitos = preg_replace('/[^0-9]/', '', (string) $_POST['nif']);
+        if (strlen($nif_so_digitos) < 9) {
+            responder(['success' => false, 'error' => 'O NIF tem de ter 9 dígitos.'], 400);
+        }
+
+        // A validade vem do <input type="date"> em AAAA-MM-DD.
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_POST['cc_validade'])) {
+            responder(['success' => false, 'error' => 'Data de validade do Cartão de Cidadão inválida.'], 400);
+        }
+        if ($_POST['cc_validade'] < date('Y-m-d')) {
+            responder(['success' => false, 'error' => 'O Cartão de Cidadão está fora de validade.'], 400);
+        }
+    }
+
+    $cli_nif      = $e_aura ? trim((string) $_POST['nif']) : null;
+    $cli_cc       = $e_aura ? trim((string) $_POST['cc_numero']) : null;
+    $cli_cc_val   = $e_aura ? (string) $_POST['cc_validade'] : null;
+    $cli_natural  = $e_aura ? trim((string) $_POST['naturalidade']) : null;
+    $cli_nacional = $e_aura ? trim((string) $_POST['nacionalidade']) : null;
+    $cli_freg     = $e_aura ? trim((string) $_POST['freguesia']) : null;
+    $cli_conc     = $e_aura ? trim((string) $_POST['concelho']) : null;
+
     if (empty($_FILES['cc']['name']) || ($_FILES['cc']['error'] ?? 1) !== UPLOAD_ERR_OK) {
-        responder(['success' => false, 'error' => 'É obrigatório anexar o Cartão de Cidadão.'], 400);
+        responder(['success' => false, 'error' => 'É obrigatório anexar a FRENTE do Cartão de Cidadão.'], 400);
     }
 
     $ext_cc = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
@@ -253,9 +382,23 @@ if ($accao === 'importar') {
         responder(['success' => false, 'error' => 'O documento excede 10 MB.'], 400);
     }
 
-    foreach (['cliente' => 'nome', 'morada' => 'morada', 'telefone' => 'telefone', 'email' => 'email', 'estado_civil' => 'estado civil'] as $campo => $etiqueta) {
-        if (trim((string) ($_POST[$campo] ?? '')) === '') {
-            responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
+    /*
+     * Verso do CC: obrigatório quando a frente é fotografia. Dispensa-se com
+     * um PDF, porque o scan traz normalmente os dois lados no mesmo ficheiro.
+     */
+    $tem_verso = !empty($_FILES['cc_verso']['name']) && ($_FILES['cc_verso']['error'] ?? 1) === UPLOAD_ERR_OK;
+
+    if (!$tem_verso && $ext_cc !== 'pdf') {
+        responder(['success' => false, 'error' => 'É obrigatório anexar também o VERSO do Cartão de Cidadão.'], 400);
+    }
+
+    if ($tem_verso) {
+        $ext_v = strtolower(pathinfo($_FILES['cc_verso']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext_v, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+            responder(['success' => false, 'error' => 'O verso tem de ser PDF, JPG ou PNG.'], 400);
+        }
+        if (($_FILES['cc_verso']['size'] ?? 0) > 10485760) {
+            responder(['success' => false, 'error' => 'O verso excede 10 MB.'], 400);
         }
     }
 
@@ -328,23 +471,29 @@ if ($accao === 'importar') {
     $cli_civil  = trim((string) ($_POST['estado_civil'] ?? '')) ?: null;
     $cli_tipo   = trim((string) ($_POST['tipo'] ?? '')) ?: null;
     $cli_crc    = trim((string) ($_POST['crc'] ?? '')) ?: null;
+    $cli_cp     = trim((string) ($_POST['codigo_postal'] ?? '')) ?: null;
 
     $agora = date('Y-m-d H:i:s');
     $hoje  = date('Y-m-d');
 
     $stmt = $bd->prepare(
         "INSERT INTO tblsimulador_vendas
-            (empreendimento, unidade, cliente, cliente_morada, cliente_telefone, cliente_email,
+            (empreendimento, unidade, cliente, cliente_morada, cliente_codigo_postal,
+             cliente_telefone, cliente_email,
              regime_civil, cliente_tipo, cliente_crc, valor, taxa, cpcv_taxa, escritura_taxa,
+             cliente_nif, cliente_cc, cliente_cc_validade, cliente_naturalidade,
+             cliente_nacionalidade, cliente_freguesia, cliente_concelho,
              data_venda, estado, origem, staff_id, comissao_estado, date_created, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'na', ?, ?)"
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'na', ?, ?)"
     );
 
-    // 9 strings, 4 decimais, data(s), estado(s), origem(s), comercial(i), data/hora(s), comercial(i)
+    // 10 strings, 4 decimais, data(s), estado(s), origem(s), comercial(i), data/hora(s), comercial(i)
+    // 10 strings + 4 decimais + 7 strings do CPCV + data/estado/origem + ids
     $stmt->bind_param(
-        'sssssssssddddsssisi',
-        $empreendimento, $unidade, $cli_nome, $cli_morada, $cli_tel, $cli_email,
+        'ssssssssssdddd' . 'sssssss' . 'sssisi',
+        $empreendimento, $unidade, $cli_nome, $cli_morada, $cli_cp, $cli_tel, $cli_email,
         $cli_civil, $cli_tipo, $cli_crc, $valor, $taxa, $cpcv_taxa, $escritura_taxa,
+        $cli_nif, $cli_cc, $cli_cc_val, $cli_natural, $cli_nacional, $cli_freg, $cli_conc,
         $hoje, $estado, $origem, $comercial_id, $agora, $comercial_id
     );
 
@@ -365,27 +514,42 @@ if ($accao === 'importar') {
     $stmt->bind_param('isiss', $venda_id, $estado, $comercial_id, $nota_hist, $agora);
     @$stmt->execute();
 
-    // Documento: Cartão de Cidadão anexado na reserva
-    $doc_msg = '';
-    if (!empty($_FILES['cc']['name']) && ($_FILES['cc']['error'] ?? 1) === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($_FILES['cc']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true) && $_FILES['cc']['size'] <= 10485760) {
-            $dir = __DIR__ . '/uploads/dps_vendas/' . $venda_id . '/';
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0755, true);
-                @file_put_contents($dir . '.htaccess', "Deny from all\n");
-            }
-            $fn = 'cc_' . bin2hex(random_bytes(8)) . '.' . $ext;
-            if (@move_uploaded_file($_FILES['cc']['tmp_name'], $dir . $fn)) {
-                $orig  = $bd->real_escape_string($_FILES['cc']['name']);
-                $fnesc = $bd->real_escape_string($fn);
-                $bd->query(
-                    "INSERT INTO tblvendas_docs (venda_id, tipo, filename, original_name, uploaded_by, dateadded)
-                     VALUES ({$venda_id}, 'cc_frente', '{$fnesc}', '{$orig}', {$comercial_id}, '{$agora}')"
-                );
-                $doc_msg = ' Cartão de Cidadão anexado.';
-            }
+    // Documentos: Cartão de Cidadão (frente e verso) anexados na reserva
+    $doc_msg   = '';
+    $guardados = 0;
+
+    foreach (['cc' => 'cc_frente', 'cc_verso' => 'cc_verso'] as $campo => $tipo_doc) {
+        if (empty($_FILES[$campo]['name']) || ($_FILES[$campo]['error'] ?? 1) !== UPLOAD_ERR_OK) {
+            continue;
         }
+
+        $ext = strtolower(pathinfo($_FILES[$campo]['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true) || $_FILES[$campo]['size'] > 10485760) {
+            continue;
+        }
+
+        $dir = __DIR__ . '/uploads/dps_vendas/' . $venda_id . '/';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0755, true);
+            @file_put_contents($dir . '.htaccess', "Deny from all\n");
+        }
+
+        $fn = $tipo_doc . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        if (@move_uploaded_file($_FILES[$campo]['tmp_name'], $dir . $fn)) {
+            $orig  = $bd->real_escape_string($_FILES[$campo]['name']);
+            $fnesc = $bd->real_escape_string($fn);
+            $bd->query(
+                "INSERT INTO tblvendas_docs (venda_id, tipo, filename, original_name, uploaded_by, dateadded)
+                 VALUES ({$venda_id}, '{$tipo_doc}', '{$fnesc}', '{$orig}', {$comercial_id}, '{$agora}')"
+            );
+            $guardados++;
+        }
+    }
+
+    if ($guardados > 0) {
+        $doc_msg = $guardados === 2
+            ? ' Cartão de Cidadão anexado (frente e verso).'
+            : ' Cartão de Cidadão anexado.';
     }
 
     responder([

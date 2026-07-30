@@ -1,0 +1,358 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+
+/**
+ * Queries de leads e do registo de envios.
+ *
+ * Regra de ouro: o filtro assigned=staffid é a ÚNICA fronteira entre
+ * comerciais — quem chama passa $staff_id=null apenas quando o servidor já
+ * confirmou is_admin().
+ */
+class Dps_automacao_model extends App_Model
+{
+    /**
+     * Expressão SQL da "última interação" de uma lead: lastcontact, com
+     * fallback ao MAX(date) do activity log. NÃO cai para dateadded — sem
+     * interação registada, a lead fica fora dos follow-ups por decisão
+     * explícita (enviar "sentimos a sua falta" sem histórico é pior).
+     */
+    private function sql_ultima_interacao()
+    {
+        $log = db_prefix() . 'lead_activity_log';
+
+        return 'COALESCE(l.lastcontact, (SELECT MAX(al.date) FROM `' . $log . '` al WHERE al.leadid = l.id))';
+    }
+
+    /* -----------------------------------------------------------------
+     * Listas de apoio à UI
+     * -------------------------------------------------------------- */
+
+    public function get_estados_lead()
+    {
+        return $this->db->order_by('statusorder', 'ASC')
+            ->get(db_prefix() . 'leads_status')
+            ->result_array();
+    }
+
+    public function get_comerciais()
+    {
+        return $this->db->select('staffid, firstname, lastname')
+            ->where('active', 1)
+            ->order_by('firstname', 'ASC')
+            ->get(db_prefix() . 'staff')
+            ->result_array();
+    }
+
+    /* -----------------------------------------------------------------
+     * Envio em massa
+     * -------------------------------------------------------------- */
+
+    /**
+     * Leads alvo do envio em massa, paginadas por cursor (l.id > $last_id)
+     * para os lotes AJAX sequenciais não repetirem nem saltarem leads.
+     *
+     * O contacto exigido pelo canal é filtrado já no SQL: uma lead sem o
+     * contacto certo aparece no preview como excluída e nunca rebenta o lote.
+     */
+    public function get_leads_por_estados($estado_ids, $staff_id, $canal, $last_id = 0, $limite = 50)
+    {
+        $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
+        if (empty($estado_ids)) {
+            return [];
+        }
+
+        $this->db->select('l.id, l.name, l.email, l.phonenumber, l.assigned, l.status, CONCAT(s.firstname, " ", s.lastname) AS comercial')
+            ->from(db_prefix() . 'leads l')
+            ->join(db_prefix() . 'staff s', 's.staffid = l.assigned', 'left')
+            ->where_in('l.status', $estado_ids)
+            ->where('l.lost', 0)
+            ->where('l.junk', 0)
+            // Converter uma lead em cliente preenche date_converted mas mantém
+            // a linha com o status antigo — sem este filtro, clientes já
+            // ganhos receberiam campanhas de prospeção (mesma regra dos
+            // follow-ups em leads_para_followup).
+            ->where('l.date_converted IS NULL', null, false)
+            ->where('l.id >', (int) $last_id);
+
+        if ($staff_id !== null) {
+            $this->db->where('l.assigned', (int) $staff_id);
+        }
+
+        if ($canal === 'email') {
+            $this->db->where('l.email IS NOT NULL', null, false)
+                ->where('l.email !=', '');
+        } else {
+            // whatsapp e sms precisam de telefone
+            $this->db->where('l.phonenumber IS NOT NULL', null, false)
+                ->where('l.phonenumber !=', '');
+        }
+
+        return $this->db->order_by('l.id', 'ASC')
+            ->limit((int) $limite)
+            ->get()
+            ->result_array();
+    }
+
+    /**
+     * Contagens para o preview: por estado, o total de leads alvo e quantas
+     * têm o contacto exigido pelo canal. Nada é enviado aqui.
+     */
+    public function contar_leads($estado_ids, $staff_id, $canal)
+    {
+        $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
+        if (empty($estado_ids)) {
+            return [];
+        }
+
+        $campo_contacto = ($canal === 'email') ? 'l.email' : 'l.phonenumber';
+
+        $sql = 'SELECT l.status AS estado_id, st.name AS estado_nome,
+                COUNT(*) AS total,
+                SUM(CASE WHEN ' . $campo_contacto . ' IS NOT NULL AND ' . $campo_contacto . " != '' THEN 1 ELSE 0 END) AS com_contacto
+            FROM `" . db_prefix() . 'leads` l
+            LEFT JOIN `' . db_prefix() . 'leads_status` st ON st.id = l.status
+            WHERE l.status IN (' . implode(',', $estado_ids) . ')
+              AND l.lost = 0 AND l.junk = 0
+              AND l.date_converted IS NULL';
+
+        $binds = [];
+        if ($staff_id !== null) {
+            $sql    .= ' AND l.assigned = ?';
+            $binds[] = (int) $staff_id;
+        }
+
+        $sql .= ' GROUP BY l.status, st.name ORDER BY st.name';
+
+        return $this->db->query($sql, $binds)->result_array();
+    }
+
+    /* -----------------------------------------------------------------
+     * Propostas em massa (PDFs carregados)
+     * -------------------------------------------------------------- */
+
+    public function registar_proposta(array $dados)
+    {
+        $dados['dateadded'] = date('Y-m-d H:i:s');
+
+        $this->db->insert(db_prefix() . 'dps_automacao_propostas', $dados);
+
+        return $this->db->insert_id();
+    }
+
+    /**
+     * Propostas carregadas. $staff_id limita ao próprio (comercial);
+     * null = admin vê todas — a mesma convenção de get_envios.
+     */
+    public function get_propostas($staff_id = null)
+    {
+        $this->db->select('p.*, CONCAT(s.firstname, " ", s.lastname) AS staff_nome')
+            ->from(db_prefix() . 'dps_automacao_propostas p')
+            ->join(db_prefix() . 'staff s', 's.staffid = p.staff_id', 'left');
+
+        if ($staff_id !== null) {
+            $this->db->where('p.staff_id', (int) $staff_id);
+        }
+
+        return $this->db->order_by('p.id', 'DESC')
+            ->get()
+            ->result_array();
+    }
+
+    public function get_proposta($id)
+    {
+        return $this->db->where('id', (int) $id)
+            ->get(db_prefix() . 'dps_automacao_propostas')
+            ->row_array();
+    }
+
+    public function apagar_proposta($id)
+    {
+        $this->db->where('id', (int) $id)->delete(db_prefix() . 'dps_automacao_propostas');
+    }
+
+    /**
+     * Leads alvo da proposta em massa — a mesma query de get_leads_por_estados
+     * MAIS a guarda de deduplicação: um LEFT JOIN ao registo de envios com
+     * tipo='proposta_massa' e o id DESTA proposta no detalhe (convenção
+     * "proposta:<id> ..."). Quem já tem registo (mesmo falhado — o registo é
+     * inserido ANTES do envio, tal como nos follow-ups) fica fora, por isso
+     * repetir a campanha nunca duplica a mesma proposta na mesma lead.
+     */
+    /**
+     * @param bool $repetir inclui quem JÁ recebeu esta proposta.
+     *        Pedido do Ricardo (29/07/2026): a mesma proposta pode ser
+     *        reenviada porque o conteúdo relevante pode ter mudado (preços,
+     *        unidades disponíveis). Desligado por omissão — reenviar sem
+     *        querer é irritante para o cliente e queima a marca.
+     */
+    public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false)
+    {
+        $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
+        if (empty($estado_ids)) {
+            return [];
+        }
+
+        $this->db->select('l.id, l.name, l.email, l.phonenumber, l.assigned, l.status, CONCAT(s.firstname, " ", s.lastname) AS comercial')
+            ->from(db_prefix() . 'leads l')
+            ->join(db_prefix() . 'staff s', 's.staffid = l.assigned', 'left');
+
+        if (!$repetir) {
+            // Guarda de deduplicação (o id é (int) — seguro dentro do LIKE).
+            $this->db->join(
+                db_prefix() . 'dps_automacao_envios e',
+                // e.ok = 1: só um envio BEM SUCEDIDO bloqueia a lead. Sem isto, uma
+                // falha temporária (SMTP em baixo, WhatsApp desligado) marcava a
+                // lead para sempre e ela nunca receberia a proposta — foi o que
+                // aconteceu a 121 leads num envio em que o servidor de correio
+                // cortou a meio.
+                "e.lead_id = l.id AND e.tipo = 'proposta_massa' AND e.ok = 1 AND e.detalhe LIKE 'proposta:" . (int) $proposta_id . " %'",
+                'left',
+                false
+            )->where('e.id IS NULL', null, false);
+        }
+
+        /*
+         * Nota sobre repetir: a paginação por l.id > last_id continua a
+         * impedir que a MESMA lead apareça duas vezes dentro do mesmo envio.
+         * O que se dispensa aqui é só a memória de envios anteriores.
+         */
+        $this->db->where_in('l.status', $estado_ids)
+            ->where('l.lost', 0)
+            ->where('l.junk', 0)
+            // Mesma regra do envio em massa: clientes já convertidos ficam fora.
+            ->where('l.date_converted IS NULL', null, false)
+            ->where('l.id >', (int) $last_id);
+
+        if ($staff_id !== null) {
+            $this->db->where('l.assigned', (int) $staff_id);
+        }
+
+        if ($canal === 'email') {
+            $this->db->where('l.email IS NOT NULL', null, false)
+                ->where('l.email !=', '');
+        } else {
+            // whatsapp precisa de telefone
+            $this->db->where('l.phonenumber IS NOT NULL', null, false)
+                ->where('l.phonenumber !=', '');
+        }
+
+        return $this->db->order_by('l.id', 'ASC')
+            ->limit((int) $limite)
+            ->get()
+            ->result_array();
+    }
+
+    /* -----------------------------------------------------------------
+     * Registo de envios
+     * -------------------------------------------------------------- */
+
+    /**
+     * Insere uma tentativa de envio e devolve o id do registo (permite
+     * inserir ANTES de enviar e atualizar ok/detalhe depois — a guarda de
+     * idempotência dos follow-ups depende desta ordem).
+     */
+    public function registar_envio(array $dados)
+    {
+        $dados['dateadded'] = date('Y-m-d H:i:s');
+
+        $this->db->insert(db_prefix() . 'dps_automacao_envios', $dados);
+
+        return $this->db->insert_id();
+    }
+
+    public function atualizar_envio($id, $ok, $detalhe)
+    {
+        $this->db->where('id', (int) $id)->update(db_prefix() . 'dps_automacao_envios', [
+            'ok'      => $ok ? 1 : 0,
+            'detalhe' => substr((string) $detalhe, 0, 255),
+        ]);
+    }
+
+    /**
+     * Apaga um registo-guarda quando o envio nem sequer foi tentado (falha
+     * de pré-condição): a guarda de deduplicação só deve queimar leads com
+     * tentativa real — apagar permite o retry depois de corrigida a causa.
+     */
+    public function apagar_envio($id)
+    {
+        $this->db->where('id', (int) $id)->delete(db_prefix() . 'dps_automacao_envios');
+    }
+
+    /**
+     * Registo de envios para a página de consulta. $so_do_staff limita ao
+     * próprio (comercial); null = admin vê tudo, com filtros opcionais.
+     */
+    public function get_envios($filtros = [], $so_do_staff = null)
+    {
+        $this->db->select('e.*, l.name AS lead_nome, CONCAT(s.firstname, " ", s.lastname) AS staff_nome')
+            ->from(db_prefix() . 'dps_automacao_envios e')
+            ->join(db_prefix() . 'leads l', 'l.id = e.lead_id', 'left')
+            ->join(db_prefix() . 'staff s', 's.staffid = e.staff_id', 'left');
+
+        if ($so_do_staff !== null) {
+            $this->db->where('e.staff_id', (int) $so_do_staff);
+        } elseif (!empty($filtros['staff_id'])) {
+            $this->db->where('e.staff_id', (int) $filtros['staff_id']);
+        }
+
+        if (!empty($filtros['canal'])) {
+            $this->db->where('e.canal', $filtros['canal']);
+        }
+
+        return $this->db->order_by('e.id', 'DESC')
+            ->limit(300)
+            ->get()
+            ->result_array();
+    }
+
+    /* -----------------------------------------------------------------
+     * Follow-ups
+     * -------------------------------------------------------------- */
+
+    public function ja_enviado_followup($lead_id, $marco)
+    {
+        return $this->db->where('tipo', 'followup')
+            ->where('marco', (int) $marco)
+            ->where('lead_id', (int) $lead_id)
+            ->count_all_results(db_prefix() . 'dps_automacao_envios') > 0;
+    }
+
+    /**
+     * Leads elegíveis para o follow-up de um marco: com email, não lost/junk,
+     * não convertidas em cliente, sem registo prévio deste marco (LEFT JOIN
+     * de guarda) e cuja última interação cai na janela [marco, seguinte[.
+     *
+     * Leads sem QUALQUER interação registada ficam de fora (ver
+     * sql_ultima_interacao) — sem histórico, não há "sentimos a sua falta".
+     */
+    public function leads_para_followup($marco, $limite = 50, $marco_seguinte = null)
+    {
+        $ultima = $this->sql_ultima_interacao();
+
+        $sql = 'SELECT l.id, l.name, l.email, l.assigned, l.status,
+                CONCAT(s.firstname, " ", s.lastname) AS comercial,
+                ' . $ultima . ' AS ultima_interacao
+            FROM `' . db_prefix() . 'leads` l
+            LEFT JOIN `' . db_prefix() . 'staff` s ON s.staffid = l.assigned
+            LEFT JOIN `' . db_prefix() . "dps_automacao_envios` e
+                ON e.lead_id = l.id AND e.tipo = 'followup' AND e.marco = ?
+            WHERE e.id IS NULL
+              AND l.email IS NOT NULL AND l.email != ''
+              AND l.lost = 0 AND l.junk = 0
+              AND l.date_converted IS NULL
+            HAVING ultima_interacao IS NOT NULL
+              AND DATEDIFF(NOW(), ultima_interacao) >= ?";
+
+        $binds = [(int) $marco, (int) $marco];
+
+        if ($marco_seguinte !== null) {
+            $sql    .= ' AND DATEDIFF(NOW(), ultima_interacao) < ?';
+            $binds[] = (int) $marco_seguinte;
+        }
+
+        $sql .= ' ORDER BY l.id ASC LIMIT ' . (int) $limite;
+
+        return $this->db->query($sql, $binds)->result_array();
+    }
+}

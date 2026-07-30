@@ -75,13 +75,19 @@
                   <label class="control-label">
                     <i class="fa fa-envelope"></i> Endereço de Email <span class="text-danger">*</span>
                   </label>
-                  <div class="input-group">
-                    <input type="email" name="email" class="form-control" required
-                      placeholder="nome.apelido@grupo-dps.com"
-                      value="<?php echo $config ? htmlspecialchars($config['email']) : htmlspecialchars($suggested_email); ?>">
-                    <span class="input-group-addon">@grupo-dps.com</span>
-                  </div>
-                  <small class="text-muted">Use o seu email @grupo-dps.com criado no Hostinger.</small>
+                  <!--
+                    Aqui escreve-se o email COMPLETO. O "@grupo-dps.com" que
+                    estava colado ao campo era só decorativo, mas dava a
+                    entender que só faltava a primeira parte — e ficava
+                    "nome@grupo-dps.com@grupo-dps.com". Fora.
+                  -->
+                  <input type="email" name="email" class="form-control" required
+                    placeholder="nome.apelido@grupo-dps.com"
+                    value="<?php echo $config ? htmlspecialchars($config['email']) : htmlspecialchars($suggested_email); ?>">
+                  <small class="text-muted">
+                    Escreva o endereço <strong>completo</strong>, com o <strong>@grupo-dps.com</strong> incluído
+                    (o mesmo que usa no Hostinger).
+                  </small>
                 </div>
               </div>
               <div class="col-md-6">

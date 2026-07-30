@@ -284,9 +284,12 @@ class Dps_whatsapp_model extends CI_Model
         // Normalizar número de telefone (remover espaços, traços, +, etc.)
         $to = preg_replace('/[^0-9]/', '', $to);
         
+        // Evolution v2: 'text' no primeiro nível. A v1 aninhava em
+        // textMessage e a v2 rejeita esse formato com HTTP 400
+        // ("instance requires property text").
         $result = $this->evolution_request('POST', "/message/sendText/{$instance_name}", [
             'number' => $to,
-            'textMessage' => ['text' => $message]
+            'text'   => $message,
         ]);
         
         // Erro de rede/curl (sem http_code)

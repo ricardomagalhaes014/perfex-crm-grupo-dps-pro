@@ -1,0 +1,366 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+/*
+Module Name: DPS Automação
+Description: Envio em massa (WhatsApp/Email/SMS) por estado de lead, propostas em massa com PDF anexado, guiões da Sofia e follow-ups automáticos por inatividade.
+Version: 1.1.0
+Requires at least: 2.3.*
+Author: Grupo DPS
+Author URI: https://grupo-dps.com
+*/
+
+define('DPS_AUTOMACAO_MODULE_NAME', 'dps_automacao');
+define('DPS_AUTOMACAO_VERSION', '1.2.0');
+
+register_activation_hook(DPS_AUTOMACAO_MODULE_NAME, 'dps_automacao_activate');
+
+// O helper é partilhado entre o controller, as vistas e o cron de follow-ups —
+// tem de estar disponível antes de qualquer um deles correr.
+get_instance()->load->helper(DPS_AUTOMACAO_MODULE_NAME . '/dps_automacao');
+
+hooks()->add_action('admin_init', 'dps_automacao_ensure_schema');
+hooks()->add_action('admin_init', 'dps_automacao_menu');
+hooks()->add_action('admin_init', 'dps_automacao_permissions');
+hooks()->add_action('after_cron_run', 'dps_automacao_cron_followups');
+
+function dps_automacao_activate()
+{
+    require_once __DIR__ . '/install.php';
+}
+
+/**
+ * Criação idempotente das tabelas do módulo. Partilhada entre a ativação
+ * (install.php) e a migração automática (ensure_schema) para não haver duas
+ * cópias do SQL a divergir com o tempo.
+ */
+function dps_automacao_criar_tabelas()
+{
+    $CI = &get_instance();
+
+    $envios    = db_prefix() . 'dps_automacao_envios';
+    $guioes    = db_prefix() . 'dps_automacao_guioes';
+    $escolhas  = db_prefix() . 'dps_automacao_guiao_escolhas';
+    $propostas = db_prefix() . 'dps_automacao_propostas';
+
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$envios}` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `lead_id` INT NOT NULL,
+        `staff_id` INT NOT NULL DEFAULT 0,
+        `canal` VARCHAR(10) NOT NULL COMMENT 'whatsapp|email|sms',
+        `tipo` VARCHAR(20) NOT NULL DEFAULT 'massa' COMMENT 'massa|followup|teste|proposta_massa',
+        `marco` TINYINT UNSIGNED NULL COMMENT '7|15|30 — só para followups',
+        `estado_lead` INT NULL COMMENT 'id do estado da lead no momento do envio',
+        `mensagem` TEXT NOT NULL,
+        `ok` TINYINT(1) NOT NULL DEFAULT 0,
+        `detalhe` VARCHAR(255) NULL,
+        `dateadded` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `lead_id` (`lead_id`),
+        KEY `staff_id` (`staff_id`),
+        KEY `followup_guarda` (`tipo`,`marco`,`lead_id`),
+        KEY `dateadded` (`dateadded`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$guioes}` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `nome` VARCHAR(150) NOT NULL,
+        `descricao` TEXT NULL COMMENT 'o que a Sofia fará — visível ao comercial',
+        `instrucoes` TEXT NULL COMMENT 'texto/instruções de execução',
+        `ativo` TINYINT(1) NOT NULL DEFAULT 1,
+        `created_by` INT NOT NULL DEFAULT 0,
+        `dateadded` DATETIME NOT NULL,
+        `updated_at` DATETIME NULL,
+        PRIMARY KEY (`id`),
+        KEY `ativo` (`ativo`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$escolhas}` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `guiao_id` INT UNSIGNED NOT NULL,
+        `staff_id` INT NOT NULL,
+        `dateadded` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `staff_id` (`staff_id`) COMMENT 'uma escolha ativa por comercial — o upsert substitui',
+        KEY `guiao_id` (`guiao_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // PDFs de propostas carregados pelos comerciais para envio em massa.
+    // O ficheiro físico vive em uploads/dps_automacao/propostas/<filename>;
+    // original_name é o nome que a lead vê (fileName no WhatsApp / anexo no email).
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$propostas}` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `staff_id` INT NOT NULL COMMENT 'quem carregou — cada comercial só vê as suas',
+        `filename` VARCHAR(64) NOT NULL COMMENT 'nome hex aleatório no disco',
+        `original_name` VARCHAR(255) NOT NULL,
+        `tamanho` INT UNSIGNED NOT NULL DEFAULT 0,
+        `dateadded` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `staff_id` (`staff_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    // Instalações 1.0.0 criaram tipo como VARCHAR(10) — curto demais para
+    // 'proposta_massa' (14 chars, ficaria truncado e a guarda de deduplicação
+    // nunca encontraria o registo). O MODIFY é inócuo quando a coluna já está
+    // certa, e isto só corre quando a versão do esquema muda.
+    $CI->db->query("ALTER TABLE `{$envios}`
+        MODIFY `tipo` VARCHAR(20) NOT NULL DEFAULT 'massa' COMMENT 'massa|followup|teste|proposta_massa'");
+
+    /*
+     * ÍNDICE CRÍTICO — não remover.
+     *
+     * leads_para_followup() calcula a última interação de cada lead com
+     * MAX(date) sobre tbllead_activity_log. Essa tabela vem do Perfex apenas
+     * com a chave primária: sem índice em leadid, cada lead obriga a varrer as
+     * ~43.000 linhas do histórico. Com ~6.000 leads candidatas são ~257
+     * milhões de leituras por execução.
+     *
+     * A 29/07/2026 isso demorava 12,5 SEGUNDOS por passagem e a Hostinger
+     * classificou a conta como abuso de base de dados: aplicou null-routing e
+     * revogou permissões, deixando os dois sites em baixo duas vezes no mesmo
+     * dia. Com o índice, a mesma consulta passou a 14 ms (892x mais rápida) e
+     * torna-se covering index — nem chega a ler a tabela.
+     *
+     * O índice é do Perfex, não nosso, por isso não pode viver num CREATE
+     * TABLE: tem de ser acrescentado aqui, e verificado antes para o ALTER não
+     * rebentar quando já existe.
+     */
+    $log = db_prefix() . 'lead_activity_log';
+    $tem = $CI->db->query(
+        "SHOW INDEX FROM `{$log}` WHERE Key_name = 'dps_leadid_date'"
+    )->num_rows();
+
+    if (!$tem) {
+        $CI->db->query("ALTER TABLE `{$log}` ADD INDEX `dps_leadid_date` (`leadid`, `date`)");
+        log_activity('dps_automacao: índice dps_leadid_date criado em ' . $log);
+    }
+
+    // O table_exists() de outros módulos pode ter deixado a lista de tabelas em
+    // cache SEM as recém-criadas — e o resto deste mesmo pedido consulta-a.
+    // (Armadilha documentada em dps_vendas_ensure_schema.)
+    $CI->db->data_cache = [];
+}
+
+/**
+ * Opções do módulo, semeadas só se ainda não existirem (add_option não
+ * sobrepõe valores já gravados pelo utilizador).
+ */
+function dps_automacao_semear_opcoes()
+{
+    // Interruptores DESLIGADOS por omissão: nada é enviado até o admin decidir.
+    add_option('dps_automacao_ativo', '0');
+    add_option('dps_automacao_followups_ativo', '0');
+
+    add_option(
+        'dps_automacao_msg_followup_7',
+        "Olá {nome},\n\nJá passou uma semana desde o nosso último contacto e não queríamos deixar de saber se ainda tem interesse. Se surgiu alguma dúvida, estou inteiramente à sua disposição.\n\nCom os melhores cumprimentos,\n{comercial}"
+    );
+    add_option(
+        'dps_automacao_msg_followup_15',
+        "Olá {nome},\n\nContinuamos à sua inteira disposição para o ajudar a encontrar a solução certa. Entretanto surgiram novidades que podem ser do seu interesse — diga-nos quando podemos falar.\n\nCom os melhores cumprimentos,\n{comercial}"
+    );
+    add_option(
+        'dps_automacao_msg_followup_30',
+        "Olá {nome},\n\nJá há algum tempo que não falamos e não queríamos que perdesse as oportunidades que temos neste momento. Se ainda fizer sentido para si, basta responder a este email e retomamos a conversa.\n\nCom os melhores cumprimentos,\n{comercial}"
+    );
+}
+
+/**
+ * Migração automática de esquema, sem obrigar a desativar/reativar o módulo.
+ *
+ * Corre no admin_init de TODAS as páginas do admin, por isso: sai já se a
+ * versão bater certo, marca a opção ANTES do trabalho e embrulha tudo em
+ * try/catch — uma exceção aqui bloquearia o CRM inteiro (padrão
+ * dps_credito_setup_estados).
+ */
+function dps_automacao_ensure_schema()
+{
+    if (get_option('dps_automacao_schema_version') === DPS_AUTOMACAO_VERSION) {
+        return;
+    }
+
+    // Marcar antes do trabalho: se algo falhar, falha uma vez e fica no log,
+    // em vez de rebentar em todos os pedidos seguintes.
+    update_option('dps_automacao_schema_version', DPS_AUTOMACAO_VERSION);
+
+    try {
+        dps_automacao_criar_tabelas();
+        dps_automacao_semear_opcoes();
+    } catch (\Throwable $e) {
+        log_activity('dps_automacao_ensure_schema falhou: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Menu lateral: parent "Automações" (slug sms-central) logo abaixo do
+ * Sofia Calls (posição 49), com o Envio clássico e o módulo novo lá dentro.
+ */
+function dps_automacao_menu()
+{
+    // Sem portão nenhum, como o "Sofia Calls": o admin_init só corre para
+    // staff autenticado, e é o padrão dos itens que aparecem a toda a gente.
+    // (is_staff_member() chegou a esconder isto até ao admin — nunca mais.)
+    $CI = &get_instance();
+
+    // Parent "Automações", logo abaixo do Sofia Calls (posição 49).
+    $CI->app_menu->add_sidebar_menu_item('sms-central', [
+        'slug'     => 'sms-central',
+        'name'     => 'Automações',
+        'icon'     => 'fa fa-bolt',
+        'position' => 50,
+    ]);
+
+    // O item "Envio" abre a página clássica das Automações DPS.
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_sms',
+        'name'     => 'Envio',
+        'href'     => admin_url('automacoes_dps'),
+        'position' => 1,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_envio_massa',
+        'name'     => 'Envio em Massa',
+        'href'     => admin_url('dps_automacao/envio_massa'),
+        'position' => 2,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_proposta_massa',
+        'name'     => 'Proposta em Massa',
+        'href'     => admin_url('dps_automacao/proposta_massa'),
+        'position' => 3,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_guioes',
+        'name'     => 'Guiões Sofia',
+        'href'     => admin_url('dps_automacao/guioes'),
+        'position' => 4,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_envios',
+        'name'     => 'Registo de Envios',
+        'href'     => admin_url('dps_automacao/envios'),
+        'position' => 5,
+    ]);
+
+    if (is_admin()) {
+        $CI->app_menu->add_sidebar_children_item('sms-central', [
+            'slug'     => 'dps_automacao_definicoes',
+            'name'     => 'Definições',
+            'href'     => admin_url('dps_automacao/definicoes'),
+            'position' => 6,
+        ]);
+    }
+}
+
+/**
+ * Capacidades do módulo. A fronteira real entre comerciais é o filtro
+ * assigned=staffid imposto no servidor; estas capacidades servem para o admin
+ * poder retirar o acesso ao módulo a alguém, se um dia fizer falta.
+ */
+function dps_automacao_permissions()
+{
+    register_staff_capabilities('dps_automacao', [
+        'view' => 'Aceder à Automação (envio em massa, guiões e registo)',
+    ], 'DPS Automação');
+}
+
+/**
+ * Follow-ups automáticos aos 7/15/30 dias sem interação, via cron do Perfex.
+ *
+ * Corre sem sessão. Nada sai sem os DOIS interruptores ligados. Cada marco
+ * apanha só a sua janela (>= marco e < marco seguinte) para uma lead antiga
+ * não receber os três emails de rajada quando a funcionalidade for ligada.
+ * O registo em tbldps_automacao_envios é inserido ANTES do envio: é a guarda
+ * de idempotência contra corridas de cron concorrentes.
+ */
+function dps_automacao_cron_followups($manualmente = null)
+{
+    if (get_option('dps_automacao_ativo') !== '1' || get_option('dps_automacao_followups_ativo') !== '1') {
+        return;
+    }
+
+    $CI     = &get_instance();
+    $envios = db_prefix() . 'dps_automacao_envios';
+
+    // O cron pode correr antes da ativação manual ter criado as tabelas.
+    if (!$CI->db->table_exists($envios)) {
+        return;
+    }
+
+    $CI->load->model(DPS_AUTOMACAO_MODULE_NAME . '/dps_automacao_model');
+
+    // Limite por corrida: proteger o SMTP e repartir listas grandes por várias
+    // corridas do cron em vez de um pico único.
+    $limite_total = 50;
+    $enviados     = 0;
+
+    // [marco, marco seguinte] — o último não tem teto.
+    $janelas = [[7, 15], [15, 30], [30, null]];
+
+    foreach ($janelas as $janela) {
+        $marco    = $janela[0];
+        $seguinte = $janela[1];
+
+        if ($enviados >= $limite_total) {
+            break;
+        }
+
+        $template = (string) get_option('dps_automacao_msg_followup_' . $marco);
+        if (trim($template) === '') {
+            continue;
+        }
+
+        try {
+            $leads = $CI->dps_automacao_model->leads_para_followup($marco, $limite_total - $enviados, $seguinte);
+        } catch (\Throwable $e) {
+            log_activity('dps_automacao follow-ups (marco ' . $marco . ') falhou: ' . $e->getMessage());
+            continue;
+        }
+
+        foreach ($leads as $lead) {
+            $comercial = trim((string) ($lead['comercial'] ?? ''));
+            if ($comercial === '') {
+                $comercial = get_option('companyname') ?: 'A nossa equipa';
+            }
+
+            // Substituir variáveis sobre texto simples; o escape para HTML
+            // vem DEPOIS — na ordem inversa, um nome com HTML injetaria markup.
+            $texto = dps_automacao_render_vars($template, $lead['name'], $comercial);
+
+            // Guarda inserida ANTES do envio: uma segunda corrida concorrente
+            // do cron já vê este registo e salta a lead.
+            $registo_id = $CI->dps_automacao_model->registar_envio([
+                'lead_id'     => (int) $lead['id'],
+                'staff_id'    => (int) $lead['assigned'],
+                'canal'       => 'email',
+                'tipo'        => 'followup',
+                'marco'       => $marco,
+                'estado_lead' => isset($lead['status']) ? (int) $lead['status'] : null,
+                'mensagem'    => $texto,
+                'ok'          => 0,
+                'detalhe'     => 'Em processamento',
+            ]);
+
+            $assunto = 'Continuamos à sua disposição — ' . (get_option('companyname') ?: 'Grupo DPS');
+            $corpo   = nl2br(html_escape($texto));
+
+            $ok = dps_automacao_enviar_email_lead($lead['email'], $assunto, $corpo);
+
+            $CI->db->where('id', $registo_id)->update($envios, [
+                'ok'      => $ok ? 1 : 0,
+                'detalhe' => $ok
+                    ? 'Follow-up de ' . $marco . ' dias enviado'
+                    : 'Falha no envio SMTP',
+            ]);
+
+            $enviados++;
+            if ($enviados >= $limite_total) {
+                break;
+            }
+        }
+    }
+}

@@ -1,0 +1,361 @@
+<?php
+
+defined('BASEPATH') or exit('No direct script access allowed');
+
+class Dps_painel extends AdminController
+{
+    public function __construct()
+    {
+        parent::__construct();
+
+        /*
+         * Módulo privado: só o Ricardo (staff 1) entra.
+         *
+         * NÃO se usa access_denied(): essa função redirecciona para
+         * admin/access_denied, rota que o Perfex não tem, e o utilizador
+         * acabava na página 404 do skater sem perceber porquê — foi o que
+         * aconteceu a 29/07/2026. Aqui diz-se com que conta está a entrar,
+         * que é a informação que resolve o problema em dois segundos.
+         */
+        if (!dps_painel_is_owner()) {
+            $id   = function_exists('get_staff_user_id') ? (int) get_staff_user_id() : 0;
+            $nome = function_exists('get_staff_full_name') ? get_staff_full_name($id) : '';
+
+            log_activity('Painel do Negócio: acesso recusado a staff ' . $id);
+
+            echo '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:80px auto;'
+                . 'padding:28px 32px;border:1px solid #e5e7eb;border-radius:10px;line-height:1.6;">'
+                . '<h2 style="margin:0 0 12px;">Painel do Negócio &mdash; privado</h2>'
+                . '<p>Este painel mostra o que a DPS recebe por venda e <strong>só abre na conta do Ricardo</strong> '
+                . '(ID 1). Os restantes administradores não lhe chegam, de propósito.</p>'
+                . '<p style="background:#f9fafb;padding:12px 14px;border-radius:6px;">'
+                . 'Está a entrar como <strong>' . html_escape($nome ?: 'desconhecido') . '</strong> '
+                . '(ID ' . $id . ').</p>'
+                . '<p>Se é o Ricardo, saia e volte a entrar com a sua conta.</p>'
+                . '<p><a href="' . admin_url() . '">&larr; Voltar ao CRM</a></p>'
+                . '</div>';
+            exit;
+        }
+
+        /*
+         * Diagnóstico: este painel falhava a branco/404 sem deixar rasto —
+         * o CRM tem o registo de erros desligado em produção. Como só o dono
+         * chega aqui, mostra-se-lhe o erro em vez de o esconder. Não há fuga
+         * de informação: mais ninguém passa do gate acima.
+         */
+        register_shutdown_function(function () {
+            $e = error_get_last();
+            $fatais = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+
+            if ($e && in_array($e['type'], $fatais, true)) {
+                echo '<pre style="white-space:pre-wrap;background:#fee;border:1px solid #f99;'
+                    . 'padding:14px;margin:14px;font:13px/1.5 ui-monospace,monospace;">'
+                    . "ERRO FATAL NO PAINEL DO NEGOCIO\n\n"
+                    . html_escape($e['message']) . "\n\n"
+                    . html_escape($e['file']) . ':' . (int) $e['line']
+                    . '</pre>';
+            }
+        });
+
+        $this->load->model('dps_painel_model', 'm');
+    }
+
+    /**
+     * Corre o miolo de uma página e, se rebentar, mostra o erro ao dono em vez
+     * de devolver uma página em branco.
+     */
+    private function correr(callable $accao)
+    {
+        try {
+            $accao();
+        } catch (\Throwable $e) {
+            echo '<pre style="white-space:pre-wrap;background:#fee;border:1px solid #f99;'
+                . 'padding:14px;margin:14px;font:13px/1.5 ui-monospace,monospace;">'
+                . "ERRO NO PAINEL DO NEGOCIO\n\n"
+                . html_escape(get_class($e)) . ': ' . html_escape($e->getMessage()) . "\n\n"
+                . html_escape($e->getFile()) . ':' . (int) $e->getLine() . "\n\n"
+                . html_escape($e->getTraceAsString())
+                . '</pre>';
+        }
+    }
+
+    /**
+     * Diagnóstico passo a passo: corre o mesmo que o index(), um bloco de cada
+     * vez, com tempos, e diz onde parte. Texto simples, sem tema nem vista, para
+     * que uma falha no layout não esconda o resultado.
+     *
+     * Existe porque o painel falhava sem deixar rasto e eu andei a adivinhar.
+     * Pode ser apagado quando isto estiver estável.
+     */
+    public function diag()
+    {
+        header('Content-Type: text/plain; charset=utf-8');
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        echo "DIAGNÓSTICO DO PAINEL DO NEGÓCIO\n";
+        echo 'staff: ' . (int) get_staff_user_id() . "   PHP " . PHP_VERSION . "\n";
+        echo str_repeat('-', 58) . "\n";
+
+        $passo = function ($nome, callable $f) {
+            $i = microtime(true);
+            try {
+                $r = $f();
+                printf("OK      %-26s %6.0f ms\n", $nome, (microtime(true) - $i) * 1000);
+                return $r;
+            } catch (\Throwable $e) {
+                printf("FALHOU  %-26s\n\n  %s: %s\n  %s:%d\n\n%s\n",
+                    $nome, get_class($e), $e->getMessage(), $e->getFile(), $e->getLine(), $e->getTraceAsString());
+                exit;
+            }
+        };
+
+        $filtros  = ['ano' => null, 'mes' => null, 'mes_recebido' => null, 'so_recebidas' => null,
+                     'comercial' => null, 'empreendimento' => null, 'estado' => null];
+        $vendas   = $passo('get_vendas', function () use ($filtros) { return $this->m->get_vendas($filtros); });
+        echo '        (' . count($vendas) . " vendas)\n";
+        $despesas = $passo('get_despesas',   function () { return $this->m->get_despesas([]); });
+        $totais   = $passo('totais',         function () use ($vendas, $despesas) { return $this->m->totais($vendas, $despesas); });
+        $resumo   = $passo('resumo_por_emp', function () use ($vendas) { return $this->m->resumo_por_empreendimento($vendas); });
+        $regras   = $passo('regras_config',  function () { return $this->m->regras_config(); });
+        $opcoes   = $passo('opcoes_filtros', function () { return $this->m->opcoes_filtros(); });
+        $moloni   = $passo('moloni_config',  function () { return $this->m->moloni_config(); });
+
+        $passo('render da vista', function () use ($vendas, $despesas, $totais, $resumo, $regras, $filtros, $opcoes, $moloni) {
+            $data = compact('vendas', 'despesas', 'totais', 'resumo', 'regras', 'filtros', 'opcoes', 'moloni');
+            $data['title'] = 'Painel do Negócio';
+            // Render para string: se a vista rebentar, apanha-se aqui.
+            $html = $this->load->view('manage', $data, true);
+            echo '        (' . strlen($html) . " bytes de HTML)\n";
+            return true;
+        });
+
+        echo str_repeat('-', 58) . "\n";
+        echo "TUDO OK — o painel consegue construir a página.\n";
+        echo "Se o /admin/dps_painel mesmo assim não abre, o problema está no\n";
+        echo "tema/layout do CRM e não neste módulo.\n";
+    }
+
+    public function index()
+    {
+        $this->correr(function () {
+        $filtros = [
+            'ano'            => $this->input->get('ano'),
+            'mes'            => $this->input->get('mes'),
+            // Mês em que a DPS RECEBEU (formato 'AAAA-MM'). Diferente de
+            // ano/mês, que filtram pela data da venda.
+            'mes_recebido'   => $this->input->get('mes_recebido'),
+            'so_recebidas'   => $this->input->get('so_recebidas'),
+            'comercial'      => $this->input->get('comercial'),
+            'empreendimento' => $this->input->get('empreendimento'),
+            'estado'         => $this->input->get('estado'),
+        ];
+
+        $vendas   = $this->m->get_vendas($filtros);
+        $despesas = $this->m->get_despesas(['ano' => $filtros['ano'], 'mes' => $filtros['mes']]);
+
+        $data['vendas']   = $vendas;
+        $data['despesas'] = $despesas;
+        $data['totais']   = $this->m->totais($vendas, $despesas);
+        $data['resumo']   = $this->m->resumo_por_empreendimento($vendas);
+        $data['regras']   = $this->m->regras_config();
+        $data['filtros']  = $filtros;
+        $data['opcoes']   = $this->m->opcoes_filtros();
+        $data['moloni']   = $this->m->moloni_config();
+        $data['title']    = 'Painel do Negócio';
+
+        $this->load->view('manage', $data);
+        });
+    }
+
+    public function guardar_venda($venda_id)
+    {
+        // Escritas só por POST: um GET com efeitos abre a porta a que um link
+        // qualquer altere números do painel.
+        if (!$this->input->post()) {
+            redirect(admin_url('dps_painel'));
+        }
+
+        $this->m->save_overlay($venda_id, $this->input->post());
+        set_alert('success', 'Venda #' . (int) $venda_id . ' atualizada.');
+
+        redirect($this->url_com_filtros());
+    }
+
+    /**
+     * URL do painel com os filtros que estavam aplicados.
+     *
+     * Reconstrói-se a partir de campos escondidos do próprio formulário, com
+     * uma lista fechada de chaves — antes usava-se $_SERVER['HTTP_REFERER'],
+     * que é um cabeçalho controlado pelo cliente e dava um redirect aberto.
+     */
+    private function url_com_filtros()
+    {
+        $q = [];
+        foreach (['ano', 'mes', 'comercial', 'empreendimento', 'estado'] as $k) {
+            $v = $this->input->post('f_' . $k);
+            if ($v !== null && $v !== '') {
+                $q[$k] = $v;
+            }
+        }
+
+        return admin_url('dps_painel') . (empty($q) ? '' : '?' . http_build_query($q));
+    }
+
+    /* ---------------------------------------------------------------------
+     * O que a DPS recebe por empreendimento.
+     *
+     * Vive dentro do painel privado, e não nas Regras de Comissão do
+     * dps_vendas: aquela página é visível aos comerciais e não pode mostrar
+     * o que a casa recebe do promotor.
+     * ------------------------------------------------------------------ */
+
+    public function recebimento()
+    {
+        if ($this->input->post()) {
+            $post = $this->input->post();
+            $id   = !empty($post['id']) ? (int) $post['id'] : null;
+            unset($post['id']);
+
+            $erro = $this->m->validar_recebimento($post);
+            if ($erro !== '') {
+                set_alert('danger', $erro);
+            } else {
+                $this->m->guardar_recebimento($post, $id);
+                set_alert('success', 'Comissão a receber guardada.');
+            }
+
+            redirect(admin_url('dps_painel/recebimento'));
+        }
+
+        // Traz para a lista os empreendimentos que já têm vendas, a 0%.
+        $this->m->sincronizar_recebimento_com_vendas();
+
+        $data['recebimentos']    = $this->m->get_recebimentos();
+        $data['empreendimentos'] = $this->m->opcoes_filtros()['emps'];
+        $data['title']           = 'Comissões a receber';
+
+        $this->load->view('recebimento', $data);
+    }
+
+    public function recebimento_delete()
+    {
+        // Apagar é destrutivo: só por POST (com o token do form_open).
+        if (!$this->input->post()) {
+            redirect(admin_url('dps_painel/recebimento'));
+        }
+
+        $this->m->delete_recebimento($this->input->post('id'));
+        set_alert('success', 'Linha eliminada.');
+
+        redirect(admin_url('dps_painel/recebimento'));
+    }
+
+    public function despesa_add()
+    {
+        if ($this->input->post()) {
+            $doc  = $this->upload_despesa_doc();
+            $post = $this->input->post();
+            if ($doc) {
+                $post['doc'] = $doc;
+            }
+            $this->m->add_despesa($post);
+            set_alert('success', 'Despesa lançada.');
+        }
+        redirect(admin_url('dps_painel'));
+    }
+
+    public function despesa_delete($id)
+    {
+        // Idem: destruição só por POST.
+        if (!$this->input->post()) {
+            redirect(admin_url('dps_painel'));
+        }
+
+        $d = $this->m->get_despesa($id);
+        if ($d) {
+            if (!empty($d['doc'])) {
+                @unlink(FCPATH . DPS_PAINEL_UPLOAD . $d['doc']);
+            }
+            $this->m->delete_despesa($id);
+            set_alert('success', 'Despesa eliminada.');
+        }
+        redirect(admin_url('dps_painel'));
+    }
+
+    public function despesa_doc($id)
+    {
+        $d = $this->m->get_despesa($id);
+        if (!$d || empty($d['doc'])) {
+            show_404();
+        }
+        $caminho = FCPATH . DPS_PAINEL_UPLOAD . $d['doc'];
+        if (!file_exists($caminho)) {
+            show_404();
+        }
+        $this->load->helper('download');
+        force_download($d['doc'], file_get_contents($caminho));
+    }
+
+    /* ----- Moloni ----- */
+
+    public function definicoes()
+    {
+        if ($this->input->post()) {
+            // Dois formulários na mesma página; o campo escondido 'bloco' diz
+            // qual deles submeteu, para não gravarmos Moloni com um POST de
+            // regras (e apagar credenciais com campos ausentes).
+            if ($this->input->post('bloco') === 'regras') {
+                $this->m->regras_save_config($this->input->post());
+                set_alert('success', 'Regras do negócio guardadas.');
+            } else {
+                $this->m->moloni_save_config($this->input->post());
+                set_alert('success', 'Definições Moloni guardadas.');
+            }
+
+            redirect(admin_url('dps_painel/definicoes'));
+        }
+
+        $data['moloni'] = $this->m->moloni_config();
+        $data['regras'] = $this->m->regras_config();
+        $data['staff']  = $this->m->staff_ativo();
+        $data['title']  = 'Definições do Painel';
+        $this->load->view('definicoes', $data);
+    }
+
+    public function moloni_testar()
+    {
+        $r = $this->m->moloni_test();
+        if ($r['ok']) {
+            $lista = implode(', ', array_map(function ($e) {
+                return $e['nome'] . ' (#' . $e['id'] . ')';
+            }, $r['empresas']));
+            set_alert('success', 'Ligação Moloni OK. Empresas: ' . $lista);
+        } else {
+            set_alert('danger', 'Moloni: ' . $r['error']);
+        }
+        redirect(admin_url('dps_painel/definicoes'));
+    }
+
+    private function upload_despesa_doc()
+    {
+        if (empty($_FILES['doc']['name'])) {
+            return null;
+        }
+        // Blindar a pasta ANTES de lá pousar seja o que for.
+        $destino = dps_painel_pasta_uploads();
+
+        $ext = strtolower(pathinfo($_FILES['doc']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+            set_alert('warning', 'Documento da despesa ignorado (só PDF/JPG/PNG).');
+            return null;
+        }
+        $nome = 'despesa_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        if (move_uploaded_file($_FILES['doc']['tmp_name'], $destino . $nome)) {
+            return $nome;
+        }
+
+        return null;
+    }
+}

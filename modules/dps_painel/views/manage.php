@@ -1,0 +1,698 @@
+<?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
+<?php init_head(); ?>
+<?php
+$moeda   = get_base_currency();
+$f_meses = [1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril', 5 => 'Maio', 6 => 'Junho',
+            7 => 'Julho', 8 => 'Agosto', 9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro'];
+$f_estados = ['vendido' => 'CPCV', 'concluido' => 'Concluído'];
+
+$f_base = [
+    'recebida' => 'do que recebemos — e só sobre a parte que já entrou em caixa',
+    'paga'     => 'da comissão do comercial',
+    'venda'    => 'do valor da venda (meio ponto do preço, seja qual for a taxa do empreendimento) — pago no CPCV',
+];
+// Sufixo curto para o rótulo do cartão: sem ele lia-se "Direcção (0,5%)" e não
+// se percebia 0,5% de quê — foi essa dúvida que motivou tudo isto.
+$s_base = ['recebida' => 'do recebido', 'paga' => 'da comissão', 'venda' => 'da venda'];
+$pct    = function ($n) {
+    return rtrim(rtrim(number_format((float) $n, 4, ',', ''), '0'), ',');
+};
+?>
+<style>
+/* Cinco cartões numa linha: o grid do Bootstrap 3 não tem 1/5, força-se aqui. */
+@media (min-width: 992px) { .dps-card5 { width: 20%; } }
+</style>
+<div id="wrapper">
+    <div class="content">
+
+        <div class="row mbot15">
+            <div class="col-md-6"><h4 class="no-margin"><i class="fa fa-briefcase"></i> Painel do Negócio</h4></div>
+            <div class="col-md-6 text-right">
+                <a href="<?php echo admin_url('dps_painel/recebimento'); ?>" class="btn btn-default btn-sm">
+                    <i class="fa fa-percent"></i> Comissões a receber
+                </a>
+                <a href="<?php echo admin_url('dps_painel/definicoes'); ?>" class="btn btn-default btn-sm">
+                    <i class="fa fa-plug"></i> Definições
+                    <?php echo !empty($moloni['dev_id']) ? '<span class="label label-success">Moloni on</span>' : '<span class="label label-default">Moloni off</span>'; ?>
+                </a>
+            </div>
+        </div>
+
+        <?php if (!empty($totais['sem_taxa'])) { ?>
+            <div class="alert alert-warning">
+                <i class="fa fa-warning"></i>
+                Há <strong><?php echo (int) $totais['sem_taxa']; ?></strong> venda(s) sem comissão a receber definida —
+                entram a zero e puxam o resultado para baixo.
+                <a href="<?php echo admin_url('dps_painel/recebimento'); ?>">Definir agora</a>.
+            </div>
+        <?php } ?>
+
+        <!-- Cartões -->
+        <div class="row">
+            <?php
+            /*
+             * "Recebemos" é dinheiro EM CAIXA. O que o promotor só paga mais
+             * tarde (Belo Horizonte, na data do CPCV) vive no seu próprio
+             * cartão — e, sobretudo, NÃO entra no override da direcção: não se
+             * paga 0,5% de dinheiro que ainda não entrou.
+             *
+             * Cada cartão pode levar uma segunda linha (índice 4) a dizer o
+             * mesmo número na base do previsto, para se ver os dois planos sem
+             * trocar de ecrã.
+             */
+            $rot_dir = $regras['director_id'] > 0
+                ? 'Direcção (' . $pct($regras['director_pct']) . '% ' . $s_base[$regras['director_base']] . ')'
+                : 'Direcção (ninguém)';
+
+            $cards = [
+                [
+                    'Recebemos (em caixa)', $totais['recebido'], 'text-success', 'fa-arrow-down',
+                    $totais['por_receber'] > 0
+                        ? 'de ' . app_format_money($totais['recebido_previsto'], $moeda) . ' previstos'
+                        : null,
+                ],
+                [
+                    'A receber AGORA', $totais['a_receber_agora'], 'text-warning', 'fa-exclamation-triangle',
+                    $totais['a_receber_agora'] > 0
+                        ? 'prazo já vencido — cobrar ou marcar'
+                        : 'nada vencido',
+                ],
+                [
+                    'A receber no futuro', $totais['a_receber_futuro'], 'text-info', 'fa-calendar',
+                    $totais['a_receber_futuro'] > 0 ? 'em datas já combinadas' : '—',
+                ],
+                [
+                    'Comerciais', $totais['comissao_comercial'], 'text-danger', 'fa-arrow-up',
+                    'já pagos: ' . app_format_money($totais['pago_comercial'], $moeda)
+                        . ' · a pagar agora: ' . app_format_money($totais['comerciais_agora'], $moeda)
+                        . ' · prazo futuro: ' . app_format_money($totais['comerciais_futuro'], $moeda),
+                ],
+                /*
+                 * O número em destaque é o TOTAL a pagar à direção.
+                 *
+                 * Estava a mostrar só o override sobre vendas já marcadas como
+                 * recebidas — dava "0,00" em grande e vermelho enquanto se
+                 * deviam 17.759,50, com os números verdadeiros em letra
+                 * pequena. Quem lê um cartão lê o número grande.
+                 */
+                [
+                    $rot_dir, $totais['direcao_prevista'], 'text-danger', 'fa-user',
+                    'com dinheiro em casa: ' . app_format_money($totais['direcao'], $moeda)
+                        . ' · à espera de cobrança: ' . app_format_money($totais['direcao_agora'], $moeda)
+                        . ' · prazo futuro: ' . app_format_money($totais['direcao_futuro'], $moeda),
+                ],
+                ['Despesas', $totais['despesas'], 'text-danger', 'fa-shopping-cart', null],
+                [
+                    'Resultado AGORA', $totais['resultado_agora'],
+                    $totais['resultado_agora'] >= 0 ? 'text-success' : 'text-danger', 'fa-balance-scale',
+                    'do que já está ou devia estar resolvido',
+                ],
+                [
+                    'Resultado futuro', $totais['resultado_futuro'],
+                    $totais['resultado_futuro'] >= 0 ? 'text-success' : 'text-danger', 'fa-calendar-check-o',
+                    'total previsto: ' . app_format_money($totais['resultado'], $moeda),
+                ],
+            ];
+            /*
+             * Cada cartão abre para mostrar DE QUE É FEITO o número: a lista das
+             * vendas que o compõem, com a parcela de cada uma.
+             *
+             * O detalhe é renderizado já aqui, escondido, e não por AJAX: os
+             * dados estão todos em $vendas e um pedido extra por cartão só
+             * acrescentava carga a uma conta que este mês já foi estrangulada
+             * por excesso de base de dados.
+             *
+             * O índice 5 de cada cartão é a função que decide o que entra na
+             * lista e com que valor. Sem ele, o cartão não abre.
+             */
+            $det = [
+                'Recebemos (em caixa)' => function ($v) { return $v['recebido']; },
+                'A receber AGORA'      => function ($v) { return $v['a_receber_agora']; },
+                'A receber no futuro'  => function ($v) { return $v['a_receber_futuro']; },
+                'Comerciais'           => function ($v) { return $v['comissao_comercial']; },
+                $rot_dir               => function ($v) { return $v['direcao_prevista']; },
+                'Resultado AGORA'      => function ($v) { return $v['resultado_agora']; },
+                'Resultado futuro'     => function ($v) { return $v['resultado_futuro']; },
+            ];
+
+            foreach ($cards as $i => $c) {
+                $abre = isset($det[$c[0]]);
+                $alvo = 'dps-det-' . $i;
+                ?>
+                <div class="col-md-3 col-sm-6 dps-card5">
+                    <div class="panel_s">
+                        <div class="panel-body <?php echo $abre ? 'dps-card-abre' : ''; ?>"
+                             <?php if ($abre) { ?>data-alvo="<?php echo $alvo; ?>" style="cursor:pointer;" title="Clique para ver de que é feito"<?php } ?>>
+                            <div class="text-muted">
+                                <i class="fa <?php echo $c[3]; ?>"></i> <?php echo $c[0]; ?>
+                                <?php if ($abre) { ?><i class="fa fa-chevron-down pull-right text-muted" style="font-size:.8em;margin-top:3px;"></i><?php } ?>
+                            </div>
+                            <h3 class="no-margin <?php echo $c[2]; ?>"><?php echo app_format_money($c[1], $moeda); ?></h3>
+                            <?php if (!empty($c[4])) { ?>
+                                <small class="text-muted"><?php echo $c[4]; ?></small>
+                            <?php } ?>
+                        </div>
+                    </div>
+                </div>
+            <?php } ?>
+        </div>
+
+        <?php
+        /* Painéis de detalhe — um por cartão, escondidos até se clicar. */
+        foreach ($cards as $i => $c) {
+            if (!isset($det[$c[0]])) {
+                continue;
+            }
+            $fn    = $det[$c[0]];
+            $itens = [];
+            foreach ($vendas as $v) {
+                $parcela = (float) $fn($v);
+                if (abs($parcela) > 0.004) {
+                    $itens[] = [$v, $parcela];
+                }
+            }
+            // Maior contribuição primeiro: é o que se quer ver de relance.
+            usort($itens, function ($a, $b) { return abs($b[1]) <=> abs($a[1]); });
+            ?>
+            <div id="dps-det-<?php echo $i; ?>" class="panel_s dps-card-det" style="display:none;">
+                <div class="panel-body">
+                    <div class="row mbot15">
+                        <div class="col-md-8">
+                            <h4 class="no-margin">
+                                <i class="fa <?php echo $c[3]; ?>"></i> <?php echo $c[0]; ?>
+                                <small class="text-muted">— de que é feito</small>
+                            </h4>
+                        </div>
+                        <div class="col-md-4 text-right">
+                            <h4 class="no-margin <?php echo $c[2]; ?>"><?php echo app_format_money($c[1], $moeda); ?></h4>
+                        </div>
+                    </div>
+
+                    <?php if (empty($itens)) { ?>
+                        <p class="text-muted">Nenhuma venda contribui para este valor.</p>
+                    <?php } else { ?>
+                        <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead><tr>
+                                <th>Venda</th><th>Empreendimento</th><th>Un.</th><th>Cliente</th><th>Comercial</th>
+                                <th>Situação</th><th>Prazos</th><th class="text-right">Parcela</th>
+                            </tr></thead>
+                            <tbody>
+                            <?php foreach ($itens as list($v, $parcela)) { ?>
+                                <tr>
+                                    <td><a href="<?php echo admin_url('dps_vendas/view/' . (int) $v['id']); ?>">#<?php echo (int) $v['id']; ?></a></td>
+                                    <td><?php echo html_escape($v['empreendimento']); ?></td>
+                                    <td><?php echo html_escape($v['unidade']); ?></td>
+                                    <td><?php echo html_escape($v['cliente']); ?></td>
+                                    <td>
+                                        <?php echo html_escape($v['comercial_nome']); ?>
+                                        <?php if (!empty($v['comercial_0'])) { ?>
+                                            <br><span class="label label-default" title="Sem comissão — fica na casa">0%</span>
+                                        <?php } elseif (!empty($v['comercial_100'])) { ?>
+                                            <br><span class="label label-info" title="Leva 100% do que recebemos">100%</span>
+                                        <?php } ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($v['recebido_marcado'])) { ?>
+                                            <span class="label label-success">recebido</span>
+                                            <?php if (!empty($v['recebido_em'])) { ?>
+                                                <br><small class="text-muted"><?php echo _d($v['recebido_em']); ?></small>
+                                            <?php } ?>
+                                        <?php } else { ?>
+                                            <span class="label label-warning">por receber</span>
+                                        <?php } ?>
+                                        <?php
+                                        /*
+                                         * O nome legível do estado vive no helper do dps_vendas.
+                                         * Este painel é outro módulo e não há garantia de que o
+                                         * helper esteja carregado — sem a guarda, uma chamada a
+                                         * função inexistente matava a página inteira.
+                                         */
+                                        $estado_txt = function_exists('dps_vendas_nome_estado')
+                                            ? dps_vendas_nome_estado($v['estado'])
+                                            : ucfirst((string) $v['estado']);
+                                        ?>
+                                        <br><small class="text-muted"><?php echo html_escape($estado_txt); ?></small>
+                                    </td>
+                                    <td style="white-space:nowrap;">
+                                        <?php $fm2 = function ($m) { return $m ? substr($m, 5, 2) . '/' . substr($m, 0, 4) : 'imediato'; }; ?>
+                                        <small>CPCV: <?php echo $fm2($v['mes_recebido_cpcv']); ?></small>
+                                        <?php if ($v['recebido_escritura'] > 0) { ?>
+                                            <br><small>Escritura: <?php echo $fm2($v['mes_recebido_escritura']); ?></small>
+                                        <?php } ?>
+                                    </td>
+                                    <td class="text-right">
+                                        <strong><?php echo app_format_money($parcela, $moeda); ?></strong>
+                                        <br><small class="text-muted">venda <?php echo app_format_money($v['valor'], $moeda); ?></small>
+                                    </td>
+                                </tr>
+                            <?php } ?>
+                            </tbody>
+                            <tfoot><tr>
+                                <th colspan="7" class="text-right">Total (<?php echo count($itens); ?> vendas)</th>
+                                <th class="text-right"><?php echo app_format_money(array_sum(array_column($itens, 1)), $moeda); ?></th>
+                            </tr></tfoot>
+                        </table>
+                        </div>
+                    <?php } ?>
+                </div>
+            </div>
+        <?php } ?>
+
+        <script>
+        (function () {
+            'use strict';
+            // Abre um painel de cada vez: dois abertos deixavam de caber no ecrã
+            // e obrigavam a rolar para trás para comparar.
+            document.querySelectorAll('.dps-card-abre').forEach(function (cartao) {
+                cartao.addEventListener('click', function () {
+                    var alvo = document.getElementById(cartao.dataset.alvo);
+                    if (!alvo) { return; }
+                    var abrir = alvo.style.display === 'none';
+
+                    document.querySelectorAll('.dps-card-det').forEach(function (p) { p.style.display = 'none'; });
+                    document.querySelectorAll('.dps-card-abre .fa-chevron-up').forEach(function (s) {
+                        s.classList.remove('fa-chevron-up');
+                        s.classList.add('fa-chevron-down');
+                    });
+
+                    if (abrir) {
+                        alvo.style.display = '';
+                        var seta = cartao.querySelector('.fa-chevron-down');
+                        if (seta) { seta.classList.remove('fa-chevron-down'); seta.classList.add('fa-chevron-up'); }
+                        alvo.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            });
+        })();
+        </script>
+
+        <?php if ($totais['estimado'] > 0) { ?>
+            <p class="text-muted">
+                <i class="fa fa-info-circle"></i>
+                <?php echo app_format_money($totais['estimado'], $moeda); ?> do total previsto é
+                <strong>estimativa</strong> pela taxa do empreendimento — passa a real assim que lançares o valor do promotor na linha da venda.
+                <?php if ($totais['por_receber'] > 0) { ?>
+                    <br><i class="fa fa-clock-o"></i>
+                    <?php echo app_format_money($totais['por_receber'], $moeda); ?> só entram na data
+                    combinada (coluna <strong>Por receber</strong> em baixo).
+                <?php } ?>
+            </p>
+        <?php } ?>
+
+        <!-- Resumo por empreendimento -->
+        <div class="panel_s"><div class="panel-body">
+            <h4 class="no-margin">Por empreendimento</h4>
+            <p class="text-muted">
+                <strong>Em caixa</strong> é o que já entrou do promotor; <strong>Por receber</strong> é o que
+                só entra na data combinada. <strong>Comerciais</strong>, <strong>Direcção</strong> e
+                <strong>Resultado</strong> são da venda inteira — contam tudo o que ela rende, mesmo o que
+                ainda não entrou —, por isso o Resultado não é igual a "Em caixa menos o resto".
+                Na coluna Direcção, o número grande é o total e o pequeno o que já é devido.
+                <strong>A receber agora</strong> é prazo vencido — ou se cobra, ou se marca como recebido.
+                <strong>A receber futuro</strong> é calendário, não atraso: o Belo Horizonte é todo futuro
+                (50% em 12/2026 e 50% em 12/2028, conforme as Regras de Comissão).
+                As despesas não entram aqui (não são imputáveis a um empreendimento), só no resultado global lá em cima.
+            </p>
+            <div class="table-responsive">
+            <table class="table table-striped">
+                <thead><tr>
+                    <th>Empreendimento</th>
+                    <th class="text-right">Vendas</th>
+                    <th class="text-right">Volume</th>
+                    <th class="text-right">Em caixa</th>
+                    <th class="text-right">A receber agora</th>
+                    <th class="text-right">A receber futuro</th>
+                    <th class="text-right">&nbsp;&nbsp;no CPCV</th>
+                    <th class="text-right">na escritura</th>
+                    <th class="text-right">Comerciais</th>
+                    <th class="text-right">Direcção</th>
+                    <th class="text-right">Resultado</th>
+                </tr></thead>
+                <tbody>
+                <?php if (empty($resumo['linhas'])) { ?>
+                    <tr><td colspan="11" class="text-center text-muted">Sem vendas para os filtros escolhidos.</td></tr>
+                <?php } ?>
+                <?php foreach ($resumo['linhas'] as $r) { ?>
+                    <tr>
+                        <td>
+                            <?php echo html_escape($r['empreendimento']); ?>
+                            <?php if (!empty($r['sem_taxa'])) { ?>
+                                <a href="<?php echo admin_url('dps_painel/recebimento'); ?>" class="label label-warning" title="Falta definir a comissão que recebemos">falta a taxa</a>
+                            <?php } elseif ($r['taxa_recebida'] !== null) { ?>
+                                <small class="text-muted">(<?php echo $pct($r['taxa_recebida']); ?>%)</small>
+                            <?php } ?>
+                        </td>
+                        <td class="text-right"><?php echo (int) $r['vendas']; ?></td>
+                        <td class="text-right"><?php echo app_format_money($r['volume'], $moeda); ?></td>
+                        <td class="text-right text-success"><?php echo app_format_money($r['recebido'], $moeda); ?></td>
+                        <td class="text-right <?php echo $r['a_receber_agora'] > 0 ? 'text-warning' : 'text-muted'; ?>">
+                            <?php echo $r['a_receber_agora'] > 0 ? app_format_money($r['a_receber_agora'], $moeda) : '—'; ?>
+                        </td>
+                        <td class="text-right <?php echo $r['a_receber_futuro'] > 0 ? 'text-info' : 'text-muted'; ?>">
+                            <?php echo $r['a_receber_futuro'] > 0 ? app_format_money($r['a_receber_futuro'], $moeda) : '—'; ?>
+                        </td>
+                        <?php
+                        /*
+                         * O promotor paga-nos em duas tranches, tal como nós pagamos ao
+                         * comercial. Os prazos são os das Regras de Comissão — aqui só se
+                         * mostram para se saber em que mês entra cada verba.
+                         */
+                        $mes_leg = function ($m) {
+                            return $m ? substr($m, 5, 2) . '/' . substr($m, 0, 4) : 'imediato';
+                        };
+                        ?>
+                        <td class="text-right">
+                            <?php echo app_format_money($r['recebido_cpcv'], $moeda); ?>
+                            <br><small class="text-muted"><?php echo $mes_leg($r['mes_cpcv']); ?></small>
+                        </td>
+                        <td class="text-right">
+                            <?php if ((float) $r['recebido_escritura'] > 0) { ?>
+                                <?php echo app_format_money($r['recebido_escritura'], $moeda); ?>
+                                <br><small class="text-muted"><?php echo $mes_leg($r['mes_escritura']); ?></small>
+                            <?php } else { ?>
+                                <span class="text-muted">—</span>
+                            <?php } ?>
+                        </td>
+                        <td class="text-right"><?php echo app_format_money($r['comerciais'], $moeda); ?></td>
+                        <td class="text-right">
+                            <?php
+                            /*
+                             * Duas linhas quando ainda não é tudo devido: sem isto lia-se
+                             * "Direcção 0" ao lado de um Resultado que JÁ desconta o override
+                             * inteiro, e a linha não fechava aos olhos de quem a lê.
+                             */
+                            echo app_format_money($r['direcao'], $moeda);
+                            if ($r['direcao_prevista'] > $r['direcao']) { ?>
+                                <br><small class="text-muted" title="Total do override; o resto é devido na data do CPCV">
+                                    de <?php echo app_format_money($r['direcao_prevista'], $moeda); ?>
+                                </small>
+                            <?php } ?>
+                        </td>
+                        <td class="text-right <?php echo $r['resultado'] >= 0 ? 'text-success' : 'text-danger'; ?>">
+                            <strong><?php echo app_format_money($r['resultado'], $moeda); ?></strong>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+                <?php if (!empty($resumo['linhas'])) { ?>
+                <tfoot><tr>
+                    <th>Total</th>
+                    <th class="text-right"><?php echo (int) $resumo['totais']['vendas']; ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['volume'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['recebido'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['a_receber_agora'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['a_receber_futuro'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['recebido_cpcv'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['recebido_escritura'], $moeda); ?></th>
+                    <th class="text-right"><?php echo app_format_money($resumo['totais']['comerciais'], $moeda); ?></th>
+                    <th class="text-right">
+                        <?php echo app_format_money($resumo['totais']['direcao'], $moeda); ?>
+                        <?php if ($resumo['totais']['direcao_prevista'] > $resumo['totais']['direcao']) { ?>
+                            <br><small class="text-muted">de <?php echo app_format_money($resumo['totais']['direcao_prevista'], $moeda); ?></small>
+                        <?php } ?>
+                    </th>
+                    <th class="text-right <?php echo $resumo['totais']['resultado'] >= 0 ? 'text-success' : 'text-danger'; ?>">
+                        <?php echo app_format_money($resumo['totais']['resultado'], $moeda); ?>
+                    </th>
+                </tr></tfoot>
+                <?php } ?>
+            </table>
+            </div>
+        </div></div>
+
+        <!-- Filtros -->
+        <div class="panel_s"><div class="panel-body">
+            <?php echo form_open(admin_url('dps_painel'), ['method' => 'get', 'class' => 'form-inline']); ?>
+            <div class="row">
+                <div class="col-md-2 col-sm-4"><label>Ano</label>
+                    <select name="ano" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($opcoes['anos'] as $a) { ?><option value="<?php echo $a; ?>" <?php echo $filtros['ano'] == $a ? 'selected' : ''; ?>><?php echo $a; ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-2 col-sm-4"><label>Mês</label>
+                    <select name="mes" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($f_meses as $n => $nm) { ?><option value="<?php echo $n; ?>" <?php echo $filtros['mes'] == $n ? 'selected' : ''; ?>><?php echo $nm; ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-3 col-sm-4"><label>Comercial</label>
+                    <select name="comercial" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($opcoes['comerciais'] as $co) { ?><option value="<?php echo (int) $co['staff_id']; ?>" <?php echo $filtros['comercial'] == $co['staff_id'] ? 'selected' : ''; ?>><?php echo html_escape($co['nome']); ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-3 col-sm-6"><label>Empreendimento</label>
+                    <select name="empreendimento" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($opcoes['emps'] as $e) { ?><option value="<?php echo html_escape($e); ?>" <?php echo $filtros['empreendimento'] === $e ? 'selected' : ''; ?>><?php echo html_escape($e); ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-2 col-sm-6"><label>Estado</label>
+                    <select name="estado" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($f_estados as $k => $nm) { ?><option value="<?php echo $k; ?>" <?php echo $filtros['estado'] === $k ? 'selected' : ''; ?>><?php echo $nm; ?></option><?php } ?>
+                    </select></div>
+            </div>
+            <?php
+            /*
+             * Filtro pelo mês em que a DPS RECEBEU — pergunta diferente do
+             * Ano/Mês acima, que filtram pela data da VENDA. "Quanto entrou em
+             * Julho" e "quanto se vendeu em Julho" são coisas distintas, e
+             * misturá-las num só filtro dava respostas erradas às duas.
+             *
+             * A lista sai das datas realmente marcadas, para não oferecer meses
+             * onde nunca entrou nada.
+             */
+            $meses_recebidos = [];
+            foreach ($vendas as $_v) {
+                if (!empty($_v['recebido_em'])) {
+                    $meses_recebidos[substr($_v['recebido_em'], 0, 7)] = true;
+                }
+            }
+            krsort($meses_recebidos);
+            ?>
+            <div class="row mtop10">
+                <div class="col-md-3 col-sm-6">
+                    <label>Mês em que recebemos</label>
+                    <select name="mes_recebido" class="form-control" style="width:100%;">
+                        <option value="">Todos</option>
+                        <?php foreach (array_keys($meses_recebidos) as $mr) { ?>
+                            <option value="<?php echo html_escape($mr); ?>" <?php echo ($filtros['mes_recebido'] ?? '') === $mr ? 'selected' : ''; ?>>
+                                <?php echo substr($mr, 5, 2) . '/' . substr($mr, 0, 4); ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+                    <small class="text-muted">Pela marca de recebido, não pela data da venda.</small>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label>&nbsp;</label>
+                    <div class="checkbox checkbox-primary">
+                        <input type="checkbox" name="so_recebidas" id="so_recebidas" value="1"
+                               <?php echo !empty($filtros['so_recebidas']) ? 'checked' : ''; ?>>
+                        <label for="so_recebidas">Só vendas já recebidas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mtop15">
+                <button type="submit" class="btn btn-info"><i class="fa fa-filter"></i> Filtrar</button>
+                <a href="<?php echo admin_url('dps_painel'); ?>" class="btn btn-default">Limpar</a>
+            </div>
+            <?php echo form_close(); ?>
+        </div></div>
+
+        <!-- Vendas -->
+        <div class="panel_s"><div class="panel-body">
+            <h4 class="no-margin">Vendas — o que entra e o que sai</h4>
+            <p class="text-muted">
+                <strong>Recebemos</strong> = o valor real do promotor, se o escreveres na linha; senão é
+                <em>estimado</em> pela percentagem do empreendimento.
+                <strong>Comercial</strong> vem do mapa de vendas — excepto nos comerciais com acordo de 100%,
+                em que é igual ao que recebemos (a DPS ganha zero, é o acordo).
+                <?php if ($regras['director_id'] > 0) { ?>
+                    <?php
+                    /*
+                     * Distinção que já gerou confusão: o override incide sobre o que
+                     * a DPS recebe do PROMOTOR, não sobre o que o cliente paga. Um
+                     * cliente pode ter pagado tudo ao promotor e a nossa comissão só
+                     * entrar meses depois — e é a nossa entrada que conta.
+                     */
+                    ?>
+                    <strong>Direcção</strong> é o override de <?php echo $pct($regras['director_pct']); ?>%
+                    <?php echo $f_base[$regras['director_base']]; ?>.
+                <?php } else { ?>
+                    <strong>Direcção</strong> está a zero: não há ninguém escolhido para o override nas
+                    <a href="<?php echo admin_url('dps_painel/definicoes'); ?>">Definições</a>.
+                <?php } ?>
+            </p>
+
+            <?php
+            /* Um formulário por linha, fora da <table> (forms aninhados em
+             * tabelas não são válidos); os inputs ligam-se por form="pv_ID".
+             * Levam os filtros em f_* para o guardar voltar ao mesmo ecrã. */
+            foreach ($vendas as $v) {
+                echo form_open(admin_url('dps_painel/guardar_venda/' . $v['id']), ['id' => 'pv_' . $v['id']]);
+                foreach ($filtros as $fk => $fv) {
+                    if ($fv !== null && $fv !== '') {
+                        echo '<input type="hidden" name="f_' . html_escape($fk) . '" value="' . html_escape($fv) . '">';
+                    }
+                }
+                echo form_close();
+            } ?>
+
+            <div class="table-responsive">
+            <table class="table table-striped">
+                <thead><tr>
+                    <th>#</th><th>Empreendimento</th><th>Un.</th><th>Cliente</th><th>Comercial</th>
+                    <th class="text-right">Valor venda</th>
+                    <th class="text-right" style="min-width:150px;">Recebemos</th>
+                    <th class="text-right">Comercial</th>
+                    <th class="text-right">Direcção</th>
+                    <th style="min-width:160px;">Recibo emitido?</th>
+                    <th class="text-right">Resultado</th>
+                    <th></th>
+                </tr></thead>
+                <tbody>
+                <?php if (empty($vendas)) { ?>
+                    <tr><td colspan="12" class="text-center text-muted">Sem vendas para os filtros escolhidos.</td></tr>
+                <?php } ?>
+                <?php foreach ($vendas as $v) { $ff = 'pv_' . $v['id']; ?>
+                    <tr>
+                        <td><a href="<?php echo admin_url('dps_vendas/view/' . $v['id']); ?>">#<?php echo $v['id']; ?></a></td>
+                        <td><?php echo html_escape($v['empreendimento']); ?></td>
+                        <td><?php echo html_escape($v['unidade']); ?></td>
+                        <td><?php echo html_escape($v['cliente']); ?></td>
+                        <td>
+                            <?php echo html_escape($v['comercial_nome']); ?>
+                            <?php if (!empty($v['comercial_100'])) { ?>
+                                <br><span class="label label-info" title="Acordo: leva 100% do que a DPS recebe">100%</span>
+                            <?php } ?>
+                        </td>
+                        <td class="text-right"><?php echo app_format_money($v['valor'], $moeda); ?></td>
+                        <td class="text-right">
+                            <strong><?php echo app_format_money($v['recebido_previsto'], $moeda); ?></strong><br>
+                            <?php if ($v['recebido_fonte'] === 'real') { ?>
+                                <span class="label label-success">real</span>
+                            <?php } elseif ($v['recebido_fonte'] === 'estimado') { ?>
+                                <span class="label label-default" title="Estimado a <?php echo $pct($v['taxa_recebida']); ?>% do valor da venda">estimado</span>
+                            <?php } else { ?>
+                                <a href="<?php echo admin_url('dps_painel/recebimento'); ?>" class="label label-warning">falta definir a taxa</a>
+                            <?php } ?>
+                            <?php
+                            /*
+                             * Quando parte da verba só entra mais tarde, diz-se aqui quanto
+                             * e em que mês. Sem isto o número de cima lia-se como dinheiro
+                             * em caixa, que é o que estava a inflacionar o override.
+                             */
+                            if (!empty($v['recebido_marcado'])) { ?>
+                                <br><small class="text-success" title="Marcado como recebido no mapa de vendas">
+                                    <i class="fa fa-check"></i> em caixa
+                                    <?php if (!empty($v['recebido_em'])) { ?>
+                                        (<?php echo _d($v['recebido_em']); ?>)
+                                    <?php } ?>
+                                </small>
+                            <?php } elseif ($v['por_receber'] > 0) {
+                                $m = $v['mes_recebido_cpcv'];
+                                ?>
+                                <br><small class="text-warning" title="Sem a marca de recebido no mapa de vendas — não conta para caixa nem para a Direcção">
+                                    por receber: <?php echo app_format_money($v['por_receber'], $moeda); ?>
+                                    <?php if (!empty($m)) { ?>
+                                        (previsto <?php echo substr($m, 5, 2) . '/' . substr($m, 0, 4); ?>)
+                                    <?php } ?>
+                                    <br><a href="<?php echo admin_url('dps_vendas'); ?>"><i class="fa fa-check"></i> marcar no mapa de vendas</a>
+                                </small>
+                            <?php } ?>
+                            <input type="text" form="<?php echo $ff; ?>" name="comissao_recebida" class="form-control input-sm text-right mtop5"
+                                   value="<?php echo $v['recebida'] !== null ? number_format($v['recebida'], 2, ',', '.') : ''; ?>"
+                                   placeholder="valor real €" title="Valor real recebido do promotor. Em branco = estimativa.">
+                        </td>
+                        <td class="text-right"><?php echo app_format_money($v['comissao_comercial'], $moeda); ?>
+                            <?php // O "pago" incide sobre o valor da célula acima (tranches CPCV/escritura), por isso as duas linhas partilham base. ?>
+                            <?php if ($v['comissao_paga'] > 0) { ?><br><small class="text-success" title="Tranches já marcadas como pagas no mapa de vendas (CPCV/escritura), calculadas sobre o valor acima.">pago: <?php echo app_format_money($v['comissao_paga'], $moeda); ?></small><?php } ?>
+                        </td>
+                        <td class="text-right">
+                            <?php echo app_format_money($v['direcao'], $moeda); ?>
+                            <?php if ($v['direcao_prevista'] > $v['direcao']) { ?>
+                                <br><small class="text-muted" title="Total quando o promotor pagar tudo"><?php echo app_format_money($v['direcao_prevista'], $moeda); ?> no total</small>
+                            <?php } ?>
+                        </td>
+                        <td>
+                            <label style="font-weight:400;"><input type="checkbox" form="<?php echo $ff; ?>" name="recibo_emitido" value="1" <?php echo !empty($v['recibo_emitido']) ? 'checked' : ''; ?>> emitido</label>
+                            <input type="text" form="<?php echo $ff; ?>" name="recibo_numero" class="form-control input-sm" placeholder="nº recibo"
+                                   value="<?php echo html_escape($v['recibo_numero']); ?>" style="width:110px;display:inline-block;">
+                        </td>
+                        <td class="text-right <?php echo $v['resultado'] >= 0 ? 'text-success' : 'text-danger'; ?>">
+                            <strong><?php echo app_format_money($v['resultado'], $moeda); ?></strong>
+                        </td>
+                        <td><button type="submit" form="<?php echo $ff; ?>" class="btn btn-info btn-xs" title="Guardar"><i class="fa fa-save"></i></button></td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+                <?php if (!empty($vendas)) { ?>
+                <tfoot><tr>
+                    <th colspan="5">Total</th>
+                    <th class="text-right"><?php echo app_format_money($totais['volume'], $moeda); ?></th>
+                    <th class="text-right">
+                        <?php // As linhas mostram o previsto, o rodapé também — senão não somava. ?>
+                        <?php echo app_format_money($totais['recebido_previsto'], $moeda); ?>
+                        <?php if ($totais['por_receber'] > 0) { ?>
+                            <br><small class="text-warning">por receber: <?php echo app_format_money($totais['por_receber'], $moeda); ?></small>
+                        <?php } ?>
+                    </th>
+                    <th class="text-right"><?php echo app_format_money($totais['comissao_comercial'], $moeda); ?></th>
+                    <th class="text-right">
+                        <?php echo app_format_money($totais['direcao'], $moeda); ?>
+                        <?php if ($totais['direcao_prevista'] > $totais['direcao']) { ?>
+                            <br><small class="text-muted"><?php echo app_format_money($totais['direcao_prevista'], $moeda); ?> no total</small>
+                        <?php } ?>
+                    </th>
+                    <th></th>
+                    <th class="text-right">
+                        <?php // Sem despesas: aqui é só a soma das linhas. O resultado com despesas está no cartão. ?>
+                        <?php $res_linhas = $totais['recebido_previsto'] - $totais['comissao_comercial'] - $totais['direcao_prevista']; ?>
+                        <span class="<?php echo $res_linhas >= 0 ? 'text-success' : 'text-danger'; ?>"><?php echo app_format_money($res_linhas, $moeda); ?></span>
+                    </th>
+                    <th></th>
+                </tr></tfoot>
+                <?php } ?>
+            </table>
+            </div>
+        </div></div>
+
+        <!-- Despesas -->
+        <div class="panel_s"><div class="panel-body">
+            <h4 class="no-margin">Despesas</h4>
+            <hr>
+            <?php echo form_open_multipart(admin_url('dps_painel/despesa_add'), ['class' => 'form-inline mbot15']); ?>
+                <?php // O valor tem de estar no formato do datepicker (option dateformat), não em ISO — o model reconverte com to_sql_date(). ?>
+                <input type="text" name="data" class="form-control datepicker" placeholder="Data" value="<?php echo _d(date('Y-m-d')); ?>" style="width:120px;">
+                <input type="text" name="categoria" class="form-control" placeholder="Categoria" style="width:140px;">
+                <input type="text" name="descricao" class="form-control" placeholder="Descrição" style="width:200px;">
+                <input type="text" name="valor" class="form-control" placeholder="Valor €" style="width:100px;">
+                <input type="text" name="fatura_numero" class="form-control" placeholder="Nº fatura" style="width:110px;">
+                <input type="file" name="doc" class="form-control" accept=".pdf,.jpg,.jpeg,.png" style="width:170px;display:inline-block;">
+                <button type="submit" class="btn btn-info"><i class="fa fa-plus"></i> Lançar</button>
+            <?php echo form_close(); ?>
+
+            <table class="table table-striped">
+                <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th class="text-right">Valor</th><th>Fatura</th><th></th><th></th></tr></thead>
+                <tbody>
+                <?php if (empty($despesas)) { ?>
+                    <tr><td colspan="7" class="text-center text-muted">Sem despesas lançadas.</td></tr>
+                <?php } ?>
+                <?php foreach ($despesas as $d) { ?>
+                    <tr>
+                        <td><?php echo _d($d['data']); ?></td>
+                        <td><?php echo html_escape($d['categoria']); ?></td>
+                        <td><?php echo html_escape($d['descricao']); ?></td>
+                        <td class="text-right"><?php echo app_format_money($d['valor'], $moeda); ?></td>
+                        <td><?php echo html_escape($d['fatura_numero']); ?></td>
+                        <td><?php if (!empty($d['doc'])) { ?><a href="<?php echo admin_url('dps_painel/despesa_doc/' . $d['id']); ?>" class="btn btn-default btn-xs"><i class="fa fa-download"></i></a><?php } ?></td>
+                        <td>
+                            <?php // Destruição só por POST (o form_open leva o token do Perfex). ?>
+                            <?php echo form_open(admin_url('dps_painel/despesa_delete/' . $d['id']), ['style' => 'display:inline;']); ?>
+                                <button type="submit" class="btn btn-danger btn-xs" onclick="return confirm('Eliminar esta despesa?');"><i class="fa fa-remove"></i></button>
+                            <?php echo form_close(); ?>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+        </div></div>
+
+    </div>
+</div>
+<?php init_tail(); ?>

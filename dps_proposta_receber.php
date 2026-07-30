@@ -16,6 +16,13 @@
 
 declare(strict_types=1);
 
+/*
+ * Este script corre FORA do CodeIgniter, por isso não herda o fuso horário
+ * configurado no CRM e ficava em UTC — as propostas apareciam com menos uma
+ * hora do que a realidade. Alinhar com o horário de Portugal continental.
+ */
+date_default_timezone_set('Europe/Lisbon');
+
 const CAMINHO_SEGREDO = '/home/u172337921/.dps_proposta_secret';
 const CONFIG_APP      = __DIR__ . '/application/config/app-config.php';
 
@@ -62,6 +69,16 @@ $pdf_base64     = (string) ($dados['pdf_base64'] ?? '');
 
 if ($lead_id <= 0 || $staff_id <= 0 || $token === '' || $pdf_base64 === '') {
     responder(false, 'Faltam dados obrigatórios.', 400);
+}
+
+/*
+ * Canal de envio: WhatsApp (número do cliente) ou Email (email gravado na
+ * lead). Decidido AQUI, antes de qualquer validação de contacto — exigir
+ * telefone a quem escolheu email recusava leads que só têm email.
+ */
+$canal = strtolower(trim((string) ($dados['canal'] ?? 'whatsapp')));
+if (!in_array($canal, ['whatsapp', 'email'], true)) {
+    $canal = 'whatsapp';
 }
 
 /* ---------------------------------------------------------------------
@@ -136,7 +153,7 @@ if ($conf_prefixo !== false && preg_match("/define\(\s*'APP_DB_PREFIX'\s*,\s*'([
  * Lead: número de telefone de destino
  * ------------------------------------------------------------------ */
 
-$stmt = $bd->prepare('SELECT name, phonenumber, status FROM `' . $prefixo . 'leads` WHERE id = ? LIMIT 1');
+$stmt = $bd->prepare('SELECT name, phonenumber, email, status FROM `' . $prefixo . 'leads` WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $lead_id);
 $stmt->execute();
 $lead = $stmt->get_result()->fetch_assoc();
@@ -146,12 +163,15 @@ if (!$lead) {
 }
 
 $numero = preg_replace('/\D/', '', (string) $lead['phonenumber']);
-if ($numero === '') {
-    responder(false, 'Esta lead não tem número de telefone — não é possível enviar por WhatsApp.');
-}
-// Sem indicativo assume-se Portugal (a Evolution exige o número internacional)
-if (strlen($numero) === 9 && $numero[0] === '9') {
-    $numero = '351' . $numero;
+
+if ($canal === 'whatsapp') {
+    if ($numero === '') {
+        responder(false, 'Esta lead não tem número de telefone — não é possível enviar por WhatsApp.');
+    }
+    // Sem indicativo assume-se Portugal (a Evolution exige o número internacional)
+    if (strlen($numero) === 9 && $numero[0] === '9') {
+        $numero = '351' . $numero;
+    }
 }
 
 /* ---------------------------------------------------------------------
@@ -168,10 +188,69 @@ function opcao(mysqli $bd, string $prefixo, string $nome): string
     return $r ? (string) $r['value'] : '';
 }
 
+/**
+ * Decifra um valor guardado pelo CodeIgniter 3 (é assim que o Perfex guarda a
+ * password do SMTP). Este script corre FORA do CI, por isso não há
+ * `$this->encryption` — tem de se repetir o formato:
+ *
+ *   guardado = hmac_sha512_HEX(128 chars) . base64(iv . texto_cifrado)
+ *
+ * com as chaves derivadas por HKDF-SHA512 a partir da APP_ENC_KEY, e o HMAC
+ * calculado sobre a STRING em base64 (não sobre os bytes).
+ *
+ * Devolve o valor original, ou '' se não for possível decifrar.
+ */
+function decifrar_ci3(string $guardado): string
+{
+    $conf = @file_get_contents(CONFIG_APP);
+    if ($conf === false || !preg_match("/define\(\s*'APP_ENC_KEY'\s*,\s*'([^']*)'\s*\)/", $conf, $m)) {
+        return '';
+    }
+    $chave = $m[1];
+
+    if ($chave === '' || strlen($guardado) <= 128) {
+        return '';
+    }
+
+    $hkdf = static function (string $key, ?int $length, string $info): string {
+        $ds  = 64;                                  // sha512
+        $len = ($length === null || $length <= 0) ? $ds : $length;
+        $prk = hash_hmac('sha512', $key, str_repeat("\0", $ds), true);
+        $k = ''; $bloco = '';
+        for ($i = 1; strlen($k) < $len; $i++) {
+            $bloco = hash_hmac('sha512', $bloco . $info . chr($i), $prk, true);
+            $k    .= $bloco;
+        }
+        return substr($k, 0, $len);
+    };
+
+    $hmac_recebido = substr($guardado, 0, 128);
+    $b64           = substr($guardado, 128);
+
+    if (!hash_equals(hash_hmac('sha512', $b64, $hkdf($chave, null, 'authentication'), false), $hmac_recebido)) {
+        return '';
+    }
+
+    $bruto = base64_decode($b64, true);
+    if ($bruto === false || strlen($bruto) <= 16) {
+        return '';
+    }
+
+    $claro = openssl_decrypt(
+        substr($bruto, 16),
+        'aes-128-cbc',
+        $hkdf($chave, strlen($chave), 'encryption'),
+        OPENSSL_RAW_DATA,
+        substr($bruto, 0, 16)
+    );
+
+    return $claro === false ? '' : $claro;
+}
+
 $evo_url = rtrim(opcao($bd, $prefixo, 'dps_whatsapp_evolution_url'), '/');
 $evo_key = opcao($bd, $prefixo, 'dps_whatsapp_evolution_api_key');
 
-if ($evo_url === '' || $evo_key === '') {
+if ($canal === 'whatsapp' && ($evo_url === '' || $evo_key === '')) {
     responder(false, 'WhatsApp não está configurado no CRM. Avise o administrador.', 503);
 }
 
@@ -198,30 +277,268 @@ if (!preg_match('/\.pdf$/i', $file_name)) {
 // ("boavista") nem de nomes que possam não bater com o PDF anexado.
 $legenda = 'Proposta DPS';
 
+/*
+ * O PDF é gravado em disco e enviado à Evolution por URL, em vez de ir
+ * embutido em base64 no pedido.
+ *
+ * Porquê: a Evolution devolve HTTP 500 a partir de ~6 MB de base64 —
+ * exactamente o tamanho de uma proposta com fotografias. Medido: 2 MB passa,
+ * 6 MB e 10 MB falham sempre. Por URL não há esse tecto, o pedido fica
+ * pequeno e a Evolution descarrega o ficheiro directamente.
+ *
+ * O nome é aleatório (não se adivinha) e os ficheiros são limpos ao fim de
+ * 7 dias — é o mesmo modelo de qualquer anexo de WhatsApp.
+ */
+$pdf_bin = base64_decode($pdf_base64, true);
+$pdf_url = '';
+
+/*
+ * Regra: o cliente recebe o FICHEIRO. Só quando o PDF é grande demais para a
+ * Evolution aguentar (ela devolve 500 acima de ~5 MB de base64) é que se
+ * recorre ao envio por URL, para pelo menos a proposta chegar.
+ *
+ * Com as imagens comprimidas no simulador as propostas ficaram em ~1,5 MB,
+ * por isso este recurso quase nunca é usado — existe só para não haver
+ * envios perdidos se algum empreendimento novo trouxer fotos pesadas.
+ */
+$precisa_url = strlen($pdf_base64) > 5 * 1024 * 1024;
+
+if ($pdf_bin !== false && $canal === 'whatsapp' && $precisa_url) {
+    $dir_pdf = __DIR__ . '/uploads/propostas_wa';
+
+    if (!is_dir($dir_pdf)) {
+        @mkdir($dir_pdf, 0755, true);
+    }
+
+    // Limpeza dos anteriores (7 dias), para a pasta não crescer sem fim.
+    foreach ((array) @glob($dir_pdf . '/*.pdf') as $antigo) {
+        if (@filemtime($antigo) < time() - 604800) {
+            @unlink($antigo);
+        }
+    }
+
+    $nome_disco = bin2hex(random_bytes(16)) . '.pdf';
+
+    if (@file_put_contents($dir_pdf . '/' . $nome_disco, $pdf_bin) !== false) {
+        $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http')
+            . '://' . ($_SERVER['HTTP_HOST'] ?? 'crm.grupo-dps.com');
+        $pdf_url  = $base_url . '/uploads/propostas_wa/' . $nome_disco;
+    }
+}
+
 $corpo = json_encode([
-    'number'       => $numero,
-    'mediaMessage' => [
-        'mediatype' => 'document',
-        'fileName'  => $file_name,
-        'media'     => $pdf_base64,
-        'caption'   => $legenda,
-    ],
+    // Evolution v2: os campos do media vão no primeiro nível. A v1 aninhava
+    // em mediaMessage e a v2 rejeita com HTTP 400.
+    'number'    => $numero,
+    'mediatype' => 'document',
+    'mimetype'  => 'application/pdf',
+    'fileName'  => $file_name,
+    // URL quando conseguimos gravar; base64 como recurso de reserva.
+    'media'     => $pdf_url !== '' ? $pdf_url : $pdf_base64,
+    'caption'   => $legenda,
 ]);
 
-// UMA só tentativa: um 500 transitório pode já ter entregue a mensagem, e
-// repetir criaria duplicados no WhatsApp do cliente.
-$ch = curl_init($evo_url . '/message/sendMedia/staff-' . $staff_id);
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_CUSTOMREQUEST  => 'POST',
-    CURLOPT_CONNECTTIMEOUT => 8,
-    CURLOPT_TIMEOUT        => 60,
-    CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'apikey: ' . $evo_key],
-    CURLOPT_POSTFIELDS     => $corpo,
-]);
-$raw  = (string) curl_exec($ch);
-$http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
+$raw  = '';
+$http = 0;
+
+if ($canal === 'whatsapp') {
+    /*
+     * ANTES de enviar, confirmar que o WhatsApp deste comercial está mesmo
+     * ligado. A Evolution aceita o pedido (2xx) mesmo com a sessão morta e a
+     * mensagem fica pendurada para sempre — foi assim que apareceram
+     * propostas "enviadas" que nunca chegaram ao cliente. Com esta
+     * verificação, o comercial recebe logo o aviso para reconectar.
+     */
+    $ch = curl_init($evo_url . '/instance/connectionState/staff-' . $staff_id);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 8,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_HTTPHEADER     => ['apikey: ' . $evo_key],
+    ]);
+    $estado_raw  = (string) curl_exec($ch);
+    $estado_http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // Só bloqueia com resposta clara de sessão fechada; se o próprio check
+    // falhar (timeout, 500), segue para o envio — não vale a pena travar
+    // tudo por causa de um check instável.
+    if ($estado_http === 200 && strpos($estado_raw, '"state"') !== false
+        && strpos($estado_raw, '"open"') === false) {
+        responder(false, 'O teu WhatsApp está desligado — lê o QR no módulo de WhatsApp e volta a enviar. (A proposta NÃO foi enviada.)');
+    }
+    if ($estado_http === 404) {
+        responder(false, 'O teu WhatsApp ainda não foi ligado ao CRM — pede ao administrador para criar a tua ligação. (A proposta NÃO foi enviada.)');
+    }
+
+    // UMA só tentativa: um 500 transitório pode já ter entregue a mensagem, e
+    // repetir criaria duplicados no WhatsApp do cliente.
+    $ch = curl_init($evo_url . '/message/sendMedia/staff-' . $staff_id);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST  => 'POST',
+        CURLOPT_CONNECTTIMEOUT => 8,
+        // 180s: as propostas com galeria de fotos passam dos 10 MB e, em
+        // base64, o corpo do pedido chega perto dos 14 MB. Com o limite
+        // antigo de 60s o envio estourava a meio e o comercial via
+        // "A Evolution não respondeu" — quando na verdade era o upload a
+        // não caber no tempo.
+        CURLOPT_TIMEOUT        => 180,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'apikey: ' . $evo_key],
+        CURLOPT_POSTFIELDS     => $corpo,
+    ]);
+    $raw     = (string) curl_exec($ch);
+    $http    = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $erro_curl = curl_error($ch);
+    curl_close($ch);
+
+    if ($http === 0 && $erro_curl !== '') {
+        $raw .= ' [curl: ' . $erro_curl . ']';
+    }
+} else {
+    /*
+     * Envio por EMAIL, para o email gravado na lead, com o PDF anexado.
+     * Usa o PHPMailer do próprio Perfex e a configuração SMTP das Definições
+     * (a mesma do "Send test email"), por isso se o teste funciona, isto
+     * funciona.
+     */
+    $dest_email = trim((string) ($lead['email'] ?? ''));
+
+    if ($dest_email === '' || !filter_var($dest_email, FILTER_VALIDATE_EMAIL)) {
+        responder(false, 'Esta lead não tem email válido gravado — grava o email do cliente na ficha ou envia por WhatsApp.');
+    }
+
+    require_once __DIR__ . '/application/vendor/autoload.php';
+
+    /*
+     * O cliente deve ver o email do COMERCIAL que lhe envia a proposta. Se
+     * ele tiver o Webmail configurado, é a caixa dele que autentica e assina;
+     * só na falta disso se usa o SMTP geral do CRM (e aí o "responder a"
+     * aponta na mesma para o email dele).
+     */
+    $smtp_host = ''; $smtp_port = 0; $smtp_user = ''; $smtp_pass = '';
+    $smtp_from = ''; $empresa = ''; $reply_to = '';
+
+    /*
+     * O número do comercial pode estar em `phonenumber` OU em
+     * `landing_whatsapp` (o campo "WhatsApp para landing page", que é o que
+     * a maioria tem preenchido). COALESCE em cima do primeiro não-vazio,
+     * senão o botão de WhatsApp não aparecia para quase ninguém.
+     */
+    $stmt = $bd->prepare('SELECT email,
+                                 NULLIF(TRIM(COALESCE(phonenumber, "")), "") AS tel1,
+                                 NULLIF(TRIM(COALESCE(landing_whatsapp, "")), "") AS tel2,
+                                 CONCAT(firstname," ",lastname) AS nome
+                          FROM `' . $prefixo . 'staff` WHERE staffid = ? LIMIT 1');
+    $stmt->bind_param('i', $staff_id);
+    $stmt->execute();
+    $com = $stmt->get_result()->fetch_assoc() ?: ['email' => '', 'nome' => '', 'tel1' => null, 'tel2' => null];
+    $com['telefone'] = (string) ($com['tel1'] ?? $com['tel2'] ?? '');
+
+    $stmt = $bd->prepare('SELECT email, password, smtp_host, smtp_port FROM `' . $prefixo . 'dps_webmail_config` WHERE staff_id = ? LIMIT 1');
+    if ($stmt) {
+        $stmt->bind_param('i', $staff_id);
+        @$stmt->execute();
+        // get_result() UMA vez: à segunda chamada devolve false e o
+        // ->fetch_assoc() rebentava com "erro interno a processar a proposta".
+        $res = $stmt->get_result();
+        $w   = $res ? $res->fetch_assoc() : null;
+
+        if ($w && !empty($w['email']) && !empty($w['password'])) {
+            $conf_ci = @file_get_contents(CONFIG_APP);
+            $chave   = (preg_match("/define\(\s*'APP_ENC_KEY'\s*,\s*'([^']*)'\s*\)/", (string) $conf_ci, $mk)) ? $mk[1] : '';
+            $k       = md5($chave ?: 'dps_webmail_key');
+            $pw      = @openssl_decrypt(base64_decode($w['password']), 'AES-256-CBC', $k, 0, substr($k, 0, 16));
+
+            if ($pw !== false && $pw !== '') {
+                $smtp_host = $w['smtp_host'] ?: 'smtp.hostinger.com';
+                $smtp_port = (int) ($w['smtp_port'] ?: 587);
+                $smtp_user = $w['email'];
+                $smtp_pass = $pw;
+                $smtp_from = $w['email'];
+                $empresa   = trim((string) $com['nome']) ?: $w['email'];
+            }
+        }
+    }
+
+    if ($smtp_host === '') {
+        $smtp_host = opcao($bd, $prefixo, 'smtp_host');
+        $smtp_port = (int) opcao($bd, $prefixo, 'smtp_port');
+        $smtp_user = opcao($bd, $prefixo, 'smtp_username');
+        $smtp_pass = decifrar_ci3(opcao($bd, $prefixo, 'smtp_password'));
+        $smtp_from = opcao($bd, $prefixo, 'smtp_email');
+        $empresa   = trim((string) $com['nome']) ?: (opcao($bd, $prefixo, 'companyname') ?: 'DPS Imobiliário');
+        $reply_to  = (string) $com['email'];
+    }
+
+    $smtp_sec = $smtp_port === 465 ? 'ssl' : 'tls';
+
+    if ($smtp_host === '' || $smtp_port === 0) {
+        responder(false, 'O email do CRM não está configurado (Setup → Definições → Email). Avise o administrador.', 503);
+    }
+
+    try {
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->CharSet    = 'UTF-8';
+        $mail->Host       = $smtp_host;
+        $mail->Port       = $smtp_port;
+        $mail->SMTPAuth   = ($smtp_user !== '');
+        $mail->Username   = $smtp_user;
+        $mail->Password   = $smtp_pass;
+        if ($smtp_sec === 'ssl' || $smtp_sec === 'tls') {
+            $mail->SMTPSecure = $smtp_sec;
+        }
+        $mail->setFrom($smtp_from !== '' ? $smtp_from : $smtp_user, $empresa);
+        if ($reply_to !== '' && $reply_to !== $smtp_from) {
+            $mail->addReplyTo($reply_to, $empresa);
+        }
+        $mail->addAddress($dest_email, (string) ($lead['name'] ?? ''));
+        $mail->Subject = 'Proposta DPS';
+
+        /*
+         * Corpo em HTML com um botão de WhatsApp para o comercial: o cliente
+         * abre a conversa com um toque, em vez de ter de procurar o contacto.
+         * O número vem do perfil do comercial no CRM.
+         */
+        $tel_com = preg_replace('/\D/', '', (string) ($com['telefone'] ?? ''));
+        if (strlen($tel_com) === 9 && $tel_com[0] === '9') {
+            $tel_com = '351' . $tel_com;
+        }
+
+        $texto_email = "Boa tarde,\n\nSegue em anexo a proposta que preparámos para si.\n\n"
+            . "Qualquer questão, estamos ao dispor.\n\nCom os melhores cumprimentos,\n" . $empresa;
+
+        $corpo_html = '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;'
+            . 'font-size:15px;line-height:1.6;color:#1b2432;">'
+            . nl2br(htmlspecialchars($texto_email, ENT_QUOTES, 'UTF-8'))
+            . '</div>';
+
+        if ($tel_com !== '') {
+            $corpo_html .= '<div style="margin-top:26px;">'
+                . '<a href="https://wa.me/' . rawurlencode($tel_com) . '" '
+                . 'style="display:inline-block;background:#25D366;color:#ffffff;text-decoration:none;'
+                . 'font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;font-weight:700;'
+                . 'padding:13px 26px;border-radius:8px;">Falar com o comercial por WhatsApp</a>'
+                . '<div style="margin-top:8px;font-size:13px;color:#5a6675;'
+                . 'font-family:-apple-system,Segoe UI,Roboto,sans-serif;">'
+                . htmlspecialchars((string) ($com['nome'] ?? ''), ENT_QUOTES, 'UTF-8')
+                . ' · ' . htmlspecialchars((string) ($com['telefone'] ?? ''), ENT_QUOTES, 'UTF-8')
+                . '</div></div>';
+        }
+
+        $mail->isHTML(true);
+        $mail->Body    = $corpo_html;
+        $mail->AltBody = $texto_email;
+        $mail->addStringAttachment(base64_decode($pdf_base64), $file_name, 'base64', 'application/pdf');
+        $mail->send();
+        $http = 200;
+        $raw  = 'email enviado para ' . $dest_email;
+    } catch (Throwable $e) {
+        $http = 500;
+        $raw  = 'email: ' . $e->getMessage();
+    }
+}
 
 $wa_ok = ($http >= 200 && $http < 300);
 
@@ -243,16 +560,32 @@ $detalhe = 'HTTP ' . $http . ' ' . substr($raw, 0, 400);
 $wa_int  = $wa_ok ? 1 : 0;
 $est_id  = (int) ($lead['status'] ?? 0);
 
+/*
+ * A coluna 'canal' é acrescentada à medida (instalações antigas não a têm).
+ *
+ * O try/catch é obrigatório: este ficheiro liga-se com
+ * mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT), portanto um
+ * ALTER que falhe LANÇA uma excepção — e o '@' não silencia excepções. Com a
+ * coluna já criada, o "Duplicate column name" rebentava DEPOIS de a proposta
+ * já ter sido enviada: o cliente recebia, o comercial via "erro interno" e
+ * nada ficava registado em Propostas Enviadas.
+ */
+try {
+    $bd->query('ALTER TABLE `' . $prefixo . "dps_propostas` ADD COLUMN `canal` VARCHAR(10) NULL DEFAULT NULL");
+} catch (Throwable $e) {
+    // Já existe — é o caso normal.
+}
+
 $stmt = $bd->prepare(
     'INSERT INTO `' . $prefixo . "dps_propostas`
         (lead_id, staff_id, tipo, empreendimento, unidade, lead_status_id, lead_status_nome,
-         ficheiro, detalhe, wa_ok, outcome, created_at)
-     VALUES (?, ?, 'proposta', ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)"
+         ficheiro, detalhe, wa_ok, outcome, canal, created_at)
+     VALUES (?, ?, 'proposta', ?, ?, ?, ?, ?, ?, ?, 'pendente', ?, ?)"
 );
 $stmt->bind_param(
-    'iississsis',
+    'iississsiss',
     $lead_id, $staff_id, $empreendimento, $unidade, $est_id, $estado_nome,
-    $file_name, $detalhe, $wa_int, $agora
+    $file_name, $detalhe, $wa_int, $canal, $agora
 );
 @$stmt->execute();
 
@@ -265,7 +598,7 @@ $stmt->bind_param(
  * ------------------------------------------------------------------ */
 
 if ($wa_ok) {
-    $detalhe = 'Proposta enviada ao cliente'
+    $detalhe = 'Proposta enviada ao cliente por ' . ($canal === 'email' ? 'email' : 'WhatsApp')
         . ($empreendimento !== '' ? ' — ' . $empreendimento : '')
         . ($unidade !== '' ? ' — Fracção ' . $unidade : '');
 
@@ -359,17 +692,36 @@ if ($wa_ok) {
 }
 
 if (!$wa_ok) {
+    if ($canal === 'email') {
+        responder(false, 'Falha no envio por email: ' . substr($raw, 0, 200));
+    }
+
     // Traduzir os erros mais comuns da Evolution para linguagem do comercial.
     if (strpos($raw, '"exists":false') !== false) {
         responder(false, 'O número ' . $numero . ' não tem WhatsApp — não é possível enviar por aqui.');
     }
-    if (strpos($raw, 'No sessions') !== false || strpos($raw, 'does not exist') !== false) {
-        responder(false, 'O teu WhatsApp precisa de reconectar (lê o QR no módulo de WhatsApp).');
+    if (strpos($raw, 'No sessions') !== false || strpos($raw, 'does not exist') !== false
+        || strpos($raw, 'not-acceptable') !== false) {
+        /*
+         * Sessão morta (a instância diz "ligada" mas não tem sessões). Marcar
+         * já na base de dados: assim o aviso vermelho aparece no topo do CRM
+         * dele de imediato, em vez de só na verificação da hora seguinte.
+         */
+        @$bd->query('UPDATE `' . $prefixo . 'dps_whatsapp_config` SET is_connected = 0 WHERE staff_id = ' . (int) $staff_id);
+
+        responder(false, 'O teu WhatsApp perdeu a ligação — lê o QR outra vez no módulo de WhatsApp. (A proposta NÃO foi enviada.)');
     }
-    if ($http === 0 || $http >= 500) {
-        responder(false, 'A Evolution não respondeu neste momento — tenta de novo daqui a instantes.');
+    if ($http === 0) {
+        $mb = round(strlen($pdf_base64) * 3 / 4 / 1048576, 1);
+        responder(false, 'O envio demorou demasiado e foi interrompido (PDF de ~' . $mb . ' MB). '
+            . 'Tenta de novo; se voltar a falhar, envia esta proposta por email.');
+    }
+    if ($http >= 500) {
+        responder(false, 'A Evolution devolveu erro interno (HTTP ' . $http . ') — tenta de novo daqui a instantes.');
     }
     responder(false, 'Falha no envio pelo WhatsApp (HTTP ' . $http . ').');
 }
 
-responder(true, 'Proposta enviada ao cliente por WhatsApp.');
+responder(true, $canal === 'email'
+    ? 'Proposta enviada ao cliente por EMAIL (' . trim((string) ($lead['email'] ?? '')) . ').'
+    : 'Proposta enviada ao cliente por WhatsApp.');

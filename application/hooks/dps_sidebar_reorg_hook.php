@@ -224,6 +224,12 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'dps imoveis'            => 12,
             'clientes'               => 13,
             'outros'                 => 14,
+            // Privado do Ricardo. Tem de estar AQUI: o que não consta desta
+            // lista cai na regra do passo 5 e é enterrado dentro do submenu
+            // "Admin", que foi como o Painel do Negócio desapareceu do sítio
+            // em 29/07/2026. O módulo já só cria o item para o staff 1, por
+            // isso ninguém mais o vê.
+            'painel do negocio'      => 15,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma

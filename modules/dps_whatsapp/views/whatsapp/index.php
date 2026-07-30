@@ -402,9 +402,22 @@ function pollQR() {
                 return;
             }
             if (data.qr) {
-                // Se for uma string base64 (imagem), apresentar imagem. Caso contrário, apresentar o código
+                /*
+                 * NÃO trocar a imagem a cada resposta: a Evolution devolve um
+                 * QR novo em cada pedido, e com o poll de 3 em 3 segundos o
+                 * código mudava debaixo da câmara — o telemóvel lia um código
+                 * já expirado e dizia "erro, leia de novo", em ciclo.
+                 * O QR só é substituído quando o anterior expira (~50s).
+                 */
                 if (typeof data.qr === 'string' && data.qr.indexOf('data:image') === 0) {
-                    $('#qr-image-container').html('<img src="' + data.qr + '">');
+                    var agora = Date.now();
+                    if (!window.__waQrMostradoEm || (agora - window.__waQrMostradoEm) > 50000) {
+                        window.__waQrMostradoEm = agora;
+                        $('#qr-image-container').html('<img src="' + data.qr + '">'
+                            + '<div style="margin-top:8px;font-size:12px;color:#888;">'
+                            + 'Leia o código com o WhatsApp do telemóvel. Renova-se sozinho a cada 50 segundos.'
+                            + '</div>');
+                    }
                 } else {
                     // Quando a Evolution API devolve apenas um código (ex: pairing code), mostrar texto explicativo
                     $('#qr-image-container').html(
@@ -448,7 +461,11 @@ function initWA() {
                 // Se o QR code já veio na resposta (Evolution API v1.8.4), mostrar imediatamente
                 if (data && data.qr) {
                     if (typeof data.qr === 'string' && data.qr.indexOf('data:image') === 0) {
-                        $('#qr-image-container').html('<img src="' + data.qr + '">');
+                        window.__waQrMostradoEm = Date.now();
+                        $('#qr-image-container').html('<img src="' + data.qr + '">'
+                            + '<div style="margin-top:8px;font-size:12px;color:#888;">'
+                            + 'Leia o código com o WhatsApp do telemóvel. Renova-se sozinho a cada 50 segundos.'
+                            + '</div>');
                     } else {
                         $('#qr-image-container').html(
                             '<div style="padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff;">'
@@ -460,7 +477,7 @@ function initWA() {
                 }
                 // Iniciar polling para actualizar o QR e detectar ligação
                 clearInterval(qrPollInterval);
-                qrPollInterval = setInterval(pollQR, 3000);
+                qrPollInterval = setInterval(pollQR, 5000);
                 // Se o QR ainda não chegou, pedir imediatamente
                 if (!data || !data.qr) {
                     pollQR();
