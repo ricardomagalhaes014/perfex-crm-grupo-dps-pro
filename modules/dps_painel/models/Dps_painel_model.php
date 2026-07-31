@@ -512,18 +512,24 @@ class Dps_painel_model extends App_Model
         $v['recebido'] = $v['recebido_marcado'] ? $v['recebido_previsto'] : 0.0;
 
         /*
-         * VALIDADA = a direção já conferiu o comprovativo de pagamento.
+         * VALIDADA = a direção deu o visto ao comprovativo de pagamento.
          *
-         * É isso, e só isso, que passa a venda a "concluído": o comercial
-         * carrega o comprovativo, a direção valida, a venda conclui. Antes
-         * disso não há nada a cobrar ao promotor — há uma expectativa.
+         * Lê-se a coluna `pago`, que é o visto que a direção dá depois de
+         * conferir o comprovativo que o comercial anexou — não o estado da
+         * venda. Os dois costumam andar juntos (validar o pagamento é o que
+         * conclui a venda), mas o estado é editável à mão e o visto não: uma
+         * venda posta em "concluído" sem o comprovativo conferido apareceria
+         * como dinheiro a cobrar ao promotor sem que ninguém tenha visto
+         * pagamento nenhum.
          *
-         * Regra do dono (31/07/2026): "só passa a concluído após eu validar o
-         * pagamento e aí sim passa para a receber". Por isso o estado manda
-         * nas duas colunas de "a receber", não só na de agora: uma venda por
-         * validar não é atraso de cobrança nem calendário combinado.
+         * Regra do dono (31/07/2026): "a receber agora tem de estar apenas o
+         * que eu marquei como validado o comprovativo de pagamento e ainda não
+         * coloquei como recebido".
+         *
+         * Manda nas duas colunas de "a receber", não só na de agora: uma venda
+         * por validar não é atraso de cobrança nem calendário combinado.
          */
-        $v['validada'] = ($v['estado'] === 'concluido');
+        $v['validada'] = !empty($v['pago']);
 
         /*
          * O que falta receber divide-se em DUAS coisas muito diferentes:
