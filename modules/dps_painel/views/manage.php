@@ -77,12 +77,31 @@ $pct    = function ($n) {
                         ? 'prazo já vencido — cobrar ou marcar'
                         : 'nada vencido',
                 ],
+                /*
+                 * O futuro em dois cartões: CPCV e escrituras são calendários
+                 * diferentes. Um CPCV é o próximo horizonte (Belo Horizonte
+                 * 12/2026); uma escritura pode ser 12/2028 ou, no Aura, 2029.
+                 *
+                 * Quando um deles está a zero diz-se PORQUÊ. Um zero sem
+                 * explicação lê-se como avaria — e neste painel a razão é quase
+                 * sempre a mesma: o dinheiro está em Perspectiva, à espera de
+                 * que o pagamento seja validado.
+                 */
                 [
-                    'A receber no futuro', $totais['a_receber_futuro'], 'text-info', 'fa-calendar',
-                    $totais['a_receber_futuro'] > 0
-                        ? 'CPCV: ' . app_format_money($totais['a_receber_futuro_cpcv'], $moeda)
-                            . ' · escrituras: ' . app_format_money($totais['a_receber_futuro_escritura'], $moeda)
-                        : '—',
+                    'A receber no futuro — CPCV', $totais['a_receber_futuro_cpcv'], 'text-info', 'fa-calendar',
+                    $totais['a_receber_futuro_cpcv'] > 0
+                        ? 'CPCV com mês marcado à frente'
+                        : ($totais['perspectiva_cpcv'] > 0
+                            ? 'zero: ' . app_format_money($totais['perspectiva_cpcv'], $moeda) . ' estão em perspectiva, por validar'
+                            : 'nada marcado para o futuro'),
+                ],
+                [
+                    'A receber no futuro — Escrituras', $totais['a_receber_futuro_escritura'], 'text-info', 'fa-institution',
+                    $totais['a_receber_futuro_escritura'] > 0
+                        ? 'escrituras com mês marcado à frente'
+                        : ($totais['perspectiva_escritura'] > 0
+                            ? 'zero: ' . app_format_money($totais['perspectiva_escritura'], $moeda) . ' estão em perspectiva, por validar'
+                            : 'nada marcado para o futuro'),
                 ],
                 /*
                  * PERSPECTIVA — vendas cujo pagamento ainda não foi validado.
@@ -157,7 +176,8 @@ $pct    = function ($n) {
             $det = [
                 'Recebemos (em caixa)' => function ($v) { return $v['recebido']; },
                 'A receber AGORA'      => function ($v) { return $v['a_receber_agora']; },
-                'A receber no futuro'  => function ($v) { return $v['a_receber_futuro']; },
+                'A receber no futuro — CPCV'       => function ($v) { return $v['a_receber_futuro_cpcv']; },
+                'A receber no futuro — Escrituras' => function ($v) { return $v['a_receber_futuro_escritura']; },
                 'Perspectiva (por validar)' => function ($v) { return $v['perspectiva']; },
                 'Comerciais'           => function ($v) { return $v['comissao_comercial']; },
                 $rot_dir               => function ($v) { return $v['direcao_prevista']; },

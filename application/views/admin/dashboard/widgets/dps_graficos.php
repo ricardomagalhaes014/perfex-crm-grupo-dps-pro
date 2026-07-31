@@ -5,6 +5,7 @@
  * Cada utilizador vê apenas os SEUS números:
  *   1. Propostas enviadas (últimos 30 dias)
  *   2. Leads por estado
+ *   2b. Tarefas por estado
  *   3. Interações da última semana (notas em leads)
  *   4. Vendas no mês (por estado)
  *   5. Propostas DPS Crédito no mês (por estado)
@@ -45,6 +46,34 @@ foreach ($rows as $r) {
     $leads_labels[] = $r['name'];
     $leads_data[]   = (int) $r['c'];
     $leads_cores[]  = $r['color'] ?: '#84c529';
+}
+
+/*
+ * 2b. Tarefas por estado — só as minhas.
+ *
+ * Conta pelo task_assigned e não pelo addedfrom: o que interessa a quem olha
+ * para o dashboard é o que TEM PARA FAZER, não o que criou. Assim também
+ * respeita sozinho a regra de visibilidade — cada um só soma as suas.
+ *
+ * Os estados e as cores vêm do Tasks_model para o gráfico dizer o mesmo que a
+ * lista de tarefas. Escritos à mão, ficariam a divergir na primeira vez que o
+ * Perfex mudasse um nome.
+ */
+$tar_labels = $tar_data = $tar_cores = [];
+$CI->load->model('tasks_model');
+
+$rows = $CI->db->query(
+    "SELECT t.status, COUNT(*) c
+     FROM {$p}tasks t JOIN {$p}task_assigned a ON a.taskid = t.id
+     WHERE a.staffid = ? GROUP BY t.status",
+    [$staff_id]
+)->result_array();
+$tar_por_estado = array_column($rows, 'c', 'status');
+
+foreach ($CI->tasks_model->get_statuses() as $e) {
+    $tar_labels[] = $e['name'];
+    $tar_data[]   = (int) ($tar_por_estado[$e['id']] ?? 0);
+    $tar_cores[]  = $e['color'] ?: '#64748b';
 }
 
 /* 3. Interações (notas em leads) — últimos 7 dias, por dia */
@@ -114,6 +143,7 @@ if ($CI->db->table_exists($p . 'simulador_credito')) {
 $dps_charts = [
     'propostas'  => ['labels' => $prop_labels,   'data' => $prop_data],
     'leads'      => ['labels' => $leads_labels,  'data' => $leads_data, 'cores' => $leads_cores],
+    'tarefas'    => ['labels' => $tar_labels,    'data' => $tar_data,   'cores' => $tar_cores],
     'interacoes' => ['labels' => $int_labels,    'data' => $int_data],
     'vendas'     => ['labels' => $vendas_labels, 'data' => $vendas_data],
     'credito'    => ['labels' => $cred_labels,   'data' => $cred_data],
@@ -135,6 +165,10 @@ $dps_charts = [
 
                     <p class="text-muted bold mbot5">Leads por estado</p>
                     <div style="height:<?php echo max(300, 40 + count($leads_labels) * 32); ?>px"><canvas id="dps_g_leads"></canvas></div>
+                    <hr class="tw-my-4">
+
+                    <p class="text-muted bold mbot5">Tarefas por estado</p>
+                    <div style="height:<?php echo max(240, 40 + count($tar_labels) * 32); ?>px"><canvas id="dps_g_tarefas"></canvas></div>
                     <hr class="tw-my-4">
 
                     <p class="text-muted bold mbot5">Interações — última semana</p>
@@ -224,6 +258,7 @@ $dps_charts = [
         }
         mk('dps_g_propostas', 'line', D.propostas.labels, D.propostas.data);
         mk('dps_g_leads', 'horizontalBar', D.leads.labels, D.leads.data, D.leads.cores);
+        mk('dps_g_tarefas', 'horizontalBar', D.tarefas.labels, D.tarefas.data, D.tarefas.cores);
         mk('dps_g_interacoes', 'bar', D.interacoes.labels, D.interacoes.data);
         mk('dps_g_vendas', 'bar', D.vendas.labels, D.vendas.data, 'rgba(132,197,41,0.7)');
         mk('dps_g_credito', 'bar', D.credito.labels, D.credito.data, 'rgba(197,165,90,0.8)');

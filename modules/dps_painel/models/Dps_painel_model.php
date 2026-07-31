@@ -543,22 +543,23 @@ class Dps_painel_model extends App_Model
          * Somados num só número, uma verba de 2029 lia-se como se fosse do
          * próximo trimestre.
          */
-        $agora        = 0.0;
-        $futuro_cpcv  = 0.0;
-        $futuro_esc   = 0.0;
+        $cpcv_agora  = 0.0;
+        $cpcv_futuro = 0.0;
+        $esc_agora   = 0.0;
+        $esc_futuro  = 0.0;
 
         if (!$v['recebido_marcado']) {
             if ($venceu($v['mes_recebido_cpcv'])) {
-                $agora += $v['recebido_cpcv'];
+                $cpcv_agora += $v['recebido_cpcv'];
             } else {
-                $futuro_cpcv += $v['recebido_cpcv'];
+                $cpcv_futuro += $v['recebido_cpcv'];
             }
 
             if ($v['recebido_escritura'] > 0) {
                 if ($venceu($v['mes_recebido_escritura'])) {
-                    $agora += $v['recebido_escritura'];
+                    $esc_agora += $v['recebido_escritura'];
                 } else {
-                    $futuro_esc += $v['recebido_escritura'];
+                    $esc_futuro += $v['recebido_escritura'];
                 }
             }
         }
@@ -568,23 +569,31 @@ class Dps_painel_model extends App_Model
          * "a receber" e passa a PERSPECTIVA. Deixá-la em "agora" dizia que
          * havia dinheiro por cobrar ao promotor quando ainda nem sabemos se o
          * cliente pagou; deixá-la em "futuro" dava-a como certa numa data.
+         *
+         * A perspectiva guarda-se repartida pelas mesmas tranches: é o que
+         * permite dizer, num futuro a zero, QUANTO está à espera de validação
+         * e em que prazo — sem isso um zero lê-se como avaria.
          */
-        $v['perspectiva'] = 0.0;
+        $v['perspectiva']            = 0.0;
+        $v['perspectiva_cpcv']       = 0.0;
+        $v['perspectiva_escritura']  = 0.0;
 
         if (!$v['validada']) {
-            $v['perspectiva'] = round($agora + $futuro_cpcv + $futuro_esc, 2);
-            $agora            = 0.0;
-            $futuro_cpcv      = 0.0;
-            $futuro_esc       = 0.0;
+            $v['perspectiva_cpcv']      = round($cpcv_agora + $cpcv_futuro, 2);
+            $v['perspectiva_escritura'] = round($esc_agora + $esc_futuro, 2);
+            $v['perspectiva']           = round($v['perspectiva_cpcv'] + $v['perspectiva_escritura'], 2);
+
+            $cpcv_agora = $cpcv_futuro = $esc_agora = $esc_futuro = 0.0;
         }
 
-        $futuro = $futuro_cpcv + $futuro_esc;
+        $agora  = $cpcv_agora + $esc_agora;
+        $futuro = $cpcv_futuro + $esc_futuro;
 
-        $v['a_receber_agora']           = round($agora, 2);
-        $v['a_receber_futuro_cpcv']     = round($futuro_cpcv, 2);
-        $v['a_receber_futuro_escritura'] = round($futuro_esc, 2);
-        $v['a_receber_futuro']          = round($futuro, 2);
-        $v['por_receber']               = round($agora + $futuro, 2);
+        $v['a_receber_agora']            = round($agora, 2);
+        $v['a_receber_futuro_cpcv']      = round($cpcv_futuro, 2);
+        $v['a_receber_futuro_escritura'] = round($esc_futuro, 2);
+        $v['a_receber_futuro']           = round($futuro, 2);
+        $v['por_receber']                = round($agora + $futuro, 2);
 
         /* 2) O QUE PAGAMOS AO COMERCIAL --------------------------------------
          * Acordo dos comerciais a 100% (Samara): a DPS entrega exactamente o
@@ -1002,6 +1011,8 @@ class Dps_painel_model extends App_Model
 
             // Vendas ainda por validar: não são dívida do promotor.
             'perspectiva'             => 0.0,
+            'perspectiva_cpcv'        => 0.0,
+            'perspectiva_escritura'   => 0.0,
             'comerciais_perspectiva'  => 0.0,
             'direcao_perspectiva'     => 0.0,
             'resultado_perspectiva'   => 0.0,
@@ -1038,6 +1049,8 @@ class Dps_painel_model extends App_Model
             $t['resultado_futuro_escritura']  += (float) $v['resultado_futuro_escritura'];
 
             $t['perspectiva']            += (float) $v['perspectiva'];
+            $t['perspectiva_cpcv']       += (float) $v['perspectiva_cpcv'];
+            $t['perspectiva_escritura']  += (float) $v['perspectiva_escritura'];
             $t['comerciais_perspectiva'] += (float) $v['comerciais_perspectiva'];
             $t['direcao_perspectiva']    += (float) $v['direcao_perspectiva'];
             $t['resultado_perspectiva']  += (float) $v['resultado_perspectiva'];

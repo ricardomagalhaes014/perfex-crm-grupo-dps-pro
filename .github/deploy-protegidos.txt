@@ -1,0 +1,36 @@
+# Ficheiros que o deploy NUNCA pode sobrepor às cegas.
+#
+# Antes de cada deploy, o .github/scripts/proteger.py compara cada um destes
+# ficheiros com a versão que está no servidor. Se algum estiver diferente E
+# esse ficheiro não fizer parte das alterações que este push traz, o deploy
+# PÁRA: quer dizer que alguém trabalhou directamente no servidor e o repositório
+# não sabe. Sobrepor seria apagar esse trabalho.
+#
+# Foi o que aconteceu a 29/07/2026 (23 ficheiros perdidos) e outra vez a
+# 31/07/2026 (a regra de não-cache do backoffice, apagada pelo deploy que eu
+# próprio disparei). Duas vezes chega.
+#
+# Uma linha por padrão, no formato do `git ls-files`. Linhas com # são notas.
+# Só entra aqui o que é trabalho nosso — não vale a pena hashar as 52 mil
+# folhas do Perfex de origem, que ninguém edita à mão e que só dariam carga
+# ao servidor sem protegerem nada.
+
+# Configuração do servidor web (a regra de não-cache do /admin vive aqui)
+.htaccess
+
+# Módulos feitos por nós
+modules/dps_*
+modules/automacoes_dps/*
+
+# Ganchos e alterações ao núcleo do Perfex
+application/hooks/*
+application/helpers/admin_helper.php
+application/views/admin/tables/tasks.php
+application/config/hooks.php
+application/controllers/admin/Dps_ticker.php
+application/controllers/admin/Leads_imo.php
+application/models/Leads_imo_model.php
+application/views/admin/dashboard/widgets/dps_graficos.php
+
+# Pontos de entrada na raiz (recebem reservas, webhooks e sondas)
+dps_*.php
