@@ -10,3 +10,20 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php?/$1 [L,QSA]
 
 AddDefaultCharset utf-8
+
+# O backoffice nunca pode ser guardado em cache pelo browser.
+#
+# O Safari guarda as páginas de /admin e volta a mostrá-las sem perguntar ao
+# servidor. Já custou duas manhãs: primeiro um 404 fantasma no Painel do
+# Negócio (a página tinha sido corrigida e o browser continuava a mostrar o
+# erro antigo), depois o Painel a não reflectir os vistos de recebido acabados
+# de marcar. São números de dinheiro — mostrar uma versão velha é pior do que
+# não mostrar nada.
+#
+# Esta regra esteve aplicada só por FTP e o deploy 81134304 (31/07) repô-la
+# por cima. Está aqui no repositório precisamente para não voltar a cair.
+<IfModule mod_headers.c>
+    SetEnvIf Request_URI "^/admin" DPS_SEM_CACHE=1
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=DPS_SEM_CACHE
+    Header always set Pragma "no-cache" env=DPS_SEM_CACHE
+</IfModule>
