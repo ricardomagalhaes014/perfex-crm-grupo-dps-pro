@@ -952,3 +952,117 @@ $pct    = function ($n) {
     </div>
 </div>
 <?php init_tail(); ?>
+
+<script>
+/*
+ * ORDENAR AS TABELAS DO PAINEL AO CLICAR NO CABEÇALHO.
+ *
+ * Feito à mão e sem biblioteca de propósito: as tabelas deste painel são
+ * construídas em PHP, algumas com formulários dentro das células, e um plugin
+ * de datatables reconstruiria as linhas e partia esses formulários. Isto
+ * limita-se a trocar a ordem das <tr>, que é o que se quer.
+ *
+ * O tipo de cada coluna é adivinhado pelo conteúdo, não declarado:
+ *   - "16.995,00€" e "-1.234" -> número (ponto = milhares, vírgula = decimal)
+ *   - "12/2026" e "2026-07-31" -> data
+ *   - o resto -> texto, comparado sem acentos nem maiúsculas
+ *
+ * O <tfoot> nunca se mexe: é a linha dos totais e tem de ficar em baixo.
+ */
+(function () {
+    function texto(td) {
+        return (td ? (td.innerText || td.textContent || '') : '').trim();
+    }
+
+    function numero(s) {
+        // Tira tudo o que não é dígito, sinal, ponto ou vírgula.
+        var t = s.replace(/[^\d,.\-]/g, '');
+        if (t === '' || t === '-') { return null; }
+        // Formato português: ponto separa milhares, vírgula separa decimais.
+        t = t.replace(/\./g, '').replace(',', '.');
+        var n = parseFloat(t);
+        return isNaN(n) ? null : n;
+    }
+
+    function data(s) {
+        var m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(s);      // 2026-07-31 ou 2026-07
+        if (m) { return m[1] + m[2] + (m[3] || '00'); }
+        m = /^(\d{2})\/(\d{4})$/.exec(s);                       // 12/2026
+        if (m) { return m[2] + m[1] + '00'; }
+        m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(s);                // 31-07-2026
+        if (m) { return m[3] + m[2] + m[1]; }
+        return null;
+    }
+
+    function chave(s) {
+        var d = data(s);
+        if (d !== null) { return { tipo: 'd', v: d }; }
+        var n = numero(s);
+        if (n !== null && /\d/.test(s)) { return { tipo: 'n', v: n }; }
+        return {
+            tipo: 't',
+            v: s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        };
+    }
+
+    function ordenar(tabela, indice, desc) {
+        var corpo = tabela.tBodies[0];
+        if (!corpo) { return; }
+
+        var linhas = Array.prototype.slice.call(corpo.rows);
+        linhas.sort(function (a, b) {
+            var ka = chave(texto(a.cells[indice]));
+            var kb = chave(texto(b.cells[indice]));
+
+            // Vazios vão sempre para o fim, ordene-se como se ordenar: uma
+            // célula sem valor não é "o menor", é "não tem".
+            var va = texto(a.cells[indice]) === '' || texto(a.cells[indice]) === '—';
+            var vb = texto(b.cells[indice]) === '' || texto(b.cells[indice]) === '—';
+            if (va !== vb) { return va ? 1 : -1; }
+
+            var r;
+            if (ka.tipo === 'n' && kb.tipo === 'n') { r = ka.v - kb.v; }
+            else { r = String(ka.v).localeCompare(String(kb.v), 'pt'); }
+            return desc ? -r : r;
+        });
+
+        linhas.forEach(function (l) { corpo.appendChild(l); });
+    }
+
+    document.querySelectorAll('#wrapper table').forEach(function (tabela) {
+        var cab = tabela.tHead;
+        if (!cab || !tabela.tBodies[0] || tabela.tBodies[0].rows.length < 2) { return; }
+
+        Array.prototype.slice.call(cab.rows[0].cells).forEach(function (th, i) {
+            if (texto(th) === '') { return; }        // coluna de botões: não ordena
+
+            th.style.cursor = 'pointer';
+            th.title = 'Ordenar por esta coluna';
+            var seta = document.createElement('span');
+            seta.style.cssText = 'opacity:.35;font-size:.8em;margin-left:5px;';
+            seta.textContent = '↕';
+            th.appendChild(seta);
+
+            th.addEventListener('click', function () {
+                var desc = th.getAttribute('data-desc') === '1';
+                desc = !desc;
+
+                Array.prototype.slice.call(cab.rows[0].cells).forEach(function (outro) {
+                    outro.removeAttribute('data-desc');
+                    var s = outro.querySelector('span:last-child');
+                    if (s && (s.textContent === '↑' || s.textContent === '↓' || s.textContent === '↕')) {
+                        s.textContent = '↕';
+                        s.style.opacity = '.35';
+                    }
+                });
+
+                th.setAttribute('data-desc', desc ? '1' : '0');
+                seta.textContent = desc ? '↓' : '↑';
+                seta.style.opacity = '1';
+
+                ordenar(tabela, i, desc);
+            });
+        });
+    });
+})();
+</script>

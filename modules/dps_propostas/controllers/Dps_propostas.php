@@ -387,7 +387,13 @@ class Dps_propostas extends AdminController
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
-        $this->db->group_by(['p.staff_id', 'resultado']);
+        /*
+         * Agrupa-se pela EXPRESSÃO, não pelo alias: com ONLY_FULL_GROUP_BY
+         * ligado (o normal no MySQL 8) agrupar por alias faz a consulta falhar,
+         * e uma consulta falhada aqui devolvia vazio em silêncio — o gráfico
+         * simplesmente não aparecia, sem erro nenhum à vista.
+         */
+        $this->db->group_by('p.staff_id, COALESCE(NULLIF(p.outcome, ""), "pendente")', false);
         $linhas_res = $this->db->get()->result_array();
 
         $r_nomes = [];

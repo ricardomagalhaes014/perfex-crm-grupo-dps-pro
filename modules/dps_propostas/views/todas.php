@@ -70,6 +70,29 @@
                         </div>
                         <?php } ?>
 
+                        <?php
+                        /*
+                         * RESULTADOS POR COMERCIAL — aceites, recusadas e pendentes.
+                         *
+                         * Ao contrário do gráfico de cima, este RESPEITA o filtro de
+                         * comercial: um serve para comparar a equipa, este para olhar
+                         * pessoa a pessoa. Um comercial sem permissão de ver tudo só se vê
+                         * a si — o controlador já lhe fixou o filtro.
+                         */
+                        if (!empty($r_nomes)) { ?>
+                        <div style="border:1px solid #e6eaef;border-radius:10px;padding:16px;margin-bottom:18px;background:#fff;">
+                            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+                                <strong>Resultados por comercial</strong>
+                                <span class="text-muted" style="font-size:.82rem;">
+                                    aceites, recusadas e ainda sem resposta · segue o filtro acima
+                                </span>
+                            </div>
+                            <div style="position:relative;height:<?= max(220, count($r_nomes) * 38 + 80); ?>px;">
+                                <canvas id="dpsGrafResultados"></canvas>
+                            </div>
+                        </div>
+                        <?php } ?>
+
                         <div class="table-responsive">
                             <table class="table table-striped">
                                 <thead>
@@ -172,32 +195,6 @@ function dpsResultado(id, outcome) {
     }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
 }
 </script>
-
-<?php
-/*
- * RESULTADOS POR COMERCIAL — aceites, recusadas e pendentes.
- *
- * Respeita o filtro de comercial, ao contrário do gráfico por empreendimento
- * que compara sempre a equipa toda: este serve para olhar pessoa a pessoa. Um
- * comercial sem permissão de ver tudo só se vê a si — o controlador já lhe
- * fixou o filtro.
- */
-if (!empty($r_nomes)) { ?>
-<div class="row">
-    <div class="col-md-12">
-        <div class="panel_s"><div class="panel-body">
-            <h4 class="no-margin">Resultados por comercial</h4>
-            <p class="text-muted">
-                Propostas <strong>aceites</strong>, <strong>recusadas</strong> e ainda
-                <strong>pendentes</strong> de resposta.
-            </p>
-            <div style="height:<?= max(220, 60 + count($r_nomes) * 42); ?>px">
-                <canvas id="dpsGrafResultados"></canvas>
-            </div>
-        </div></div>
-    </div>
-</div>
-<?php } ?>
 
 <script src="<?= base_url('assets/plugins/Chart.js/Chart.min.js'); ?>"></script>
 <script>
