@@ -4,9 +4,21 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 class Dps_propostas extends AdminController
 {
+    /**
+     * A lead, com tudo o que os envios precisam de saber sobre ela.
+     *
+     * O `email` faltava nesta lista. Como o PHP devolve vazio para uma
+     * propriedade que não existe, o envio por email respondia "a lead não tem
+     * email válido" a TODAS as leads — mesmo às 6.036 que têm email bom. O erro
+     * não estava nos dados nem na validação: estava em nunca se ter ido buscar
+     * o campo.
+     *
+     * Quem acrescentar aqui um canal novo tem de acrescentar também a coluna:
+     * um campo em falta não dá erro, dá uma mensagem errada.
+     */
     private function lead_or_die($lead_id)
     {
-        $lead = $this->db->select('id, name, phonenumber, status')
+        $lead = $this->db->select('id, name, phonenumber, email, status')
             ->where('id', (int) $lead_id)->get(db_prefix() . 'leads')->row();
         return $lead;
     }
