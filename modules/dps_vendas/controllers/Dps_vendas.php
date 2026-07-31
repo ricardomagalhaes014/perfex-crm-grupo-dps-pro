@@ -674,6 +674,55 @@ class Dps_vendas extends AdminController
      * O comercial vê apenas as suas; quem pode ver todas tem ainda o filtro
      * por comercial e por empreendimento.
      */
+    /**
+     * Vai ao Moloni buscar o número da factura já emitida para cada fracção.
+     *
+     * Só a direção: são números de facturação da empresa, e escrever um número
+     * errado num quadro de dinheiro é pior do que deixar o campo vazio.
+     *
+     * Escreve apenas onde a unidade E o valor da linha batem certo com a
+     * parcela da comissão. O que não bate vem no aviso, para se ir ver à mão —
+     * nunca se adivinha.
+     */
+    public function moloni_sincronizar()
+    {
+        if (!is_admin()) {
+            access_denied('dps_vendas');
+        }
+
+        // Escrita só por POST: um GET com efeitos deixava qualquer link mexer
+        // nos números das facturas.
+        if (!$this->input->post()) {
+            redirect(admin_url('dps_vendas/comissoes'));
+        }
+
+        $this->load->model('dps_moloni_model');
+        $r = $this->dps_moloni_model->sincronizar(true);
+
+        if (empty($r['ok'])) {
+            set_alert('warning', $r['erro'] ?? 'Não foi possível falar com o Moloni.');
+            redirect(admin_url('dps_vendas/comissoes'));
+        }
+
+        $n = count($r['achados']);
+        $msg = $n === 0
+            ? 'Li ' . $r['facturas_lidas'] . ' facturas do Moloni e não encontrei nenhuma fracção por preencher.'
+            : 'Preenchi ' . $n . ' número' . ($n === 1 ? '' : 's') . ' de factura, de '
+              . $r['facturas_lidas'] . ' facturas lidas no Moloni.';
+
+        if (!empty($r['duvidas'])) {
+            $msg .= ' Ficaram ' . count($r['duvidas']) . ' por confirmar à mão: ';
+            $partes = [];
+            foreach (array_slice($r['duvidas'], 0, 5) as $d) {
+                $partes[] = 'venda #' . $d['venda'] . ' (' . $d['unidade'] . ') — ' . $d['motivo'];
+            }
+            $msg .= implode('; ', $partes) . '.';
+        }
+
+        set_alert($n > 0 ? 'success' : 'info', $msg);
+        redirect(admin_url('dps_vendas/comissoes'));
+    }
+
     public function comissoes()
     {
         $pode_ver_todas = $this->pode_ver_todas();
