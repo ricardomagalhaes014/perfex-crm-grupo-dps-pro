@@ -117,6 +117,26 @@ function staff_can($capability, $feature = null, $staff_id = '')
         return call_user_func($capability, $staff_id);
     }
 
+    /*
+     * DPS: administradores que mesmo assim só vêem as SUAS tarefas.
+     *
+     * O Perfex dá tudo a quem tem o selo de administrador e o filtro
+     * hooks()->apply_filters('staff_can') só corre DEPOIS desta passagem,
+     * por isso a excepção tem de ficar aqui. Este é o único ponto por onde
+     * passam os 12 sítios que decidem quem vê que tarefas (lista, kanban,
+     * calendário, tarefas do lead/cliente, filtros e Tasks_model).
+     *
+     * A alternativa — tirar-lhes o selo de administrador — retirava-lhes
+     * também as vendas (enviar reservas ao promotor, promover estados,
+     * validar comprovativos), os leads e as definições. Isto limita só as
+     * tarefas. Para acrescentar ou remover alguém, mexer só nesta lista.
+     */
+    $so_tarefas_proprias = [17];   // #17 Samara Ferreira
+    if ($feature === 'tasks' && $capability === 'view'
+        && in_array((int) $staff_id, $so_tarefas_proprias, true)) {
+        return false;
+    }
+
     /**
      * If user is admin return true
      * Admins have all permissions
