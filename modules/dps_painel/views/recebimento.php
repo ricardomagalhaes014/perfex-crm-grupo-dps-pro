@@ -198,20 +198,60 @@ $pct = function ($n) {
                          * "na conclusão / imediato" — é o caso do Gaia Douro e do Boavista.
                          */
                         ?>
+                        <?php
+                        /*
+                         * Mês e ano em selectores, não num <input type="month">.
+                         *
+                         * O type="month" não existe no Safari — cai para uma caixa de texto
+                         * onde se pode escrever qualquer coisa, e o formato que o servidor
+                         * espera (AAAA-MM) não é adivinhável por quem preenche. Dois
+                         * selectores funcionam em todo o lado e não deixam escrever um mês
+                         * inválido.
+                         *
+                         * Os anos vão até 2038 porque há empreendimentos com escritura
+                         * marcada para 2029 e 2030 (Aura e Raízes).
+                         */
+                        $meses_nomes = [
+                            '01' => 'Janeiro', '02' => 'Fevereiro', '03' => 'Março', '04' => 'Abril',
+                            '05' => 'Maio', '06' => 'Junho', '07' => 'Julho', '08' => 'Agosto',
+                            '09' => 'Setembro', '10' => 'Outubro', '11' => 'Novembro', '12' => 'Dezembro',
+                        ];
+                        $ano_min = (int) date('Y') - 2;
+                        $ano_max = 2038;
+
+                        $selectores = function ($campo, $etiqueta) use ($meses_nomes, $ano_min, $ano_max) {
+                            ?>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="control-label"><?php echo $etiqueta; ?></label>
+                                    <div class="row">
+                                        <div class="col-xs-7" style="padding-right:4px;">
+                                            <select name="<?php echo $campo; ?>_mes" id="<?php echo $campo; ?>-mes" class="form-control">
+                                                <option value="">— mês —</option>
+                                                <?php foreach ($meses_nomes as $n => $nome) { ?>
+                                                    <option value="<?php echo $n; ?>"><?php echo $nome; ?></option>
+                                                <?php } ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-xs-5" style="padding-left:4px;">
+                                            <select name="<?php echo $campo; ?>_ano" id="<?php echo $campo; ?>-ano" class="form-control">
+                                                <option value="">— ano —</option>
+                                                <?php for ($a = $ano_min; $a <= $ano_max; $a++) { ?>
+                                                    <option value="<?php echo $a; ?>"><?php echo $a; ?></option>
+                                                <?php } ?>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php
+                        };
+                        ?>
                         <div class="row">
-                            <div class="col-xs-6">
-                                <div class="form-group">
-                                    <label class="control-label">Mês do CPCV</label>
-                                    <input type="month" name="mes_cpcv" id="receb-mes-cpcv" class="form-control">
-                                </div>
-                            </div>
-                            <div class="col-xs-6">
-                                <div class="form-group">
-                                    <label class="control-label">Mês da escritura</label>
-                                    <input type="month" name="mes_escritura" id="receb-mes-escritura" class="form-control">
-                                </div>
-                            </div>
+                            <?php $selectores('mes_cpcv', 'Mês do CPCV'); ?>
+                            <?php $selectores('mes_escritura', 'Mês da escritura'); ?>
                         </div>
+
                         <div class="form-group">
                             <small class="text-muted">
                                 Em que mês o promotor paga cada tranche. <strong>Em branco = na
@@ -244,6 +284,16 @@ $pct = function ($n) {
 <?php init_tail(); ?>
 <script>
 (function () {
+    // Reparte um "AAAA-MM" pelos dois selectores; vazio limpa os dois.
+    function partir(valor, campo) {
+        var m = /^(\d{4})-(\d{2})$/.exec(valor || '');
+        var sel_m = document.getElementById(campo + '-mes');
+        var sel_a = document.getElementById(campo + '-ano');
+        if (!sel_m || !sel_a) { return; }
+        sel_m.value = m ? m[2] : '';
+        sel_a.value = m ? m[1] : '';
+    }
+
     // Editar carrega a linha no mesmo formulário (igual às Regras de Comissão):
     // são poucos campos e não justifica um modal nem uma vista extra.
     document.querySelectorAll('.editar-receb').forEach(function (botao) {
@@ -255,8 +305,9 @@ $pct = function ($n) {
             document.getElementById('receb-cpcv').value = d.cpcv || '';
             document.getElementById('receb-escritura').value = d.escritura || '';
             document.getElementById('receb-notas').value = d.notas || '';
-            document.getElementById('receb-mes-cpcv').value = d.mescpcv || '';
-            document.getElementById('receb-mes-escritura').value = d.mesescritura || '';
+            // "2026-12" -> selector do mês "12" e do ano "2026"
+            partir(d.mescpcv, 'mes_cpcv');
+            partir(d.mesescritura, 'mes_escritura');
             document.getElementById('titulo-form-receb').textContent = 'Editar comissão a receber';
             document.getElementById('cancelar-receb').style.display = '';
             window.scrollTo(0, 0);
@@ -280,8 +331,8 @@ $pct = function ($n) {
     document.getElementById('cancelar-receb').addEventListener('click', function () {
         document.getElementById('form-receb').reset();
         document.getElementById('receb-id').value = '';
-        document.getElementById('receb-mes-cpcv').value = '';
-        document.getElementById('receb-mes-escritura').value = '';
+        partir('', 'mes_cpcv');
+        partir('', 'mes_escritura');
         document.getElementById('titulo-form-receb').textContent = 'Nova comissão a receber';
         this.style.display = 'none';
     });

@@ -230,10 +230,23 @@ class Dps_painel extends AdminController
                  * num sítio só — dois sítios a dizer datas diferentes para o
                  * mesmo empreendimento seria pior do que não as ter.
                  */
+                /*
+                 * O mês e o ano vêm em selectores separados — o <input type="month">
+                 * não existe no Safari. Juntam-se aqui em AAAA-MM, que é o formato
+                 * guardado. Só um dos dois preenchido não é uma data: fica vazio, e
+                 * vazio quer dizer "na conclusão".
+                 */
+                $juntar = function ($campo) use ($post) {
+                    $m = trim((string) ($post[$campo . '_mes'] ?? ''));
+                    $a = trim((string) ($post[$campo . '_ano'] ?? ''));
+
+                    return ($m !== '' && $a !== '') ? $a . '-' . str_pad($m, 2, '0', STR_PAD_LEFT) : '';
+                };
+
                 $this->m->guardar_prazos(
                     $post['empreendimento'] ?? '',
-                    $post['mes_cpcv'] ?? '',
-                    $post['mes_escritura'] ?? ''
+                    $juntar('mes_cpcv'),
+                    $juntar('mes_escritura')
                 );
 
                 set_alert('success', 'Comissão a receber e prazos guardados.');
