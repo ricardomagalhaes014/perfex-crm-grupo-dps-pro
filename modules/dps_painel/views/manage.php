@@ -19,8 +19,27 @@ $pct    = function ($n) {
 };
 ?>
 <style>
-/* Cinco cartões numa linha: o grid do Bootstrap 3 não tem 1/5, força-se aqui. */
-@media (min-width: 992px) { .dps-card5 { width: 20%; } }
+/*
+ * Os cartões estavam num grid do Bootstrap 3 com float. Como cada um tem uma
+ * legenda de comprimento diferente, ficavam com alturas diferentes e a linha
+ * seguinte encavalitava-se nos buracos — o painel lia-se aos solavancos.
+ *
+ * Com flex, todos os cartões de uma fila ficam com a altura do mais alto e as
+ * filas quebram limpas. Cinco por fila em ecrã largo, dois em tablet, um no
+ * telemóvel.
+ */
+.dps-cards { display: flex; flex-wrap: wrap; margin-left: -7px; margin-right: -7px; }
+.dps-cards > .dps-card { padding: 0 7px 14px; display: flex; width: 100%; }
+.dps-cards > .dps-card > .panel_s { width: 100%; margin-bottom: 0; display: flex; }
+.dps-cards > .dps-card > .panel_s > .panel-body { width: 100%; }
+@media (min-width: 768px)  { .dps-cards > .dps-card { width: 50%; } }
+@media (min-width: 992px)  { .dps-cards > .dps-card { width: 33.333%; } }
+@media (min-width: 1400px) { .dps-cards > .dps-card { width: 20%; } }
+
+/* Cabeçalho de cada secção: discreto, só para dar ordem à leitura. */
+.dps-seccao { margin: 4px 0 10px; font-size: 12px; letter-spacing: .06em;
+              text-transform: uppercase; color: #8a8f94; font-weight: 600; }
+.dps-seccao:not(:first-of-type) { margin-top: 6px; }
 </style>
 <div id="wrapper">
     <div class="content">
@@ -47,8 +66,8 @@ $pct    = function ($n) {
             </div>
         <?php } ?>
 
-        <!-- Cartões -->
-        <div class="row">
+        <!-- Cartões, agrupados pelo percurso do dinheiro -->
+        <div>
             <?php
             /*
              * "Recebemos" é dinheiro EM CAIXA. O que o promotor só paga mais
@@ -233,14 +252,49 @@ $pct    = function ($n) {
                 'Resultado futuro — Escrituras' => function ($v) { return $v['resultado_futuro_escritura']; },
             ];
 
+            /*
+             * Os cartões agrupam-se pelo PERCURSO DO DINHEIRO, não pela ordem
+             * em que foram sendo acrescentados: entra, sai, o que sobra em
+             * caixa, e o resultado. Assim lê-se de cima para baixo como a
+             * história de uma venda, em vez de catorze números lado a lado.
+             *
+             * A ordem dentro de "o que entra" é a do circuito real:
+             * perspectiva -> a emitir factura -> a receber -> em caixa.
+             */
+            $seccoes = [
+                'O que entra — do pedido à caixa' => [
+                    'Perspectiva (por validar)',
+                    'A emitir factura',
+                    'A receber AGORA',
+                    'A receber no futuro — CPCV',
+                    'A receber no futuro — Escrituras',
+                    'Recebemos (em caixa)',
+                ],
+                'O que sai' => ['Comerciais', $rot_dir, 'Despesas'],
+                'Tesouraria — só o dinheiro que já entrou' => ['Em caixa hoje', 'Por pagar do que recebi'],
+                'Resultado' => ['Resultado AGORA', 'Resultado futuro — CPCV', 'Resultado futuro — Escrituras'],
+            ];
+
+            // Rede de segurança: um cartão novo que se esqueça de arrumar numa
+            // secção aparece à mesma, em vez de desaparecer do painel.
+            $arrumados = array_merge(...array_values($seccoes));
+            $sobras    = [];
             foreach ($cards as $i => $c) {
+                if (!in_array($c[0], $arrumados, true)) {
+                    $sobras[] = $c[0];
+                }
+            }
+            if ($sobras) {
+                $seccoes['Outros'] = $sobras;
+            }
+
+            $desenhar = function ($i, $c) use ($det, $moeda) {
                 $abre = isset($det[$c[0]]);
-                $alvo = 'dps-det-' . $i;
                 ?>
-                <div class="col-md-3 col-sm-6 dps-card5">
+                <div class="dps-card">
                     <div class="panel_s">
                         <div class="panel-body <?php echo $abre ? 'dps-card-abre' : ''; ?>"
-                             <?php if ($abre) { ?>data-alvo="<?php echo $alvo; ?>" style="cursor:pointer;" title="Clique para ver de que é feito"<?php } ?>>
+                             <?php if ($abre) { ?>data-alvo="dps-det-<?php echo $i; ?>" style="cursor:pointer;" title="Clique para ver de que é feito"<?php } ?>>
                             <div class="text-muted">
                                 <i class="fa <?php echo $c[3]; ?>"></i> <?php echo $c[0]; ?>
                                 <?php if ($abre) { ?><i class="fa fa-chevron-down pull-right text-muted" style="font-size:.8em;margin-top:3px;"></i><?php } ?>
@@ -251,6 +305,27 @@ $pct    = function ($n) {
                             <?php } ?>
                         </div>
                     </div>
+                </div>
+            <?php
+            };
+
+            foreach ($seccoes as $titulo => $etiquetas) {
+                $desta = [];
+                foreach ($etiquetas as $etiqueta) {
+                    foreach ($cards as $i => $c) {
+                        if ($c[0] === $etiqueta) {
+                            $desta[$i] = $c;
+                            break;
+                        }
+                    }
+                }
+                if (!$desta) {
+                    continue;
+                }
+                ?>
+                <div class="dps-seccao"><?php echo html_escape($titulo); ?></div>
+                <div class="dps-cards">
+                    <?php foreach ($desta as $i => $c) { $desenhar($i, $c); } ?>
                 </div>
             <?php } ?>
         </div>
