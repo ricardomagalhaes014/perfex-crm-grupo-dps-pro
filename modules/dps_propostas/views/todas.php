@@ -158,10 +158,46 @@ function dpsResultado(id, outcome) {
     $.post(admin_url + 'dps_propostas/resultado_proposta', data, function (r) {
         try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
         alert_float(r && r.success ? 'success' : 'danger', (r && r.message) || 'Erro.');
-        if (r && r.success) { setTimeout(function () { location.reload(); }, 1000); }
+        if (r && r.success) {
+            /*
+             * Aceite, vai-se completar a reserva. A venda já foi criada pelo
+             * servidor com o valor e a taxa; o que falta é o cliente, a unidade
+             * e os documentos. Sem este salto, a venda ficava a metade até
+             * alguém se lembrar dela.
+             */
+            setTimeout(function () {
+                window.location = (r.redirect) ? r.redirect : window.location.href;
+            }, 1200);
+        }
     }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
 }
 </script>
+
+<?php
+/*
+ * RESULTADOS POR COMERCIAL — aceites, recusadas e pendentes.
+ *
+ * Respeita o filtro de comercial, ao contrário do gráfico por empreendimento
+ * que compara sempre a equipa toda: este serve para olhar pessoa a pessoa. Um
+ * comercial sem permissão de ver tudo só se vê a si — o controlador já lhe
+ * fixou o filtro.
+ */
+if (!empty($r_nomes)) { ?>
+<div class="row">
+    <div class="col-md-12">
+        <div class="panel_s"><div class="panel-body">
+            <h4 class="no-margin">Resultados por comercial</h4>
+            <p class="text-muted">
+                Propostas <strong>aceites</strong>, <strong>recusadas</strong> e ainda
+                <strong>pendentes</strong> de resposta.
+            </p>
+            <div style="height:<?= max(220, 60 + count($r_nomes) * 42); ?>px">
+                <canvas id="dpsGrafResultados"></canvas>
+            </div>
+        </div></div>
+    </div>
+</div>
+<?php } ?>
 
 <script src="<?= base_url('assets/plugins/Chart.js/Chart.min.js'); ?>"></script>
 <script>
@@ -199,6 +235,40 @@ function dpsResultado(id, outcome) {
                 yAxes: [{ stacked: true }]
             },
             legend: { position: 'bottom' }
+        }
+    });
+})();
+
+(function () {
+    var el = document.getElementById('dpsGrafResultados');
+    if (!el || typeof Chart === 'undefined') { return; }
+
+    var nomes = <?= json_encode(array_values($r_nomes ?? []), JSON_UNESCAPED_UNICODE); ?>;
+    var dados = <?= json_encode(array_values($r_dados ?? [])); ?>;
+
+    function coluna(chave) { return dados.map(function (d) { return d[chave] || 0; }); }
+
+    new Chart(el, {
+        type: 'horizontalBar',
+        data: {
+            labels: nomes,
+            datasets: [
+                { label: 'Aceites',   data: coluna('aceite'),   backgroundColor: '#2f9e44' },
+                { label: 'Recusadas', data: coluna('recusado'), backgroundColor: '#c0392b' },
+                { label: 'Pendentes', data: coluna('pendente'), backgroundColor: '#9aa3ab' }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: { position: 'bottom' },
+            // Empilhado: a barra inteira é o total de propostas do comercial,
+            // e vê-se de relance a fatia que fechou.
+            scales: {
+                xAxes: [{ stacked: true, ticks: { beginAtZero: true,
+                    callback: function (v) { return Math.floor(v) === v ? v : undefined; } } }],
+                yAxes: [{ stacked: true, gridLines: { display: false } }]
+            }
         }
     });
 })();

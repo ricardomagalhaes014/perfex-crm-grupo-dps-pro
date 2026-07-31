@@ -372,6 +372,45 @@ class Dps_propostas extends AdminController
         $propostas = $this->db->get()->result();
 
         /*
+         * Resultados por comercial: aceites, recusadas e pendentes.
+         *
+         * Ao contrário da matriz por empreendimento (que compara sempre a
+         * equipa toda), este RESPEITA o filtro — é o quadro que a direção usa
+         * para olhar comercial a comercial. E um comercial sem permissão de
+         * ver tudo só se vê a si, porque o $comercial já foi forçado acima.
+         */
+        $this->db->select('p.staff_id, CONCAT(s.firstname," ",s.lastname) AS nome,
+            COALESCE(NULLIF(p.outcome, ""), "pendente") AS resultado, COUNT(*) AS n', false);
+        $this->db->from(db_prefix() . 'dps_propostas p');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = p.staff_id', 'left');
+        $this->db->where('p.tipo', 'proposta');
+        if ($comercial > 0) {
+            $this->db->where('p.staff_id', $comercial);
+        }
+        $this->db->group_by(['p.staff_id', 'resultado']);
+        $linhas_res = $this->db->get()->result_array();
+
+        $r_nomes = [];
+        $r_dados = [];
+        foreach ($linhas_res as $l) {
+            $sid = (int) $l['staff_id'];
+            $r_nomes[$sid] = trim((string) $l['nome']) ?: ('Staff #' . $sid);
+            if (!isset($r_dados[$sid])) {
+                $r_dados[$sid] = ['aceite' => 0, 'recusado' => 0, 'pendente' => 0];
+            }
+            $chave = in_array($l['resultado'], ['aceite', 'recusado'], true) ? $l['resultado'] : 'pendente';
+            $r_dados[$sid][$chave] += (int) $l['n'];
+        }
+
+        // Mais propostas primeiro: é o que se quer ver de relance.
+        uksort($r_nomes, function ($a, $b) use ($r_dados) {
+            return array_sum($r_dados[$b]) <=> array_sum($r_dados[$a]);
+        });
+
+        $data['r_nomes'] = $r_nomes;
+        $data['r_dados'] = $r_dados;
+
+        /*
          * Matriz comercial x empreendimento para o gráfico.
          * NÃO respeita o filtro de comercial de propósito: o gráfico serve
          * para comparar a equipa toda. Vai sempre a toda a base (não à lista
@@ -659,8 +698,18 @@ class Dps_propostas extends AdminController
                 'venda_id'   => $venda['id'],
             ]);
             $this->dps_set_lead_status((int) $prop->lead_id, 13);
+            /*
+             * Aceite a proposta, a reserva abre-se logo.
+             *
+             * A venda já fica criada aqui, mas nasce só com o valor e a taxa —
+             * falta-lhe o cliente completo, a unidade e os documentos. Antes,
+             * quem aceitava ficava no mesmo ecrã e a venda ficava a metade até
+             * alguém se lembrar dela. Agora o formulário abre a seguir, com a
+             * venda já lá, e o caminho até ao mapa de vendas fica fechado.
+             */
             echo json_encode([
-                'success' => true,
+                'success'  => true,
+                'redirect' => admin_url('dps_vendas/form/' . (int) $venda['id']),
                 'message' => 'Proposta ACEITE — Concretizado. Venda registada nas comissões: ' . number_format($valor, 0, ',', '.') . ' € · comissão ' . number_format($venda['comissao'], 2, ',', '.') . ' € (' . rtrim(rtrim(number_format($venda['taxa'], 3, ',', '.'), '0'), ',') . '%).',
             ]);
             return;
