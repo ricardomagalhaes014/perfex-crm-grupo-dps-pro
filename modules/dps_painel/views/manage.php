@@ -67,15 +67,28 @@ $pct    = function ($n) {
             $cards = [
                 [
                     'Recebemos (em caixa)', $totais['recebido'], 'text-success', 'fa-arrow-down',
-                    $totais['por_receber'] > 0
-                        ? 'de ' . app_format_money($totais['recebido_previsto'], $moeda) . ' previstos'
-                        : null,
+                    'com factura emitida e visto de recebido'
+                        . ($totais['recebido_previsto'] > 0
+                            ? ' · de ' . app_format_money($totais['recebido_previsto'], $moeda) . ' previstos'
+                            : ''),
+                ],
+                /*
+                 * A EMITIR FACTURA — pagamento validado, factura por passar.
+                 * É trabalho nosso, não do promotor: enquanto não sair factura
+                 * não há o que cobrar, e a verba não pode aparecer em "a
+                 * receber" a fingir que já se pediu o dinheiro.
+                 */
+                [
+                    'A emitir factura', $totais['a_emitir'], 'text-danger', 'fa-file-o',
+                    $totais['a_emitir'] > 0
+                        ? 'pagamento validado, falta passar factura'
+                        : 'nada por facturar',
                 ],
                 [
                     'A receber AGORA', $totais['a_receber_agora'], 'text-warning', 'fa-exclamation-triangle',
                     $totais['a_receber_agora'] > 0
-                        ? 'prazo já vencido — cobrar ou marcar'
-                        : 'nada vencido',
+                        ? 'com factura, prazo vencido — cobrar ou marcar recebido'
+                        : ($totais['a_emitir'] > 0 ? 'zero: falta emitir factura' : 'nada vencido'),
                 ],
                 /*
                  * O futuro em dois cartões: CPCV e escrituras são calendários
@@ -139,6 +152,38 @@ $pct    = function ($n) {
                         . ' · prazo futuro: ' . app_format_money($totais['direcao_futuro'], $moeda),
                 ],
                 ['Despesas', $totais['despesas'], 'text-danger', 'fa-shopping-cart', null],
+                /*
+                 * TESOURARIA — dois cartões sobre o dinheiro que já entrou, e
+                 * só sobre esse. O resto do painel fala de proveitos e custos;
+                 * estes dois falam de saldo: quanto entrou, quanto saiu, e o
+                 * que fica na conta depois de pagar o que se deve dele.
+                 *
+                 * Uma comissão de uma venda ainda por receber não sai deste
+                 * dinheiro — sai do que vier. Contá-la aqui dava um saldo de
+                 * caixa que não existe.
+                 */
+                [
+                    'Em caixa hoje',
+                    $totais['recebido'] - $totais['pago_comercial'] - $totais['despesas'],
+                    ($totais['recebido'] - $totais['pago_comercial'] - $totais['despesas']) >= 0 ? 'text-success' : 'text-danger',
+                    'fa-university',
+                    'recebi ' . app_format_money($totais['recebido'], $moeda)
+                        . ' · paguei ' . app_format_money($totais['pago_comercial'] + $totais['despesas'], $moeda)
+                        . ' (comerciais ' . app_format_money($totais['pago_comercial'], $moeda)
+                        . ' · despesas ' . app_format_money($totais['despesas'], $moeda) . ')',
+                ],
+                [
+                    'Por pagar do que recebi',
+                    $totais['devido_do_recebido'],
+                    'text-warning', 'fa-hand-o-right',
+                    $totais['devido_do_recebido'] > 0
+                        ? 'quando pagar, ficam '
+                          . app_format_money(
+                              $totais['recebido'] - $totais['pago_comercial']
+                                  - $totais['despesas'] - $totais['devido_do_recebido'], $moeda)
+                          . ' em caixa'
+                        : 'nada por pagar do dinheiro que entrou',
+                ],
                 [
                     'Resultado AGORA', $totais['resultado_agora'],
                     $totais['resultado_agora'] >= 0 ? 'text-success' : 'text-danger', 'fa-balance-scale',
@@ -178,6 +223,8 @@ $pct    = function ($n) {
                 'A receber AGORA'      => function ($v) { return $v['a_receber_agora']; },
                 'A receber no futuro — CPCV'       => function ($v) { return $v['a_receber_futuro_cpcv']; },
                 'A receber no futuro — Escrituras' => function ($v) { return $v['a_receber_futuro_escritura']; },
+                'A emitir factura'          => function ($v) { return $v['a_emitir']; },
+                'Por pagar do que recebi'   => function ($v) { return $v['devido_do_recebido']; },
                 'Perspectiva (por validar)' => function ($v) { return $v['perspectiva']; },
                 'Comerciais'           => function ($v) { return $v['comissao_comercial']; },
                 $rot_dir               => function ($v) { return $v['direcao_prevista']; },
@@ -246,7 +293,7 @@ $pct    = function ($n) {
                         <table class="table table-striped">
                             <thead><tr>
                                 <th>Venda</th><th>Empreendimento</th><th>Un.</th><th>Cliente</th><th>Comercial</th>
-                                <th>Situação</th><th>Prazos</th><th class="text-right">Parcela</th>
+                                <th>Situação</th><th>Factura</th><th>Prazos</th><th class="text-right">Parcela</th>
                             </tr></thead>
                             <tbody>
                             <?php foreach ($itens as list($v, $parcela)) { ?>
@@ -263,6 +310,13 @@ $pct    = function ($n) {
                                             <br><span class="label label-info" title="Leva 100% do que recebemos">100%</span>
                                         <?php } ?>
                                     </td>
+                                    <?php
+                                    /*
+                                     * Factura emitida ao promotor, por tranche. É a coluna que
+                                     * distingue "já pedimos o dinheiro" de "ainda temos de passar
+                                     * factura" — sem ela as duas coisas liam-se igual.
+                                     */
+                                    ?>
                                     <td>
                                         <?php if (!empty($v['recebido_marcado'])) { ?>
                                             <span class="label label-success">recebido</span>
@@ -284,6 +338,24 @@ $pct    = function ($n) {
                                             : ucfirst((string) $v['estado']);
                                         ?>
                                         <br><small class="text-muted"><?php echo html_escape($estado_txt); ?></small>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $fac = [];
+                                        if (!empty($v['fatura_moloni_cpcv'])) {
+                                            $fac[] = 'CPCV ' . $v['fatura_moloni_cpcv'];
+                                        }
+                                        if (!empty($v['fatura_moloni_escritura'])) {
+                                            $fac[] = 'Esc. ' . $v['fatura_moloni_escritura'];
+                                        }
+                                        if ($fac) {
+                                            // Escapa-se cada número e só depois se junta com <br>,
+                                            // senão a própria quebra de linha saía escapada.
+                                            echo '<small>' . implode('<br>', array_map('html_escape', $fac)) . '</small>';
+                                        } else {
+                                            echo '<span class="label label-danger" title="Pagamento validado mas ainda sem factura">a emitir</span>';
+                                        }
+                                        ?>
                                     </td>
                                     <td style="white-space:nowrap;">
                                         <?php $fm2 = function ($m) { return $m ? substr($m, 5, 2) . '/' . substr($m, 0, 4) : 'imediato'; }; ?>

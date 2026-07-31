@@ -510,97 +510,108 @@ class Dps_painel_model extends App_Model
         $v['recebido_marcado'] = !empty($v['recebido_dps']);
         $v['recebido_em']      = $v['recebido_dps_em'] ?? null;
 
-        $v['recebido'] = $v['recebido_marcado'] ? $v['recebido_previsto'] : 0.0;
-
         /*
-         * VALIDADA = a direção deu o visto ao comprovativo de pagamento.
+         * O CIRCUITO DO DINHEIRO, TAL COMO A DIREÇÃO O DESCREVE (31/07/2026)
          *
-         * Lê-se a coluna `pago`, que é o visto que a direção dá depois de
-         * conferir o comprovativo que o comercial anexou — não o estado da
-         * venda. Os dois costumam andar juntos (validar o pagamento é o que
-         * conclui a venda), mas o estado é editável à mão e o visto não: uma
-         * venda posta em "concluído" sem o comprovativo conferido apareceria
-         * como dinheiro a cobrar ao promotor sem que ninguém tenha visto
-         * pagamento nenhum.
+         *   perspectiva     — o comprovativo de pagamento ainda não foi
+         *                     validado. Não há nada a cobrar ao promotor.
+         *   a emitir        — pagamento validado, mas ainda sem factura
+         *                     emitida. É trabalho nosso por fazer.
+         *   por receber     — já há factura, falta o promotor pagar. É aqui
+         *                     que está o dinheiro que se anda a cobrar.
+         *   em caixa        — há factura E a direção pôs o visto de recebido.
          *
-         * Regra do dono (31/07/2026): "a receber agora tem de estar apenas o
-         * que eu marquei como validado o comprovativo de pagamento e ainda não
-         * coloquei como recebido".
+         * Palavras do dono: "a receber é o que foi validado o pagamento e
+         * emitida factura, mas ainda não tem visto de recebido. E o que falta
+         * emitir é o que foi pago mas ainda não tem número de factura."
          *
-         * Manda nas duas colunas de "a receber", não só na de agora: uma venda
-         * por validar não é atraso de cobrança nem calendário combinado.
+         * Repare-se que a factura entra na conta do que já está em caixa: sem
+         * ela, o dinheiro pode ter entrado mas não está titulado, e a direção
+         * quer isso à vista.
+         *
+         * Tudo isto é por TRANCHE — CPCV e escritura facturam-se em momentos
+         * diferentes e podem estar em estados diferentes na mesma venda.
          */
         $v['validada'] = !empty($v['pago']);
 
-        /*
-         * O que falta receber divide-se em DUAS coisas muito diferentes:
-         *
-         *   AGORA   — tranche já vencida (mês em branco = imediato, ou mês já
-         *             passado). É dinheiro que devia estar na conta e não está:
-         *             ou se cobra, ou se marca como recebido.
-         *   FUTURO  — tranche com data marcada mais à frente. Não é atraso, é
-         *             calendário. O Belo Horizonte é todo futuro: 50% em
-         *             12/2026 e 50% em 12/2028.
-         *
-         * Somar as duas numa só coluna escondia a única que exige acção.
-         *
-         * O futuro guarda-se separado por TRANCHE — CPCV e escritura — porque
-         * são dois calendários diferentes e com riscos diferentes: o CPCV é
-         * daqui a meses, a escritura pode ser daqui a anos (no Aura, 2029).
-         * Somados num só número, uma verba de 2029 lia-se como se fosse do
-         * próximo trimestre.
-         */
-        $cpcv_agora  = 0.0;
-        $cpcv_futuro = 0.0;
-        $esc_agora   = 0.0;
-        $esc_futuro  = 0.0;
+        $tem_factura = [
+            'cpcv'      => trim((string) ($v['fatura_moloni_cpcv'] ?? '')) !== '',
+            'escritura' => trim((string) ($v['fatura_moloni_escritura'] ?? '')) !== '',
+        ];
 
-        if (!$v['recebido_marcado']) {
-            if ($venceu($v['mes_recebido_cpcv'])) {
-                $cpcv_agora += $v['recebido_cpcv'];
+        $v['tem_factura_cpcv']      = $tem_factura['cpcv'];
+        $v['tem_factura_escritura'] = $tem_factura['escritura'];
+
+        $baldes = [
+            'recebido'    => 0.0,   // factura + visto = em caixa
+            'por_receber' => 0.0,   // factura, sem visto
+            'a_emitir'    => 0.0,   // validado, sem factura
+            'perspectiva' => 0.0,   // sem pagamento validado
+        ];
+        $por_tranche = [];
+
+        foreach (['cpcv' => $v['recebido_cpcv'], 'escritura' => $v['recebido_escritura']] as $qual => $montante) {
+            $montante = (float) $montante;
+            if ($montante <= 0) {
+                $por_tranche[$qual] = ['estado' => null, 'valor' => 0.0];
+                continue;
+            }
+
+            if (!$v['validada']) {
+                $estado = 'perspectiva';
+            } elseif (!$tem_factura[$qual]) {
+                $estado = 'a_emitir';
+            } elseif (!$v['recebido_marcado']) {
+                $estado = 'por_receber';
             } else {
-                $cpcv_futuro += $v['recebido_cpcv'];
+                $estado = 'recebido';
             }
 
-            if ($v['recebido_escritura'] > 0) {
-                if ($venceu($v['mes_recebido_escritura'])) {
-                    $esc_agora += $v['recebido_escritura'];
-                } else {
-                    $esc_futuro += $v['recebido_escritura'];
-                }
-            }
+            $baldes[$estado] += $montante;
+            $por_tranche[$qual] = ['estado' => $estado, 'valor' => round($montante, 2)];
         }
+
+        $v['tranches'] = $por_tranche;
+
+        $v['recebido']    = round($baldes['recebido'], 2);
+        $v['a_emitir']    = round($baldes['a_emitir'], 2);
+        $v['perspectiva'] = round($baldes['perspectiva'], 2);
 
         /*
-         * Venda por validar: tudo o que ela renderia sai das colunas de
-         * "a receber" e passa a PERSPECTIVA. Deixá-la em "agora" dizia que
-         * havia dinheiro por cobrar ao promotor quando ainda nem sabemos se o
-         * cliente pagou; deixá-la em "futuro" dava-a como certa numa data.
-         *
-         * A perspectiva guarda-se repartida pelas mesmas tranches: é o que
-         * permite dizer, num futuro a zero, QUANTO está à espera de validação
-         * e em que prazo — sem isso um zero lê-se como avaria.
+         * Dentro do "por receber", separa-se ainda o que já venceu do que tem
+         * data marcada à frente — são dois problemas diferentes: um cobra-se
+         * hoje, o outro é calendário. E o futuro parte-se por tranche, porque
+         * um CPCV é o próximo horizonte e uma escritura pode ser anos depois.
          */
-        $v['perspectiva']            = 0.0;
-        $v['perspectiva_cpcv']       = 0.0;
-        $v['perspectiva_escritura']  = 0.0;
+        $agora = $futuro_cpcv = $futuro_esc = 0.0;
 
-        if (!$v['validada']) {
-            $v['perspectiva_cpcv']      = round($cpcv_agora + $cpcv_futuro, 2);
-            $v['perspectiva_escritura'] = round($esc_agora + $esc_futuro, 2);
-            $v['perspectiva']           = round($v['perspectiva_cpcv'] + $v['perspectiva_escritura'], 2);
-
-            $cpcv_agora = $cpcv_futuro = $esc_agora = $esc_futuro = 0.0;
+        if (($por_tranche['cpcv']['estado'] ?? null) === 'por_receber') {
+            if ($venceu($v['mes_recebido_cpcv'])) {
+                $agora += $por_tranche['cpcv']['valor'];
+            } else {
+                $futuro_cpcv += $por_tranche['cpcv']['valor'];
+            }
         }
-
-        $agora  = $cpcv_agora + $esc_agora;
-        $futuro = $cpcv_futuro + $esc_futuro;
+        if (($por_tranche['escritura']['estado'] ?? null) === 'por_receber') {
+            if ($venceu($v['mes_recebido_escritura'])) {
+                $agora += $por_tranche['escritura']['valor'];
+            } else {
+                $futuro_esc += $por_tranche['escritura']['valor'];
+            }
+        }
 
         $v['a_receber_agora']            = round($agora, 2);
-        $v['a_receber_futuro_cpcv']      = round($cpcv_futuro, 2);
-        $v['a_receber_futuro_escritura'] = round($esc_futuro, 2);
-        $v['a_receber_futuro']           = round($futuro, 2);
-        $v['por_receber']                = round($agora + $futuro, 2);
+        $v['a_receber_futuro_cpcv']      = round($futuro_cpcv, 2);
+        $v['a_receber_futuro_escritura'] = round($futuro_esc, 2);
+        $v['a_receber_futuro']           = round($futuro_cpcv + $futuro_esc, 2);
+        $v['por_receber']                = round($baldes['por_receber'], 2);
+
+        // Repartição da perspectiva e do que falta facturar, para os cartões
+        // poderem dizer de que é feito o seu zero.
+        $v['perspectiva_cpcv']       = ($por_tranche['cpcv']['estado'] ?? null) === 'perspectiva'
+            ? $por_tranche['cpcv']['valor'] : 0.0;
+        $v['perspectiva_escritura']  = ($por_tranche['escritura']['estado'] ?? null) === 'perspectiva'
+            ? $por_tranche['escritura']['valor'] : 0.0;
 
         /* 2) O QUE PAGAMOS AO COMERCIAL --------------------------------------
          * Acordo dos comerciais a 100% (Samara): a DPS entrega exactamente o
@@ -829,6 +840,23 @@ class Dps_painel_model extends App_Model
         }
 
         /*
+         * TESOURARIA — o que falta pagar SOBRE o dinheiro que já entrou.
+         *
+         * Só conta nas vendas cuja verba já está em caixa. Uma comissão devida
+         * de uma venda ainda por receber não sai do dinheiro que temos: sai do
+         * que vier. Misturar as duas dava um saldo de caixa que não existe.
+         *
+         * Duas parcelas: o que ainda se deve ao comercial (o devido menos o
+         * que já lhe foi pago) e o override da direção sobre esse dinheiro.
+         */
+        $v['devido_do_recebido'] = 0.0;
+
+        if ($v['recebido'] > 0) {
+            $falta_comercial = max(0.0, (float) $v['comissao_comercial'] - (float) $v['comissao_paga']);
+            $v['devido_do_recebido'] = round($falta_comercial + (float) $v['direcao'], 2);
+        }
+
+        /*
          * Resultado em dois horizontes, com as MESMAS condições dos
          * recebimentos: o que já está (ou devia estar) resolvido, e o que só se
          * resolve em datas futuras. Somar tudo num número escondia que uma
@@ -1018,6 +1046,8 @@ class Dps_painel_model extends App_Model
 
             // Vendas ainda por validar: não são dívida do promotor.
             'perspectiva'             => 0.0,
+            'a_emitir'                => 0.0,   // pago, mas ainda sem factura
+            'devido_do_recebido'      => 0.0,   // por pagar, sobre dinheiro já em caixa
             'perspectiva_cpcv'        => 0.0,
             'perspectiva_escritura'   => 0.0,
             'comerciais_perspectiva'  => 0.0,
@@ -1056,6 +1086,8 @@ class Dps_painel_model extends App_Model
             $t['resultado_futuro_escritura']  += (float) $v['resultado_futuro_escritura'];
 
             $t['perspectiva']            += (float) $v['perspectiva'];
+            $t['a_emitir']               += (float) $v['a_emitir'];
+            $t['devido_do_recebido']     += (float) $v['devido_do_recebido'];
             $t['perspectiva_cpcv']       += (float) $v['perspectiva_cpcv'];
             $t['perspectiva_escritura']  += (float) $v['perspectiva_escritura'];
             $t['comerciais_perspectiva'] += (float) $v['comerciais_perspectiva'];
