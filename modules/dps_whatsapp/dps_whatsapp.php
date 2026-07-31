@@ -23,9 +23,24 @@ function dps_whatsapp_lead_created($lead_id)
 {
     $CI = &get_instance();
     $CI->load->model('dps_whatsapp/Dps_whatsapp_model');
-    // Enviar mensagem de boas-vindas imediatamente
-    $CI->Dps_whatsapp_model->send_welcome_message($lead_id);
-    // Agendar follow-up automático
+
+    /*
+     * UMA LEAD NOVA NÃO RECEBE WHATSAPP. Regra do dono (31/07/2026):
+     * "não deve ser enviada mensagem às novas leads nunca por WhatsApp".
+     *
+     * O que estava aqui mandava, no instante em que a lead entrava, uma
+     * mensagem sobre o Belo Horizonte — a toda a gente, viesse a lead de que
+     * campanha viesse. Quem preenchia um formulário do Aura recebia uma
+     * mensagem de outro empreendimento, e recebia-a de um número que nunca
+     * tinha contactado.
+     *
+     * O primeiro contacto passa a ser por EMAIL, com o texto da campanha de
+     * onde a lead veio. O WhatsApp fica para quando houver conversa começada.
+     *
+     * O agendamento de follow-ups mantém-se: esses seguem as automações por
+     * estado, que são disparadas por trabalho do comercial e não pela simples
+     * entrada da lead.
+     */
     $CI->Dps_whatsapp_model->schedule_followup($lead_id);
 }
 
