@@ -223,7 +223,20 @@ class Dps_painel extends AdminController
                 set_alert('danger', $erro);
             } else {
                 $this->m->guardar_recebimento($post, $id);
-                set_alert('success', 'Comissão a receber guardada.');
+
+                /*
+                 * Os prazos vão para a tabela das Regras de Comissão, que é
+                 * onde vivem. Editam-se daqui por comodidade, mas guardam-se
+                 * num sítio só — dois sítios a dizer datas diferentes para o
+                 * mesmo empreendimento seria pior do que não as ter.
+                 */
+                $this->m->guardar_prazos(
+                    $post['empreendimento'] ?? '',
+                    $post['mes_cpcv'] ?? '',
+                    $post['mes_escritura'] ?? ''
+                );
+
+                set_alert('success', 'Comissão a receber e prazos guardados.');
             }
 
             redirect(admin_url('dps_painel/recebimento'));

@@ -77,9 +77,9 @@ $pct = function ($n) {
                                         <td style="white-space:nowrap;">
                                             <?php
                                             /*
-                                             * Os prazos NÃO se editam aqui: vêm das Regras de Comissão,
-                                             * para não haver dois sítios a dizer datas diferentes para o
-                                             * mesmo empreendimento.
+                                             * Os prazos editam-se no formulário ao lado, mas GRAVAM-SE nas
+                                             * Regras de Comissão — um sítio só, para não haver duas datas
+                                             * diferentes para o mesmo empreendimento.
                                              */
                                             $fm = function ($m) {
                                                 return $m ? substr($m, 5, 2) . '/' . substr($m, 0, 4) : null;
@@ -105,7 +105,9 @@ $pct = function ($n) {
                                                     data-taxa="<?php echo $pct($r['taxa_recebida']); ?>"
                                                     data-cpcv="<?php echo isset($r['cpcv_pct']) ? $pct($r['cpcv_pct']) : ''; ?>"
                                                     data-escritura="<?php echo isset($r['escritura_pct']) ? $pct($r['escritura_pct']) : ''; ?>"
-                                                    data-notas="<?php echo html_escape($r['notas']); ?>">
+                                                    data-notas="<?php echo html_escape($r['notas']); ?>"
+                                                    data-mescpcv="<?php echo html_escape($r['mes_cpcv'] ?? ''); ?>"
+                                                    data-mesescritura="<?php echo html_escape($r['mes_escritura'] ?? ''); ?>">
                                                 <i class="fa fa-pencil"></i>
                                             </button>
                                             <?php // Apagar é destrutivo: form POST (leva o token do Perfex), não um link GET. ?>
@@ -184,8 +186,39 @@ $pct = function ($n) {
                             <small class="text-muted">
                                 Percentagens <strong>da verba que recebemos</strong>, não da venda.
                                 Têm de somar 100%. Em branco = recebemos tudo no CPCV.
-                                Os prazos (meses) vêm das
-                                <a href="<?php echo admin_url('dps_vendas/regras'); ?>" target="_blank">Regras de Comissão</a>.
+                            </small>
+                        </div>
+
+                        <?php
+                        /*
+                         * PRAZOS — em que mês é que o promotor paga cada tranche.
+                         *
+                         * Guardam-se nas Regras de Comissão, que é onde vivem; editam-se
+                         * aqui por comodidade. Um mês vazio é resposta válida e quer dizer
+                         * "na conclusão / imediato" — é o caso do Gaia Douro e do Boavista.
+                         */
+                        ?>
+                        <div class="row">
+                            <div class="col-xs-6">
+                                <div class="form-group">
+                                    <label class="control-label">Mês do CPCV</label>
+                                    <input type="month" name="mes_cpcv" id="receb-mes-cpcv" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-xs-6">
+                                <div class="form-group">
+                                    <label class="control-label">Mês da escritura</label>
+                                    <input type="month" name="mes_escritura" id="receb-mes-escritura" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <small class="text-muted">
+                                Em que mês o promotor paga cada tranche. <strong>Em branco = na
+                                conclusão</strong>, ou seja, conta como vencido desde já.
+                                É o mesmo campo das
+                                <a href="<?php echo admin_url('dps_vendas/regras'); ?>" target="_blank">Regras de Comissão</a>:
+                                mude aqui ou lá, é o mesmo sítio.
                             </small>
                         </div>
 
@@ -222,6 +255,8 @@ $pct = function ($n) {
             document.getElementById('receb-cpcv').value = d.cpcv || '';
             document.getElementById('receb-escritura').value = d.escritura || '';
             document.getElementById('receb-notas').value = d.notas || '';
+            document.getElementById('receb-mes-cpcv').value = d.mescpcv || '';
+            document.getElementById('receb-mes-escritura').value = d.mesescritura || '';
             document.getElementById('titulo-form-receb').textContent = 'Editar comissão a receber';
             document.getElementById('cancelar-receb').style.display = '';
             window.scrollTo(0, 0);
@@ -245,6 +280,8 @@ $pct = function ($n) {
     document.getElementById('cancelar-receb').addEventListener('click', function () {
         document.getElementById('form-receb').reset();
         document.getElementById('receb-id').value = '';
+        document.getElementById('receb-mes-cpcv').value = '';
+        document.getElementById('receb-mes-escritura').value = '';
         document.getElementById('titulo-form-receb').textContent = 'Nova comissão a receber';
         this.style.display = 'none';
     });

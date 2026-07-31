@@ -337,6 +337,61 @@ class Dps_painel_model extends App_Model
         return $this->db->insert_id();
     }
 
+    /**
+     * Grava os PRAZOS (mês do CPCV e da escritura) do empreendimento.
+     *
+     * Escreve na tabela das Regras de Comissão, que é onde os prazos vivem —
+     * não se duplicam aqui. Poder editá-los a partir do ecrã do recebimento é
+     * comodidade; ter dois sítios a guardar a mesma data seria uma armadilha,
+     * porque mais cedo ou mais tarde diriam coisas diferentes e ninguém sabia
+     * qual valia.
+     *
+     * Um mês vazio é uma resposta válida e significa "na conclusão / imediato".
+     * Por isso grava-se NULL em vez de se ignorar o campo: sem isso não havia
+     * maneira de apagar um prazo depois de o ter posto.
+     */
+    public function guardar_prazos($empreendimento, $mes_cpcv, $mes_escritura)
+    {
+        $t = db_prefix() . 'comissao_regras';
+
+        if (!$this->db->table_exists($t)) {
+            return false;
+        }
+
+        $limpar = function ($m) {
+            $m = trim((string) $m);
+
+            return preg_match('/^\d{4}-\d{2}$/', $m) ? $m : null;
+        };
+
+        $dados = [
+            'cpcv_mes_previsto'      => $limpar($mes_cpcv),
+            'escritura_mes_previsto' => $limpar($mes_escritura),
+        ];
+
+        $linha = $this->db
+            ->where('LOWER(TRIM(empreendimento))', $this->chave_emp($empreendimento))
+            ->get($t)->row_array();
+
+        if ($linha) {
+            $this->db->where('id', (int) $linha['id'])->update($t, $dados);
+
+            return true;
+        }
+
+        /*
+         * Sem regra ainda criada, cria-se uma só com os prazos. A taxa da
+         * comissão do comercial fica a zero de propósito: quem a define é o
+         * ecrã das Regras de Comissão, e inventar aqui um valor era pior do
+         * que deixar à vista que falta preencher.
+         */
+        $this->db->insert($t, array_merge($dados, [
+            'empreendimento' => trim((string) $empreendimento),
+        ]));
+
+        return true;
+    }
+
     public function delete_recebimento($id)
     {
         $this->db->where('id', (int) $id)->delete($this->t_recebimento());
