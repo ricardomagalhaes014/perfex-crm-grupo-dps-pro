@@ -389,20 +389,61 @@ class Dps_moloni_model extends App_Model
                     return abs($l['valor'] - $esperado) <= 0.01;
                 }));
 
+                /*
+                 * A FACTURA É QUE MANDA.
+                 *
+                 * Quando o valor bate, não há nada a decidir. Quando não bate
+                 * mas há UMA só factura daquele promotor para aquela fracção,
+                 * é essa — o que a empresa facturou é o que existe, e o preço
+                 * guardado no CRM é que está por corrigir. Aconteceu em duas
+                 * vendas do Boavista, as duas com 250 € de diferença.
+                 *
+                 * Regra do dono (31/07/2026): "coloca o da factura".
+                 *
+                 * Com mais do que uma candidata continua a não se escrever
+                 * nada: aí não há como saber qual é, e adivinhar um número de
+                 * factura é pior do que deixar o campo vazio.
+                 */
+                $f = null;
+                $ajuste = null;
+
                 if (count($certas) === 1) {
                     $f = $certas[0];
+                } elseif (!$certas && count($mesma_unidade) === 1) {
+                    $f = $mesma_unidade[0];
+                    $ajuste = round($f['valor'] - $esperado, 2);
+                }
+
+                if ($f) {
                     $achados[] = [
-                        'venda'   => (int) $v['id'],
-                        'unidade' => $v['unidade'],
-                        'cliente' => $v['cliente'],
-                        'parcela' => $parcela,
-                        'factura' => $f['numero'],
-                        'valor'   => $f['valor'],
-                        'data'    => $f['data'],
+                        'venda'    => (int) $v['id'],
+                        'unidade'  => $v['unidade'],
+                        'cliente'  => $v['cliente'],
+                        'parcela'  => $parcela,
+                        'factura'  => $f['numero'],
+                        'valor'    => $f['valor'],
+                        'esperado' => $esperado,
+                        'ajuste'   => $ajuste,
+                        'data'     => $f['data'],
                     ];
 
                     if ($aplicar) {
                         $this->db->where('id', (int) $v['id'])->update($this->t_vendas(), [$coluna => $f['numero']]);
+
+                        /*
+                         * O valor facturado passa a ser o valor real da venda no
+                         * Painel do Negócio. Escreve-se no overlay, que é o campo
+                         * que já existe para "o valor real veio do promotor" e que
+                         * ganha sempre à estimativa pela taxa.
+                         *
+                         * Só quando o empreendimento recebe tudo no CPCV: com a
+                         * verba repartida entre CPCV e escritura, uma parcela
+                         * sozinha não é o total da venda e escrever-lha ali seria
+                         * dizer que a venda rende menos do que rende.
+                         */
+                        if ($ajuste !== null && $this->recebe_tudo_no_cpcv($v) && $parcela === 'cpcv') {
+                            $this->guardar_valor_real((int) $v['id'], $f['valor']);
+                        }
                     }
                     continue;
                 }
@@ -414,11 +455,8 @@ class Dps_moloni_model extends App_Model
                     'motivo'  => count($certas) > 1
                         ? count($certas) . ' facturas com o mesmo valor ('
                           . implode(', ', array_column($certas, 'numero')) . ')'
-                        : 'a unidade bate mas nenhum valor coincide: esperado '
-                          . number_format($esperado, 2, ',', '.') . ' €, no Moloni '
-                          . implode(' / ', array_map(function ($l) {
-                              return $l['numero'] . ' ' . number_format($l['valor'], 2, ',', '.') . ' €';
-                          }, $mesma_unidade)),
+                        : count($mesma_unidade) . ' facturas para esta fracção ('
+                          . implode(', ', array_column($mesma_unidade, 'numero')) . ') e nenhuma com o valor esperado',
                 ];
             }
         }
@@ -433,5 +471,48 @@ class Dps_moloni_model extends App_Model
             'sem_promotor'   => array_keys($sem_promotor),
             'aplicado'       => (bool) $aplicar,
         ];
+    }
+
+    /**
+     * O empreendimento recebe a verba toda no CPCV?
+     *
+     * Só nesse caso é que a factura do CPCV é o total da venda. Com repartição
+     * (66/34 no Aura, 50/50 no Belo Horizonte) uma parcela não é o total.
+     */
+    private function recebe_tudo_no_cpcv($venda)
+    {
+        $linha = $this->db
+            ->where('LOWER(TRIM(empreendimento))', mb_strtolower(trim((string) $venda['empreendimento']), 'UTF-8'))
+            ->get(db_prefix() . 'dps_painel_recebimento')->row_array();
+
+        if (!$linha) {
+            return false;
+        }
+
+        $es = isset($linha['escritura_pct']) ? (float) $linha['escritura_pct'] : 0.0;
+
+        return $es <= 0;
+    }
+
+    /**
+     * Grava o valor realmente facturado como valor real da venda no Painel.
+     */
+    private function guardar_valor_real($venda_id, $valor)
+    {
+        $t = db_prefix() . 'dps_painel_vendas';
+
+        $existe = $this->db->where('venda_id', $venda_id)->count_all_results($t) > 0;
+
+        if ($existe) {
+            $this->db->where('venda_id', $venda_id)->update($t, ['comissao_recebida' => $valor]);
+        } else {
+            // recibo_emitido é NOT NULL: escreve-se explicitamente para a
+            // inserção não depender do default da coluna.
+            $this->db->insert($t, [
+                'venda_id'          => $venda_id,
+                'comissao_recebida' => $valor,
+                'recibo_emitido'    => 0,
+            ]);
+        }
     }
 }
