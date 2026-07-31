@@ -512,6 +512,20 @@ class Dps_painel_model extends App_Model
         $v['recebido'] = $v['recebido_marcado'] ? $v['recebido_previsto'] : 0.0;
 
         /*
+         * VALIDADA = a direção já conferiu o comprovativo de pagamento.
+         *
+         * É isso, e só isso, que passa a venda a "concluído": o comercial
+         * carrega o comprovativo, a direção valida, a venda conclui. Antes
+         * disso não há nada a cobrar ao promotor — há uma expectativa.
+         *
+         * Regra do dono (31/07/2026): "só passa a concluído após eu validar o
+         * pagamento e aí sim passa para a receber". Por isso o estado manda
+         * nas duas colunas de "a receber", não só na de agora: uma venda por
+         * validar não é atraso de cobrança nem calendário combinado.
+         */
+        $v['validada'] = ($v['estado'] === 'concluido');
+
+        /*
          * O que falta receber divide-se em DUAS coisas muito diferentes:
          *
          *   AGORA   — tranche já vencida (mês em branco = imediato, ou mês já
@@ -522,29 +536,55 @@ class Dps_painel_model extends App_Model
          *             12/2026 e 50% em 12/2028.
          *
          * Somar as duas numa só coluna escondia a única que exige acção.
+         *
+         * O futuro guarda-se separado por TRANCHE — CPCV e escritura — porque
+         * são dois calendários diferentes e com riscos diferentes: o CPCV é
+         * daqui a meses, a escritura pode ser daqui a anos (no Aura, 2029).
+         * Somados num só número, uma verba de 2029 lia-se como se fosse do
+         * próximo trimestre.
          */
-        $agora = 0.0;
-        $futuro = 0.0;
+        $agora        = 0.0;
+        $futuro_cpcv  = 0.0;
+        $futuro_esc   = 0.0;
 
         if (!$v['recebido_marcado']) {
             if ($venceu($v['mes_recebido_cpcv'])) {
                 $agora += $v['recebido_cpcv'];
             } else {
-                $futuro += $v['recebido_cpcv'];
+                $futuro_cpcv += $v['recebido_cpcv'];
             }
 
             if ($v['recebido_escritura'] > 0) {
                 if ($venceu($v['mes_recebido_escritura'])) {
                     $agora += $v['recebido_escritura'];
                 } else {
-                    $futuro += $v['recebido_escritura'];
+                    $futuro_esc += $v['recebido_escritura'];
                 }
             }
         }
 
-        $v['a_receber_agora']  = round($agora, 2);
-        $v['a_receber_futuro'] = round($futuro, 2);
-        $v['por_receber']      = round($agora + $futuro, 2);
+        /*
+         * Venda por validar: tudo o que ela renderia sai das colunas de
+         * "a receber" e passa a PERSPECTIVA. Deixá-la em "agora" dizia que
+         * havia dinheiro por cobrar ao promotor quando ainda nem sabemos se o
+         * cliente pagou; deixá-la em "futuro" dava-a como certa numa data.
+         */
+        $v['perspectiva'] = 0.0;
+
+        if (!$v['validada']) {
+            $v['perspectiva'] = round($agora + $futuro_cpcv + $futuro_esc, 2);
+            $agora            = 0.0;
+            $futuro_cpcv      = 0.0;
+            $futuro_esc       = 0.0;
+        }
+
+        $futuro = $futuro_cpcv + $futuro_esc;
+
+        $v['a_receber_agora']           = round($agora, 2);
+        $v['a_receber_futuro_cpcv']     = round($futuro_cpcv, 2);
+        $v['a_receber_futuro_escritura'] = round($futuro_esc, 2);
+        $v['a_receber_futuro']          = round($futuro, 2);
+        $v['por_receber']               = round($agora + $futuro, 2);
 
         /* 2) O QUE PAGAMOS AO COMERCIAL --------------------------------------
          * Acordo dos comerciais a 100% (Samara): a DPS entrega exactamente o
@@ -609,8 +649,9 @@ class Dps_painel_model extends App_Model
         $parcela_cp = round($com * $cp_taxa / 100, 2);
         $parcela_es = round($com - $parcela_cp, 2);
 
-        $com_agora  = 0.0;
-        $com_futuro = 0.0;
+        $com_agora       = 0.0;
+        $com_futuro_cp   = 0.0;
+        $com_futuro_es   = 0.0;
 
         // Comercial a 0%: não há parcelas por pagar. O $com já é zero, mas
         // deixa-se explícito para quem ler não ter de o deduzir.
@@ -623,7 +664,7 @@ class Dps_painel_model extends App_Model
             if ($venceu($v['mes_recebido_cpcv'])) {
                 $com_agora += $parcela_cp;
             } else {
-                $com_futuro += $parcela_cp;
+                $com_futuro_cp += $parcela_cp;
             }
         }
 
@@ -631,12 +672,29 @@ class Dps_painel_model extends App_Model
             if ($venceu($v['mes_recebido_escritura'])) {
                 $com_agora += $parcela_es;
             } else {
-                $com_futuro += $parcela_es;
+                $com_futuro_es += $parcela_es;
             }
         }
 
-        $v['comerciais_agora']  = round($com_agora, 2);
-        $v['comerciais_futuro'] = round($com_futuro, 2);
+        /*
+         * A comissão do comercial segue a venda: se ela ainda não foi validada,
+         * o que lhe é devido também é perspectiva. Sem isto o resultado de agora
+         * levava com o custo de vendas cujo proveito tinha saído para
+         * perspectiva — dava prejuízo onde não há.
+         */
+        $v['comerciais_perspectiva'] = 0.0;
+
+        if (!$v['validada']) {
+            $v['comerciais_perspectiva'] = round($com_agora + $com_futuro_cp + $com_futuro_es, 2);
+            $com_agora     = 0.0;
+            $com_futuro_cp = 0.0;
+            $com_futuro_es = 0.0;
+        }
+
+        $v['comerciais_agora']            = round($com_agora, 2);
+        $v['comerciais_futuro_cpcv']      = round($com_futuro_cp, 2);
+        $v['comerciais_futuro_escritura'] = round($com_futuro_es, 2);
+        $v['comerciais_futuro']           = round($com_futuro_cp + $com_futuro_es, 2);
 
         $v['tem_director'] = (int) $regras['director_id'] > 0;
 
@@ -647,11 +705,12 @@ class Dps_painel_model extends App_Model
          * Regra do dono, 30/07/2026.
          */
         if ($v['comercial_100'] || $v['comercial_0'] || !$v['tem_director']) {
-            $v['direcao']           = 0.0;
-            $v['direcao_prevista']  = 0.0;
-            $v['direcao_base']      = 0.0;
-            $v['direcao_agora']     = 0.0;
-            $v['direcao_futuro']    = 0.0;
+            $v['direcao']              = 0.0;
+            $v['direcao_prevista']     = 0.0;
+            $v['direcao_base']         = 0.0;
+            $v['direcao_agora']        = 0.0;
+            $v['direcao_futuro']       = 0.0;
+            $v['direcao_perspectiva']  = 0.0;
         } else {
             /*
              * Duas contas, não uma: o que o director JÁ ganhou (sobre dinheiro
@@ -694,7 +753,23 @@ class Dps_painel_model extends App_Model
 
             $v['direcao_agora']  = $dir_vencida ? $falta_dir : 0.0;
             $v['direcao_futuro'] = $dir_vencida ? 0.0 : $falta_dir;
+
+            /*
+             * Mesma condição das outras rubricas: numa venda por validar o
+             * override também é perspectiva. E como é pago no CPCV, o futuro
+             * da direção é sempre da tranche do CPCV — nunca da escritura.
+             */
+            $v['direcao_perspectiva'] = 0.0;
+
+            if (!$v['validada']) {
+                $v['direcao_perspectiva'] = round($v['direcao_agora'] + $v['direcao_futuro'], 2);
+                $v['direcao_agora']       = 0.0;
+                $v['direcao_futuro']      = 0.0;
+            }
         }
+
+        $v['direcao_futuro_cpcv']      = $v['direcao_futuro'];
+        $v['direcao_futuro_escritura'] = 0.0;
 
         $v['director_id'] = $regras['director_id'];
 
@@ -753,8 +828,27 @@ class Dps_painel_model extends App_Model
             - ($v['direcao'] + $v['direcao_agora']),
             2
         );
+        /*
+         * O futuro parte-se em dois porque são dois calendários: o CPCV é o
+         * próximo horizonte, a escritura pode ser anos depois. O override da
+         * direção desconta-se todo no CPCV, que é onde é pago.
+         */
+        $v['resultado_futuro_cpcv'] = round(
+            $v['a_receber_futuro_cpcv'] - $v['comerciais_futuro_cpcv'] - $v['direcao_futuro_cpcv'],
+            2
+        );
+        $v['resultado_futuro_escritura'] = round(
+            $v['a_receber_futuro_escritura'] - $v['comerciais_futuro_escritura'],
+            2
+        );
         $v['resultado_futuro'] = round(
-            $v['a_receber_futuro'] - $v['comerciais_futuro'] - $v['direcao_futuro'],
+            $v['resultado_futuro_cpcv'] + $v['resultado_futuro_escritura'],
+            2
+        );
+
+        // O que a venda renderia se o pagamento vier a ser validado.
+        $v['resultado_perspectiva'] = round(
+            $v['perspectiva'] - $v['comerciais_perspectiva'] - $v['direcao_perspectiva'],
             2
         );
     }
@@ -894,6 +988,24 @@ class Dps_painel_model extends App_Model
             'direcao_futuro'     => 0.0,
             'resultado_agora'    => 0.0,
             'resultado_futuro'   => 0.0,
+
+            // Futuro aberto por tranche: o CPCV é o próximo horizonte, a
+            // escritura pode ser anos depois.
+            'a_receber_futuro_cpcv'       => 0.0,
+            'a_receber_futuro_escritura'  => 0.0,
+            'comerciais_futuro_cpcv'      => 0.0,
+            'comerciais_futuro_escritura' => 0.0,
+            'direcao_futuro_cpcv'         => 0.0,
+            'direcao_futuro_escritura'    => 0.0,
+            'resultado_futuro_cpcv'       => 0.0,
+            'resultado_futuro_escritura'  => 0.0,
+
+            // Vendas ainda por validar: não são dívida do promotor.
+            'perspectiva'             => 0.0,
+            'comerciais_perspectiva'  => 0.0,
+            'direcao_perspectiva'     => 0.0,
+            'resultado_perspectiva'   => 0.0,
+            'vendas_por_validar'      => 0,
             'pago_comercial'     => 0.0,
             'comissao_comercial' => 0.0,
             'direcao'            => 0.0,
@@ -915,6 +1027,23 @@ class Dps_painel_model extends App_Model
              */
             $t['recebido']           += (float) $v['recebido'];
             $t['recebido_previsto']  += (float) $v['recebido_previsto'];
+
+            $t['a_receber_futuro_cpcv']       += (float) $v['a_receber_futuro_cpcv'];
+            $t['a_receber_futuro_escritura']  += (float) $v['a_receber_futuro_escritura'];
+            $t['comerciais_futuro_cpcv']      += (float) $v['comerciais_futuro_cpcv'];
+            $t['comerciais_futuro_escritura'] += (float) $v['comerciais_futuro_escritura'];
+            $t['direcao_futuro_cpcv']         += (float) $v['direcao_futuro_cpcv'];
+            $t['direcao_futuro_escritura']    += (float) $v['direcao_futuro_escritura'];
+            $t['resultado_futuro_cpcv']       += (float) $v['resultado_futuro_cpcv'];
+            $t['resultado_futuro_escritura']  += (float) $v['resultado_futuro_escritura'];
+
+            $t['perspectiva']            += (float) $v['perspectiva'];
+            $t['comerciais_perspectiva'] += (float) $v['comerciais_perspectiva'];
+            $t['direcao_perspectiva']    += (float) $v['direcao_perspectiva'];
+            $t['resultado_perspectiva']  += (float) $v['resultado_perspectiva'];
+            if (empty($v['validada'])) {
+                $t['vendas_por_validar']++;
+            }
             $t['por_receber']        += (float) $v['por_receber'];
             $t['a_receber_agora']    += (float) $v['a_receber_agora'];
             $t['a_receber_futuro']   += (float) $v['a_receber_futuro'];

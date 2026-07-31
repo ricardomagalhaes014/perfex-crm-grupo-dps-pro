@@ -79,7 +79,25 @@ $pct    = function ($n) {
                 ],
                 [
                     'A receber no futuro', $totais['a_receber_futuro'], 'text-info', 'fa-calendar',
-                    $totais['a_receber_futuro'] > 0 ? 'em datas já combinadas' : '—',
+                    $totais['a_receber_futuro'] > 0
+                        ? 'CPCV: ' . app_format_money($totais['a_receber_futuro_cpcv'], $moeda)
+                            . ' · escrituras: ' . app_format_money($totais['a_receber_futuro_escritura'], $moeda)
+                        : '—',
+                ],
+                /*
+                 * PERSPECTIVA — vendas cujo pagamento ainda não foi validado.
+                 *
+                 * Não entra em "a receber" nenhum: enquanto a direção não
+                 * confere o comprovativo, a venda não passa a concluída e não
+                 * há nada a cobrar ao promotor. Regra do dono (31/07/2026).
+                 * Fica à vista à mesma, porque é trabalho por fechar.
+                 */
+                [
+                    'Perspectiva (por validar)', $totais['perspectiva'], 'text-muted', 'fa-hourglass-half',
+                    $totais['vendas_por_validar'] > 0
+                        ? $totais['vendas_por_validar'] . ' venda' . ($totais['vendas_por_validar'] == 1 ? '' : 's')
+                            . ' à espera de validação do pagamento'
+                        : 'nada por validar',
                 ],
                 [
                     'Comerciais', $totais['comissao_comercial'], 'text-danger', 'fa-arrow-up',
@@ -107,9 +125,20 @@ $pct    = function ($n) {
                     $totais['resultado_agora'] >= 0 ? 'text-success' : 'text-danger', 'fa-balance-scale',
                     'do que já está ou devia estar resolvido',
                 ],
+                /*
+                 * O futuro em dois cartões, não num. São dois calendários com
+                 * riscos diferentes: o CPCV é o próximo horizonte, a escritura
+                 * pode ser anos depois (no Aura, fim de 2029). Somados, uma
+                 * verba de 2029 lia-se como se fosse do próximo trimestre.
+                 */
                 [
-                    'Resultado futuro', $totais['resultado_futuro'],
-                    $totais['resultado_futuro'] >= 0 ? 'text-success' : 'text-danger', 'fa-calendar-check-o',
+                    'Resultado futuro — CPCV', $totais['resultado_futuro_cpcv'],
+                    $totais['resultado_futuro_cpcv'] >= 0 ? 'text-success' : 'text-danger', 'fa-calendar-check-o',
+                    'CPCV com mês marcado à frente',
+                ],
+                [
+                    'Resultado futuro — Escrituras', $totais['resultado_futuro_escritura'],
+                    $totais['resultado_futuro_escritura'] >= 0 ? 'text-success' : 'text-danger', 'fa-institution',
                     'total previsto: ' . app_format_money($totais['resultado'], $moeda),
                 ],
             ];
@@ -129,10 +158,12 @@ $pct    = function ($n) {
                 'Recebemos (em caixa)' => function ($v) { return $v['recebido']; },
                 'A receber AGORA'      => function ($v) { return $v['a_receber_agora']; },
                 'A receber no futuro'  => function ($v) { return $v['a_receber_futuro']; },
+                'Perspectiva (por validar)' => function ($v) { return $v['perspectiva']; },
                 'Comerciais'           => function ($v) { return $v['comissao_comercial']; },
                 $rot_dir               => function ($v) { return $v['direcao_prevista']; },
                 'Resultado AGORA'      => function ($v) { return $v['resultado_agora']; },
-                'Resultado futuro'     => function ($v) { return $v['resultado_futuro']; },
+                'Resultado futuro — CPCV'       => function ($v) { return $v['resultado_futuro_cpcv']; },
+                'Resultado futuro — Escrituras' => function ($v) { return $v['resultado_futuro_escritura']; },
             ];
 
             foreach ($cards as $i => $c) {
@@ -309,7 +340,9 @@ $pct    = function ($n) {
                 <strong>Resultado</strong> são da venda inteira — contam tudo o que ela rende, mesmo o que
                 ainda não entrou —, por isso o Resultado não é igual a "Em caixa menos o resto".
                 Na coluna Direcção, o número grande é o total e o pequeno o que já é devido.
-                <strong>A receber agora</strong> é prazo vencido — ou se cobra, ou se marca como recebido.
+                <strong>A receber agora</strong> é prazo vencido — ou se cobra, ou se marca como recebido —
+                e só entra aqui depois de o pagamento estar validado e a venda concluída; até lá é
+                <strong>Perspectiva</strong>.
                 <strong>A receber futuro</strong> é calendário, não atraso: o Belo Horizonte é todo futuro
                 (50% em 12/2026 e 50% em 12/2028, conforme as Regras de Comissão).
                 As despesas não entram aqui (não são imputáveis a um empreendimento), só no resultado global lá em cima.
@@ -593,6 +626,19 @@ $pct    = function ($n) {
                                         (previsto <?php echo substr($m, 5, 2) . '/' . substr($m, 0, 4); ?>)
                                     <?php } ?>
                                     <br><a href="<?php echo admin_url('dps_vendas'); ?>"><i class="fa fa-check"></i> marcar no mapa de vendas</a>
+                                </small>
+                            <?php } elseif (!empty($v['perspectiva'])) { ?>
+                                <?php
+                                /*
+                                 * Sem esta linha a venda aparecia com tudo a zero e lia-se
+                                 * como erro de cálculo. O dinheiro não desapareceu: está em
+                                 * perspectiva porque o pagamento ainda não foi validado.
+                                 */
+                                ?>
+                                <br><small class="text-muted" title="Venda ainda não concluída: falta validar o comprovativo de pagamento. Não conta para 'a receber'.">
+                                    <i class="fa fa-hourglass-half"></i>
+                                    perspectiva: <?php echo app_format_money($v['perspectiva'], $moeda); ?>
+                                    <br><a href="<?php echo admin_url('dps_vendas'); ?>">validar o pagamento no mapa de vendas</a>
                                 </small>
                             <?php } ?>
                             <input type="text" form="<?php echo $ff; ?>" name="comissao_recebida" class="form-control input-sm text-right mtop5"
