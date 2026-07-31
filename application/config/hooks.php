@@ -106,6 +106,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_task_notificacoes_register',
+    'filename' => 'dps_task_notificacoes_hook.php',
+    'filepath' => 'hooks'
+];
+
 $hook['post_controller'] = function () {
     $ci = get_instance();
 
