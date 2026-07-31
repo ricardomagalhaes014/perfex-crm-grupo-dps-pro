@@ -89,22 +89,134 @@ class Dps_moloni_model extends App_Model
         return json_decode((string) $corpo, true);
     }
 
+
     /**
-     * Lê as facturas e devolve, por fracção, o número do documento.
+     * Promotor de cada empreendimento, como está escrito no Moloni.
      *
-     * Chave: 'cpcv|1_aa' ou 'escritura|2_bn'. O valor vai junto para se poder
-     * confirmar antes de escrever.
+     * Não se adivinha do nome: o Gaia Douro está facturado a "DM Towers SA"
+     * (Douro Mar) e o Boavista a "BOAVISTA TOWER, S.A". Sem este mapa, a
+     * correspondência ia pela unidade e havia unidades com o mesmo código em
+     * empreendimentos diferentes.
+     *
+     * Ordem da verificação, tal como a direção a descreve: primeiro o CLIENTE,
+     * depois a FRACÇÃO, depois se a factura tem nota de crédito a anulá-la.
+     *
+     * Guarda-se em options para se poder corrigir sem mexer no código; estes
+     * são os valores de arranque.
      */
-    public function faturas_por_fraccao()
+    private function promotor($empreendimento)
+    {
+        $guardado = json_decode((string) get_option('dps_moloni_promotores'), true);
+
+        $mapa = is_array($guardado) && $guardado ? $guardado : [
+            'gaia douro'      => 'DM TOWERS',
+            'boavista towers' => 'BOAVISTA TOWER',
+            'lake towers'     => 'LAKE-TOWERS',
+        ];
+
+        $chave = mb_strtolower(trim((string) $empreendimento), 'UTF-8');
+
+        return $mapa[$chave] ?? null;
+    }
+
+    /**
+     * Documentos anulados por nota de crédito.
+     *
+     * Há facturas emitidas por engano e depois anuladas. A nota de crédito
+     * aponta para a factura que anula em `associated_documents`, e é isso que
+     * se lê. Sem esta leitura, a fracção M10 tinha duas facturas (M 84 a
+     * 15.495 € e M 92 a 15.395 €) e escolhia-se à sorte — a M 84 está anulada
+     * pela nota de crédito M 28.
+     */
+    private function anuladas($tok, $empresa)
+    {
+        $fora = [];
+
+        for ($pagina = 0; $pagina < 10; $pagina++) {
+            $notas = $this->pedir(
+                'https://api.moloni.pt/v1/creditNotes/getAll/?access_token=' . urlencode($tok),
+                ['company_id' => $empresa, 'offset' => $pagina * 50, 'qty' => 50]
+            );
+
+            if (!is_array($notas) || !$notas) {
+                break;
+            }
+
+            foreach ($notas as $n) {
+                $um = $this->pedir(
+                    'https://api.moloni.pt/v1/creditNotes/getOne/?access_token=' . urlencode($tok),
+                    ['company_id' => $empresa, 'document_id' => (int) ($n['document_id'] ?? 0)]
+                );
+
+                foreach ((array) ($um['associated_documents'] ?? []) as $a) {
+                    $id = (int) ($a['associated_id'] ?? 0);
+                    if ($id) {
+                        $fora[$id] = true;
+                    }
+                }
+            }
+
+            if (count($notas) < 50) {
+                break;
+            }
+        }
+
+        return $fora;
+    }
+
+    /**
+     * As unidades que uma linha de factura pode estar a designar.
+     *
+     * Cada promotor escreve à sua maneira e o CRM guarda a unidade de forma
+     * diferente conforme o empreendimento — daí devolver-se uma LISTA de
+     * hipóteses em vez de uma só:
+     *
+     *   "CPCV Lote 1 torre 1 unidade AA"        -> 1AA, AA   (Gaia Douro: 1_AA)
+     *   "CPCV Lote 1 bloco 1 unidade M10"       -> 1M10, M10 (Boavista: M10)
+     *   'Fração: "DD" (T3), piso 11, Torre A4'  -> DD        (Lake Towers)
+     *
+     * Devolver as duas formas não afrouxa nada: a seguir exige-se também que o
+     * valor bata certo, e é esse segundo sinal que impede enganos.
+     */
+    private function unidades_da_linha($nome)
+    {
+        $n = mb_strtolower($nome, 'UTF-8');
+        $limpar = function ($s) {
+            return strtoupper(preg_replace('/[^a-z0-9]/i', '', $s));
+        };
+
+        // "torre 1 unidade AA" / "bloco 1 unidade M10"
+        if (preg_match('/(?:torre|bloco)\s*(\w+).*?unidade\s*([a-z0-9]+)/u', $n, $m)) {
+            return [$limpar($m[1] . $m[2]), $limpar($m[2])];
+        }
+
+        // "unidade AA" sem torre nem bloco
+        if (preg_match('/unidade\s*([a-z0-9]+)/u', $n, $m)) {
+            return [$limpar($m[1])];
+        }
+
+        // 'Fração: "DD" (T3)' — as aspas são curvas no original.
+        if (preg_match('/fra[cç][aã]o[:\s]*[«"\x{201C}\x{201D}]?\s*([a-z0-9]+)/u', $n, $m)) {
+            return [$limpar($m[1])];
+        }
+
+        return [];
+    }
+
+    /**
+     * Todas as linhas facturadas que designam uma fracção, já sem as anuladas.
+     */
+    public function linhas_facturadas()
     {
         $tok = $this->token();
         if (!$tok) {
             return ['ok' => false, 'erro' => 'Faltam as credenciais do Moloni nas definições do Painel.'];
         }
 
-        $empresa = $this->config()['company_id'];
-        $indice  = [];
-        $lidas   = 0;
+        $empresa  = $this->config()['company_id'];
+        $anuladas = $this->anuladas($tok, $empresa);
+        $linhas   = [];
+        $lidas    = 0;
 
         for ($pagina = 0; $lidas < self::MAXIMO_FACTURAS; $pagina++) {
             $docs = $this->pedir(
@@ -119,38 +231,39 @@ class Dps_moloni_model extends App_Model
             foreach ($docs as $d) {
                 $lidas++;
                 $id = (int) ($d['document_id'] ?? 0);
-                if (!$id) {
+
+                // Anulada por nota de crédito: para todos os efeitos não existe.
+                if (!$id || isset($anuladas[$id])) {
                     continue;
                 }
 
-                /*
-                 * O getAll não traz as linhas — é preciso abrir cada factura.
-                 * É um pedido por documento, daí o tecto: 400 facturas é mais
-                 * de um ano de emissão e chega bem para o que se procura.
-                 */
                 $um = $this->pedir(
                     'https://api.moloni.pt/v1/invoices/getOne/?access_token=' . urlencode($tok),
                     ['company_id' => $empresa, 'document_id' => $id]
                 );
 
+                // status 1 = fechada. Um rascunho não é uma factura emitida.
+                if ((int) ($um['status'] ?? 0) !== 1) {
+                    continue;
+                }
+
                 $numero = trim(($um['document_set_name'] ?? '') . ' ' . ($um['number'] ?? ''));
 
-                foreach ((array) ($um['products'] ?? []) as $linha) {
-                    $chave = $this->chave_da_linha((string) ($linha['name'] ?? ''));
-                    if (!$chave) {
+                foreach ((array) ($um['products'] ?? []) as $l) {
+                    $unidades = $this->unidades_da_linha((string) ($l['name'] ?? ''));
+                    if (!$unidades) {
                         continue;
                     }
 
-                    // A primeira que aparece é a mais recente: o getAll vem
-                    // por data decrescente e não se sobrepõe.
-                    if (!isset($indice[$chave])) {
-                        $indice[$chave] = [
-                            'numero' => $numero,
-                            'valor'  => round((float) ($linha['price'] ?? 0), 2),
-                            'nome'   => (string) ($linha['name'] ?? ''),
-                            'data'   => substr((string) ($um['date'] ?? ''), 0, 10),
-                        ];
-                    }
+                    $linhas[] = [
+                        'numero'   => $numero,
+                        'valor'    => round((float) ($l['price'] ?? 0), 2),
+                        'parcela'  => stripos((string) $l['name'], 'escritura') !== false ? 'escritura' : 'cpcv',
+                        'unidades' => $unidades,
+                        'cliente'  => (string) ($um['entity_name'] ?? ''),
+                        'data'     => substr((string) ($um['date'] ?? ''), 0, 10),
+                        'nome'     => (string) ($l['name'] ?? ''),
+                    ];
                 }
             }
 
@@ -159,26 +272,7 @@ class Dps_moloni_model extends App_Model
             }
         }
 
-        return ['ok' => true, 'indice' => $indice, 'facturas_lidas' => $lidas];
-    }
-
-    /**
-     * "CPCV Lote 1 torre 1 unidade AA" -> "cpcv|1_aa"
-     *
-     * Devolve null quando a linha não identifica fracção nenhuma — uma factura
-     * de outra coisa qualquer não deve casar com venda nenhuma.
-     */
-    private function chave_da_linha($nome)
-    {
-        $n = mb_strtolower($nome, 'UTF-8');
-
-        if (!preg_match('/torre\s*(\w+).*?unidade\s*([a-z0-9]+)/u', $n, $m)) {
-            return null;
-        }
-
-        $parcela = (strpos($n, 'escritura') !== false) ? 'escritura' : 'cpcv';
-
-        return $parcela . '|' . $m[1] . '_' . $m[2];
+        return ['ok' => true, 'linhas' => $linhas, 'facturas_lidas' => $lidas, 'anuladas' => count($anuladas)];
     }
 
     /**
@@ -221,29 +315,32 @@ class Dps_moloni_model extends App_Model
     /* ------------------------------------------------------- Sincronizar */
 
     /**
-     * Compara o índice do Moloni com as vendas e grava os números que batem
-     * certo nos dois sinais. Em modo de ensaio não escreve nada.
+     * Cruza as facturas com as vendas e grava os números que batem certo.
+     *
+     * Só escreve quando há UMA e uma só linha que case na unidade E no valor.
+     * Duas candidatas, ou uma unidade certa com valor diferente, ficam por
+     * confirmar à mão — num quadro de dinheiro, um número errado é pior do que
+     * um campo vazio.
      */
     public function sincronizar($aplicar = false)
     {
-        $r = $this->faturas_por_fraccao();
+        $r = $this->linhas_facturadas();
         if (empty($r['ok'])) {
             return $r;
         }
 
-        $indice = $r['indice'];
-
         $vendas = $this->db
-            ->select('id, empreendimento, unidade, valor, taxa, cliente,
+            ->select('id, empreendimento, unidade, valor, cliente,
                       fatura_moloni_cpcv, fatura_moloni_escritura')
             ->where_in('estado', ['vendido', 'concluido'])
             ->get($this->t_vendas())->result_array();
 
-        $achados = [];
-        $sem_par = [];
+        $achados      = [];
+        $duvidas      = [];
+        $sem_promotor = [];
 
         foreach ($vendas as $v) {
-            $unidade = mb_strtolower(trim((string) $v['unidade']), 'UTF-8');
+            $unidade = strtoupper(preg_replace('/[^a-z0-9]/i', '', (string) $v['unidade']));
             if ($unidade === '') {
                 continue;
             }
@@ -251,61 +348,89 @@ class Dps_moloni_model extends App_Model
             foreach (['cpcv', 'escritura'] as $parcela) {
                 $coluna = 'fatura_moloni_' . $parcela;
                 if (trim((string) ($v[$coluna] ?? '')) !== '') {
-                    continue;                       // já preenchido à mão: não se mexe
+                    continue;                       // já preenchido: não se mexe
                 }
 
-                $f = $indice[$parcela . '|' . $unidade] ?? null;
-                if (!$f) {
+                $esperado = $this->valor_facturavel($v, $parcela);
+                if ($esperado === null || $esperado <= 0) {
                     continue;
                 }
 
                 /*
-                 * Segundo sinal: o valor da linha da factura.
-                 *
-                 * A base é o que a DPS COBRA AO PROMOTOR — a taxa recebida do
-                 * empreendimento sobre o preço da venda —, e não a comissão que
-                 * a DPS paga ao comercial. São coisas diferentes e no Gaia Douro
-                 * a segunda é metade da primeira: comparar com a errada rejeitava
-                 * todas as facturas certas. Verificado a 31/07/2026 contra as
-                 * facturas M 93, M 94 e M 95.
+                 * 1.º o CLIENTE. Sem promotor conhecido não se procura nada:
+                 * mais vale não preencher do que ir buscar a factura de outro
+                 * empreendimento que por acaso tenha uma unidade com o mesmo
+                 * código.
                  */
-                $esperado = $this->valor_facturavel($v, $parcela);
-
-                if ($esperado === null || abs($esperado - $f['valor']) > 0.01) {
-                    $sem_par[] = [
-                        'venda'    => (int) $v['id'],
-                        'unidade'  => $v['unidade'],
-                        'parcela'  => $parcela,
-                        'motivo'   => 'a unidade bate mas o valor não: Moloni ' .
-                                      number_format($f['valor'], 2, ',', '.') . ' € contra ' .
-                                      ($esperado === null ? 'sem parcela calculada' : number_format($esperado, 2, ',', '.') . ' €'),
-                        'factura'  => $f['numero'],
-                    ];
+                $promotor = $this->promotor($v['empreendimento']);
+                if ($promotor === null) {
+                    $sem_promotor[$v['empreendimento']] = true;
                     continue;
                 }
 
-                $achados[] = [
+                // 2.º a FRACÇÃO, já dentro das facturas desse promotor.
+                $mesma_unidade = [];
+                foreach ($r['linhas'] as $l) {
+                    if ($l['parcela'] !== $parcela) {
+                        continue;
+                    }
+                    if (stripos($l['cliente'], $promotor) === false) {
+                        continue;
+                    }
+                    if (in_array($unidade, $l['unidades'], true)) {
+                        $mesma_unidade[] = $l;
+                    }
+                }
+                if (!$mesma_unidade) {
+                    continue;
+                }
+
+                $certas = array_values(array_filter($mesma_unidade, function ($l) use ($esperado) {
+                    return abs($l['valor'] - $esperado) <= 0.01;
+                }));
+
+                if (count($certas) === 1) {
+                    $f = $certas[0];
+                    $achados[] = [
+                        'venda'   => (int) $v['id'],
+                        'unidade' => $v['unidade'],
+                        'cliente' => $v['cliente'],
+                        'parcela' => $parcela,
+                        'factura' => $f['numero'],
+                        'valor'   => $f['valor'],
+                        'data'    => $f['data'],
+                    ];
+
+                    if ($aplicar) {
+                        $this->db->where('id', (int) $v['id'])->update($this->t_vendas(), [$coluna => $f['numero']]);
+                    }
+                    continue;
+                }
+
+                $duvidas[] = [
                     'venda'   => (int) $v['id'],
                     'unidade' => $v['unidade'],
-                    'cliente' => $v['cliente'],
                     'parcela' => $parcela,
-                    'factura' => $f['numero'],
-                    'valor'   => $f['valor'],
-                    'data'    => $f['data'],
+                    'motivo'  => count($certas) > 1
+                        ? count($certas) . ' facturas com o mesmo valor ('
+                          . implode(', ', array_column($certas, 'numero')) . ')'
+                        : 'a unidade bate mas nenhum valor coincide: esperado '
+                          . number_format($esperado, 2, ',', '.') . ' €, no Moloni '
+                          . implode(' / ', array_map(function ($l) {
+                              return $l['numero'] . ' ' . number_format($l['valor'], 2, ',', '.') . ' €';
+                          }, $mesma_unidade)),
                 ];
-
-                if ($aplicar) {
-                    $this->db->where('id', (int) $v['id'])->update($this->t_vendas(), [$coluna => $f['numero']]);
-                }
             }
         }
 
         return [
             'ok'             => true,
             'facturas_lidas' => $r['facturas_lidas'],
-            'fraccoes'       => count($indice),
+            'anuladas'       => $r['anuladas'],
+            'linhas'         => count($r['linhas']),
             'achados'        => $achados,
-            'duvidas'        => $sem_par,
+            'duvidas'        => $duvidas,
+            'sem_promotor'   => array_keys($sem_promotor),
             'aplicado'       => (bool) $aplicar,
         ];
     }
