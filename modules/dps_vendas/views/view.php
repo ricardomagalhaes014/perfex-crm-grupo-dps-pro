@@ -508,27 +508,37 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                     <br><strong>Fica por preencher</strong> o IBAN do comprador e a fracção
                                     (letra, tipologia e piso) — estão assinalados no documento.
                                 </p>
-                                <a href="<?php echo admin_url('dps_vendas/cpcv/' . (int) $venda['id']); ?>"
-                                   class="btn btn-info">
-                                    <i class="fa fa-download"></i> Descarregar CPCV em Word
-                                </a>
                                 <?php
                                 /*
-                                 * A declaração de cessão sai a par do CPCV: é o papel que
-                                 * permite ao comprador passar a posição a outra pessoa antes
-                                 * da escritura, coisa frequente em venda em planta. Também em
-                                 * Word, porque vai ser rectificada antes de ir a assinatura.
+                                 * Um botão só, e só para a direção.
+                                 *
+                                 * Os dois documentos andam juntos — a declaração de cessão é o
+                                 * que permite ao comprador ceder a posição antes da escritura,
+                                 * e assina-se com o contrato. Descarregá-los à peça obrigava a
+                                 * lembrar-se do segundo.
+                                 *
+                                 * Regra do dono (31/07/2026): passam pela direção antes de
+                                 * seguirem para o cliente. Saem com espaços por preencher (o
+                                 * IBAN, a fracção) e um contrato-promessa enviado com
+                                 * «PREENCHER» no meio é pior do que não enviar nada.
                                  */
-                                ?>
-                                <a href="<?php echo admin_url('dps_vendas/declaracao_cessao/' . (int) $venda['id']); ?>"
-                                   class="btn btn-default">
-                                    <i class="fa fa-download"></i> Declaração de cessão
-                                </a>
-                                <p class="text-muted mtop10" style="font-size:.85em;">
-                                    A vendedora vai preenchida com a FAMIMAR, tal como no CPCV.
-                                    Fica por preencher a <strong>fracção</strong> (letra, tipologia e piso),
-                                    como no contrato.
-                                </p>
+                                if (is_admin()) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/documentos_aura/' . (int) $venda['id']); ?>"
+                                       class="btn btn-info">
+                                        <i class="fa fa-download"></i> CPCV + Declaração de cessão (ZIP)
+                                    </a>
+                                    <p class="text-muted mtop10" style="font-size:.85em;">
+                                        Ficam por preencher o <strong>IBAN do comprador</strong> e a
+                                        <strong>fracção</strong> (letra, tipologia e piso) — estão assinalados
+                                        nos dois documentos.
+                                    </p>
+                                <?php } else { ?>
+                                    <p class="text-muted">
+                                        Os dados estão completos. O contrato e a declaração de cessão são
+                                        preparados pela <strong>direcção</strong>, que os revê antes de
+                                        seguirem para o cliente.
+                                    </p>
+                                <?php } ?>
                                 <p class="text-muted mtop10" style="font-size:.85em;">
                                     É um rascunho. Reveja antes de enviar seja a quem for.
                                 </p>

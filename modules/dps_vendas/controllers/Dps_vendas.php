@@ -467,6 +467,75 @@ class Dps_vendas extends AdminController
     }
 
     /**
+     * CPCV + Declaração de cessão, num único ZIP (Aura).
+     *
+     * SÓ A DIREÇÃO. Regra do dono (31/07/2026), à pergunta de se o comercial
+     * passava a poder enviar directamente ao cliente: "passar pela direcção
+     * primeiro". Os dois documentos saem com espaços por preencher — o IBAN do
+     * comprador, a fracção — e um contrato-promessa enviado assim, com
+     * «PREENCHER» no meio, é pior do que não enviar nada.
+     *
+     * Vão juntos porque andam juntos: a declaração é o que permite ao comprador
+     * ceder a posição antes da escritura, e assina-se com o contrato.
+     */
+    public function documentos_aura($id)
+    {
+        if (!is_admin()) {
+            access_denied('dps_vendas');
+        }
+
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (stripos((string) $venda['empreendimento'], 'aura') === false) {
+            set_alert('warning', 'Estes documentos automáticos existem apenas para o Aura.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        $pecas = [];
+
+        list($ok, $erro, $bytes, $nome) = dps_cpcv_gerar($venda);
+        if (!$ok) {
+            set_alert('danger', $erro);
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+        $pecas[$nome] = $bytes;
+
+        list($ok2, $erro2, $bytes2, $nome2) = dps_declaracao_cessao_gerar($venda);
+        if (!$ok2) {
+            set_alert('danger', 'O contrato saiu, mas a declaração não: ' . $erro2);
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+        $pecas[$nome2] = $bytes2;
+
+        $tmp = tempnam(sys_get_temp_dir(), 'auradocs');
+        $zip = new ZipArchive();
+        if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
+            @unlink($tmp);
+            set_alert('danger', 'Não foi possível preparar o ficheiro para descarregar.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+        foreach ($pecas as $n => $b) {
+            $zip->addFromString($n, $b);
+        }
+        $zip->close();
+
+        $conteudo = file_get_contents($tmp);
+        @unlink($tmp);
+
+        log_activity('DPS Vendas: CPCV + declaração de cessão gerados para a venda #' . (int) $id);
+
+        $this->load->helper('download');
+        force_download(
+            'Aura ' . $venda['unidade'] . ' - '
+                . preg_replace('/[^\p{L}\p{N} ]+/u', '', (string) $venda['cliente']) . '.zip',
+            $conteudo
+        );
+    }
+
+    /**
      * Declaração de autorização de cessão de posição contratual (Aura).
      *
      * Acompanha o CPCV: é o papel que permite ao comprador passar a posição a
