@@ -466,6 +466,46 @@ class Dps_vendas extends AdminController
         force_download($nome, $bytes);
     }
 
+    /**
+     * Declaração de autorização de cessão de posição contratual (Aura).
+     *
+     * Acompanha o CPCV: é o papel que permite ao comprador passar a posição a
+     * outra pessoa antes da escritura. Sai em Word de propósito — vai ser
+     * rectificado antes de ir a assinatura, e é isso que se pretende.
+     *
+     * Exige menos do que o CPCV: aqui só é preciso identificar o comprador. Os
+     * dados da vendedora e da fracção vão assinalados para preencher, porque
+     * são decisão jurídica e não de software.
+     */
+    public function declaracao_cessao($id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        if (!is_admin() && (int) $venda['staff_id'] !== (int) get_staff_user_id()) {
+            access_denied('dps_vendas');
+        }
+
+        if (stripos((string) $venda['empreendimento'], 'aura') === false) {
+            set_alert('warning', 'A declaração de cessão automática existe apenas para o Aura.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        list($ok, $erro, $bytes, $nome) = dps_declaracao_cessao_gerar($venda);
+
+        if (!$ok) {
+            set_alert('danger', $erro);
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        log_activity('DPS Vendas: declaração de cessão gerada para a venda #' . (int) $id);
+
+        $this->load->helper('download');
+        force_download($nome, $bytes);
+    }
+
     public function marcar_recebido($id)
     {
         if (!$this->input->post()) {

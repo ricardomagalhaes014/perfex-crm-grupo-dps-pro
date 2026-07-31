@@ -312,6 +312,46 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                 <td><strong>Valor calculado</strong></td>
                                 <td><?php echo app_format_money($calculo['valor'], get_base_currency()); ?></td>
                             </tr>
+                            <?php
+                            /*
+                             * Factura emitida ao promotor, por tranche.
+                             *
+                             * Vem do Moloni pelo botão do Painel ou do quadro de comissões,
+                             * e pode ser corrigida à mão aqui — a busca automática nunca
+                             * sobrepõe um número escrito por uma pessoa.
+                             *
+                             * Estava só no Painel do Negócio e faltava no sítio óbvio: quem
+                             * abre a venda para saber se já foi facturada não tem de ir a
+                             * outro ecrã descobri-lo.
+                             */
+                            $f_cpcv = trim((string) ($venda['fatura_moloni_cpcv'] ?? ''));
+                            $f_escr = trim((string) ($venda['fatura_moloni_escritura'] ?? ''));
+                            ?>
+                            <tr>
+                                <td><strong>Factura ao promotor</strong>
+                                    <br><small class="text-muted">emitida no Moloni</small>
+                                </td>
+                                <td>
+                                    <?php if ($f_cpcv === '' && $f_escr === '') { ?>
+                                        <span class="text-muted">ainda sem factura</span>
+                                        <?php if (is_admin()) { ?>
+                                            <br><small class="text-muted">
+                                                O botão <em>Buscar facturas ao Moloni</em>, no
+                                                <a href="<?php echo admin_url('dps_painel'); ?>">Painel do Negócio</a>,
+                                                procura-a e preenche.
+                                            </small>
+                                        <?php } ?>
+                                    <?php } else { ?>
+                                        <?php if ($f_cpcv !== '') { ?>
+                                            <i class="fa fa-file-text-o"></i> CPCV: <strong><?php echo html_escape($f_cpcv); ?></strong>
+                                        <?php } ?>
+                                        <?php if ($f_escr !== '') { ?>
+                                            <?php echo $f_cpcv !== '' ? '<br>' : ''; ?>
+                                            <i class="fa fa-file-text-o"></i> Escritura: <strong><?php echo html_escape($f_escr); ?></strong>
+                                        <?php } ?>
+                                    <?php } ?>
+                                </td>
+                            </tr>
                             <?php if (!empty($calculo['cpcv_taxa']) || !empty($calculo['escritura_taxa'])) {
                                 $pct_cpcv = $calculo['taxa'] > 0 ? round($calculo['cpcv_taxa'] / $calculo['taxa'] * 100) : 0;
                                 $pct_escr = $calculo['taxa'] > 0 ? round($calculo['escritura_taxa'] / $calculo['taxa'] * 100) : 0;
@@ -472,6 +512,23 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                    class="btn btn-info">
                                     <i class="fa fa-download"></i> Descarregar CPCV em Word
                                 </a>
+                                <?php
+                                /*
+                                 * A declaração de cessão sai a par do CPCV: é o papel que
+                                 * permite ao comprador passar a posição a outra pessoa antes
+                                 * da escritura, coisa frequente em venda em planta. Também em
+                                 * Word, porque vai ser rectificada antes de ir a assinatura.
+                                 */
+                                ?>
+                                <a href="<?php echo admin_url('dps_vendas/declaracao_cessao/' . (int) $venda['id']); ?>"
+                                   class="btn btn-default">
+                                    <i class="fa fa-download"></i> Declaração de cessão
+                                </a>
+                                <p class="text-muted mtop10" style="font-size:.85em;">
+                                    A vendedora vai preenchida com a FAMIMAR, tal como no CPCV.
+                                    Fica por preencher a <strong>fracção</strong> (letra, tipologia e piso),
+                                    como no contrato.
+                                </p>
                                 <p class="text-muted mtop10" style="font-size:.85em;">
                                     É um rascunho. Reveja antes de enviar seja a quem for.
                                 </p>

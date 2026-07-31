@@ -430,3 +430,147 @@ function dps_cpcv_gerar(array $v)
 
     return [true, '', $bytes, $nome];
 }
+
+/**
+ * Declaração de autorização de cessão de posição contratual.
+ *
+ * Sai junto com o CPCV do Aura: é o documento que a promitente vendedora
+ * assina para o comprador poder passar a posição a outra pessoa antes da
+ * escritura — coisa que acontece com frequência em venda em planta.
+ *
+ * O QUE SE PREENCHE E O QUE NÃO SE PREENCHE
+ *
+ * Preenche-se o que a ficha da venda garante: o empreendimento e a identificação
+ * da PROMITENTE COMPRADORA (nome, contribuinte e morada).
+ *
+ * A PROMITENTE VENDEDORA é a FAMIMAR - IMOBILIÁRIA, S.A., dona do Aura, e vai
+ * preenchida com os dados do considerando A) do próprio CPCV — mesma denominação,
+ * mesma sede, mesmo NIPC, mesmo representante. Assim os dois documentos que saem
+ * juntos não se contradizem.
+ *
+ * A FRACÇÃO fica por preencher, pela mesma razão que no CPCV: a letra, a
+ * tipologia e o piso só se fixam mais tarde. Vai assinalada a «...», como o IBAN.
+ *
+ * Devolve [ok, erro, bytes, nome_do_ficheiro].
+ */
+function dps_declaracao_cessao_gerar(array $v)
+{
+    $modelo = __DIR__ . '/../templates/declaracao_cessao_aura.docx';
+
+    if (!is_file($modelo)) {
+        return [false, 'Falta o modelo da declaração no servidor (templates/declaracao_cessao_aura.docx).', '', ''];
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($modelo) !== true) {
+        return [false, 'Não foi possível abrir o modelo da declaração.', '', ''];
+    }
+    $xml = $zip->getFromName('word/document.xml');
+    $zip->close();
+
+    if ($xml === false) {
+        return [false, 'O modelo da declaração está corrompido.', '', ''];
+    }
+
+    $e = function ($s) {
+        return htmlspecialchars((string) $s, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    };
+
+    $traco = '________________________________________';
+
+    // Morada do comprador: o que houver na ficha, sem inventar o que falta.
+    $morada = trim(implode(', ', array_filter([
+        trim((string) ($v['cliente_morada'] ?? '')),
+        trim((string) ($v['cliente_codigo_postal'] ?? '')),
+        trim((string) ($v['cliente_concelho'] ?? '')),
+    ])));
+
+    $contribuinte = trim((string) ($v['cliente_nif'] ?? ''));
+
+    $comprador = trim((string) $v['cliente']);
+    $comprador = $comprador !== '' ? $comprador : $traco;
+
+    $subs = [];
+
+    // Cabeçalho: o modelo veio com outro empreendimento escrito à mão.
+    $subs['EMPREENDIMENTO:'] = 'EMPREENDIMENTO: ' . mb_strtoupper(trim((string) $v['empreendimento']), 'UTF-8');
+
+    /*
+     * A vendedora do Aura é a FAMIMAR. Os dados são os do próprio CPCV — a
+     * denominação, a sede, o NIPC e quem a representa saem do considerando A)
+     * do contrato, para os dois documentos não se contradizerem. Se alguma vez
+     * mudarem, mudam no CPCV e têm de mudar aqui.
+     */
+    $subs['A sociedade'] =
+        'A sociedade “FAMIMAR - IMOBILIÁRIA, S.A.”, NIPC 508.830.532, com sede na '
+        . 'Avenida do Marco n.º 197, freguesia de Meixomil, Paços de Ferreira, neste ato '
+        . 'representada por ADELINO MANUEL DA SILVA MARTINS, na qualidade de Presidente do '
+        . 'Conselho de Administração, '
+        . 'adiante designada por “Promitente Vendedora” da futura fração autónoma provisoriamente '
+        . 'designada pela letra «FRAÇÃO — PREENCHER», referente a um «TIPOLOGIA — PREENCHER», no piso '
+        . '«PISO — PREENCHER», com «PREENCHER», autoriza ' . $comprador . ', '
+        . ($contribuinte !== '' ? 'contribuinte n.º ' . $contribuinte : 'contribuinte n.º ' . $traco) . ', '
+        . ($morada !== '' ? 'com morada em ' . $morada : 'com morada em ' . $traco) . ', '
+        . 'neste ato representada por «PREENCHER SE FOR SOCIEDADE», adiante designada por '
+        . '“Promitente Compradora”, a ceder a posição contratual que detém relativamente à referida '
+        . 'fração autónoma, de acordo com o seguinte: A Promitente Compradora deverá notificar a '
+        . 'Promitente Vendedora da intenção de ceder a sua posição contratual, procedendo à completa '
+        . 'identificação da cessionária para validação. A Promitente Compradora declara que a cessão '
+        . 'ocorre por sua exclusiva conveniência e interesse. Declara igualmente que tem conhecimento '
+        . 'das eventuais implicações fiscais (IMT e demais encargos), assumindo inteira responsabilidade '
+        . 'pelas mesmas. Efetuada a cessão autorizada, a Promitente Vendedora entregará à cessionária '
+        . 'declaração de teor idêntico.'
+        . "\u{00A0}\u{00A0}" . $traco . '          ' . $traco
+        . ' Promitente Vendedora                           Promitente Compradora';
+
+    preg_match_all('/<w:p[ >].*?<\/w:p>/s', $xml, $m);
+    $usadas = [];
+
+    foreach ($m[0] as $par) {
+        $texto = preg_replace('/<[^>]+>/', '', $par);
+        $texto = html_entity_decode($texto, ENT_QUOTES | ENT_XML1, 'UTF-8');
+
+        foreach ($subs as $marca => $novo) {
+            if (isset($usadas[$marca]) || mb_strpos($texto, $marca) === false) {
+                continue;
+            }
+
+            $ppr = preg_match('/<w:pPr>.*?<\/w:pPr>/s', $par, $mp) ? $mp[0] : '';
+            $rpr = preg_match('/<w:rPr>.*?<\/w:rPr>/s', $par, $mr) ? $mr[0] : '';
+
+            $xml = str_replace($par, '<w:p>' . $ppr . '<w:r>' . $rpr
+                . '<w:t xml:space="preserve">' . $e($novo) . '</w:t></w:r></w:p>', $xml);
+            $usadas[$marca] = true;
+            break;
+        }
+    }
+
+    if (count($usadas) !== count($subs)) {
+        $faltam = array_diff(array_keys($subs), array_keys($usadas));
+
+        return [false, 'O modelo da declaração mudou: não encontrei — ' . implode(' | ', $faltam), '', ''];
+    }
+
+    $tmp = tempnam(sys_get_temp_dir(), 'cessao');
+    if (!copy($modelo, $tmp)) {
+        return [false, 'Não foi possível preparar o documento.', '', ''];
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($tmp) !== true) {
+        @unlink($tmp);
+
+        return [false, 'Não foi possível escrever o documento.', '', ''];
+    }
+    $zip->deleteName('word/document.xml');
+    $zip->addFromString('word/document.xml', $xml);
+    $zip->close();
+
+    $bytes = file_get_contents($tmp);
+    @unlink($tmp);
+
+    $nome = 'Declaracao cessao ' . $v['empreendimento'] . ' - ' . $v['unidade'] . ' - '
+        . preg_replace('/[^\p{L}\p{N} ]+/u', '', (string) $v['cliente']) . '.docx';
+
+    return [true, '', $bytes, $nome];
+}

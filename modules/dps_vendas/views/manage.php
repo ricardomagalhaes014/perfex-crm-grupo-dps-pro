@@ -96,7 +96,27 @@
                                             </a>
                                         </td>
                                         <td><?php echo html_escape($v['empreendimento']); ?></td>
-                                        <td><?php echo html_escape($v['unidade']); ?></td>
+                                        <td><?php echo html_escape($v['unidade']); ?>
+                                            <?php
+                                            /*
+                                             * Número da factura emitida ao promotor, por baixo da
+                                             * unidade. Fica na lista e não só na ficha: quem varre o
+                                             * mapa à procura do que falta facturar não tem de abrir
+                                             * venda a venda para descobrir.
+                                             */
+                                            $fa = [];
+                                            if (!empty($v['fatura_moloni_cpcv'])) {
+                                                $fa[] = $v['fatura_moloni_cpcv'];
+                                            }
+                                            if (!empty($v['fatura_moloni_escritura'])) {
+                                                $fa[] = $v['fatura_moloni_escritura'];
+                                            }
+                                            if ($fa) { ?>
+                                                <br><small class="text-muted" title="Factura emitida ao promotor">
+                                                    <i class="fa fa-file-text-o"></i> <?php echo html_escape(implode(' · ', $fa)); ?>
+                                                </small>
+                                            <?php } ?>
+                                        </td>
                                         <td><?php echo html_escape($v['cliente']); ?></td>
                                         <td><?php echo app_format_money($v['valor'], get_base_currency()); ?></td>
                                         <td><?php echo html_escape($v['comercial_nome']); ?></td>
