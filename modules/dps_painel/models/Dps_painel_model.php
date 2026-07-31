@@ -368,6 +368,7 @@ class Dps_painel_model extends App_Model
             v.cpcv_pago, v.escritura_paga, v.cpcv_taxa, v.escritura_taxa,
             v.cpcv_mes_previsto, v.escritura_mes_previsto,
             v.recebido_dps, v.recebido_dps_em, v.pago,
+            v.fatura_moloni_cpcv, v.fatura_moloni_escritura,
             CONCAT(s.firstname, " ", s.lastname) AS comercial_nome,
             o.comissao_recebida, o.recibo_emitido, o.recibo_numero, o.recibo_data, o.notas, o.moloni_doc_id', false);
         $this->db->from($this->t_vendas() . ' v');

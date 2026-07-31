@@ -923,6 +923,15 @@ class Dps_vendas_model extends App_Model
                     // Venda ainda em CPCV: a comissão está contratada e datada,
                     // mas o circuito de pagamento ainda não abriu.
                     'futura'         => ($venda['estado'] ?? '') !== 'concluido',
+                    /*
+                     * Número da factura que a DPS emitiu ao promotor por esta
+                     * parcela. Vem do Moloni pelo botão do quadro de comissões,
+                     * ou escrito à mão. Vazio significa "ainda não facturada" —
+                     * é o que distingue uma comissão devida de uma já titulada.
+                     */
+                    'fatura_moloni'  => (string) ($venda[
+                        $parcela['chave'] === 'escritura' ? 'fatura_moloni_escritura' : 'fatura_moloni_cpcv'
+                    ] ?? ''),
                     'venda'          => $venda,
                 ];
 

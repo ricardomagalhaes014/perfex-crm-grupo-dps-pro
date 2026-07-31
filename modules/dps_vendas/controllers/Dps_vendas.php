@@ -696,12 +696,21 @@ class Dps_vendas extends AdminController
             redirect(admin_url('dps_vendas/comissoes'));
         }
 
+        /*
+         * O botão existe em dois sítios (quadro de comissões e Painel do
+         * Negócio). Volta-se ao sítio de onde se veio — cair noutro ecrã depois
+         * de carregar num botão faz duvidar se a coisa correu bem.
+         */
+        $voltar = $this->input->post('voltar') === 'painel'
+            ? admin_url('dps_painel')
+            : admin_url('dps_vendas/comissoes');
+
         $this->load->model('dps_moloni_model');
         $r = $this->dps_moloni_model->sincronizar(true);
 
         if (empty($r['ok'])) {
             set_alert('warning', $r['erro'] ?? 'Não foi possível falar com o Moloni.');
-            redirect(admin_url('dps_vendas/comissoes'));
+            redirect($voltar);
         }
 
         $n = count($r['achados']);
@@ -720,7 +729,7 @@ class Dps_vendas extends AdminController
         }
 
         set_alert($n > 0 ? 'success' : 'info', $msg);
-        redirect(admin_url('dps_vendas/comissoes'));
+        redirect($voltar);
     }
 
     public function comissoes()

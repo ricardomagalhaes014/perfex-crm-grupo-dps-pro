@@ -549,7 +549,27 @@ $pct    = function ($n) {
 
         <!-- Vendas -->
         <div class="panel_s"><div class="panel-body">
-            <h4 class="no-margin">Vendas — o que entra e o que sai</h4>
+            <div class="row mbot15">
+                <div class="col-md-7">
+                    <h4 class="no-margin">Vendas — o que entra e o que sai</h4>
+                </div>
+                <div class="col-md-5 text-right">
+                    <?php
+                    /*
+                     * Vai ao Moloni buscar o número da factura já emitida a cada fracção.
+                     * Por POST porque escreve: um link com efeitos deixava qualquer clique
+                     * perdido mexer em números de facturação.
+                     */
+                    echo form_open(admin_url('dps_vendas/moloni_sincronizar'), ['style' => 'display:inline;']);
+                    ?>
+                    <input type="hidden" name="voltar" value="painel">
+                    <button type="submit" class="btn btn-default btn-sm"
+                            title="Procura no Moloni a factura emitida para cada fracção e preenche o número. Só escreve quando a unidade e o valor batem certo; o resto fica assinalado para confirmar à mão.">
+                        <i class="fa fa-file-text-o"></i> Buscar facturas ao Moloni
+                    </button>
+                    <?php echo form_close(); ?>
+                </div>
+            </div>
             <p class="text-muted">
                 <strong>Recebemos</strong> = o valor real do promotor, se o escreveres na linha; senão é
                 <em>estimado</em> pela percentagem do empreendimento.
@@ -630,6 +650,29 @@ $pct    = function ($n) {
                              * e em que mês. Sem isto o número de cima lia-se como dinheiro
                              * em caixa, que é o que estava a inflacionar o override.
                              */
+                            /*
+                             * Número da factura emitida ao promotor, por tranche.
+                             *
+                             * Vem do Moloni (botão em cima) ou escrito à mão no mapa de
+                             * vendas. Fica aqui, colado ao valor, porque é aqui que se olha
+                             * para o dinheiro: uma verba com factura já está titulada, uma
+                             * sem factura ainda tem de ser emitida. Sem isto era preciso
+                             * abrir a venda para saber.
+                             */
+                            $facturas = [];
+                            if (!empty($v['fatura_moloni_cpcv'])) {
+                                $facturas[] = 'CPCV ' . $v['fatura_moloni_cpcv'];
+                            }
+                            if (!empty($v['fatura_moloni_escritura'])) {
+                                $facturas[] = 'escritura ' . $v['fatura_moloni_escritura'];
+                            }
+                            if ($facturas) { ?>
+                                <br><small class="text-muted" title="Factura emitida ao promotor">
+                                    <i class="fa fa-file-text-o"></i>
+                                    <?php echo html_escape(implode(' · ', $facturas)); ?>
+                                </small>
+                            <?php }
+
                             if (!empty($v['recebido_marcado'])) { ?>
                                 <br><small class="text-success" title="Marcado como recebido no mapa de vendas">
                                     <i class="fa fa-check"></i> em caixa
