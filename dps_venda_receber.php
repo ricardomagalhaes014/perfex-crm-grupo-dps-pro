@@ -320,55 +320,44 @@ if ($accao === 'importar') {
     }
 
     /*
-     * CAMPOS EXTRA DO CPCV — SÓ NO AURA.
+     * CAMPOS EXTRA DO CPCV — SÓ NO AURA, E NUNCA OBRIGATÓRIOS NA RESERVA.
      *
-     * O contrato-promessa do Meixomil identifica o comprador com estes dados.
-     * Recolhê-los na reserva evita ter de os ler à mão do CC fotografado.
+     * O contrato-promessa do Meixomil identifica o comprador com estes dados
+     * (NIF, Cartão de Cidadão e naturalidade/nacionalidade/freguesia/concelho).
      *
-     * A exigência é deliberadamente restrita a este empreendimento: os outros
-     * têm modelos de contrato diferentes e não se lhes acrescenta atrito por
-     * causa de um contrato que não é o deles.
+     * Já foram exigidos aqui e travavam a reserva: o comercial tinha o negócio
+     * fechado e a unidade por reservar porque lhe faltava a freguesia do
+     * comprador. Regra do dono (31/07/2026): "nesta fase funciona como os
+     * outros; depois é que no mapa de vendas põe os restantes dados".
+     *
+     * Guardam-se à mesma quando vierem preenchidos — poupa trabalho a quem
+     * depois completa a ficha —, mas a falta deles nunca impede a reserva. Os
+     * dados em falta pedem-se no mapa de vendas, antes de gerar o CPCV.
      */
     $e_aura = stripos($empreendimento, 'aura') !== false;
 
-    if ($e_aura) {
-        foreach ([
-            'nif'            => 'NIF',
-            'cc_numero'      => 'número do Cartão de Cidadão',
-            'cc_validade'    => 'validade do Cartão de Cidadão',
-            'naturalidade'   => 'naturalidade',
-            'nacionalidade'  => 'nacionalidade',
-            'freguesia'      => 'freguesia',
-            'concelho'       => 'concelho',
-        ] as $campo => $etiqueta) {
-            if (trim((string) ($_POST[$campo] ?? '')) === '') {
-                responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
-            }
-        }
+    $limpo = function ($campo) {
+        $v = trim((string) ($_POST[$campo] ?? ''));
 
-        // NIF português: 9 dígitos. Não se valida o dígito de controlo — há
-        // compradores estrangeiros com NIF atribuído que não o cumprem.
-        $nif_so_digitos = preg_replace('/[^0-9]/', '', (string) $_POST['nif']);
-        if (strlen($nif_so_digitos) < 9) {
-            responder(['success' => false, 'error' => 'O NIF tem de ter 9 dígitos.'], 400);
-        }
+        return $v === '' ? null : $v;
+    };
 
-        // A validade vem do <input type="date"> em AAAA-MM-DD.
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $_POST['cc_validade'])) {
-            responder(['success' => false, 'error' => 'Data de validade do Cartão de Cidadão inválida.'], 400);
-        }
-        if ($_POST['cc_validade'] < date('Y-m-d')) {
-            responder(['success' => false, 'error' => 'O Cartão de Cidadão está fora de validade.'], 400);
-        }
+    $cli_nif      = $e_aura ? $limpo('nif')           : null;
+    $cli_cc       = $e_aura ? $limpo('cc_numero')     : null;
+    $cli_cc_val   = $e_aura ? $limpo('cc_validade')   : null;
+    $cli_natural  = $e_aura ? $limpo('naturalidade')  : null;
+    $cli_nacional = $e_aura ? $limpo('nacionalidade') : null;
+    $cli_freg     = $e_aura ? $limpo('freguesia')     : null;
+    $cli_conc     = $e_aura ? $limpo('concelho')      : null;
+
+    /*
+     * Só se valida o que veio. Um formato errado guardado é pior do que um
+     * campo vazio: o vazio vê-se no mapa de vendas e pede-se; o errado passa
+     * despercebido e sai impresso no contrato.
+     */
+    if ($cli_cc_val !== null && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $cli_cc_val)) {
+        $cli_cc_val = null;
     }
-
-    $cli_nif      = $e_aura ? trim((string) $_POST['nif']) : null;
-    $cli_cc       = $e_aura ? trim((string) $_POST['cc_numero']) : null;
-    $cli_cc_val   = $e_aura ? (string) $_POST['cc_validade'] : null;
-    $cli_natural  = $e_aura ? trim((string) $_POST['naturalidade']) : null;
-    $cli_nacional = $e_aura ? trim((string) $_POST['nacionalidade']) : null;
-    $cli_freg     = $e_aura ? trim((string) $_POST['freguesia']) : null;
-    $cli_conc     = $e_aura ? trim((string) $_POST['concelho']) : null;
 
     if (empty($_FILES['cc']['name']) || ($_FILES['cc']['error'] ?? 1) !== UPLOAD_ERR_OK) {
         responder(['success' => false, 'error' => 'É obrigatório anexar a FRENTE do Cartão de Cidadão.'], 400);

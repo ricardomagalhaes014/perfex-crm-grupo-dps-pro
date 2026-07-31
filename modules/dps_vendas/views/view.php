@@ -444,10 +444,23 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                             <h5 class="no-margin"><i class="fa fa-file-word-o"></i> Contrato-promessa (CPCV)</h5>
                             <hr>
                             <?php if ($falta_cpcv) { ?>
+                                <?php
+                                /*
+                                 * A reserva não pede estes dados de propósito: pedia-os e travava
+                                 * o negócio no simulador por faltar, por exemplo, a freguesia do
+                                 * comprador. Recolhem-se aqui, com calma, antes de gerar o
+                                 * contrato — que é quando fazem falta a sério.
+                                 */
+                                ?>
                                 <p class="text-muted">
                                     Falta preencher: <strong><?php echo html_escape(implode(', ', $falta_cpcv)); ?></strong>.
-                                    <br>Reservas anteriores a 30/07/2026 não recolhiam estes dados.
+                                    <br>Estes dados não são pedidos na reserva — preenchem-se aqui,
+                                    antes de gerar o contrato.
                                 </p>
+                                <a href="<?php echo admin_url('dps_vendas/form/' . (int) $venda['id']); ?>"
+                                   class="btn btn-default">
+                                    <i class="fa fa-pencil"></i> Preencher os dados do comprador
+                                </a>
                             <?php } else { ?>
                                 <p class="text-muted">
                                     Gera o contrato em Word já preenchido com os dados do comprador e o plano
