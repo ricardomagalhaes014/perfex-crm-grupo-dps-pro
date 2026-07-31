@@ -772,7 +772,39 @@ class Dps_vendas extends AdminController
         redirect($voltar);
     }
 
+    /**
+     * Quadro de comissões.
+     *
+     * Envolvido em try/catch e com um handler de fim de execução porque
+     * estava a abrir em branco para alguns utilizadores e uma página em
+     * branco não deixa rasto: os registos do Perfex estão desligados desde
+     * Novembro de 2025 e o erro morria sem ninguém o ver. Assim, em vez de
+     * branco, aparece o que correu mal — e a partir daí resolve-se em
+     * minutos em vez de horas.
+     */
     public function comissoes()
+    {
+        register_shutdown_function(function () {
+            $e = error_get_last();
+            if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                echo '<div style="font-family:sans-serif;padding:24px;">'
+                    . '<h3>As comissões não abriram</h3><p>' . htmlspecialchars($e['message'])
+                    . '</p><p style="color:#777">' . htmlspecialchars($e['file']) . ':' . (int) $e['line']
+                    . '</p><p>Mostre este ecrã a quem trata do CRM.</p></div>';
+            }
+        });
+
+        try {
+            $this->comissoes_correr();
+        } catch (Throwable $t) {
+            echo '<div style="font-family:sans-serif;padding:24px;">'
+                . '<h3>As comissões não abriram</h3><p>' . htmlspecialchars($t->getMessage())
+                . '</p><p style="color:#777">' . htmlspecialchars($t->getFile()) . ':' . $t->getLine()
+                . '</p><p>Mostre este ecrã a quem trata do CRM.</p></div>';
+        }
+    }
+
+    private function comissoes_correr()
     {
         $pode_ver_todas = $this->pode_ver_todas();
 
