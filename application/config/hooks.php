@@ -113,6 +113,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_comentario_tarefa_register',
+    'filename' => 'dps_comentario_tarefa_hook.php',
+    'filepath' => 'hooks'
+];
+
 $hook['post_controller'] = function () {
     $ci = get_instance();
 
