@@ -1112,4 +1112,120 @@ class Dps_automacao extends AdminController
         echo json_encode($payload);
         exit;
     }
+
+    /* =====================================================================
+     * ENVIO EM MASSA POR ESTADO DE TAREFA
+     * ================================================================== */
+
+    public function envio_massa_tarefa()
+    {
+        $data['estados']    = $this->dps_automacao_model->get_estados_tarefa();
+        $data['comerciais'] = is_admin() ? $this->dps_automacao_model->get_comerciais() : [];
+        $data['title']      = 'Envio Massa Tarefa';
+
+        $this->load->view('envio_massa_tarefa', $data);
+    }
+
+    /** POST (AJAX) — contagens antes de enviar. Nada sai daqui. */
+    public function envio_massa_tarefa_preview()
+    {
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        $estados = $this->estados_do_post();
+        if (empty($estados)) {
+            $this->responder_json(['erro' => 'Escolha pelo menos um estado de tarefa.']);
+        }
+
+        $linhas = $this->dps_automacao_model->contar_tarefas($estados, $this->comercial_do_post());
+
+        $nomes = [];
+        foreach ($this->dps_automacao_model->get_estados_tarefa() as $e) {
+            $nomes[(int) $e['id']] = $e['name'];
+        }
+
+        $total = $com = 0;
+        foreach ($linhas as &$l) {
+            $l['estado_nome'] = $nomes[(int) $l['estado_id']] ?? ('Estado ' . $l['estado_id']);
+            $total += (int) $l['total'];
+            $com   += (int) $l['com_contacto'];
+        }
+        unset($l);
+
+        $this->responder_json([
+            'estados'      => $linhas,
+            'total'        => $total,
+            'com_contacto' => $com,
+            'excluidas'    => $total - $com,
+        ]);
+    }
+
+    /**
+     * POST — envia mesmo.
+     *
+     * Só email: uma tarefa não tem telefone próprio e mandar WhatsApp a partir
+     * daqui repetia o erro das leads novas — uma mensagem de um número que a
+     * pessoa não contactou.
+     */
+    public function envio_massa_tarefa_enviar()
+    {
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        $estados = $this->estados_do_post();
+        if (empty($estados)) {
+            $this->responder_json(['erro' => 'Escolha pelo menos um estado de tarefa.']);
+        }
+
+        $mensagem = trim((string) $this->input->post('mensagem', false));
+        $assunto  = trim((string) $this->input->post('assunto', false));
+
+        if ($mensagem === '' || $assunto === '') {
+            $this->responder_json(['erro' => 'O assunto e a mensagem não podem ficar vazios.']);
+        }
+
+        $destinos = $this->dps_automacao_model->get_tarefas_para_envio(
+            $estados,
+            $this->comercial_do_post()
+        );
+
+        $enviados = 0;
+        $falhas   = [];
+
+        foreach ($destinos as $d) {
+            $nome_com = get_staff_full_name((int) $d['assigned']) ?: (get_option('companyname') ?: 'A nossa equipa');
+            $texto    = dps_automacao_render_vars($mensagem, (string) $d['name'], $nome_com);
+
+            /*
+             * O email sai pela caixa do comercial da tarefa, como no envio das
+             * leads: o cliente responde a quem o acompanha, não a uma caixa
+             * geral que ninguém lê.
+             */
+            $ok = dps_automacao_enviar_email_lead(
+                $d['email'],
+                $assunto,
+                nl2br(html_escape($texto)),
+                (int) $d['assigned'] ?: null
+            );
+
+            if ($ok) {
+                $enviados++;
+            } else {
+                $falhas[] = $d['email'];
+            }
+
+            // Pausa curta: um lote grande contra o SMTP sem respirar é a
+            // maneira mais rápida de ser tratado como spam.
+            usleep(200000);
+        }
+
+        $this->responder_json([
+            'enviados' => $enviados,
+            'falhas'   => count($falhas),
+            'exemplos' => array_slice($falhas, 0, 5),
+            'total'    => count($destinos),
+        ]);
+    }
 }

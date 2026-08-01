@@ -355,4 +355,115 @@ class Dps_automacao_model extends App_Model
 
         return $this->db->query($sql, $binds)->result_array();
     }
+
+    /* =====================================================================
+     * ENVIO EM MASSA POR ESTADO DE TAREFA
+     *
+     * O irmão do envio por estado de LEAD. A diferença está em como se chega
+     * ao destinatário: uma lead tem email próprio, uma tarefa não — chega-se
+     * ao email pela coisa a que a tarefa está ligada (a lead ou o cliente).
+     * Tarefas soltas, sem ligação, não têm a quem escrever e ficam de fora.
+     * ================================================================== */
+
+    /**
+     * SQL comum às duas consultas (contar e listar), para não haver duas
+     * definições de "quem entra" a divergir com o tempo.
+     */
+    private function tarefas_base($estado_ids, $staff_id)
+    {
+        $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
+        if (empty($estado_ids)) {
+            return null;
+        }
+
+        $p = db_prefix();
+
+        /*
+         * O email vem da lead OU do contacto principal do cliente. COALESCE
+         * escolhe o primeiro que existir; sem nenhum, a tarefa não tem
+         * destinatário e é contada como "sem contacto".
+         */
+        $sql = "FROM `{$p}tasks` t
+            LEFT JOIN `{$p}leads` l
+                   ON t.rel_type = 'lead' AND l.id = t.rel_id
+            LEFT JOIN `{$p}contacts` ct
+                   ON t.rel_type = 'customer' AND ct.userid = t.rel_id AND ct.is_primary = 1
+            WHERE t.status IN (" . implode(',', $estado_ids) . ')';
+
+        $binds = [];
+
+        /*
+         * Um comercial só envia para as SUAS tarefas. A restrição é a mesma
+         * que o Perfex usa na lista de tarefas: estar atribuído.
+         */
+        if ($staff_id !== null) {
+            $sql    .= " AND EXISTS (SELECT 1 FROM `{$p}task_assigned` ta
+                                     WHERE ta.taskid = t.id AND ta.staffid = ?)";
+            $binds[] = (int) $staff_id;
+        }
+
+        return [$sql, $binds];
+    }
+
+    /** Contagens por estado, para o ecrã de confirmação. Nada sai daqui. */
+    public function contar_tarefas($estado_ids, $staff_id)
+    {
+        $base = $this->tarefas_base($estado_ids, $staff_id);
+        if ($base === null) {
+            return [];
+        }
+        list($sql, $binds) = $base;
+
+        $email = "COALESCE(NULLIF(l.email, ''), NULLIF(ct.email, ''))";
+
+        $q = "SELECT t.status AS estado_id, COUNT(*) AS total,
+                     SUM(CASE WHEN {$email} IS NOT NULL THEN 1 ELSE 0 END) AS com_contacto
+              " . $sql . ' GROUP BY t.status ORDER BY t.status';
+
+        return $this->db->query($q, $binds)->result_array();
+    }
+
+    /**
+     * As tarefas a quem se vai mesmo escrever.
+     *
+     * Uma pessoa com duas tarefas no mesmo estado receberia dois emails
+     * iguais — daí agrupar por email e ficar só com uma linha por
+     * destinatário. O nome é o da lead/contacto, não o da tarefa: quem lê o
+     * email é a pessoa, não a tarefa.
+     */
+    public function get_tarefas_para_envio($estado_ids, $staff_id, $limite = 500)
+    {
+        $base = $this->tarefas_base($estado_ids, $staff_id);
+        if ($base === null) {
+            return [];
+        }
+        list($sql, $binds) = $base;
+
+        $email = "COALESCE(NULLIF(l.email, ''), NULLIF(ct.email, ''))";
+        $nome  = "COALESCE(NULLIF(l.name, ''), TRIM(CONCAT(ct.firstname, ' ', ct.lastname)))";
+
+        $q = "SELECT MIN(t.id) AS id, {$email} AS email, MIN({$nome}) AS name,
+                     MIN(t.name) AS tarefa,
+                     (SELECT ta.staffid FROM `" . db_prefix() . "task_assigned` ta
+                       WHERE ta.taskid = MIN(t.id) LIMIT 1) AS assigned
+              " . $sql . " AND {$email} IS NOT NULL
+              GROUP BY {$email}
+              ORDER BY MIN(t.id) DESC
+              LIMIT " . (int) $limite;
+
+        return $this->db->query($q, $binds)->result_array();
+    }
+
+    /** Os estados de tarefa do Perfex, para o formulário. */
+    public function get_estados_tarefa()
+    {
+        $this->load->model('tasks_model');
+
+        $saida = [];
+        foreach ($this->tasks_model->get_statuses() as $e) {
+            $saida[] = ['id' => (int) $e['id'], 'name' => $e['name'], 'color' => $e['color']];
+        }
+
+        return $saida;
+    }
 }

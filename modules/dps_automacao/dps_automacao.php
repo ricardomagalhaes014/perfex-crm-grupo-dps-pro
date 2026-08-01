@@ -225,6 +225,18 @@ function dps_automacao_menu()
         'position' => 2,
     ]);
 
+    /*
+     * O irmão do de cima, mas por estado de TAREFA. Fica aqui, ao lado dele:
+     * é a mesma ideia aplicada a coisas diferentes, e em dois sítios do menu
+     * obrigava a lembrar onde estava cada um.
+     */
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_envio_massa_tarefa',
+        'name'     => 'Envio Massa Tarefa',
+        'href'     => admin_url('dps_automacao/envio_massa_tarefa'),
+        'position' => 3,
+    ]);
+
     $CI->app_menu->add_sidebar_children_item('sms-central', [
         'slug'     => 'dps_automacao_proposta_massa',
         'name'     => 'Proposta em Massa',
