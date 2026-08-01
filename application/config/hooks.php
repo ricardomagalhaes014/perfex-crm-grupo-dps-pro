@@ -120,6 +120,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_diagnostico_ligacoes_register',
+    'filename' => 'dps_diagnostico_ligacoes_hook.php',
+    'filepath' => 'hooks'
+];
+
 $hook['post_controller'] = function () {
     $ci = get_instance();
 
