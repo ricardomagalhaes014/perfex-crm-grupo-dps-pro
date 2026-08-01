@@ -18,10 +18,26 @@ if (!function_exists('dps_dashboard_widgets_add')) {
     {
         // Logo a seguir ao primeiro widget (as 4 estatísticas do topo),
         // para os gráficos ficarem imediatamente por baixo dos ícones.
-        array_splice($widgets, 1, 0, [[
+        $novos = [[
             'path'      => 'admin/dashboard/widgets/dps_graficos',
             'container' => 'top-12',
-        ]]);
+        ]];
+
+        /*
+         * "A equipa" fica LOGO A SEGUIR aos números próprios, e só para
+         * administradores. São perguntas diferentes: um responde a "como vou
+         * eu", o outro a "como vai a equipa". Quem não é admin nem chega a
+         * carregar o segundo — a própria vista também se protege, mas não se
+         * manda ao servidor trabalho que se sabe que vai ser deitado fora.
+         */
+        if (is_admin()) {
+            $novos[] = [
+                'path'      => 'admin/dashboard/widgets/dps_graficos_equipa',
+                'container' => 'top-12',
+            ];
+        }
+
+        array_splice($widgets, 1, 0, $novos);
 
         return $widgets;
     }
