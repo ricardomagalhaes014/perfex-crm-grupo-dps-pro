@@ -238,6 +238,13 @@ function dps_automacao_menu()
     ]);
 
     $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_registo_tarefa',
+        'name'     => 'Registo Envio Tarefa',
+        'href'     => admin_url('dps_automacao/registo_envio_tarefa'),
+        'position' => 4,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
         'slug'     => 'dps_automacao_proposta_massa',
         'name'     => 'Proposta em Massa',
         'href'     => admin_url('dps_automacao/proposta_massa'),

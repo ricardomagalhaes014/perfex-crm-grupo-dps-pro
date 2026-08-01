@@ -14,6 +14,9 @@
                 </small>
             </div>
             <div class="col-md-4 text-right">
+                <a href="<?php echo admin_url('dps_automacao/registo_envio_tarefa'); ?>" class="btn btn-default">
+                    <i class="fa fa-list"></i> Registo de envios
+                </a>
                 <a href="<?php echo admin_url('dps_automacao/envio_massa'); ?>" class="btn btn-default">
                     <i class="fa fa-users"></i> Envio por estado de lead
                 </a>

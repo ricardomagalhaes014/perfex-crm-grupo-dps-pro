@@ -495,14 +495,16 @@ class Dps_automacao_model extends App_Model
      * texto no ecrã amanhã, os emails que faltam devem sair como foram
      * aprovados hoje, não com outra coisa qualquer.
      */
-    public function agendar_envio_tarefa($destinos, $staff_id, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote = 80)
+    public function agendar_envio_tarefa($destinos, $staff_id, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote = 80, $lote = null)
     {
         if (empty($destinos)) {
             return 0;
         }
 
-        $t    = db_prefix() . 'dps_envio_tarefa_fila';
-        $lote = uniqid('lote', false);
+        $t = db_prefix() . 'dps_envio_tarefa_fila';
+        // O lote vem de fora para os que saem hoje e os que ficam para amanhã
+        // aparecerem juntos no registo, que é como se lê um envio.
+        $lote = $lote ?: uniqid('lote', false);
         $n    = 0;
 
         foreach (array_values($destinos) as $i => $d) {
@@ -565,6 +567,63 @@ class Dps_automacao_model extends App_Model
         }
 
         return $this->db->group_by('dia')->order_by('dia', 'ASC')
+            ->get(db_prefix() . 'dps_envio_tarefa_fila')->result_array();
+    }
+
+    /**
+     * Regista um envio que já saiu (ou falhou) na hora.
+     *
+     * Os adiados já ficavam na fila; os primeiros 80 saíam e não deixavam
+     * rasto nenhum. Sem registo não há como responder a "a quem foi?" nem
+     * "porque é que aquele não recebeu?" — e num envio de centenas essa é a
+     * primeira pergunta quando alguma coisa corre mal.
+     */
+    public function registar_envio_tarefa($lote, $staff_id, $email, $nome, $assunto, $mensagem, $anexo_nome, $ok, $detalhe = '')
+    {
+        $this->db->insert(db_prefix() . 'dps_envio_tarefa_fila', [
+            'lote'          => $lote,
+            'staff_id'      => (int) $staff_id,
+            'email'         => $email,
+            'nome'          => $nome,
+            'assunto'       => $assunto,
+            'mensagem'      => $mensagem,
+            'anexo_nome'    => $anexo_nome,
+            'agendado_para' => date('Y-m-d H:i:s'),
+            'enviado_em'    => date('Y-m-d H:i:s'),
+            'estado'        => $ok ? 'enviado' : 'falhou',
+            'detalhe'       => mb_substr((string) $detalhe, 0, 250),
+        ]);
+    }
+
+    /**
+     * O registo, lote a lote: quando, quem mandou, quantos saíram, quantos
+     * falharam e quantos ainda estão para sair.
+     */
+    public function registo_envios_tarefa($staff_id = null, $limite = 20)
+    {
+        $t = db_prefix() . 'dps_envio_tarefa_fila';
+
+        $this->db->select("lote, MIN(assunto) assunto, MIN(staff_id) staff_id,
+            MIN(agendado_para) inicio, MAX(enviado_em) fim, COUNT(*) total,
+            SUM(estado = 'enviado') enviados,
+            SUM(estado = 'falhou') falhas,
+            SUM(estado = 'pendente') pendentes,
+            MIN(anexo_nome) anexo", false);
+        $this->db->from($t);
+        if ($staff_id !== null) {
+            $this->db->where('staff_id', (int) $staff_id);
+        }
+        $this->db->group_by('lote')->order_by('inicio', 'DESC')->limit((int) $limite);
+
+        return $this->db->get()->result_array();
+    }
+
+    /** As linhas de um lote — a quem foi, quem recebeu, quem falhou. */
+    public function detalhe_envio_tarefa($lote)
+    {
+        return $this->db->where('lote', $lote)
+            ->order_by("FIELD(estado,'falhou','pendente','enviado')", '', false)
+            ->order_by('email', 'ASC')
             ->get(db_prefix() . 'dps_envio_tarefa_fila')->result_array();
     }
 }

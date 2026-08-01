@@ -1246,13 +1246,18 @@ class Dps_automacao extends AdminController
         $por_lote = 80;
         $eu       = (int) get_staff_user_id();
 
+        // Um só identificador para o envio inteiro: os que saem hoje e os que
+        // ficam para amanhã pertencem ao mesmo lote e têm de aparecer juntos
+        // no registo.
+        $lote = uniqid('lote', false);
+
         $agora   = array_slice($destinos, 0, $por_lote);
         $adiados = array_slice($destinos, $por_lote);
 
         $agendados = 0;
         if (!empty($adiados)) {
             $agendados = $this->dps_automacao_model->agendar_envio_tarefa(
-                $adiados, $eu, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote
+                $adiados, $eu, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote, $lote
             );
         }
 
@@ -1293,6 +1298,12 @@ class Dps_automacao extends AdminController
                 $falhas[] = $d['email'];
             }
 
+            // Fica registo de cada um, tenha saído ou não.
+            $this->dps_automacao_model->registar_envio_tarefa(
+                $lote, $eu, $d['email'], $d['name'], $assunto, $mensagem,
+                $anexo_nome, $ok, $ok ? '' : 'o servidor de email recusou'
+            );
+
             // Pausa curta: um lote grande contra o SMTP sem respirar é a
             // maneira mais rápida de ser tratado como spam.
             usleep(200000);
@@ -1316,5 +1327,39 @@ class Dps_automacao extends AdminController
             'agendados' => $agendados,
             'por_lote'  => $por_lote,
         ]);
+    }
+
+    /**
+     * Registo dos envios em massa por tarefa: a quem foi, quem recebeu, quem
+     * falhou.
+     *
+     * Um comercial vê os seus; a direção vê os de todos. Não se filtra pelo
+     * que ele "enviou como" — filtra-se por quem carregou no botão, que é
+     * quem responde pelo envio.
+     */
+    public function registo_envio_tarefa($lote = '')
+    {
+        $so_meus = is_admin() ? null : (int) get_staff_user_id();
+
+        if ($lote !== '') {
+            $linhas = $this->dps_automacao_model->detalhe_envio_tarefa($lote);
+
+            // Um comercial não abre o lote de outro escrevendo o endereço.
+            if ($so_meus !== null) {
+                foreach ($linhas as $l) {
+                    if ((int) $l['staff_id'] !== $so_meus) {
+                        access_denied('dps_automacao');
+                    }
+                }
+            }
+            $data['linhas'] = $linhas;
+            $data['lote']   = $lote;
+        } else {
+            $data['lotes'] = $this->dps_automacao_model->registo_envios_tarefa($so_meus);
+            $data['lote']  = '';
+        }
+
+        $data['title'] = 'Registo — Envio Massa Tarefa';
+        $this->load->view('registo_envio_tarefa', $data);
     }
 }
