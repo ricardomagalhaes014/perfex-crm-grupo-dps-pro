@@ -153,8 +153,16 @@
         return d;
     }
 
-    var caixa = document.getElementById('dps-contagem');
-    var botao = document.getElementById('dps-enviar');
+    var caixa   = document.getElementById('dps-contagem');
+    var botao   = document.getElementById('dps-enviar');
+    var prontos = 0;   // quantos a contagem disse que recebem
+
+    function fecharBotao() {
+        prontos = 0;
+        botao.disabled = true;
+        botao.innerHTML = '<i class="fa fa-search"></i> Ver quantos são primeiro';
+    }
+    fecharBotao();
 
     document.getElementById('dps-ver').onclick = function () {
         if (!estados().length) {
@@ -198,7 +206,23 @@
             }
             h += '</div>';
             caixa.innerHTML = h;
-            botao.disabled = (r.com_contacto === 0);
+
+            /*
+             * Abrir o botão é o passo que interessa: se falhar, o ecrã fica
+             * util-inútil — mostra a contagem e não deixa enviar. Por isso a
+             * conta é feita com parseInt (o JSON pode trazer texto) e o
+             * resultado vai escrito no próprio botão, para se ver de relance
+             * se está aberto e para quantos.
+             */
+            var quantos = parseInt(r.com_contacto, 10);
+            if (isNaN(quantos)) { quantos = 0; }
+
+            prontos = quantos;
+            botao.disabled = (quantos <= 0);
+            botao.innerHTML = quantos > 0
+                ? '<i class="fa fa-paper-plane"></i> Enviar a ' + Math.min(quantos, LOTE)
+                  + (quantos > LOTE ? ' hoje (de ' + quantos + ')' : '')
+                : '<i class="fa fa-paper-plane"></i> Ninguém para enviar';
         }).fail(function () {
             caixa.innerHTML = '<div class="alert alert-danger">Erro de comunicação.</div>';
         });
@@ -207,10 +231,10 @@
     // Mudar os critérios fecha o botão outra vez: a contagem que se viu
     // deixou de valer para o que está agora escolhido.
     document.querySelectorAll('.dps-estado').forEach(function (c) {
-        c.addEventListener('change', function () { botao.disabled = true; });
+        c.addEventListener('change', fecharBotao);
     });
     var sel = document.getElementById('dps-comercial');
-    if (sel) { sel.addEventListener('change', function () { botao.disabled = true; }); }
+    if (sel) { sel.addEventListener('change', fecharBotao); }
 
     botao.onclick = function () {
         var assunto  = document.getElementById('dps-assunto').value.trim();
