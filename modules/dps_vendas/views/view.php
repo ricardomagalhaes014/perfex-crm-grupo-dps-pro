@@ -522,7 +522,14 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                  * IBAN, a fracção) e um contrato-promessa enviado com
                                  * «PREENCHER» no meio é pior do que não enviar nada.
                                  */
-                                if (is_admin()) { ?>
+                                /*
+                                 * Quem fechou o negócio descarrega na hora. Esteve reservado
+                                 * à direção e travava o trabalho: os documentos são precisos
+                                 * no momento, para completar o que falta e mandar ao cliente.
+                                 * Continuam a sair em Word e por rever — quem descarrega é
+                                 * quem os revê.
+                                 */
+                                if (is_admin() || (int) $venda['staff_id'] === (int) get_staff_user_id()) { ?>
                                     <a href="<?php echo admin_url('dps_vendas/documentos_aura/' . (int) $venda['id']); ?>"
                                        class="btn btn-info">
                                         <i class="fa fa-download"></i> CPCV + Declaração de cessão (ZIP)
@@ -530,13 +537,11 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                                     <p class="text-muted mtop10" style="font-size:.85em;">
                                         Ficam por preencher o <strong>IBAN do comprador</strong> e a
                                         <strong>fracção</strong> (letra, tipologia e piso) — estão assinalados
-                                        nos dois documentos.
+                                        nos dois documentos. Reveja antes de enviar ao cliente.
                                     </p>
                                 <?php } else { ?>
                                     <p class="text-muted">
-                                        Os dados estão completos. O contrato e a declaração de cessão são
-                                        preparados pela <strong>direcção</strong>, que os revê antes de
-                                        seguirem para o cliente.
+                                        Os documentos são descarregados pelo comercial da venda ou pela direcção.
                                     </p>
                                 <?php } ?>
                                 <p class="text-muted mtop10" style="font-size:.85em;">
@@ -547,7 +552,14 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                     </div>
                 <?php } ?>
 
-                <?php if (is_admin()) {   // só a direção contacta o promotor ?>
+                <?php
+                /*
+                 * O comercial da venda também envia ao promotor. Depois do CPCV
+                 * assinado e do comprovativo carregados, quem tem o processo na
+                 * mão é quem o deve mandar seguir — esperar pela direcção só
+                 * atrasava. O email leva todos os documentos da venda em anexo.
+                 */
+                if (is_admin() || (int) $venda['staff_id'] === (int) get_staff_user_id()) { ?>
                 <div class="panel_s">
                     <div class="panel-body">
                         <h5 class="no-margin">Enviar ao promotor</h5>
@@ -556,6 +568,11 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                         <div class="form-group">
                             <label class="control-label">Email do destinatário</label>
                             <input type="email" name="email_para" class="form-control" placeholder="promotor@exemplo.pt" required>
+                            <small class="text-muted">
+                                Seguem em anexo <strong>todos os documentos já carregados nesta venda</strong>
+                                — o CPCV assinado e o comprovativo de pagamento entram sozinhos assim que
+                                existirem.
+                            </small>
                         </div>
                         <div class="form-group">
                             <textarea name="email_mensagem" class="form-control" rows="2" placeholder="Mensagem (opcional)"></textarea>

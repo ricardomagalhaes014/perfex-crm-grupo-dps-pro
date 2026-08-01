@@ -170,9 +170,18 @@ class Dps_vendas extends AdminController
             show_404();
         }
 
-        // Só a direção fala com o promotor. Um comercial a enviar reservas
-        // diretamente para o promotor curto-circuitava a validação interna.
-        if (!is_admin()) {
+        /*
+         * O comercial da venda também envia ao promotor.
+         *
+         * Estava reservado à direção, para o envio não curto-circuitar a
+         * validação interna. Na prática atrasava o circuito: depois do CPCV
+         * assinado e do comprovativo carregados, quem tem o processo na mão é
+         * quem o deve mandar seguir. Regra do dono (01/08/2026).
+         *
+         * O email leva SEMPRE todos os documentos da venda em anexo — o CPCV
+         * assinado e o comprovativo entram sozinhos assim que existam.
+         */
+        if (!is_admin() && (int) $venda['staff_id'] !== (int) get_staff_user_id()) {
             access_denied('dps_vendas');
         }
 
@@ -480,13 +489,24 @@ class Dps_vendas extends AdminController
      */
     public function documentos_aura($id)
     {
-        if (!is_admin()) {
-            access_denied('dps_vendas');
-        }
-
         $venda = $this->dps_vendas_model->get_venda($id);
         if (!$venda) {
             show_404();
+        }
+
+        /*
+         * O COMERCIAL DA VENDA descarrega sem esperar por ninguém.
+         *
+         * Esteve reservado à direção durante um dia. Na prática travava o
+         * trabalho: quem fecha o negócio precisa dos documentos na hora, para
+         * completar o que falta e mandar ao cliente. Regra do dono
+         * (01/08/2026): "deve ficar automático sem validação do admin".
+         *
+         * O que continua a valer: saem em Word, com o IBAN e a fracção por
+         * preencher, e é quem os descarrega que os revê antes de os enviar.
+         */
+        if (!is_admin() && (int) $venda['staff_id'] !== (int) get_staff_user_id()) {
+            access_denied('dps_vendas');
         }
 
         if (stripos((string) $venda['empreendimento'], 'aura') === false) {
