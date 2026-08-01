@@ -376,3 +376,102 @@ function dps_automacao_cron_followups($manualmente = null)
         }
     }
 }
+
+/**
+ * Fila do Envio Massa Tarefa.
+ *
+ * O fornecedor de email não deixa passar mais de 80 mensagens por envio. Um
+ * estado com 1.756 destinatários não cabe num disparo: manda-se o primeiro
+ * lote e o resto fica aqui, agendado de 24 em 24 horas, até acabar.
+ *
+ * A alternativa — mandar tudo e ver o que passa — queima a reputação da caixa
+ * e faz o fornecedor recusar o lote inteiro, não só o excedente.
+ */
+function dps_automacao_criar_fila_tarefa()
+{
+    $CI = &get_instance();
+    $t  = db_prefix() . 'dps_envio_tarefa_fila';
+
+    if ($CI->db->table_exists($t)) {
+        return;
+    }
+
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$t}` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `lote` VARCHAR(40) NOT NULL,
+        `staff_id` INT NOT NULL,
+        `email` VARCHAR(190) NOT NULL,
+        `nome` VARCHAR(190) NULL,
+        `assunto` VARCHAR(255) NOT NULL,
+        `mensagem` TEXT NOT NULL,
+        `anexo` VARCHAR(255) NULL,
+        `anexo_nome` VARCHAR(190) NULL,
+        `agendado_para` DATETIME NOT NULL,
+        `enviado_em` DATETIME NULL,
+        `estado` VARCHAR(20) NOT NULL DEFAULT 'pendente',
+        `detalhe` VARCHAR(255) NULL,
+        KEY `por_enviar` (`estado`, `agendado_para`),
+        KEY `por_lote` (`lote`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+
+hooks()->add_action('admin_init', 'dps_automacao_criar_fila_tarefa');
+
+/**
+ * Despacha a fila do Envio Massa Tarefa: 80 por corrida, o tecto do fornecedor.
+ *
+ * Corre no cron do Perfex. Cada linha guarda o seu próprio texto e o seu
+ * próprio remetente, por isso um lote continua a sair como foi aprovado
+ * mesmo que entretanto alguém mude o ecrã ou saia da empresa.
+ */
+function dps_automacao_fila_tarefa_cron()
+{
+    $CI = &get_instance();
+    $CI->load->model('dps_automacao/dps_automacao_model');
+
+    $linhas = $CI->dps_automacao_model->fila_tarefa_por_enviar(80);
+    if (empty($linhas)) {
+        return;
+    }
+
+    $lotes = [];
+
+    foreach ($linhas as $l) {
+        $nome_com = get_staff_full_name((int) $l['staff_id'])
+            ?: (get_option('companyname') ?: 'A nossa equipa');
+
+        $texto = dps_automacao_render_vars($l['mensagem'], (string) $l['nome'], $nome_com);
+
+        if (!empty($l['anexo']) && is_file($l['anexo'])) {
+            $ok = dps_automacao_enviar_email_proposta(
+                $l['email'], (string) $l['nome'], $l['assunto'], $texto,
+                $l['anexo'], (string) $l['anexo_nome'], (int) $l['staff_id']
+            );
+        } else {
+            $ok = dps_automacao_enviar_email_lead(
+                $l['email'], $l['assunto'], nl2br(html_escape($texto)), (int) $l['staff_id']
+            );
+        }
+
+        $CI->dps_automacao_model->fila_tarefa_marcar($l['id'], $ok, $ok ? '' : 'envio recusado');
+
+        $lotes[$l['lote']] = $l['anexo'];
+
+        // Mesma pausa do envio manual: um lote seguido sem respirar contra o
+        // SMTP e a caixa passa a ser tratada como spam.
+        usleep(200000);
+    }
+
+    /*
+     * Anexo apagado só quando o lote inteiro acabou. Enquanto houver linhas
+     * pendentes, o ficheiro tem de continuar lá — foi por isso que o envio
+     * manual deixou de o apagar quando fica coisa agendada.
+     */
+    foreach ($lotes as $lote => $anexo) {
+        if ($anexo && is_file($anexo) && !$CI->dps_automacao_model->fila_tarefa_lote_pendente($lote)) {
+            @unlink($anexo);
+        }
+    }
+}
+
+hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');

@@ -487,4 +487,84 @@ class Dps_automacao_model extends App_Model
              ORDER BY n DESC"
         )->result_array();
     }
+
+    /**
+     * Guarda o que passa do tecto diário, em lotes de 24 em 24 horas.
+     *
+     * Guarda-se o TEXTO da mensagem, não uma referência: se alguém editar o
+     * texto no ecrã amanhã, os emails que faltam devem sair como foram
+     * aprovados hoje, não com outra coisa qualquer.
+     */
+    public function agendar_envio_tarefa($destinos, $staff_id, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote = 80)
+    {
+        if (empty($destinos)) {
+            return 0;
+        }
+
+        $t    = db_prefix() . 'dps_envio_tarefa_fila';
+        $lote = uniqid('lote', false);
+        $n    = 0;
+
+        foreach (array_values($destinos) as $i => $d) {
+            // +1 dia por cada lote de 80 que já ficou para trás.
+            $dias = (int) floor($i / max(1, (int) $por_lote)) + 1;
+
+            $this->db->insert($t, [
+                'lote'          => $lote,
+                'staff_id'      => (int) $staff_id,
+                'email'         => $d['email'],
+                'nome'          => $d['name'],
+                'assunto'       => $assunto,
+                'mensagem'      => $mensagem,
+                'anexo'         => $anexo,
+                'anexo_nome'    => $anexo_nome,
+                'agendado_para' => date('Y-m-d H:i:s', strtotime('+' . $dias . ' day')),
+                'estado'        => 'pendente',
+            ]);
+            $n++;
+        }
+
+        return $n;
+    }
+
+    /** O que já pode sair: vencido, pendente, e nunca mais de $limite. */
+    public function fila_tarefa_por_enviar($limite = 80)
+    {
+        return $this->db
+            ->where('estado', 'pendente')
+            ->where('agendado_para <=', date('Y-m-d H:i:s'))
+            ->order_by('agendado_para', 'ASC')
+            ->limit((int) $limite)
+            ->get(db_prefix() . 'dps_envio_tarefa_fila')
+            ->result_array();
+    }
+
+    public function fila_tarefa_marcar($id, $ok, $detalhe = '')
+    {
+        $this->db->where('id', (int) $id)->update(db_prefix() . 'dps_envio_tarefa_fila', [
+            'estado'     => $ok ? 'enviado' : 'falhou',
+            'enviado_em' => date('Y-m-d H:i:s'),
+            'detalhe'    => mb_substr((string) $detalhe, 0, 250),
+        ]);
+    }
+
+    /** Ainda falta alguma coisa deste lote? Serve para saber quando apagar o anexo. */
+    public function fila_tarefa_lote_pendente($lote)
+    {
+        return $this->db->where('lote', $lote)->where('estado', 'pendente')
+            ->count_all_results(db_prefix() . 'dps_envio_tarefa_fila') > 0;
+    }
+
+    /** O que está à espera, para o ecrã mostrar. */
+    public function fila_tarefa_resumo($staff_id = null)
+    {
+        $this->db->select('DATE(agendado_para) dia, COUNT(*) n', false)
+            ->where('estado', 'pendente');
+        if ($staff_id !== null) {
+            $this->db->where('staff_id', (int) $staff_id);
+        }
+
+        return $this->db->group_by('dia')->order_by('dia', 'ASC')
+            ->get(db_prefix() . 'dps_envio_tarefa_fila')->result_array();
+    }
 }

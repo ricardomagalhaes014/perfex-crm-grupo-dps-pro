@@ -8,7 +8,9 @@
                 <h4 class="no-margin"><i class="fa fa-paper-plane"></i> Envio Massa Tarefa</h4>
                 <small class="text-muted">
                     Escreve a toda a gente que tem tarefas num determinado estado. O email sai
-                    pela caixa do comercial de cada tarefa — o cliente responde a quem o acompanha.
+                    pela sua caixa de email, e leva no fim um botão para o seu WhatsApp.
+                    Máximo de <strong>80 por dia</strong>: o que passar disso fica agendado
+                    e sai sozinho nos dias seguintes.
                 </small>
             </div>
             <div class="col-md-4 text-right">
@@ -136,6 +138,7 @@
     var CSRF = { nome: '<?php echo $this->security->get_csrf_token_name(); ?>',
                  hash: '<?php echo $this->security->get_csrf_hash(); ?>' };
     var BASE = '<?php echo admin_url('dps_automacao/'); ?>';
+    var LOTE = 80;   // tecto do fornecedor de email, por envio
 
     function estados() {
         return Array.prototype.slice.call(document.querySelectorAll('.dps-estado:checked'))
@@ -168,17 +171,30 @@
                 caixa.innerHTML = '<div class="alert alert-danger">' + ((r && r.erro) || 'Erro.') + '</div>';
                 return;
             }
-            var h = '<table class="table table-condensed"><tbody>';
+            var h = '<table class="table table-condensed">'
+                  + '<thead><tr><th>Estado</th><th class="text-right">Tarefas</th>'
+                  + '<th class="text-right">Recebem</th></tr></thead><tbody>';
             (r.estados || []).forEach(function (e) {
-                h += '<tr><td>' + e.estado_nome + '</td><td class="text-right">'
-                   + e.com_contacto + ' de ' + e.total + '</td></tr>';
+                h += '<tr><td>' + (e.estado_nome || ('Estado ' + e.estado_id)) + '</td>'
+                   + '<td class="text-right text-muted">' + e.total + '</td>'
+                   + '<td class="text-right"><strong>' + e.com_contacto + '</strong></td></tr>';
             });
             h += '</tbody></table>';
+
             h += '<div class="alert alert-' + (r.com_contacto > 0 ? 'info' : 'warning') + '">'
                + '<strong>' + r.com_contacto + '</strong> vão receber email.';
             if (r.excluidas > 0) {
                 h += '<br><small>' + r.excluidas + ' ficam de fora — a tarefa não está ligada a '
                    + 'nenhuma lead ou cliente com email.</small>';
+            }
+            // O tecto do fornecedor não é detalhe: quem carrega em Enviar tem
+            // de saber, ANTES, que isto vai levar dias.
+            if (r.com_contacto > LOTE) {
+                var dias = Math.ceil(r.com_contacto / LOTE);
+                h += '<hr style="margin:10px 0"><small><strong>' + LOTE + ' hoje</strong>, '
+                   + 'os restantes ' + (r.com_contacto - LOTE) + ' de ' + LOTE + ' em ' + LOTE
+                   + ' por dia — ' + dias + ' dias ao todo. É o máximo que o fornecedor '
+                   + 'de email deixa passar de uma vez.</small>';
             }
             h += '</div>';
             caixa.innerHTML = h;
@@ -239,6 +255,10 @@
                 if (r.exemplos && r.exemplos.length) { h += '<br><small>' + r.exemplos.join(', ') + '</small>'; }
             }
             if (r.anexo) { h += '<div class="text-muted">com o anexo <strong>' + r.anexo + '</strong></div>'; }
+            if (r.agendados > 0) {
+                h += '<hr style="margin:10px 0"><strong>' + r.agendados + '</strong> ficaram agendados, '
+                   + LOTE + ' por dia, a começar amanhã. Saem sozinhos — não é preciso voltar aqui.';
+            }
             h += '</div>';
             res.innerHTML = h;
         }).fail(function () {

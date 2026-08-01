@@ -1228,14 +1228,39 @@ class Dps_automacao extends AdminController
 
         $destinos = $this->dps_automacao_model->get_tarefas_para_envio(
             $estados,
-            $this->comercial_do_post()
+            $this->comercial_do_post(),
+            5000
         );
+
+        /*
+         * TECTO DE 80 POR ENVIO — é o máximo que o fornecedor de email aceita.
+         *
+         * O que passa disso não se perde nem se manda à força: fica em fila,
+         * agendado de 24 em 24 horas, 80 por dia, até acabar. Mandar tudo e ver
+         * o que passa queima a reputação da caixa e faz o fornecedor recusar o
+         * lote inteiro, não só o excedente.
+         *
+         * Quem envia é sempre o utilizador com sessão aberta: é a caixa dele
+         * que sai no remetente e o WhatsApp dele que vai no botão do email.
+         */
+        $por_lote = 80;
+        $eu       = (int) get_staff_user_id();
+
+        $agora   = array_slice($destinos, 0, $por_lote);
+        $adiados = array_slice($destinos, $por_lote);
+
+        $agendados = 0;
+        if (!empty($adiados)) {
+            $agendados = $this->dps_automacao_model->agendar_envio_tarefa(
+                $adiados, $eu, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote
+            );
+        }
 
         $enviados = 0;
         $falhas   = [];
 
-        foreach ($destinos as $d) {
-            $nome_com = get_staff_full_name((int) $d['assigned']) ?: (get_option('companyname') ?: 'A nossa equipa');
+        foreach ($agora as $d) {
+            $nome_com = get_staff_full_name($eu) ?: (get_option('companyname') ?: 'A nossa equipa');
             $texto    = dps_automacao_render_vars($mensagem, (string) $d['name'], $nome_com);
 
             /*
@@ -1251,14 +1276,14 @@ class Dps_automacao extends AdminController
                     $texto,
                     $anexo,
                     $anexo_nome,
-                    (int) $d['assigned'] ?: null
+                    $eu
                 );
             } else {
                 $ok = dps_automacao_enviar_email_lead(
                     $d['email'],
                     $assunto,
                     nl2br(html_escape($texto)),
-                    (int) $d['assigned'] ?: null
+                    $eu
                 );
             }
 
@@ -1273,8 +1298,12 @@ class Dps_automacao extends AdminController
             usleep(200000);
         }
 
-        // O anexo já cumpriu o seu papel: fica no disco só o tempo do lote.
-        if ($anexo !== null && is_file($anexo)) {
+        /*
+         * O anexo só se apaga quando não fica nada agendado. Com lotes por
+         * enviar amanhã, apagá-lo hoje deixava-os a seguir sem o ficheiro —
+         * quem o apaga é o cron, no fim do último lote.
+         */
+        if ($anexo !== null && $agendados === 0 && is_file($anexo)) {
             @unlink($anexo);
         }
 
@@ -1282,8 +1311,10 @@ class Dps_automacao extends AdminController
             'enviados' => $enviados,
             'falhas'   => count($falhas),
             'exemplos' => array_slice($falhas, 0, 5),
-            'total'    => count($destinos),
-            'anexo'    => $anexo_nome,
+            'total'     => count($destinos),
+            'anexo'     => $anexo_nome,
+            'agendados' => $agendados,
+            'por_lote'  => $por_lote,
         ]);
     }
 }
