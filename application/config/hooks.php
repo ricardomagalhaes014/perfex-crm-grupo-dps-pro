@@ -120,7 +120,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
-$hook['pre_controller_constructor'][] = [
+/*
+ * pre_system e nao pre_controller_constructor: este ultimo e disparado dentro
+ * do construtor do App_Controller, ou seja ja depois de a base de dados ter
+ * sido carregada. A sonda instalada la nunca via as falhas de LIGACAO, que
+ * sao precisamente o que se quer apanhar.
+ */
+$hook['pre_system'][] = [
     'class'    => '',
     'function' => 'dps_diagnostico_ligacoes_register',
     'filename' => 'dps_diagnostico_ligacoes_hook.php',
