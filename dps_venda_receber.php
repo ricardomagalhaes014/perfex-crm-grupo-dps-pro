@@ -541,6 +541,25 @@ if ($accao === 'importar') {
             : ' Cartão de Cidadão anexado.';
     }
 
+    /*
+     * AVISO AOS ADMINISTRADORES — só no Aura.
+     *
+     * Uma reserva do Aura tem de chegar à direção no momento, não no dia
+     * seguinte quando alguém abrir o CRM: as unidades boas saem primeiro e a
+     * decisão de segurar ou libertar uma fracção não espera.
+     *
+     * Envolvido em try/catch e sempre DEPOIS da resposta estar garantida: se
+     * a Evolution estiver em baixo, a reserva não pode falhar por causa de um
+     * aviso interno. Falha o aviso, não a reserva.
+     */
+    if (stripos($empreendimento, 'aura') !== false) {
+        try {
+            dps_avisar_admins_reserva($bd, $venda_id, $empreendimento, $unidade, $comercial_id);
+        } catch (\Throwable $e) {
+            // Silêncio de propósito: já está registado no log da função.
+        }
+    }
+
     responder([
         'success'  => true,
         'venda_id' => $venda_id,
@@ -552,3 +571,109 @@ if ($accao === 'importar') {
 }
 
 responder(['success' => false, 'error' => 'Acção desconhecida.'], 400);
+
+/**
+ * Avisa por WhatsApp os administradores de que entrou uma reserva.
+ *
+ * Diz o essencial e nada mais: empreendimento, unidade e quem reservou.
+ *
+ * Sai pela instância do primeiro administrador que estiver ligada — é uma
+ * mensagem interna, não interessa de quem parte, interessa que chegue. Quem
+ * não tiver telefone no perfil não recebe, e isso fica no registo em vez de
+ * desaparecer.
+ */
+function dps_avisar_admins_reserva($bd, $venda_id, $empreendimento, $unidade, $comercial_id)
+{
+    $reg = function ($m) { @file_put_contents(__DIR__ . '/dps-aviso-reserva.log',
+        '[' . date('Y-m-d H:i:s') . '] ' . $m . "\n", FILE_APPEND); };
+
+    $ler = function ($nome) use ($bd) {
+        $r = $bd->query("SELECT value FROM tbloptions WHERE name = '" . $bd->real_escape_string($nome) . "'");
+
+        return ($r && $r->num_rows) ? (string) $r->fetch_assoc()['value'] : '';
+    };
+
+    $url = rtrim(trim($ler('dps_whatsapp_evolution_url')), '/');
+    $key = trim($ler('dps_whatsapp_evolution_api_key'));
+
+    if ($url === '' || $key === '') {
+        $reg('sem configuracao da Evolution — aviso nao enviado');
+
+        return;
+    }
+
+    $comercial = 'sem comercial';
+    if ((int) $comercial_id > 0) {
+        $r = $bd->query('SELECT CONCAT(firstname, " ", lastname) n FROM tblstaff WHERE staffid = ' . (int) $comercial_id);
+        if ($r && $r->num_rows) {
+            $comercial = trim((string) $r->fetch_assoc()['n']);
+        }
+    }
+
+    /*
+     * Só a unidade e quem reservou. O nome do cliente fica de fora de
+     * propósito: um aviso interno não precisa dele, e mandá-lo por WhatsApp
+     * espalha dados de clientes por telemóveis pessoais sem necessidade
+     * nenhuma. Quem quiser saber mais abre a venda no CRM.
+     */
+    $texto = "🔔 *RESERVA — " . $empreendimento . "*\n\n"
+        . "Unidade: *" . ($unidade !== '' ? $unidade : 'por indicar') . "*\n"
+        . "Comercial: " . $comercial . "\n"
+        . "Venda #" . (int) $venda_id . " no CRM";
+
+    // A instância que envia: a primeira aberta de entre os administradores.
+    $envia = null;
+    $admins = [];
+    $r = $bd->query('SELECT staffid, phonenumber, CONCAT(firstname, " ", lastname) n
+                     FROM tblstaff WHERE admin = 1 AND active = 1');
+    while ($r && ($a = $r->fetch_assoc())) {
+        $admins[] = $a;
+
+        if ($envia === null) {
+            $ch = curl_init($url . '/instance/connectionState/staff-' . (int) $a['staffid']);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8,
+                CURLOPT_HTTPHEADER => ['apikey: ' . $key]]);
+            $j = json_decode((string) curl_exec($ch), true);
+            curl_close($ch);
+
+            if (($j['instance']['state'] ?? ($j['state'] ?? '')) === 'open') {
+                $envia = 'staff-' . (int) $a['staffid'];
+            }
+        }
+    }
+
+    if ($envia === null) {
+        $reg('nenhuma instancia de WhatsApp ligada — aviso nao enviado');
+
+        return;
+    }
+
+    foreach ($admins as $a) {
+        $numero = preg_replace('/[^0-9]/', '', (string) $a['phonenumber']);
+
+        if ($numero === '') {
+            $reg('admin ' . trim($a['n']) . ' sem telefone no perfil — nao avisado');
+            continue;
+        }
+        if (strlen($numero) === 9) {
+            $numero = '351' . $numero;      // sem indicativo, assume-se Portugal
+        }
+
+        $ch = curl_init($url . '/message/sendText/' . $envia);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_TIMEOUT        => 12,
+            // Evolution v2: 'text' no primeiro nível.
+            CURLOPT_POSTFIELDS     => json_encode(['number' => $numero, 'text' => $texto]),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'apikey: ' . $key],
+        ]);
+        $resp = curl_exec($ch);
+        $cod  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $reg(($cod >= 200 && $cod < 300 ? 'avisado' : 'FALHOU (' . $cod . ')')
+            . ' ' . trim($a['n']) . ' ' . $numero . ' venda #' . (int) $venda_id
+            . ($cod >= 300 ? ' :: ' . substr((string) $resp, 0, 160) : ''));
+    }
+}
