@@ -1362,4 +1362,128 @@ class Dps_automacao extends AdminController
         $data['title'] = 'Registo — Envio Massa Tarefa';
         $this->load->view('registo_envio_tarefa', $data);
     }
+
+    /**
+     * Converte uma tarefa numa lead.
+     *
+     * As tarefas da Sofia nascem de uma chamada e trazem a ficha da pessoa
+     * escrita no corpo, mas não ficam ligadas a lead nenhuma — ficam num
+     * limbo, fora dos funis, dos filtros e das automações. Este botão passa-as
+     * para lá.
+     *
+     * Regras:
+     * - Só converte quem já podia abrir a tarefa. A tarefa é carregada com o
+     *   mesmo filtro de visibilidade que o CRM usa em todo o lado; se não
+     *   aparecer, não se converte.
+     * - Uma tarefa que JÁ veio de uma lead não se converte outra vez. Sem
+     *   isto, cada carregar no botão criava uma lead duplicada da mesma
+     *   pessoa.
+     * - A lead é criada pelo modelo do Perfex, não com um INSERT à mão: é o
+     *   que garante o registo de atividade, os campos personalizados, o aviso
+     *   ao comercial e o hook lead_created.
+     * - No fim a tarefa fica ligada à lead nova, para o caminho de volta
+     *   existir e para o botão não voltar a aparecer.
+     */
+    public function converter_em_lead($task_id = '')
+    {
+        if ($this->input->method() !== 'post') {
+            show_404();
+        }
+
+        $task_id = (int) $task_id;
+        $this->load->model('tasks_model');
+        $this->load->model('leads_model');
+
+        // O mesmo filtro que o CRM aplica em todo o lado. Admin vê tudo.
+        $tarefa = $this->tasks_model->get(
+            $task_id,
+            is_admin() ? [] : get_tasks_where_string(false)
+        );
+
+        if (!$tarefa) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Tarefa não encontrada ou sem acesso.']);
+
+            return;
+        }
+
+        if ($tarefa->rel_type === 'lead' && (int) $tarefa->rel_id > 0) {
+            echo json_encode([
+                'sucesso'  => false,
+                'mensagem' => 'Esta tarefa já pertence a uma lead.',
+                'url'      => admin_url('leads/index/' . (int) $tarefa->rel_id),
+            ]);
+
+            return;
+        }
+
+        $pessoa = dps_automacao_pessoa_da_tarefa($tarefa);
+
+        /*
+         * A lead fica com quem já estava a tratar da tarefa. Só se ninguém
+         * estiver atribuído é que fica com quem carregou no botão — atribuir
+         * ao próprio o trabalho de outro seria roubar-lhe a lead.
+         */
+        $atribuidos = $this->tasks_model->get_task_assignees($task_id);
+        $dono       = !empty($atribuidos) ? (int) $atribuidos[0]['staffid'] : (int) get_staff_user_id();
+
+        $descricao = 'Convertida da tarefa #' . $task_id . ' — ' . $tarefa->name;
+        if ($pessoa['empreendimento'] !== '') {
+            $descricao .= "\nEmpreendimento: " . $pessoa['empreendimento'];
+        }
+        $descricao .= "\n\n" . trim(html_entity_decode(
+            strip_tags(str_ireplace(['<br>', '<br/>', '<br />'], "\n", (string) $tarefa->description)),
+            ENT_QUOTES,
+            'UTF-8'
+        ));
+
+        $lead_id = $this->leads_model->add([
+            'name'        => $pessoa['nome'],
+            'email'       => $pessoa['email'],
+            'phonenumber' => $pessoa['telefone'],
+            'description' => $descricao,
+            'address'     => '',
+            'status'      => (int) get_option('leads_default_status') ?: $this->dps_automacao_primeiro_estado_lead(),
+            'source'      => $this->dps_automacao_primeira_fonte_lead(),
+            'assigned'    => $dono,
+            'is_public'   => 0,
+            'lastcontact' => null,
+        ]);
+
+        if (!$lead_id) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Não foi possível criar a lead.']);
+
+            return;
+        }
+
+        $this->db->where('id', $task_id)->update(db_prefix() . 'tasks', [
+            'rel_type' => 'lead',
+            'rel_id'   => $lead_id,
+        ]);
+
+        log_activity('Tarefa #' . $task_id . ' convertida na lead #' . $lead_id);
+
+        echo json_encode([
+            'sucesso'  => true,
+            'mensagem' => 'Lead criada a partir da tarefa.',
+            'url'      => admin_url('leads/index/' . $lead_id),
+        ]);
+    }
+
+    /** Primeiro estado da lista de estados de lead, pela ordem definida no CRM. */
+    private function dps_automacao_primeiro_estado_lead()
+    {
+        $l = $this->db->select('id')->order_by('statusorder', 'asc')
+                      ->limit(1)->get(db_prefix() . 'leads_status')->row();
+
+        return $l ? (int) $l->id : 1;
+    }
+
+    /** Primeira fonte de lead. O comercial corrige na ficha se for outra. */
+    private function dps_automacao_primeira_fonte_lead()
+    {
+        $l = $this->db->select('id')->order_by('id', 'asc')
+                      ->limit(1)->get(db_prefix() . 'leads_sources')->row();
+
+        return $l ? (int) $l->id : 1;
+    }
 }

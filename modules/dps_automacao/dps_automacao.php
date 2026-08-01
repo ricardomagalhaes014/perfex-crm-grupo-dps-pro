@@ -23,6 +23,7 @@ hooks()->add_action('admin_init', 'dps_automacao_ensure_schema');
 hooks()->add_action('admin_init', 'dps_automacao_menu');
 hooks()->add_action('admin_init', 'dps_automacao_permissions');
 hooks()->add_action('after_cron_run', 'dps_automacao_cron_followups');
+hooks()->add_action('before_task_description_section', 'dps_automacao_botao_converter_lead');
 
 function dps_automacao_activate()
 {
@@ -482,3 +483,67 @@ function dps_automacao_fila_tarefa_cron()
 }
 
 hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
+
+/**
+ * Botão "Converter tarefa em lead", dentro da janela da tarefa.
+ *
+ * As tarefas da Sofia nascem de uma chamada e ficam sem lead: não entram nos
+ * funis, nos filtros nem nas automações. Este botão passa-as para lá.
+ *
+ * Só aparece onde faz sentido. Se a tarefa já veio de uma lead, o que se
+ * mostra é o caminho de volta — converter outra vez só criava uma segunda
+ * ficha da mesma pessoa.
+ *
+ * Vai um POST por JavaScript e não um formulário: aqui dentro já há formulários
+ * do Perfex, e um formulário dentro de outro é descartado pelo browser sem
+ * dizer nada.
+ */
+function dps_automacao_botao_converter_lead($tarefa)
+{
+    if (empty($tarefa) || !is_staff_logged_in() || !staff_can('create', 'leads')) {
+        return;
+    }
+
+    $tem_lead = (isset($tarefa->rel_type) && $tarefa->rel_type === 'lead' && (int) $tarefa->rel_id > 0);
+    ?>
+    <div class="mbot15" id="dps-converter-lead-<?php echo (int) $tarefa->id; ?>">
+        <?php if ($tem_lead) { ?>
+            <a href="<?php echo admin_url('leads/index/' . (int) $tarefa->rel_id); ?>"
+               class="text-muted" style="font-size:13px;">
+                <i class="fa fa-user tw-mr-1"></i> Ver a lead desta tarefa
+            </a>
+        <?php } else { ?>
+            <button type="button" class="btn btn-default btn-sm"
+                    data-tarefa="<?php echo (int) $tarefa->id; ?>"
+                    onclick="dpsConverterTarefaEmLead(this);">
+                <i class="fa fa-user-plus tw-mr-1"></i> Converter tarefa em lead
+            </button>
+        <?php } ?>
+    </div>
+    <script>
+    window.dpsConverterTarefaEmLead = function (botao) {
+        var tarefa = $(botao).data('tarefa');
+        if (!confirm('Criar uma lead a partir desta tarefa?')) { return; }
+
+        var texto = $(botao).html();
+        $(botao).prop('disabled', true).html('A converter...');
+
+        var envio = { taskid: tarefa };
+        if (typeof csrfData !== 'undefined') { envio[csrfData.token_name] = csrfData.hash; }
+
+        $.post(admin_url + 'dps_automacao/converter_em_lead/' + tarefa, envio)
+            .done(function (r) {
+                try { r = JSON.parse(r); } catch (e) { r = null; }
+                if (r && r.sucesso) { window.location = r.url; return; }
+                alert_float('danger', (r && r.mensagem) || 'Não foi possível converter a tarefa.');
+                if (r && r.url) { window.location = r.url; return; }
+                $(botao).prop('disabled', false).html(texto);
+            })
+            .fail(function (xhr) {
+                alert_float('danger', 'Falha ao converter a tarefa (erro ' + xhr.status + ').');
+                $(botao).prop('disabled', false).html(texto);
+            });
+    };
+    </script>
+    <?php
+}

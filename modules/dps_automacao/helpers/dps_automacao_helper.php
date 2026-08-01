@@ -638,3 +638,80 @@ function dps_automacao_enviar_email_lead($para, $assunto, $corpo_html, $staff_id
         return false;
     }
 }
+
+/**
+ * Lê o que a descrição de uma tarefa sabe sobre a pessoa.
+ *
+ * As tarefas da Sofia trazem a ficha escrita no corpo, sempre com os mesmos
+ * rótulos:
+ *
+ *     Nome: António
+ *     Telefone: +351913832079
+ *     Email: —
+ *     Empreendimento: Aura Residence
+ *
+ * A leitura é feita com um rótulo a servir de fim do anterior, para o valor
+ * não engolir o campo seguinte quando tudo vem na mesma linha — que é o que
+ * acontece depois de o HTML ser limpo.
+ *
+ * Devolve sempre as quatro chaves. O que não estiver lá vem vazio; é o
+ * chamador que decide o que fazer com isso.
+ *
+ * @param object $tarefa linha de tbltasks
+ *
+ * @return array{nome:string,telefone:string,email:string,empreendimento:string}
+ */
+function dps_automacao_pessoa_da_tarefa($tarefa)
+{
+    $bruto = (string) ($tarefa->description ?? '');
+    $texto = str_ireplace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", $bruto);
+    $texto = trim(html_entity_decode(strip_tags($texto), ENT_QUOTES, 'UTF-8'));
+
+    /*
+     * Todos os rótulos que a Sofia usa. Cada um serve de fim ao valor
+     * anterior, por isso a lista tem de estar completa: um rótulo em falta
+     * faz o campo antes dele engolir tudo o que vem a seguir. Foi o que
+     * aconteceu com "Resumo da conversa:", que não casava com "Resumo:".
+     */
+    $rotulos = 'Nome|Telefone|Telem[oó]vel|Contacto|E-?mail|Empreendimento|Origem'
+        . '|Resumo(?:\s+da\s+conversa)?|Observa[çc][õo]es|Atribu[ií]da\s+a|Estado|Data';
+
+    $ler = function ($etiqueta) use ($texto, $rotulos) {
+        $padrao = '/\b(?:' . $etiqueta . ')\s*:\s*(.+?)(?=\s*\b(?:' . $rotulos . ')\s*:|$)/uis';
+        if (!preg_match($padrao, $texto, $m)) {
+            return '';
+        }
+        $v = trim(preg_replace('/\s+/u', ' ', $m[1]));
+
+        // Marcador interno da Sofia, [sofia:conv_...]. Não é dado de ninguém.
+        $v = trim(preg_replace('/\[sofia:[^\]]*\]/u', '', $v));
+
+        // A Sofia escreve "—" quando não apanhou o campo. Isso é vazio.
+        return in_array($v, ['—', '-', '–', 'n/a', 'N/A'], true) ? '' : $v;
+    };
+
+    $nome = $ler('Nome');
+    if ($nome === '') {
+        /*
+         * Sem rótulo, serve o título da tarefa — mas sem o prefixo que a
+         * Sofia lhe põe, senão a lead nascia chamada "☎️ Sofia: contactar".
+         */
+        $nome = (string) ($tarefa->name ?? '');
+        $nome = preg_replace('/^\s*☎️?\s*Sofia\s*:\s*contactar\s*[:\-–—]?\s*/ui', '', $nome);
+        $nome = preg_replace('/^[^:]{0,40}:\s*/u', '', $nome);   // "— Aura Residence: Carlos"
+        $nome = trim($nome);
+    }
+
+    $telefone = $ler('Telefone|Telem[oó]vel|Contacto');
+    $telefone = trim(preg_replace('/[^\d+\s()-]/u', '', $telefone));
+
+    $email = $ler('E-?mail');
+    $email = filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '';
+
+    return [
+        'nome'           => $nome !== '' ? $nome : 'Sem nome',
+        'telefone'       => $telefone,
+        'email'          => $email,
+        'empreendimento' => $ler('Empreendimento'),
+    ];
+}
