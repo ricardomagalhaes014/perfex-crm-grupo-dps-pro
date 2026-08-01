@@ -310,7 +310,9 @@ function dps_cpcv_gerar(array $v)
         return [false, 'O preço da fracção é baixo demais para este plano de pagamento (' . dps_cpcv_eur($preco) . ').', '', ''];
     }
 
-    $iban_falta = '«IBAN DO COMPRADOR — PREENCHER»';
+    // O IBAN do comprador deixou de ser pedido: o contrato só precisa da
+    // conta para onde se paga, e obrigava a preencher à mão um dado que
+    // ninguém tem no momento em que o documento é gerado.
     $iban_venda = 'PT50 0045 1325 40416282470 83';
 
     $e = function ($x) {
@@ -322,30 +324,43 @@ function dps_cpcv_gerar(array $v)
     $subs = [];
 
     /*
-     * O comprador pode ser uma empresa. Uma empresa identifica-se pelo NIPC e
-     * pela certidão do registo comercial, tem sede em vez de residência, e não
-     * tem estado civil, naturalidade nem nacionalidade.
+     * O comprador é uma empresa ou um particular, e o contrato tem de o dizer
+     * de maneiras diferentes:
      *
-     * O que NÃO desaparece é o Cartão de Cidadão: continua a ser preciso, mas
-     * é o do gestor que assina em nome da empresa, não o da empresa. Por isso
-     * os campos do CC ficam nos dois casos — só muda de quem são.
+     *   empresa    — NIPC, certidão do registo comercial, sede, e quem assina
+     *                em nome dela (nome e NIF próprios do representante).
+     *   particular — nome, NIF, estado civil, naturalidade, nacionalidade e
+     *                residência. Sem certidão e sem representante.
      *
-     * É o código de acesso à certidão (CRC) que decide qual das duas
-     * redacções sai: preenchido, é empresa; vazio, é particular.
+     * Quem decide é o campo cliente_tipo, escolhido no formulário. Antes era a
+     * presença do CRC a decidir, o que obrigava a preencher a certidão só para
+     * o contrato sair na forma certa.
+     *
+     * O Cartão de Cidadão fica nos dois casos — muda é de quem é: da pessoa,
+     * ou do gestor que assina pela empresa.
      */
-    $crc = trim((string) ($v['cliente_crc'] ?? ''));
+    $crc           = trim((string) ($v['cliente_crc'] ?? ''));
+    $representante = trim((string) ($v['cliente_representante'] ?? ''));
+    $rep_nif       = trim((string) ($v['cliente_representante_nif'] ?? ''));
 
-    if ($crc !== '') {
+    $e_empresa = strcasecmp(trim((string) ($v['cliente_tipo'] ?? '')), 'empresa') === 0
+                 || ($crc !== '' && trim((string) ($v['cliente_tipo'] ?? '')) === '');
+
+    if ($e_empresa) {
         $subs['PRIMEIRO OUTORGANTE:'] =
             '____ PRIMEIRO OUTORGANTE: ' . $v['cliente'] . ', NIPC ' . $v['cliente_nif']
-            . ', matriculada na Conservatória do Registo Comercial, com o código de acesso à '
-            . 'certidão permanente n.º ' . $crc
+            . ($crc !== ''
+                ? ', matriculada na Conservatória do Registo Comercial, com o código de acesso à '
+                  . 'certidão permanente n.º ' . $crc
+                : '')
             . ', com sede na ' . $v['cliente_morada']
             . ', freguesia de ' . $v['cliente_freguesia']
             . ', concelho de ' . $v['cliente_concelho']
             . ' (CP ' . $v['cliente_codigo_postal'] . '), neste ato representada por '
-            . '«REPRESENTANTE DA EMPRESA — PREENCHER», portador do Cartão de Cidadão n.º '
-            . $v['cliente_cc'] . ', emitido pela República Portuguesa, válido até ' . $val_cc
+            . ($representante !== '' ? $representante : '«REPRESENTANTE — PREENCHER»')
+            . ', NIF ' . ($rep_nif !== '' ? $rep_nif : '«NIF DO REPRESENTANTE — PREENCHER»')
+            . ', portador do Cartão de Cidadão n.º ' . $v['cliente_cc']
+            . ', emitido pela República Portuguesa, válido até ' . $val_cc
             . ', com poderes para o ato. _______________________________';
     } else {
         $subs['PRIMEIRO OUTORGANTE:'] =
@@ -360,6 +375,43 @@ function dps_cpcv_gerar(array $v)
             . ' (CP ' . $v['cliente_codigo_postal'] . '). _______________________________';
     }
 
+    /*
+     * ARTIGO 1º — a fracção e o preço.
+     *
+     * O modelo vinha escrito à mão para DUAS fracções ("C" e "D") de um
+     * contrato anterior, com os valores em branco, e o gerador nunca lhe
+     * tocava: o preço aparecia no artigo 2º e nas alíneas, mas o artigo 1º
+     * saía com a fracção errada e sem valor nenhum.
+     *
+     * Passa a ser composto a partir da venda: uma fracção, a que foi vendida,
+     * com a tipologia, o piso e as áreas que a lista de unidades do Aura
+     * conhece. A alínea b) do modelo é esvaziada — só há uma fracção.
+     */
+    $u_aura   = dps_aura_unidade($v['unidade']);
+    $fraccao  = strtoupper(trim((string) $v['unidade']));
+    $area_txt = dps_aura_area_txt($v['unidade']);
+
+    $descreve_fraccao = 'Fração Autónoma destinada a Habitação'
+        . ($u_aura ? ', do tipo ' . $u_aura['tipologia'] : '')
+        . ', provisoriamente identificada com a letra “' . $fraccao . '”'
+        . ($u_aura ? ', localizada no Piso ' . $u_aura['piso'] : '')
+        . ' do edifício a construir'
+        . ($area_txt !== '' ? ', com ' . $area_txt : '');
+
+    $subs['Pelo presente contrato a representada'] =
+        '____ 1. Pelo presente contrato a representada do PRIMEIRO OUTORGANTE promete comprar à '
+        . 'representada dos SEGUNDOS OUTORGANTES, e esta, por sua vez, promete vender, 1 (uma) '
+        . 'fração autónoma a construir no edifício mencionado supra no Considerando C, livre de '
+        . 'ónus e encargos, pelo preço total de ' . dps_cpcv_eur($preco) . ' ('
+        . dps_cpcv_extenso($preco) . ' euros), que é a seguinte: _';
+
+    $subs['a) Fração Autónoma destinada a Habitação'] =
+        'a) ' . $descreve_fraccao . ', pelo valor de ' . dps_cpcv_eur($preco) . ' ('
+        . dps_cpcv_extenso($preco) . ' euros). __________________';
+
+    // Só há uma fracção: a segunda alínea do modelo deixa de ter conteúdo.
+    $subs['b) Fração Autónoma destinada a Habitação'] = '';
+
     $subs['O preço global da presente promessa'] =
         'O preço global da presente promessa é de ' . dps_cpcv_eur($preco) . ' ('
         . dps_cpcv_extenso($preco) . ' euros) e será pago pela PROMITENTE COMPRADORA à '
@@ -369,30 +421,30 @@ function dps_cpcv_gerar(array $v)
         'a) No ato da assinatura do presente contrato, será entregue à PROMITENTE VENDEDORA a '
         . 'título de sinal e princípio de pagamento, o montante de ' . dps_cpcv_eur($sinal) . ' ('
         . dps_cpcv_extenso($sinal) . ' euros), a deduzir no preço no ato da escritura, cujo pagamento '
-        . 'será efetuado por transferência bancária da conta ordenante com o IBAN ' . $iban_falta
-        . ', para a conta beneficiária IBAN ' . $iban_venda . '; caso a transferência não seja '
+        . 'será efetuado por transferência bancária para a conta beneficiária IBAN ' . $iban_venda
+        . '; caso a transferência não seja '
         . 'recebida até 5 dias após a assinatura do presente contrato, o mesmo fica sem efeito. ----';
 
     $subs['Após a aprovação do projeto de arquitetura'] =
         'b) Após a aprovação do projeto de arquitetura, a PROMITENTE VENDEDORA notificará pelos meios '
         . 'convencionados a PROMITENTE COMPRADORA para no prazo de 5 dias entregar o montante '
         . 'correspondente a 10% do preço, ' . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10)
-        . ' euros), a título de sinal, que será efetuado por transferência bancária da conta '
-        . 'ordenante com o IBAN ' . $iban_falta . ' para a conta beneficiária IBAN ' . $iban_venda . '. ----';
+        . ' euros), a título de sinal, que será efetuado por transferência bancária para a conta '
+        . 'beneficiária IBAN ' . $iban_venda . '. ----';
 
     $subs['Após o início de obra'] =
         'c) No mês de dezembro, a PROMITENTE VENDEDORA notificará a PROMITENTE COMPRADORA para no '
         . 'prazo de 5 dias entregar o montante correspondente a 10% do preço, ' . dps_cpcv_eur($p10)
         . ' (' . dps_cpcv_extenso($p10) . ' euros), a título de reforço de sinal, que será efetuado '
-        . 'por transferência bancária da conta ordenante com o IBAN ' . $iban_falta
-        . ' para a conta beneficiária IBAN ' . $iban_venda . '. --------------------------------';
+        . 'por transferência bancária para a conta beneficiária IBAN ' . $iban_venda
+        . '. --------------------------------';
 
     $subs['Após o termo da fase de estrutura'] =
-        'd) Após o termo da fase de estrutura, um ano depois, a PROMITENTE VENDEDORA notificará pelos '
+        'd) Após o termo da fase de estrutura, a PROMITENTE VENDEDORA notificará pelos '
         . 'meios convencionados a PROMITENTE COMPRADORA para no prazo de 5 dias entregar o montante '
         . 'correspondente a 10% do preço, ' . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10)
-        . ' euros), a título de sinal, que será efetuado por transferência bancária da conta ordenante '
-        . 'com o IBAN ' . $iban_falta . ' para a conta beneficiária IBAN ' . $iban_venda . '. -------';
+        . ' euros), a título de sinal, que será efetuado por transferência bancária para a conta '
+        . 'beneficiária IBAN ' . $iban_venda . '. -------';
 
     $subs['O remanescente do preço'] =
         'e) O remanescente do preço, no montante de ' . dps_cpcv_eur($rem) . ' ('
@@ -526,6 +578,35 @@ function dps_declaracao_cessao_gerar(array $v)
           . 'certidão permanente n.º ' . $crc . ', '
         : '';
 
+    /*
+     * A fracção, a tipologia e as áreas saíam em branco («FRAÇÃO — PREENCHER»)
+     * porque a venda só guarda a letra e o valor. Vêm agora da lista de
+     * unidades do Aura. O piso foi retirado do texto — não acrescenta nada à
+     * identificação da fracção, que a letra já faz.
+     */
+    $fraccao_dec   = strtoupper(trim((string) ($v['unidade'] ?? '')));
+    $u_dec         = dps_aura_unidade($v['unidade'] ?? '');
+    $tipologia_dec = $u_dec ? $u_dec['tipologia'] : '';
+    $area_dec      = dps_aura_area_txt($v['unidade'] ?? '');
+
+    /*
+     * Só uma empresa é "representada por" alguém. Sendo o comprador uma
+     * pessoa, a frase desaparece — antes saía sempre, com um
+     * «PREENCHER SE FOR SOCIEDADE» no meio de uma declaração de um particular.
+     */
+    $rep_dec     = trim((string) ($v['cliente_representante'] ?? ''));
+    $rep_nif_dec = trim((string) ($v['cliente_representante_nif'] ?? ''));
+    $e_empresa_dec = strcasecmp(trim((string) ($v['cliente_tipo'] ?? '')), 'empresa') === 0
+                     || ($crc !== '' && trim((string) ($v['cliente_tipo'] ?? '')) === '');
+
+    $representada_dec = '';
+    if ($e_empresa_dec) {
+        $representada_dec = 'neste ato representada por '
+            . ($rep_dec !== '' ? $rep_dec : '«REPRESENTANTE — PREENCHER»')
+            . ', NIF ' . ($rep_nif_dec !== '' ? $rep_nif_dec : '«NIF DO REPRESENTANTE — PREENCHER»')
+            . ', ';
+    }
+
     $comprador = trim((string) $v['cliente']);
     $comprador = $comprador !== '' ? $comprador : $traco;
 
@@ -546,12 +627,14 @@ function dps_declaracao_cessao_gerar(array $v)
         . 'representada por ADELINO MANUEL DA SILVA MARTINS, na qualidade de Presidente do '
         . 'Conselho de Administração, '
         . 'adiante designada por “Promitente Vendedora” da futura fração autónoma provisoriamente '
-        . 'designada pela letra «FRAÇÃO — PREENCHER», referente a um «TIPOLOGIA — PREENCHER», no piso '
-        . '«PISO — PREENCHER», com «PREENCHER», autoriza ' . $comprador . ', '
+        . 'designada pela letra “' . $fraccao_dec . '”'
+        . ($tipologia_dec !== '' ? ', referente a um ' . $tipologia_dec : '')
+        . ($area_dec !== '' ? ', com ' . $area_dec : '')
+        . ', autoriza ' . $comprador . ', '
         . ($contribuinte !== '' ? 'contribuinte n.º ' . $contribuinte : 'contribuinte n.º ' . $traco) . ', '
         . $crc_txt
         . ($morada !== '' ? 'com morada em ' . $morada : 'com morada em ' . $traco) . ', '
-        . 'neste ato representada por «PREENCHER SE FOR SOCIEDADE», adiante designada por '
+        . $representada_dec . 'adiante designada por '
         . '“Promitente Compradora”, a ceder a posição contratual que detém relativamente à referida '
         . 'fração autónoma, de acordo com o seguinte: A Promitente Compradora deverá notificar a '
         . 'Promitente Vendedora da intenção de ceder a sua posição contratual, procedendo à completa '
@@ -613,4 +696,60 @@ function dps_declaracao_cessao_gerar(array $v)
         . preg_replace('/[^\p{L}\p{N} ]+/u', '', (string) $v['cliente']) . '.docx';
 
     return [true, '', $bytes, $nome];
+}
+
+/**
+ * O que se sabe de uma fracção do Aura: tipologia, piso e áreas.
+ *
+ * A venda guarda a letra da fracção e o valor, mais nada. Mas o contrato e a
+ * declaração de cedência precisam de dizer a tipologia e os metros — e até
+ * aqui saíam em branco ou eram escritos à mão.
+ *
+ * A lista está em data_aura_unidades.php, copiada do simulador. É lida uma vez
+ * por pedido e fica em memória: são 61 linhas, não vale a pena ir ao disco de
+ * cada vez que se compõe um parágrafo.
+ *
+ * @param string $fraccao letra da fracção, como "AB"
+ *
+ * @return array|null null quando a fracção não é do Aura ou não existe
+ */
+function dps_aura_unidade($fraccao)
+{
+    static $lista = null;
+
+    if ($lista === null) {
+        $f = __DIR__ . '/../data_aura_unidades.php';
+        $lista = is_file($f) ? (array) require $f : [];
+    }
+
+    $k = strtoupper(trim((string) $fraccao));
+
+    return $lista[$k] ?? null;
+}
+
+/**
+ * Área da fracção em texto, para entrar num contrato.
+ *
+ * Devolve a área bruta e, quando existe varanda, também o total — é a forma
+ * como as áreas são apresentadas na tabela comercial do Aura.
+ */
+function dps_aura_area_txt($fraccao)
+{
+    $u = dps_aura_unidade($fraccao);
+    if (!$u) {
+        return '';
+    }
+
+    $n = function ($x) {
+        return rtrim(rtrim(number_format((float) $x, 2, ',', '.'), '0'), ',');
+    };
+
+    $txt = $n($u['abc']) . ' m² de área bruta de construção';
+
+    if ((float) $u['varanda'] > 0) {
+        $txt .= ', acrescida de ' . $n($u['varanda']) . ' m² de varanda, num total de '
+              . $n($u['total']) . ' m²';
+    }
+
+    return $txt;
 }

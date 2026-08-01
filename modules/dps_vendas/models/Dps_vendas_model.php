@@ -110,8 +110,12 @@ class Dps_vendas_model extends App_Model
             'cliente_nacionalidade' => $data['cliente_nacionalidade'] ?? null,
             'cliente_freguesia'     => $data['cliente_freguesia'] ?? null,
             'cliente_concelho'      => $data['cliente_concelho'] ?? null,
-            // Só as empresas o têm. Vazio = comprador particular.
-            'cliente_crc'           => $data['cliente_crc'] ?? null,
+            // Particular ou Empresa. Decide como o comprador é identificado
+            // no CPCV e na declaração de cedência.
+            'cliente_tipo'              => $data['cliente_tipo'] ?? null,
+            'cliente_crc'               => $data['cliente_crc'] ?? null,
+            'cliente_representante'     => $data['cliente_representante'] ?? null,
+            'cliente_representante_nif' => $data['cliente_representante_nif'] ?? null,
             'cliente_telefone' => $data['cliente_telefone'] ?? null,
             'cliente_email'    => $data['cliente_email'] ?? null,
             'regime_civil'     => $data['regime_civil'] ?? null,
@@ -177,8 +181,12 @@ class Dps_vendas_model extends App_Model
             'cliente_nacionalidade' => $data['cliente_nacionalidade'] ?? null,
             'cliente_freguesia'     => $data['cliente_freguesia'] ?? null,
             'cliente_concelho'      => $data['cliente_concelho'] ?? null,
-            // Só as empresas o têm. Vazio = comprador particular.
-            'cliente_crc'           => $data['cliente_crc'] ?? null,
+            // Particular ou Empresa. Decide como o comprador é identificado
+            // no CPCV e na declaração de cedência.
+            'cliente_tipo'              => $data['cliente_tipo'] ?? null,
+            'cliente_crc'               => $data['cliente_crc'] ?? null,
+            'cliente_representante'     => $data['cliente_representante'] ?? null,
+            'cliente_representante_nif' => $data['cliente_representante_nif'] ?? null,
             'cliente_telefone' => $data['cliente_telefone'] ?? null,
             'cliente_email'    => $data['cliente_email'] ?? null,
             'regime_civil'     => $data['regime_civil'] ?? null,

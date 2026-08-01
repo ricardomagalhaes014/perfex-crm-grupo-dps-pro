@@ -151,23 +151,65 @@
                                 </div>
                             </div>
 
+                            <?php
+                            /*
+                             * Particular ou empresa. É esta escolha que decide como o
+                             * comprador é identificado no CPCV e na declaração de cedência:
+                             * a empresa leva NIPC, certidão, sede e quem assina por ela;
+                             * o particular leva estado civil, naturalidade e residência.
+                             *
+                             * Antes decidia-se pela presença do CRC, o que obrigava a
+                             * preencher a certidão só para o texto sair na forma certa.
+                             */
+                            $tipo_comprador = trim((string) ($venda['cliente_tipo'] ?? ''));
+                            $e_empresa_form = strcasecmp($tipo_comprador, 'empresa') === 0;
+                            ?>
                             <div class="row mtop15">
-                                <div class="col-md-6">
-                                    <label class="control-label">
-                                        Código de acesso à certidão permanente (CRC)
-                                        <small class="text-muted">— só se o comprador for uma empresa</small>
-                                    </label>
-                                    <input type="text" name="cliente_crc" class="form-control"
-                                           placeholder="0000-0000-0000"
-                                           value="<?php echo html_escape($venda['cliente_crc'] ?? ''); ?>">
+                                <div class="col-md-4">
+                                    <label class="control-label">Tipo de comprador</label>
+                                    <select name="cliente_tipo" id="dps-tipo-comprador" class="form-control">
+                                        <option value="Particular" <?php echo $e_empresa_form ? '' : 'selected'; ?>>Particular</option>
+                                        <option value="Empresa" <?php echo $e_empresa_form ? 'selected' : ''; ?>>Empresa</option>
+                                    </select>
                                     <span class="help-block" style="margin-bottom:0;">
-                                        Preenchido, o CPCV e a declaração de cedência identificam o comprador
-                                        como empresa — NIPC, certidão e sede. O Cartão de Cidadão acima
-                                        continua a ser preciso: nesse caso é o <strong>do gestor que assina</strong>
-                                        em nome da empresa. Deixe vazio se o comprador for um particular.
+                                        Sendo particular, o contrato sai com o nome, estado civil e
+                                        residência — sem certidão nem representante.
                                     </span>
                                 </div>
                             </div>
+
+                            <div class="row mtop15 dps-so-empresa" style="<?php echo $e_empresa_form ? '' : 'display:none;'; ?>">
+                                <div class="col-md-4">
+                                    <label class="control-label">Código de acesso à certidão permanente (CRC)</label>
+                                    <input type="text" name="cliente_crc" class="form-control"
+                                           placeholder="0000-0000-0000"
+                                           value="<?php echo html_escape($venda['cliente_crc'] ?? ''); ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="control-label">Representante legal da empresa</label>
+                                    <input type="text" name="cliente_representante" class="form-control"
+                                           placeholder="Quem assina em nome da empresa"
+                                           value="<?php echo html_escape($venda['cliente_representante'] ?? ''); ?>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="control-label">NIF do representante</label>
+                                    <input type="text" name="cliente_representante_nif" class="form-control"
+                                           placeholder="000000000"
+                                           value="<?php echo html_escape($venda['cliente_representante_nif'] ?? ''); ?>">
+                                    <span class="help-block" style="margin-bottom:0;">
+                                        O Cartão de Cidadão pedido acima é o <strong>do representante</strong>,
+                                        não o da empresa.
+                                    </span>
+                                </div>
+                            </div>
+
+                            <script>
+                            $(function () {
+                                $('#dps-tipo-comprador').on('change', function () {
+                                    $('.dps-so-empresa').toggle($(this).val() === 'Empresa');
+                                }).trigger('change');
+                            });
+                            </script>
 
                             <div class="row mtop15">
                                 <div class="col-md-3">
