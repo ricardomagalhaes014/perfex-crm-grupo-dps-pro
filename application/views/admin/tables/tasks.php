@@ -41,6 +41,28 @@ return App_table::find('tasks')
             $where[] = 'AND (' . db_prefix() . 'tasks.id IN (SELECT taskid FROM ' . db_prefix() . 'task_assigned WHERE staffid = ' . get_staff_user_id() . ') AND status != '.Tasks_model::STATUS_COMPLETE.')';
         }
 
+        /*
+         * DPS: selector de comercial por cima da lista de tarefas.
+         *
+         * O campo chega aqui pelo mesmo caminho do my_tasks acima: um input
+         * escondido dentro de ._hidden_inputs._filters._tasks_filters, que o
+         * main.js envia em cada pedido da tabela. Quem o escreve e desenha o
+         * selector é application/hooks/dps_filtro_comercial_tarefas_hook.php.
+         *
+         * Convertido a inteiro antes de entrar no SQL: o valor vem do browser
+         * e aqui é concatenado à consulta, como todo o resto deste ficheiro.
+         *
+         * Isto ESTREITA o que se vê, nunca alarga: um comercial sem permissão
+         * de ver tudo continua limitado pelo get_tasks_where_string() acima,
+         * que já foi aplicado. Escolher outra pessoa mostra-lhe a intersecção,
+         * não as tarefas dela.
+         */
+        $dps_comercial = (int) $this->ci->input->post('dps_comercial');
+        if ($dps_comercial > 0) {
+            $where[] = 'AND ' . db_prefix() . 'tasks.id IN (SELECT taskid FROM '
+                     . db_prefix() . 'task_assigned WHERE staffid = ' . $dps_comercial . ')';
+        }
+
         array_push($where, 'AND CASE WHEN rel_type="project" AND rel_id IN (SELECT project_id FROM ' . db_prefix() . 'project_settings WHERE project_id=rel_id AND name="hide_tasks_on_main_tasks_table" AND value=1) THEN rel_type != "project" ELSE 1=1 END');
 
         $custom_fields = get_table_custom_fields('tasks');
