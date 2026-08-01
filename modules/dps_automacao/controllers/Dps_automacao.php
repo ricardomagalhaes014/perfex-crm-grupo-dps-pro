@@ -1120,7 +1120,9 @@ class Dps_automacao extends AdminController
     public function envio_massa_tarefa()
     {
         $data['estados']    = $this->dps_automacao_model->get_estados_tarefa();
-        $data['comerciais'] = is_admin() ? $this->dps_automacao_model->get_comerciais() : [];
+        // Só quem tem tarefas: um selector com nomes sem tarefa nenhuma não
+        // ajuda a escolher, atrapalha.
+        $data['comerciais'] = is_admin() ? $this->dps_automacao_model->get_comerciais_com_tarefas() : [];
         $data['title']      = 'Envio Massa Tarefa';
 
         $this->load->view('envio_massa_tarefa', $data);
@@ -1186,6 +1188,44 @@ class Dps_automacao extends AdminController
             $this->responder_json(['erro' => 'O assunto e a mensagem não podem ficar vazios.']);
         }
 
+        /*
+         * ANEXO — opcional, um só ficheiro, guardado uma vez e reaproveitado
+         * em todos os emails do lote. Guardar por destinatário seria escrever
+         * o mesmo ficheiro centenas de vezes no disco.
+         *
+         * Só se aceitam os formatos que fazem sentido mandar a um cliente. Um
+         * envio em massa é o pior sítio possível para deixar passar um
+         * executável: sai para centenas de caixas de uma vez.
+         */
+        $anexo = null;
+        $anexo_nome = '';
+
+        if (!empty($_FILES['anexo']['name']) && (int) ($_FILES['anexo']['error'] ?? 1) === UPLOAD_ERR_OK) {
+            $permitidas = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
+            $ext = strtolower(pathinfo((string) $_FILES['anexo']['name'], PATHINFO_EXTENSION));
+
+            if (!in_array($ext, $permitidas, true)) {
+                $this->responder_json(['erro' => 'Formato não permitido (' . $ext . '). Aceita-se '
+                    . implode(', ', $permitidas) . '.']);
+            }
+            if ((int) $_FILES['anexo']['size'] > 10 * 1024 * 1024) {
+                $this->responder_json(['erro' => 'O anexo passa dos 10 MB. Muitos servidores de email '
+                    . 'recusam anexos grandes e o lote inteiro falharia.']);
+            }
+
+            $pasta = FCPATH . 'uploads/dps_automacao_anexos/';
+            if (!is_dir($pasta)) {
+                mkdir($pasta, 0755, true);
+            }
+
+            $anexo_nome = preg_replace('/[^\w .\-]+/u', '', (string) $_FILES['anexo']['name']);
+            $anexo      = $pasta . uniqid('anexo_', true) . '.' . $ext;
+
+            if (!move_uploaded_file($_FILES['anexo']['tmp_name'], $anexo)) {
+                $this->responder_json(['erro' => 'Não foi possível guardar o anexo.']);
+            }
+        }
+
         $destinos = $this->dps_automacao_model->get_tarefas_para_envio(
             $estados,
             $this->comercial_do_post()
@@ -1203,12 +1243,24 @@ class Dps_automacao extends AdminController
              * leads: o cliente responde a quem o acompanha, não a uma caixa
              * geral que ninguém lê.
              */
-            $ok = dps_automacao_enviar_email_lead(
-                $d['email'],
-                $assunto,
-                nl2br(html_escape($texto)),
-                (int) $d['assigned'] ?: null
-            );
+            if ($anexo !== null) {
+                $ok = dps_automacao_enviar_email_proposta(
+                    $d['email'],
+                    (string) $d['name'],
+                    $assunto,
+                    $texto,
+                    $anexo,
+                    $anexo_nome,
+                    (int) $d['assigned'] ?: null
+                );
+            } else {
+                $ok = dps_automacao_enviar_email_lead(
+                    $d['email'],
+                    $assunto,
+                    nl2br(html_escape($texto)),
+                    (int) $d['assigned'] ?: null
+                );
+            }
 
             if ($ok) {
                 $enviados++;
@@ -1221,11 +1273,17 @@ class Dps_automacao extends AdminController
             usleep(200000);
         }
 
+        // O anexo já cumpriu o seu papel: fica no disco só o tempo do lote.
+        if ($anexo !== null && is_file($anexo)) {
+            @unlink($anexo);
+        }
+
         $this->responder_json([
             'enviados' => $enviados,
             'falhas'   => count($falhas),
             'exemplos' => array_slice($falhas, 0, 5),
             'total'    => count($destinos),
+            'anexo'    => $anexo_nome,
         ]);
     }
 }

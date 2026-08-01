@@ -49,9 +49,23 @@
                         <label class="control-label">Comercial</label>
                         <select id="dps-comercial" class="form-control">
                             <option value="">Todos</option>
-                            <?php foreach ($comerciais as $c) { ?>
+                            <?php foreach ($comerciais as $c) {
+                                /*
+                                 * O nome vinha vazio: a consulta devolve firstname/lastname
+                                 * e aqui lia-se 'nome', que não existia. As opções apareciam
+                                 * em branco — via-se o selector, mas não os nomes.
+                                 */
+                                $rotulo = trim((string) ($c['nome'] ?? ''));
+                                if ($rotulo === '') {
+                                    $rotulo = trim(($c['firstname'] ?? '') . ' ' . ($c['lastname'] ?? ''));
+                                }
+                                if ($rotulo === '') {
+                                    $rotulo = 'Staff #' . (int) $c['staffid'];
+                                }
+                                ?>
                                 <option value="<?php echo (int) $c['staffid']; ?>">
-                                    <?php echo html_escape($c['nome']); ?>
+                                    <?php echo html_escape($rotulo); ?><?php
+                                        echo isset($c['n']) ? ' (' . (int) $c['n'] . ')' : ''; ?>
                                 </option>
                             <?php } ?>
                         </select>
@@ -86,6 +100,16 @@
                         <small class="text-muted">
                             <strong>{nome}</strong> é substituído pelo nome do cliente e
                             <strong>{comercial}</strong> pelo nome de quem tem a tarefa.
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label">Anexo <small class="text-muted">(opcional)</small></label>
+                        <input type="file" id="dps-anexo" class="form-control"
+                               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                        <small class="text-muted">
+                            Um ficheiro, até 10 MB. PDF, imagem, Word ou Excel — nada que
+                            um servidor de email recuse à porta.
                         </small>
                     </div>
 
@@ -183,8 +207,25 @@
         var res = document.getElementById('dps-resultado');
         res.innerHTML = '';
 
-        $.post(BASE + 'envio_massa_tarefa_enviar', dados({ assunto: assunto, mensagem: mensagem }),
-        function (r) {
+        /*
+         * FormData em vez de $.post simples: um ficheiro não viaja num pedido
+         * codificado como formulário normal. O resto dos campos segue no mesmo
+         * pacote, incluindo o token do Perfex.
+         */
+        var fd = new FormData();
+        var d  = dados({ assunto: assunto, mensagem: mensagem });
+        Object.keys(d).forEach(function (k) { fd.append(k, d[k]); });
+
+        var f = document.getElementById('dps-anexo');
+        if (f && f.files && f.files[0]) { fd.append('anexo', f.files[0]); }
+
+        $.ajax({
+            url: BASE + 'envio_massa_tarefa_enviar',
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false
+        }).done(function (r) {
             try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
             botao.innerHTML = '<i class="fa fa-paper-plane"></i> Enviar';
             if (!r || r.erro) {
@@ -197,6 +238,7 @@
                 h += ' · <strong>' + r.falhas + '</strong> falharam';
                 if (r.exemplos && r.exemplos.length) { h += '<br><small>' + r.exemplos.join(', ') + '</small>'; }
             }
+            if (r.anexo) { h += '<div class="text-muted">com o anexo <strong>' + r.anexo + '</strong></div>'; }
             h += '</div>';
             res.innerHTML = h;
         }).fail(function () {

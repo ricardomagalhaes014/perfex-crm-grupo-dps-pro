@@ -466,4 +466,25 @@ class Dps_automacao_model extends App_Model
 
         return $saida;
     }
+
+    /**
+     * Quem tem tarefas, com a contagem — para o selector do envio por tarefa.
+     *
+     * Listar os 22 activos quando só 9 têm tarefas dá um selector cheio de
+     * nomes que não levam a lado nenhum. E a contagem ao lado poupa a escolher
+     * um nome só para descobrir que não tem nada.
+     */
+    public function get_comerciais_com_tarefas()
+    {
+        $p = db_prefix();
+
+        return $this->db->query(
+            "SELECT s.staffid, CONCAT(s.firstname, ' ', s.lastname) AS nome, COUNT(DISTINCT ta.taskid) AS n
+             FROM `{$p}task_assigned` ta
+             JOIN `{$p}staff` s ON s.staffid = ta.staffid
+             GROUP BY s.staffid
+             HAVING n > 0
+             ORDER BY n DESC"
+        )->result_array();
+    }
 }
