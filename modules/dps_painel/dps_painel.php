@@ -15,11 +15,37 @@ define('DPS_PAINEL_VERSION', '1.2.0');
 define('DPS_PAINEL_UPLOAD', 'uploads/dps_painel/');
 
 /**
- * Só o Ricardo (staff 1) vê ou entra seja no que for deste módulo.
+ * Só o Ricardo (staff 1) vê o painel INTEIRO.
  */
 function dps_painel_is_owner()
 {
     return function_exists('get_staff_user_id') && (int) get_staff_user_id() === 1;
+}
+
+/**
+ * Quem vê apenas a secção "O que sai" — o que se paga aos comerciais e à
+ * direcção.
+ *
+ * A Samara e o Cláudio precisam de acompanhar o que a casa deve, mas o resto
+ * do painel — quanto a DPS recebe do promotor, a tesouraria, o resultado — é
+ * do dono e continua fechado. É por isso que não basta dar-lhes acesso ao
+ * módulo: entram, mas vêem só esta parte.
+ *
+ * Para acrescentar alguém, junta-se o número a esta lista.
+ */
+function dps_painel_ve_o_que_sai()
+{
+    if (!function_exists('get_staff_user_id')) {
+        return false;
+    }
+
+    return in_array((int) get_staff_user_id(), [17, 46], true);   // Samara, Cláudio
+}
+
+/** Entra no módulo: o dono (tudo) ou quem só vê "O que sai". */
+function dps_painel_pode_entrar()
+{
+    return dps_painel_is_owner() || dps_painel_ve_o_que_sai();
 }
 
 /**
@@ -73,7 +99,7 @@ hooks()->add_action('admin_init', 'dps_painel_menu');
 
 function dps_painel_menu()
 {
-    if (!dps_painel_is_owner()) {
+    if (!dps_painel_pode_entrar()) {
         return;
     }
     $CI = &get_instance();

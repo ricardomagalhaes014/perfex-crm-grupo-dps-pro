@@ -47,6 +47,7 @@ $pct    = function ($n) {
         <div class="row mbot15">
             <div class="col-md-6"><h4 class="no-margin"><i class="fa fa-briefcase"></i> Painel do Negócio</h4></div>
             <div class="col-md-6 text-right">
+                <?php if (empty($so_o_que_sai)) { ?>
                 <a href="<?php echo admin_url('dps_painel/recebimento'); ?>" class="btn btn-default btn-sm">
                     <i class="fa fa-percent"></i> Comissões a receber
                 </a>
@@ -54,10 +55,11 @@ $pct    = function ($n) {
                     <i class="fa fa-plug"></i> Definições
                     <?php echo !empty($moloni['dev_id']) ? '<span class="label label-success">Moloni on</span>' : '<span class="label label-default">Moloni off</span>'; ?>
                 </a>
+                <?php } ?>
             </div>
         </div>
 
-        <?php if (!empty($totais['sem_taxa'])) { ?>
+        <?php if (empty($so_o_que_sai) && !empty($totais['sem_taxa'])) { ?>
             <div class="alert alert-warning">
                 <i class="fa fa-warning"></i>
                 Há <strong><?php echo (int) $totais['sem_taxa']; ?></strong> venda(s) sem comissão a receber definida —
@@ -309,6 +311,16 @@ $pct    = function ($n) {
             <?php
             };
 
+            /*
+             * A Samara e o Cláudio vêem só "O que sai" — o que a casa deve aos
+             * comerciais e à direcção. O que a DPS recebe, a tesouraria e o
+             * resultado são do dono. Filtra-se aqui, e as acções do controlador
+             * têm a sua própria guarda: esconder um cartão não protege nada.
+             */
+            if (!empty($so_o_que_sai)) {
+                $seccoes = array_intersect_key($seccoes, ['O que sai' => true]);
+            }
+
             foreach ($seccoes as $titulo => $etiquetas) {
                 $desta = [];
                 foreach ($etiquetas as $etiqueta) {
@@ -499,6 +511,7 @@ $pct    = function ($n) {
         <?php } ?>
 
         <!-- Resumo por empreendimento -->
+        <?php if (empty($so_o_que_sai)) { ?>
         <div class="panel_s"><div class="panel-body">
             <h4 class="no-margin">Por empreendimento</h4>
             <p class="text-muted">
@@ -948,6 +961,8 @@ $pct    = function ($n) {
                 </tbody>
             </table>
         </div></div>
+
+        <?php } /* fim do que é só do dono */ ?>
 
     </div>
 </div>

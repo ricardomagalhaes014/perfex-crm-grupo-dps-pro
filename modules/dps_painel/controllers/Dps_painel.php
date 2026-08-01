@@ -17,7 +17,7 @@ class Dps_painel extends AdminController
          * aconteceu a 29/07/2026. Aqui diz-se com que conta está a entrar,
          * que é a informação que resolve o problema em dois segundos.
          */
-        if (!dps_painel_is_owner()) {
+        if (!dps_painel_pode_entrar()) {
             $id   = function_exists('get_staff_user_id') ? (int) get_staff_user_id() : 0;
             $nome = function_exists('get_staff_full_name') ? get_staff_full_name($id) : '';
 
@@ -26,8 +26,8 @@ class Dps_painel extends AdminController
             echo '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:80px auto;'
                 . 'padding:28px 32px;border:1px solid #e5e7eb;border-radius:10px;line-height:1.6;">'
                 . '<h2 style="margin:0 0 12px;">Painel do Negócio &mdash; privado</h2>'
-                . '<p>Este painel mostra o que a DPS recebe por venda e <strong>só abre na conta do Ricardo</strong> '
-                . '(ID 1). Os restantes administradores não lhe chegam, de propósito.</p>'
+                . '<p>Este painel mostra o que a DPS recebe por venda e <strong>abre apenas a quem tem acesso</strong>. '
+                . 'Os restantes administradores não lhe chegam, de propósito.</p>'
                 . '<p style="background:#f9fafb;padding:12px 14px;border-radius:6px;">'
                 . 'Está a entrar como <strong>' . html_escape($nome ?: 'desconhecido') . '</strong> '
                 . '(ID ' . $id . ').</p>'
@@ -89,6 +89,13 @@ class Dps_painel extends AdminController
      */
     public function diag()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         header('Content-Type: text/plain; charset=utf-8');
         while (ob_get_level() > 0) {
             ob_end_clean();
@@ -163,6 +170,7 @@ class Dps_painel extends AdminController
         $data['filtros']  = $filtros;
         $data['opcoes']   = $this->m->opcoes_filtros();
         $data['moloni']   = $this->m->moloni_config();
+        $data['so_o_que_sai'] = !dps_painel_is_owner();
         $data['title']    = 'Painel do Negócio';
 
         $this->load->view('manage', $data);
@@ -171,6 +179,13 @@ class Dps_painel extends AdminController
 
     public function guardar_venda($venda_id)
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         // Escritas só por POST: um GET com efeitos abre a porta a que um link
         // qualquer altere números do painel.
         if (!$this->input->post()) {
@@ -213,6 +228,13 @@ class Dps_painel extends AdminController
 
     public function recebimento()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         if ($this->input->post()) {
             $post = $this->input->post();
             $id   = !empty($post['id']) ? (int) $post['id'] : null;
@@ -267,6 +289,13 @@ class Dps_painel extends AdminController
 
     public function recebimento_delete()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         // Apagar é destrutivo: só por POST (com o token do form_open).
         if (!$this->input->post()) {
             redirect(admin_url('dps_painel/recebimento'));
@@ -280,6 +309,13 @@ class Dps_painel extends AdminController
 
     public function despesa_add()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         if ($this->input->post()) {
             $doc  = $this->upload_despesa_doc();
             $post = $this->input->post();
@@ -294,6 +330,13 @@ class Dps_painel extends AdminController
 
     public function despesa_delete($id)
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         // Idem: destruição só por POST.
         if (!$this->input->post()) {
             redirect(admin_url('dps_painel'));
@@ -312,6 +355,13 @@ class Dps_painel extends AdminController
 
     public function despesa_doc($id)
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         $d = $this->m->get_despesa($id);
         if (!$d || empty($d['doc'])) {
             show_404();
@@ -328,6 +378,13 @@ class Dps_painel extends AdminController
 
     public function definicoes()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         if ($this->input->post()) {
             // Dois formulários na mesma página; o campo escondido 'bloco' diz
             // qual deles submeteu, para não gravarmos Moloni com um POST de
@@ -352,6 +409,13 @@ class Dps_painel extends AdminController
 
     public function moloni_testar()
     {
+        /*
+         * Só o dono. Quem só vê "O que sai" entra no módulo mas não passa
+         * daqui: estas acções mexem no que a DPS recebe, nas despesas e nas
+         * credenciais do Moloni.
+         */
+        $this->so_o_dono();
+
         $r = $this->m->moloni_test();
         if ($r['ok']) {
             $lista = implode(', ', array_map(function ($e) {
@@ -383,5 +447,33 @@ class Dps_painel extends AdminController
         }
 
         return null;
+    }
+
+    /**
+     * Corta a acção a quem não é o dono.
+     *
+     * A Samara e o Cláudio entram no painel para ver "O que sai" — o que se
+     * paga aos comerciais e à direcção. Tudo o resto (o que a DPS recebe, as
+     * despesas, o Moloni) continua fechado. Sem esta guarda, bastava-lhes
+     * escrever o endereço da acção à mão para lá chegarem: esconder um botão
+     * não é proteger nada.
+     */
+    private function so_o_dono()
+    {
+        if (dps_painel_is_owner()) {
+            return;
+        }
+
+        log_activity('Painel do Negócio: acção reservada ao dono, recusada a staff '
+            . (int) get_staff_user_id());
+
+        echo '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:80px auto;'
+            . 'padding:28px 32px;border:1px solid #e5e7eb;border-radius:10px;line-height:1.6;">'
+            . '<h3 style="margin:0 0 12px;">Esta parte é do dono</h3>'
+            . '<p>Vê o quadro <strong>O que sai</strong> — o que se paga aos comerciais e à '
+            . 'direcção. O resto do Painel do Negócio não abre nesta conta.</p>'
+            . '<p><a href="' . admin_url('dps_painel') . '">&larr; Voltar ao painel</a></p>'
+            . '</div>';
+        exit;
     }
 }
