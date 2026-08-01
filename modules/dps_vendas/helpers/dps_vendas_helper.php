@@ -321,16 +321,44 @@ function dps_cpcv_gerar(array $v)
 
     $subs = [];
 
-    $subs['PRIMEIRO OUTORGANTE:'] =
-        '____ PRIMEIRO OUTORGANTE: ' . $v['cliente'] . ', NIF ' . $v['cliente_nif']
-        . ' (Cartão de Cidadão n.º ' . $v['cliente_cc'] . ', emitido pela República Portuguesa, válido até '
-        . $val_cc . '), ' . mb_strtolower((string) $v['regime_civil'], 'UTF-8')
-        . ', natural de ' . $v['cliente_naturalidade']
-        . ', de nacionalidade ' . mb_strtolower((string) $v['cliente_nacionalidade'], 'UTF-8')
-        . ', residente na ' . $v['cliente_morada']
-        . ', freguesia de ' . $v['cliente_freguesia']
-        . ', concelho de ' . $v['cliente_concelho']
-        . ' (CP ' . $v['cliente_codigo_postal'] . '). _______________________________';
+    /*
+     * O comprador pode ser uma empresa. Uma empresa identifica-se pelo NIPC e
+     * pela certidão do registo comercial, tem sede em vez de residência, e não
+     * tem estado civil, naturalidade nem nacionalidade.
+     *
+     * O que NÃO desaparece é o Cartão de Cidadão: continua a ser preciso, mas
+     * é o do gestor que assina em nome da empresa, não o da empresa. Por isso
+     * os campos do CC ficam nos dois casos — só muda de quem são.
+     *
+     * É o código de acesso à certidão (CRC) que decide qual das duas
+     * redacções sai: preenchido, é empresa; vazio, é particular.
+     */
+    $crc = trim((string) ($v['cliente_crc'] ?? ''));
+
+    if ($crc !== '') {
+        $subs['PRIMEIRO OUTORGANTE:'] =
+            '____ PRIMEIRO OUTORGANTE: ' . $v['cliente'] . ', NIPC ' . $v['cliente_nif']
+            . ', matriculada na Conservatória do Registo Comercial, com o código de acesso à '
+            . 'certidão permanente n.º ' . $crc
+            . ', com sede na ' . $v['cliente_morada']
+            . ', freguesia de ' . $v['cliente_freguesia']
+            . ', concelho de ' . $v['cliente_concelho']
+            . ' (CP ' . $v['cliente_codigo_postal'] . '), neste ato representada por '
+            . '«REPRESENTANTE DA EMPRESA — PREENCHER», portador do Cartão de Cidadão n.º '
+            . $v['cliente_cc'] . ', emitido pela República Portuguesa, válido até ' . $val_cc
+            . ', com poderes para o ato. _______________________________';
+    } else {
+        $subs['PRIMEIRO OUTORGANTE:'] =
+            '____ PRIMEIRO OUTORGANTE: ' . $v['cliente'] . ', NIF ' . $v['cliente_nif']
+            . ' (Cartão de Cidadão n.º ' . $v['cliente_cc'] . ', emitido pela República Portuguesa, válido até '
+            . $val_cc . '), ' . mb_strtolower((string) $v['regime_civil'], 'UTF-8')
+            . ', natural de ' . $v['cliente_naturalidade']
+            . ', de nacionalidade ' . mb_strtolower((string) $v['cliente_nacionalidade'], 'UTF-8')
+            . ', residente na ' . $v['cliente_morada']
+            . ', freguesia de ' . $v['cliente_freguesia']
+            . ', concelho de ' . $v['cliente_concelho']
+            . ' (CP ' . $v['cliente_codigo_postal'] . '). _______________________________';
+    }
 
     $subs['O preço global da presente promessa'] =
         'O preço global da presente promessa é de ' . dps_cpcv_eur($preco) . ' ('
@@ -487,6 +515,17 @@ function dps_declaracao_cessao_gerar(array $v)
 
     $contribuinte = trim((string) ($v['cliente_nif'] ?? ''));
 
+    /*
+     * Se o comprador for uma empresa, a declaração tem de a identificar pela
+     * certidão do registo comercial — é o que o promotor exige para aceitar a
+     * cedência. Vazio significa comprador particular e a frase não muda.
+     */
+    $crc     = trim((string) ($v['cliente_crc'] ?? ''));
+    $crc_txt = $crc !== ''
+        ? 'matriculada na Conservatória do Registo Comercial, com o código de acesso à '
+          . 'certidão permanente n.º ' . $crc . ', '
+        : '';
+
     $comprador = trim((string) $v['cliente']);
     $comprador = $comprador !== '' ? $comprador : $traco;
 
@@ -510,6 +549,7 @@ function dps_declaracao_cessao_gerar(array $v)
         . 'designada pela letra «FRAÇÃO — PREENCHER», referente a um «TIPOLOGIA — PREENCHER», no piso '
         . '«PISO — PREENCHER», com «PREENCHER», autoriza ' . $comprador . ', '
         . ($contribuinte !== '' ? 'contribuinte n.º ' . $contribuinte : 'contribuinte n.º ' . $traco) . ', '
+        . $crc_txt
         . ($morada !== '' ? 'com morada em ' . $morada : 'com morada em ' . $traco) . ', '
         . 'neste ato representada por «PREENCHER SE FOR SOCIEDADE», adiante designada por '
         . '“Promitente Compradora”, a ceder a posição contratual que detém relativamente à referida '

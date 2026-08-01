@@ -152,6 +152,24 @@
                             </div>
 
                             <div class="row mtop15">
+                                <div class="col-md-6">
+                                    <label class="control-label">
+                                        Código de acesso à certidão permanente (CRC)
+                                        <small class="text-muted">— só se o comprador for uma empresa</small>
+                                    </label>
+                                    <input type="text" name="cliente_crc" class="form-control"
+                                           placeholder="0000-0000-0000"
+                                           value="<?php echo html_escape($venda['cliente_crc'] ?? ''); ?>">
+                                    <span class="help-block" style="margin-bottom:0;">
+                                        Preenchido, o CPCV e a declaração de cedência identificam o comprador
+                                        como empresa — NIPC, certidão e sede. O Cartão de Cidadão acima
+                                        continua a ser preciso: nesse caso é o <strong>do gestor que assina</strong>
+                                        em nome da empresa. Deixe vazio se o comprador for um particular.
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="row mtop15">
                                 <div class="col-md-3">
                                     <label class="control-label">Naturalidade</label>
                                     <input type="text" name="cliente_naturalidade" class="form-control"

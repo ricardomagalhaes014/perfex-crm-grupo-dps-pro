@@ -437,8 +437,28 @@ class Dps_vendas extends AdminController
             redirect(admin_url('dps_vendas/view/' . (int) $id));
         }
 
-        $faltam = [];
-        foreach ([
+        /*
+         * Uma empresa não tem estado civil, naturalidade nem nacionalidade —
+         * identifica-se pelo NIPC e pela certidão do registo comercial.
+         * Exigir-lhe esses três campos era impedir de vez que o contrato
+         * saísse.
+         *
+         * O Cartão de Cidadão continua a ser exigido: é o do gestor que
+         * assina em nome da empresa, e sem ele o contrato não fica completo.
+         *
+         * O CRC preenchido é o que distingue os dois casos.
+         */
+        $e_empresa = trim((string) ($venda['cliente_crc'] ?? '')) !== '';
+
+        $obrigatorios = $e_empresa ? [
+            'cliente_nif'           => 'NIPC',
+            'cliente_cc'            => 'n.º do Cartão de Cidadão do gestor',
+            'cliente_cc_validade'   => 'validade do Cartão de Cidadão do gestor',
+            'cliente_morada'        => 'sede',
+            'cliente_codigo_postal' => 'código postal',
+            'cliente_freguesia'     => 'freguesia',
+            'cliente_concelho'      => 'concelho',
+        ] : [
             'cliente_nif'           => 'NIF',
             'cliente_cc'            => 'n.º do Cartão de Cidadão',
             'cliente_cc_validade'   => 'validade do Cartão de Cidadão',
@@ -449,7 +469,10 @@ class Dps_vendas extends AdminController
             'cliente_morada'        => 'morada',
             'cliente_codigo_postal' => 'código postal',
             'regime_civil'          => 'estado civil',
-        ] as $campo => $etiqueta) {
+        ];
+
+        $faltam = [];
+        foreach ($obrigatorios as $campo => $etiqueta) {
             if (trim((string) ($venda[$campo] ?? '')) === '') {
                 $faltam[] = $etiqueta;
             }
