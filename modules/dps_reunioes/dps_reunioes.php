@@ -316,7 +316,19 @@ function dps_reunioes_bloco_lead($lead)
     $pre_email = (string) ($lead->email ?? '');
     $pre_tel   = (string) ($lead->phonenumber ?? '');
 
-    echo '<div class="tab-pane" id="dps_reunioes_lead">';
+    /*
+     * NASCE VISÍVEL, sem a classe tab-pane.
+     *
+     * À primeira versão dei-lhe tab-pane logo à partida e disse que "degrada,
+     * não desaparece" — estava errado: o Bootstrap esconde um tab-pane que não
+     * esteja activo, esteja ele onde estiver. Quando o JavaScript não o
+     * promoveu a separador, o bloco não ficou em baixo: ficou invisível.
+     *
+     * Agora é o contrário. Fica à vista no fundo da janela, como faz o painel
+     * do dps_credito, e só se transforma em separador SE houver mesmo onde o
+     * encaixar. Falhando isso, continua a ver-se.
+     */
+    echo '<div id="dps_reunioes_lead" class="mtop20">';
     $CI->load->view('dps_reunioes/bloco_ficha',
         compact('rel_type', 'rel_id', 'pre_nome', 'pre_email', 'pre_tel'));
     echo '</div>';
@@ -330,6 +342,7 @@ function dps_reunioes_bloco_lead($lead)
     var lista = modal.querySelector('ul.nav-tabs');
     var pai   = modal.querySelector('.tab-content');
 
+    // Sem sítio onde encaixar, fica onde está — visível.
     if (!lista || !pai || lista.querySelector('a[href="#dps_reunioes_lead"]')) { return; }
 
     var li = document.createElement('li');
@@ -338,7 +351,9 @@ function dps_reunioes_bloco_lead($lead)
                  + '<i class="fa fa-video-camera menu-icon"></i> Reuniões</a>';
     lista.appendChild(li);
 
-    // O painel passa para dentro do contentor, senão o Bootstrap nunca o mostra.
+    // Só agora vira painel de separador: a partir daqui o Bootstrap manda nele.
+    painel.classList.add('tab-pane');
+    painel.classList.remove('mtop20');
     pai.appendChild(painel);
 })();
 </script>
