@@ -22,14 +22,27 @@ try {
 $action = isset($_GET['action']) ? $_GET['action'] : 'check';
 
 if ($action === 'check') {
-    // Mostrar últimas 10 leads MV e AURA
-    $stmt_mv = $pdo->query("
-        SELECT l.id, l.name, l.email, l.description, l.dateadded
-        FROM tblleads l
-        INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
-        INNER JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = 'MV'
-        ORDER BY l.dateadded DESC LIMIT 10
-    ");
+    // Mostrar leads MV desde data especificada (default: últimas 10)
+    $since = isset($_GET['since']) ? $_GET['since'] : null;
+    if ($since) {
+        $stmt_mv = $pdo->prepare("
+            SELECT l.id, l.name, l.email, l.description, l.dateadded
+            FROM tblleads l
+            INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
+            INNER JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = 'MV'
+            WHERE l.dateadded >= ?
+            ORDER BY l.dateadded DESC
+        ");
+        $stmt_mv->execute([$since]);
+    } else {
+        $stmt_mv = $pdo->query("
+            SELECT l.id, l.name, l.email, l.description, l.dateadded
+            FROM tblleads l
+            INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
+            INNER JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = 'MV'
+            ORDER BY l.dateadded DESC LIMIT 10
+        ");
+    }
     $stmt_aura = $pdo->query("
         SELECT l.id, l.name, l.email, l.description, l.dateadded
         FROM tblleads l
@@ -39,8 +52,62 @@ if ($action === 'check') {
     ");
     echo json_encode([
         'action' => 'check',
+        'since' => $since,
         'last_mv_leads' => $stmt_mv->fetchAll(PDO::FETCH_ASSOC),
         'last_aura_leads' => $stmt_aura->fetchAll(PDO::FETCH_ASSOC)
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
+if ($action === 'fix_by_date') {
+    // Corrigir leads MV -> AURA desde uma data especificada
+    $since = isset($_GET['since']) ? $_GET['since'] : null;
+    $dry = isset($_GET['dry']) ? ($_GET['dry'] == '1') : true;
+    if (!$since) { echo json_encode(['error' => 'Parametro since obrigatorio (ex: 2026-07-29']); exit; }
+
+    // Obter tag IDs
+    $mv_row = $pdo->query("SELECT id FROM tbltags WHERE name = 'MV' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $aura_row = $pdo->query("SELECT id FROM tbltags WHERE name = 'AURA' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$mv_row) { echo json_encode(['error' => 'Tag MV nao encontrada']); exit; }
+    $mv_tag_id = $mv_row['id'];
+    $aura_tag_id = $aura_row ? $aura_row['id'] : null;
+    if (!$aura_tag_id) {
+        $pdo->prepare("INSERT INTO tbltags (name) VALUES ('AURA')")->execute();
+        $aura_tag_id = $pdo->lastInsertId();
+    }
+
+    // Obter leads com tag MV desde a data
+    $stmt = $pdo->prepare("
+        SELECT l.id, l.name, l.email, l.description, l.dateadded
+        FROM tblleads l
+        INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead' AND t.tag_id = ?
+        WHERE l.dateadded >= ?
+        ORDER BY l.dateadded ASC
+    ");
+    $stmt->execute([$mv_tag_id, $since]);
+    $leads = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $fixed = 0;
+    if (!$dry) {
+        foreach ($leads as $lead) {
+            // Remover tag MV
+            $pdo->prepare("DELETE FROM tbltaggables WHERE rel_id=? AND rel_type='lead' AND tag_id=?")->execute([$lead['id'], $mv_tag_id]);
+            // Adicionar tag AURA
+            $pdo->prepare("INSERT IGNORE INTO tbltaggables (rel_id, rel_type, tag_id) VALUES (?,?,?)")->execute([$lead['id'], 'lead', $aura_tag_id]);
+            // Actualizar descrição
+            $new_desc = str_replace('Lead Facebook Lead Ads - MV', 'Lead Facebook Lead Ads - AURA', $lead['description']);
+            $pdo->prepare("UPDATE tblleads SET description=? WHERE id=?")->execute([$new_desc, $lead['id']]);
+            $fixed++;
+        }
+    }
+
+    echo json_encode([
+        'action' => $action,
+        'since' => $since,
+        'dry_run' => $dry,
+        'total_found' => count($leads),
+        'fixed' => $fixed,
+        'leads' => $leads
     ], JSON_PRETTY_PRINT);
     exit;
 }
