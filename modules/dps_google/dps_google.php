@@ -287,3 +287,149 @@ function dps_google_evento_apagar($staff_id, $event_id)
     // 410 = já lá não estava. Para o nosso efeito é o mesmo que ter apagado.
     return $r['ok'] || $r['codigo'] === 410;
 }
+
+/* =========================================================================
+ * A AGENDA DO CRM NO GOOGLE CALENDAR
+ *
+ * Não são só as reuniões online. O que a pessoa marca na agenda do Perfex —
+ * eventos e lembretes — passa a aparecer no calendário Google dela.
+ *
+ * COMO SE EVITA REESCREVER TUDO DE 5 EM 5 MINUTOS. De cada item guarda-se
+ * uma impressão digital dos campos que interessam. Se não mudou, não se toca:
+ * sem isso o cron reescrevia dezenas de eventos a cada passagem, gastava
+ * quota da API e fazia o telemóvel de toda a gente apitar sem razão.
+ *
+ * JANELA. Só o que está a menos de 7 dias no passado e daí para a frente.
+ * Sincronizar anos de histórico enchia o calendário de coisas mortas e
+ * demorava horas na primeira passagem.
+ * ====================================================================== */
+hooks()->add_action('after_cron_run', 'dps_google_cron_agenda');
+
+function dps_google_cron_agenda()
+{
+    $CI = &get_instance();
+
+    if (!$CI->db->table_exists(db_prefix() . 'dps_google_sync')) {
+        $CI->db->query('CREATE TABLE `' . db_prefix() . "dps_google_sync` (
+            `tipo` VARCHAR(20) NOT NULL,
+            `ref_id` INT(11) NOT NULL,
+            `staff_id` INT(11) NOT NULL,
+            `google_event_id` VARCHAR(191) NOT NULL,
+            `impressao` VARCHAR(40) NOT NULL,
+            `date_updated` DATETIME NOT NULL,
+            PRIMARY KEY (`tipo`, `ref_id`, `staff_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+    }
+
+    $contas = $CI->db->select('staff_id')
+                     ->where('refresh_token IS NOT NULL')
+                     ->get(db_prefix() . 'dps_google_contas')->result_array();
+
+    $desde = date('Y-m-d H:i:s', strtotime('-7 days'));
+
+    foreach ($contas as $conta) {
+        $staff = (int) $conta['staff_id'];
+
+        $itens = [];
+
+        /* ---- Eventos da agenda ---- */
+        foreach ($CI->db->select('eventid, title, description, start, end')
+                        ->where('userid', $staff)
+                        ->where('start >=', $desde)
+                        ->get(db_prefix() . 'events')->result_array() as $e) {
+            $itens[] = [
+                'tipo'   => 'evento',
+                'ref_id' => (int) $e['eventid'],
+                'titulo' => trim((string) $e['title']) ?: 'Evento',
+                'desc'   => trim(strip_tags((string) $e['description'])),
+                'inicio' => $e['start'],
+                'fim'    => !empty($e['end']) ? $e['end']
+                            : date('Y-m-d H:i:s', strtotime($e['start']) + 1800),
+            ];
+        }
+
+        /* ---- Lembretes por fazer ---- */
+        foreach ($CI->db->select('id, description, date, rel_type, rel_id')
+                        ->where('staff', $staff)
+                        ->where('date >=', $desde)
+                        ->where("(is_complete IS NULL OR is_complete <> '1')")
+                        ->get(db_prefix() . 'reminders')->result_array() as $l) {
+            $texto = trim(strip_tags((string) $l['description']));
+
+            // A ligação de volta ao registo: um lembrete sem contexto no
+            // telemóvel obriga a abrir o CRM para saber de quem é.
+            $link = '';
+            if ($l['rel_type'] === 'lead') {
+                $link = admin_url('leads/index/' . (int) $l['rel_id']);
+            } elseif ($l['rel_type'] === 'customer') {
+                $link = admin_url('clients/client/' . (int) $l['rel_id']);
+            }
+
+            $itens[] = [
+                'tipo'   => 'lembrete',
+                'ref_id' => (int) $l['id'],
+                'titulo' => '🔔 ' . (mb_substr($texto, 0, 60) ?: 'Lembrete'),
+                'desc'   => $texto . ($link ? "\n\n" . $link : ''),
+                'inicio' => $l['date'],
+                'fim'    => date('Y-m-d H:i:s', strtotime($l['date']) + 1800),
+            ];
+        }
+
+        /* ---- Criar ou actualizar ---- */
+        $vivos = [];
+        foreach ($itens as $it) {
+            $chave = $it['tipo'] . ':' . $it['ref_id'];
+            $vivos[$chave] = true;
+
+            $impressao = sha1($it['titulo'] . '|' . $it['desc'] . '|' . $it['inicio'] . '|' . $it['fim']);
+
+            $mapa = $CI->db->where(['tipo' => $it['tipo'], 'ref_id' => $it['ref_id'], 'staff_id' => $staff])
+                           ->get(db_prefix() . 'dps_google_sync')->row_array();
+
+            if ($mapa && $mapa['impressao'] === $impressao) {
+                continue;                       // não mudou nada: não se toca
+            }
+
+            $ev_id = dps_google_evento_guardar($staff, [
+                'titulo'    => $it['titulo'],
+                'descricao' => $it['desc'],
+                'inicio'    => $it['inicio'],
+                'fim'       => $it['fim'],
+            ], $mapa['google_event_id'] ?? null);
+
+            if (!$ev_id) {
+                continue;                       // já ficou registado no log
+            }
+
+            $linha = [
+                'tipo' => $it['tipo'], 'ref_id' => $it['ref_id'], 'staff_id' => $staff,
+                'google_event_id' => $ev_id, 'impressao' => $impressao,
+                'date_updated' => date('Y-m-d H:i:s'),
+            ];
+
+            if ($mapa) {
+                $CI->db->where(['tipo' => $it['tipo'], 'ref_id' => $it['ref_id'], 'staff_id' => $staff])
+                       ->update(db_prefix() . 'dps_google_sync', $linha);
+            } else {
+                $CI->db->insert(db_prefix() . 'dps_google_sync', $linha);
+            }
+        }
+
+        /*
+         * ---- Apagar o que deixou de existir ----
+         *
+         * Um lembrete concluído ou um evento apagado no CRM tem de sair do
+         * calendário. Sem isto, o Google ficava com fantasmas que ninguém
+         * conseguia tirar de lá senão à mão.
+         */
+        foreach ($CI->db->where('staff_id', $staff)
+                        ->get(db_prefix() . 'dps_google_sync')->result_array() as $m) {
+            if (isset($vivos[$m['tipo'] . ':' . $m['ref_id']])) {
+                continue;
+            }
+            dps_google_evento_apagar($staff, $m['google_event_id']);
+            $CI->db->where(['tipo' => $m['tipo'], 'ref_id' => $m['ref_id'], 'staff_id' => $staff])
+                   ->delete(db_prefix() . 'dps_google_sync');
+        }
+    }
+}
