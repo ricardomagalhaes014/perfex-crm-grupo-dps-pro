@@ -3,7 +3,7 @@ define('BASEPATH', __DIR__ . '/');
 $token = isset($_GET['token']) ? $_GET['token'] : '';
 if ($token !== 'dps2026deploy') { http_response_code(403); die('Forbidden'); }
 
-require_once __DIR__ . '/application/config/app-config.php';
+require __DIR__ . '/application/config/app-config.php';
 try {
     $pdo = new PDO(
         "mysql:host=" . APP_DB_HOSTNAME . ";dbname=" . APP_DB_NAME . ";charset=utf8mb4",
