@@ -5,7 +5,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: CAPI Meta - DPS
 Description: Envia o funil de leads para a Meta Conversions API via Make (funil cumulativo + VIP + Google Offline Conversions)
-Version: 1.4.0
+Version: 1.4.1
 Requires at least: 2.3.*
 Author: DPS Imobiliario
 */
@@ -181,8 +181,9 @@ function capi_meta_send($leadId, $fbLeadId, $lead, $eventName, $statusName)
     capi_meta_post_json(CAPI_META_WEBHOOK, $payload);
 
     // v1.4: despacho paralelo para Google Ads Offline Conversions (se a lead tiver GCLID
-    // e o webhook estiver configurado na opcao: capi_google_webhook_url)
+    // e o webhook estiver configurado em Configuracao > Definicoes: capi_google_webhook_url)
     $googleWebhook = function_exists('get_option') ? trim((string) get_option('capi_google_webhook_url')) : '';
+    if ($googleWebhook === '') { $googleWebhook = 'https://hook.eu1.make.com/jpyrlhe64zx3xkeijhvxxvjnci4o9rb8'; }
     if ($googleWebhook !== '') {
         $CI =& get_instance();
         $gclid = capi_meta_get_gclid($CI, $leadId);
