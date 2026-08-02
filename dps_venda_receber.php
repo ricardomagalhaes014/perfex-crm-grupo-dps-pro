@@ -460,6 +460,14 @@ if ($accao === 'importar') {
     $cli_civil  = trim((string) ($_POST['estado_civil'] ?? '')) ?: null;
     $cli_tipo   = trim((string) ($_POST['tipo'] ?? '')) ?: null;
     $cli_crc    = trim((string) ($_POST['crc'] ?? '')) ?: null;
+
+    /*
+     * Quem assina pela empresa. Só o simulador do Aura os envia, e só quando
+     * o comprador é uma empresa — nos outros casos chegam vazios e ficam a
+     * null, que é o que o contrato do particular espera.
+     */
+    $cli_repres     = trim((string) ($_POST['representante'] ?? '')) ?: null;
+    $cli_repres_nif = trim((string) ($_POST['representante_nif'] ?? '')) ?: null;
     $cli_cp     = trim((string) ($_POST['codigo_postal'] ?? '')) ?: null;
 
     $agora = date('Y-m-d H:i:s');
@@ -469,19 +477,22 @@ if ($accao === 'importar') {
         "INSERT INTO tblsimulador_vendas
             (empreendimento, unidade, cliente, cliente_morada, cliente_codigo_postal,
              cliente_telefone, cliente_email,
-             regime_civil, cliente_tipo, cliente_crc, valor, taxa, cpcv_taxa, escritura_taxa,
+             regime_civil, cliente_tipo, cliente_crc,
+             cliente_representante, cliente_representante_nif,
+             valor, taxa, cpcv_taxa, escritura_taxa,
              cliente_nif, cliente_cc, cliente_cc_validade, cliente_naturalidade,
              cliente_nacionalidade, cliente_freguesia, cliente_concelho,
              data_venda, estado, origem, staff_id, comissao_estado, date_created, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'na', ?, ?)"
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'na', ?, ?)"
     );
 
     // 10 strings, 4 decimais, data(s), estado(s), origem(s), comercial(i), data/hora(s), comercial(i)
     // 10 strings + 4 decimais + 7 strings do CPCV + data/estado/origem + ids
     $stmt->bind_param(
-        'ssssssssssdddd' . 'sssssss' . 'sssisi',
+        'ssssssssss' . 'ss' . 'dddd' . 'sssssss' . 'sssisi',
         $empreendimento, $unidade, $cli_nome, $cli_morada, $cli_cp, $cli_tel, $cli_email,
-        $cli_civil, $cli_tipo, $cli_crc, $valor, $taxa, $cpcv_taxa, $escritura_taxa,
+        $cli_civil, $cli_tipo, $cli_crc, $cli_repres, $cli_repres_nif,
+        $valor, $taxa, $cpcv_taxa, $escritura_taxa,
         $cli_nif, $cli_cc, $cli_cc_val, $cli_natural, $cli_nacional, $cli_freg, $cli_conc,
         $hoje, $estado, $origem, $comercial_id, $agora, $comercial_id
     );
