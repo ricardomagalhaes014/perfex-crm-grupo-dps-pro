@@ -140,6 +140,19 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
              */
             'dps_reunioes',
             'dps_google',
+            /*
+             * Agenda, Arquivo e VoIP também aqui (02/08/2026). São coisas que
+             * se usam de vez em quando e estavam a ocupar espaço de topo ao
+             * lado do que se abre todos os dias.
+             *
+             * 'calendar' é a agenda do Perfex e 'appointly' o módulo de
+             * compromissos — não sei qual dos dois é o que está à vista, por
+             * isso vão os dois. Um slug que não exista é ignorado sem erro.
+             */
+            'calendar',
+            'appointly',
+            'dps_arquivo',
+            'voipstudio-dps',
             'dps-interacoes',
             'dps-chatbot',
             'dps_voip',
