@@ -1405,4 +1405,41 @@ class Dps_painel_model extends App_Model
 
         return ['body' => $body, 'code' => $code];
     }
+
+    /**
+     * Meses que têm despesas lançadas, do mais recente para trás.
+     * Alimenta o selector — só se oferecem meses que existem.
+     */
+    public function meses_com_despesas()
+    {
+        $r = $this->db->select("DATE_FORMAT(data, '%Y-%m') AS mes, COUNT(*) n, SUM(valor) total", false)
+                      ->from($this->t_despesas())
+                      ->group_by('mes')
+                      ->order_by('mes', 'DESC')
+                      ->get()->result_array();
+
+        // O mês corrente aparece sempre, mesmo vazio: é onde se lança.
+        $agora = date('Y-m');
+        foreach ($r as $x) {
+            if ($x['mes'] === $agora) {
+                return $r;
+            }
+        }
+        array_unshift($r, ['mes' => $agora, 'n' => 0, 'total' => 0]);
+
+        return $r;
+    }
+
+    /** Soma por categoria, para o quadro e para o PDF. */
+    public function totais_despesas_por_categoria($despesas)
+    {
+        $t = ['total' => 0];
+        foreach ($despesas as $d) {
+            $c = trim((string) $d['categoria']) ?: 'Outros';
+            $t[$c] = ($t[$c] ?? 0) + (float) $d['valor'];
+            $t['total'] += (float) $d['valor'];
+        }
+
+        return $t;
+    }
 }

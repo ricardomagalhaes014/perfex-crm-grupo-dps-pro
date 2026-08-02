@@ -923,12 +923,55 @@ $pct    = function ($n) {
 
         <!-- Despesas -->
         <div class="panel_s"><div class="panel-body">
-            <h4 class="no-margin">Despesas</h4>
-            <hr>
+            <div class="clearfix mbot15">
+                <h4 class="no-margin pull-left">
+                    Despesas
+                    <small class="text-muted"><?php echo dps_painel_mes_extenso($despesas_mes); ?></small>
+                </h4>
+                <div class="pull-right">
+                    <?php
+                    /*
+                     * Mês próprio, independente do filtro das vendas. Começa
+                     * sempre no mês corrente e vira sozinho quando o mês vira.
+                     */
+                    ?>
+                    <select class="form-control input-sm" style="width:auto;display:inline-block;"
+                            onchange="window.location='<?php echo admin_url('dps_painel'); ?>?despesas_mes=' + this.value;">
+                        <?php foreach ($despesas_meses as $m) { ?>
+                            <option value="<?php echo $m['mes']; ?>" <?php echo $m['mes'] === $despesas_mes ? 'selected' : ''; ?>>
+                                <?php echo dps_painel_mes_extenso($m['mes']); ?>
+                                <?php echo $m['n'] ? '(' . $m['n'] . ')' : ''; ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+                    <a href="<?php echo admin_url('dps_painel/despesas_pdf/' . $despesas_mes); ?>"
+                       class="btn btn-default btn-sm">
+                        <i class="fa fa-file-pdf-o"></i> PDF do mês
+                    </a>
+                </div>
+            </div>
+
+            <?php if (!empty($despesas_totais['total'])) { ?>
+                <p class="mbot15">
+                    <?php foreach ($despesas_totais as $cat => $v) {
+                        if ($cat === 'total') { continue; } ?>
+                        <span class="label label-default" style="font-size:12px;margin-right:6px;">
+                            <?php echo html_escape($cat); ?>:
+                            <?php echo app_format_money($v, $moeda); ?>
+                        </span>
+                    <?php } ?>
+                    <strong style="margin-left:8px;">Total: <?php echo app_format_money($despesas_totais['total'], $moeda); ?></strong>
+                </p>
+            <?php } ?>
+
             <?php echo form_open_multipart(admin_url('dps_painel/despesa_add'), ['class' => 'form-inline mbot15']); ?>
                 <?php // O valor tem de estar no formato do datepicker (option dateformat), não em ISO — o model reconverte com to_sql_date(). ?>
                 <input type="text" name="data" class="form-control datepicker" placeholder="Data" value="<?php echo _d(date('Y-m-d')); ?>" style="width:120px;">
-                <input type="text" name="categoria" class="form-control" placeholder="Categoria" style="width:140px;">
+                <select name="categoria" class="form-control" style="width:150px;">
+                    <?php foreach (dps_painel_categorias_despesa() as $cat) { ?>
+                        <option value="<?php echo html_escape($cat); ?>"><?php echo html_escape($cat); ?></option>
+                    <?php } ?>
+                </select>
                 <input type="text" name="descricao" class="form-control" placeholder="Descrição" style="width:200px;">
                 <input type="text" name="valor" class="form-control" placeholder="Valor €" style="width:100px;">
                 <input type="text" name="fatura_numero" class="form-control" placeholder="Nº fatura" style="width:110px;">

@@ -160,7 +160,26 @@ class Dps_painel extends AdminController
         ];
 
         $vendas   = $this->m->get_vendas($filtros);
-        $despesas = $this->m->get_despesas(['ano' => $filtros['ano'], 'mes' => $filtros['mes']]);
+
+        /*
+         * As despesas têm mês PRÓPRIO, independente do filtro das vendas.
+         *
+         * Partilhavam o filtro da página, o que dava um absurdo: quem
+         * filtrasse as vendas por um empreendimento via as despesas do mês
+         * todo na mesma, e quem limpasse o filtro via a soma de sempre. A
+         * despesa é do mês em que aconteceu — e por omissão é o mês corrente,
+         * que vira sozinho quando o mês vira.
+         */
+        $mes_desp = $this->input->get('despesas_mes');
+        if (!preg_match('/^\d{4}-\d{2}$/', (string) $mes_desp)) {
+            $mes_desp = date('Y-m');
+        }
+        list($d_ano, $d_mes) = explode('-', $mes_desp);
+        $despesas = $this->m->get_despesas(['ano' => $d_ano, 'mes' => $d_mes]);
+
+        $data['despesas_mes']    = $mes_desp;
+        $data['despesas_meses']  = $this->m->meses_com_despesas();
+        $data['despesas_totais'] = $this->m->totais_despesas_por_categoria($despesas);
 
         $data['vendas']   = $vendas;
         $data['despesas'] = $despesas;
@@ -475,5 +494,128 @@ class Dps_painel extends AdminController
             . '<p><a href="' . admin_url('dps_painel') . '">&larr; Voltar ao painel</a></p>'
             . '</div>';
         exit;
+    }
+
+    /**
+     * Todas as despesas de um mês num PDF, uma fatura por página.
+     *
+     * As faturas chegam em foto e em PDF. O TCPDF coloca imagens mas não sabe
+     * importar páginas de PDFs já feitos — por isso as que vierem em PDF são
+     * convertidas página a página pelo Imagick, que existe neste servidor e lê
+     * PDF. Um PDF de três páginas dá três páginas aqui.
+     *
+     * Cada página leva, no topo, os dados do lançamento: sem isso o contabilista
+     * recebia um maço de imagens sem saber a que respeitam.
+     */
+    public function despesas_pdf($mes = '')
+    {
+        $this->so_o_dono();
+
+        if (!preg_match('/^\d{4}-\d{2}$/', $mes)) {
+            $mes = date('Y-m');
+        }
+        list($ano, $m) = explode('-', $mes);
+
+        $despesas = $this->m->get_despesas(['ano' => $ano, 'mes' => $m]);
+        if (empty($despesas)) {
+            set_alert('warning', 'Não há despesas lançadas nesse mês.');
+            redirect(admin_url('dps_painel?despesas_mes=' . $mes));
+        }
+
+        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8');
+        $pdf->SetCreator('DPS CRM');
+        $pdf->SetTitle('Despesas ' . $mes);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->SetMargins(12, 12, 12);
+        $pdf->SetAutoPageBreak(false);
+
+        $moeda = get_base_currency();
+        $total = 0;
+
+        /* ---- Primeira página: o resumo ---- */
+        $pdf->AddPage();
+        $pdf->SetFont('helvetica', 'B', 16);
+        $pdf->Cell(0, 10, 'Despesas — ' . dps_painel_mes_extenso($mes), 0, 1);
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->Ln(2);
+
+        $por_cat = [];
+        foreach ($despesas as $d) {
+            $c = trim((string) $d['categoria']) ?: 'Outros';
+            $por_cat[$c] = ($por_cat[$c] ?? 0) + (float) $d['valor'];
+            $total += (float) $d['valor'];
+        }
+
+        $html = '<table border="0" cellpadding="4"><tr style="background-color:#f0f0f0;">'
+              . '<th width="55%"><b>Categoria</b></th><th width="45%" align="right"><b>Total</b></th></tr>';
+        foreach ($por_cat as $cat => $v) {
+            $html .= '<tr><td>' . htmlspecialchars($cat) . '</td><td align="right">'
+                   . number_format($v, 2, ',', '.') . ' EUR</td></tr>';
+        }
+        $html .= '<tr><td><b>TOTAL</b></td><td align="right"><b>'
+               . number_format($total, 2, ',', '.') . ' EUR</b></td></tr></table>';
+        $pdf->writeHTML($html, true, false, false, false, '');
+
+        $pdf->Ln(4);
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell(0, 6, count($despesas) . ' lançamento(s). As páginas seguintes são os documentos.', 0, 1);
+
+        /* ---- Uma página por documento ---- */
+        foreach ($despesas as $d) {
+            $caminho = FCPATH . DPS_PAINEL_UPLOAD . $d['doc'];
+
+            $cabecalho = function ($pdf) use ($d, $mes) {
+                $pdf->SetFont('helvetica', 'B', 11);
+                $pdf->Cell(0, 6, _d($d['data']) . '  ·  ' . (trim((string) $d['categoria']) ?: 'Outros')
+                    . '  ·  ' . number_format((float) $d['valor'], 2, ',', '.') . ' EUR', 0, 1);
+                $pdf->SetFont('helvetica', '', 9);
+                $pdf->Cell(0, 5, trim((string) $d['descricao'])
+                    . (!empty($d['fatura_numero']) ? '   (fatura ' . $d['fatura_numero'] . ')' : ''), 0, 1);
+                $pdf->Ln(2);
+            };
+
+            if (empty($d['doc']) || !file_exists($caminho)) {
+                $pdf->AddPage();
+                $cabecalho($pdf);
+                $pdf->SetFont('helvetica', 'I', 10);
+                $pdf->Cell(0, 8, 'Sem documento anexado.', 0, 1);
+                continue;
+            }
+
+            $ext = strtolower(pathinfo($caminho, PATHINFO_EXTENSION));
+
+            if ($ext === 'pdf') {
+                try {
+                    $im = new Imagick();
+                    $im->setResolution(150, 150);
+                    $im->readImage($caminho);
+
+                    foreach ($im as $i => $pagina) {
+                        $pagina->setImageFormat('jpeg');
+                        $pagina->setImageCompressionQuality(85);
+                        $tmp = tempnam(sys_get_temp_dir(), 'desp') . '.jpg';
+                        file_put_contents($tmp, $pagina->getImageBlob());
+
+                        $pdf->AddPage();
+                        $cabecalho($pdf);
+                        $pdf->Image($tmp, 12, $pdf->GetY(), 186, 0, 'JPG', '', '', true, 150);
+                        @unlink($tmp);
+                    }
+                    $im->clear();
+                } catch (Throwable $e) {
+                    $pdf->AddPage();
+                    $cabecalho($pdf);
+                    $pdf->SetFont('helvetica', 'I', 10);
+                    $pdf->MultiCell(0, 6, 'Não foi possível ler este PDF: ' . $e->getMessage(), 0, 'L');
+                }
+            } else {
+                $pdf->AddPage();
+                $cabecalho($pdf);
+                $pdf->Image($caminho, 12, $pdf->GetY(), 186, 0, '', '', '', true, 150);
+            }
+        }
+
+        $pdf->Output('despesas-' . $mes . '.pdf', 'D');
     }
 }

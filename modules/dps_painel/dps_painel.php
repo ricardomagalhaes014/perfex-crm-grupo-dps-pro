@@ -230,3 +230,27 @@ function dps_painel_ensure_schema()
 
     update_option('dps_painel_schema', DPS_PAINEL_VERSION);
 }
+
+/**
+ * As três categorias de despesa. Lista fechada de propósito: em campo livre
+ * a mesma despesa aparecia como "Marketing", "marketing" e "MKT", e no fim
+ * do ano não somava nada.
+ */
+if (!function_exists('dps_painel_categorias_despesa')) {
+    function dps_painel_categorias_despesa()
+    {
+        return ['Representação', 'Marketing', 'Outros'];
+    }
+}
+
+/** "2026-08" -> "Agosto de 2026". */
+if (!function_exists('dps_painel_mes_extenso')) {
+    function dps_painel_mes_extenso($mes)
+    {
+        $nomes = [1 => 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+        $p = explode('-', (string) $mes);
+
+        return isset($p[1], $nomes[(int) $p[1]]) ? $nomes[(int) $p[1]] . ' de ' . $p[0] : (string) $mes;
+    }
+}
