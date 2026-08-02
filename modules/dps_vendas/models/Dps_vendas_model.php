@@ -362,7 +362,7 @@ class Dps_vendas_model extends App_Model
          * sempre. O administrador continua a poder sobrepor à mão no
          * simulador com a password do Modo de Edição.
          */
-        $alvo = self::estado_simulador($novo_estado);
+        $alvo = self::estado_simulador($novo_estado, $venda['empreendimento'] ?? '');
 
         if ($alvo !== null
             && !$this->sincronizar_unidade_simulador($venda['empreendimento'], $venda['unidade'], $novo_estado)) {
@@ -625,7 +625,12 @@ class Dps_vendas_model extends App_Model
      *
      * @return array colunas a gravar (vazio quando não há nada a congelar)
      */
-    private function snapshot_taxas($venda, $calculo)
+    /**
+     * Público desde a importação de vendas por ficheiro: uma venda importada
+     * já vem no estado em que está, não percorre o circuito, e por isso o
+     * controlador tem de fixar as taxas por fora do mudar_estado().
+     */
+    public function snapshot_taxas($venda, $calculo)
     {
         if ((float) ($venda['taxa'] ?? 0) > 0 || $calculo['taxa'] <= 0) {
             return [];
@@ -1483,7 +1488,7 @@ class Dps_vendas_model extends App_Model
      *
      * Devolve null quando o estado não deve mexer no simulador.
      */
-    public static function estado_simulador($estado_venda)
+    public static function estado_simulador($estado_venda, $empreendimento = '')
     {
         $mapa = [
             'pedido'    => 'Reservado',
@@ -1494,7 +1499,23 @@ class Dps_vendas_model extends App_Model
             'cancelado' => 'Disponível',
         ];
 
-        return $mapa[$estado_venda] ?? null;
+        $alvo = $mapa[$estado_venda] ?? null;
+
+        /*
+         * BELO HORIZONTE: uma reserva conta como DPS na montra.
+         *
+         * Ali a DPS não anda a reservar unidades à espera — o que reserva,
+         * vende. Mostrá-las como "Reservado" dava a ideia de que ainda podiam
+         * voltar ao mercado, e o promotor conta-as como colocadas. Pedido do
+         * dono (02/08/2026).
+         *
+         * Só no Belo Horizonte: nos outros, reservado é mesmo reservado.
+         */
+        if ($alvo === 'Reservado' && stripos((string) $empreendimento, 'belo') !== false) {
+            return 'DPS';
+        }
+
+        return $alvo;
     }
 
     /**
@@ -1542,7 +1563,7 @@ class Dps_vendas_model extends App_Model
     public function sincronizar_unidade_simulador($empreendimento, $unidade, $estado_venda)
     {
         $unidade = trim((string) $unidade);
-        $novo    = self::estado_simulador($estado_venda);
+        $novo    = self::estado_simulador($estado_venda, $empreendimento);
         $chave   = self::chave_empreendimento($empreendimento);
 
         if ($unidade === '' || $novo === null || $chave === null) {

@@ -1963,4 +1963,276 @@ class Dps_vendas extends AdminController
         set_alert($r['falhados'] ? 'warning' : 'success', $msg . '.');
         redirect(admin_url('dps_vendas'));
     }
+
+    /* =====================================================================
+     * IMPORTAÇÃO DE VENDAS POR FICHEIRO
+     *
+     * Cinquenta e cinco vendas à mão são cinquenta e cinco oportunidades de
+     * enganar-se numa tecla. O ficheiro é lido, MOSTRADO, e só depois gravado
+     * — nada entra sem ser visto primeiro.
+     * ================================================================== */
+
+    /** Modelo em CSV, já com as colunas certas e duas linhas de exemplo. */
+    public function importar_modelo($empreendimento = 'Belo Horizonte')
+    {
+        if (!is_admin()) {
+            access_denied('dps_vendas');
+        }
+
+        $empreendimento = str_replace('_', ' ', $empreendimento);
+        $colunas = $this->colunas_importacao();
+
+        $exemplo1 = ['AH', 'João Pedro Queiroz', '374900', '25/07/2026', 'Breno Gil',
+                     'joao@exemplo.pt', '912345678', 'Rua das Flores, 12', '4000-001',
+                     '123456789', 'Particular', 'Casado(a)'];
+        $exemplo2 = ['CJ', 'FERFEB - SOCIEDADE IMOBILIÁRIA, LDA', '312.900,00', '2026-07-25', '46',
+                     'geral@ferfeb.pt', '+351 916 000 000', 'Av. da Boavista, 100', '4100-100',
+                     '500123456', 'Empresa', ''];
+
+        // BOM + ponto e vírgula: sem isto o Excel português abre tudo numa
+        // coluna só e come os acentos.
+        $csv = "\xEF\xBB\xBF" . implode(';', $colunas) . "\n"
+             . implode(';', $exemplo1) . "\n"
+             . implode(';', $exemplo2) . "\n";
+
+        $this->load->helper('download');
+        force_download('modelo-vendas-' . strtolower(str_replace(' ', '-', $empreendimento)) . '.csv', $csv);
+    }
+
+    private function colunas_importacao()
+    {
+        /*
+         * O que é preciso para a venda existir e o contrato sair. O estado, a
+         * taxa e os meses de CPCV/escritura NÃO vão ao ficheiro: vêm da regra
+         * do empreendimento, e pedi-los linha a linha era 55 oportunidades de
+         * os escrever ao contrário.
+         */
+        return [
+            'unidade', 'cliente', 'valor', 'data_venda', 'comercial',
+            'email', 'telefone', 'morada', 'codigo_postal',
+            'nif', 'tipo', 'regime_civil',
+        ];
+    }
+
+    /** Ecrã de importação: escolher ficheiro, ver o que lá está, confirmar. */
+    public function importar()
+    {
+        if (!is_admin()) {
+            access_denied('dps_vendas');
+        }
+
+        $data['empreendimentos'] = $this->dps_vendas_model->get_empreendimentos();
+        $data['colunas']         = $this->colunas_importacao();
+        $data['linhas']          = [];
+        $data['erros']           = [];
+        $data['empreendimento']  = $this->input->post('empreendimento') ?: 'Belo Horizonte';
+        $data['csv_bruto']       = '';
+
+        if ($this->input->post() && !empty($_FILES['ficheiro']['tmp_name'])) {
+            $bruto = file_get_contents($_FILES['ficheiro']['tmp_name']);
+            list($data['linhas'], $data['erros']) = $this->ler_csv_vendas($bruto);
+            $data['csv_bruto'] = $bruto;
+        } elseif ($this->input->post('csv_bruto')) {
+            // Segunda passagem: confirmar o que já foi mostrado.
+            $bruto = $this->input->post('csv_bruto');
+            list($linhas, $erros) = $this->ler_csv_vendas($bruto);
+
+            if ($erros) {
+                $data['linhas'] = $linhas;
+                $data['erros']  = $erros;
+                $data['csv_bruto'] = $bruto;
+            } else {
+                $criadas = 0;
+                foreach ($linhas as $l) {
+                    $l['empreendimento'] = $data['empreendimento'];
+                    $estado = $l['_estado'];
+                    unset($l['_estado']);
+
+                    $novo_id = $this->dps_vendas_model->add_venda($l);
+                    if (!$novo_id) {
+                        continue;
+                    }
+                    $criadas++;
+
+                    /*
+                     * O add_venda cria sempre como "pendente" e o mudar_estado
+                     * recusa saltos no circuito. Numa importação de histórico
+                     * o circuito não se percorre — a venda JÁ está no estado
+                     * em que está. Grava-se directamente, e fixa-se a comissão
+                     * quando o estado assim o exige.
+                     */
+                    if ($estado !== 'pendente') {
+                        $up = ['estado' => $estado];
+
+                        if (in_array($estado, ['vendido', 'concluido'], true)) {
+                            $v = $this->dps_vendas_model->get_venda($novo_id);
+                            $calc = $this->dps_vendas_model->calcular_comissao($v);
+                            $up['comissao_total'] = $calc['valor'];
+                            $up += $this->dps_vendas_model->snapshot_taxas($v, $calc);
+                        }
+
+                        $this->db->where('id', $novo_id)
+                                 ->update(db_prefix() . 'simulador_vendas', $up);
+                        $this->dps_vendas_model->registar_historico(
+                            $novo_id, 'pendente', $estado, 'Importado de ficheiro');
+                    }
+                }
+                log_activity('Importadas ' . $criadas . ' vendas de ' . $data['empreendimento']);
+                set_alert('success', $criadas . ' venda(s) importada(s).');
+                redirect(admin_url('dps_vendas'));
+            }
+        }
+
+        $data['title'] = 'Importar vendas';
+        $this->load->view('importar', $data);
+    }
+
+    /**
+     * Lê o CSV e devolve [linhas, erros].
+     *
+     * Aceita ponto e vírgula ou vírgula como separador, vírgula ou ponto como
+     * decimal, e datas em dd/mm/aaaa ou aaaa-mm-dd — porque é o que sai de um
+     * Excel português e de um Excel inglês, e não vale a pena obrigar quem
+     * preenche a saber qual dos dois tem.
+     */
+    private function ler_csv_vendas($bruto)
+    {
+        $bruto = preg_replace('/^\xEF\xBB\xBF/', '', (string) $bruto);
+        $linhas = preg_split('/\r\n|\r|\n/', $bruto);
+        $linhas = array_values(array_filter($linhas, function ($l) { return trim($l) !== ''; }));
+
+        if (count($linhas) < 2) {
+            return [[], ['O ficheiro não tem linhas de dados.']];
+        }
+
+        $sep = substr_count($linhas[0], ';') >= substr_count($linhas[0], ',') ? ';' : ',';
+        $cab = array_map(function ($x) { return strtolower(trim($x, " \t\"'")); }, explode($sep, $linhas[0]));
+
+        $esperadas = $this->colunas_importacao();
+        $faltam = array_diff(['unidade', 'cliente', 'valor'], $cab);
+        if ($faltam) {
+            return [[], ['Faltam colunas obrigatórias no cabeçalho: ' . implode(', ', $faltam)]];
+        }
+
+        $saida = [];
+        $erros = [];
+
+        for ($i = 1; $i < count($linhas); $i++) {
+            $celulas = str_getcsv($linhas[$i], $sep);
+            $l = [];
+            foreach ($cab as $k => $nome) {
+                $l[$nome] = isset($celulas[$k]) ? trim($celulas[$k]) : '';
+            }
+
+            $n = $i + 1;
+            if ($l['unidade'] === '' || $l['cliente'] === '') {
+                $erros[] = 'Linha ' . $n . ': falta a unidade ou o cliente.';
+                continue;
+            }
+
+            $valor = str_replace([' ', '€'], '', (string) $l['valor']);
+            // "374.900,00" e "374900.00" têm de dar o mesmo número.
+            if (strpos($valor, ',') !== false) {
+                $valor = str_replace('.', '', $valor);
+                $valor = str_replace(',', '.', $valor);
+            }
+            if (!is_numeric($valor) || (float) $valor <= 0) {
+                $erros[] = 'Linha ' . $n . ': valor inválido (' . $l['valor'] . ').';
+                continue;
+            }
+
+            $data_v = trim((string) ($l['data_venda'] ?? ''));
+            if ($data_v !== '' && preg_match('#^(\d{2})/(\d{2})/(\d{4})$#', $data_v, $m)) {
+                $data_v = $m[3] . '-' . $m[2] . '-' . $m[1];
+            }
+            if ($data_v !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data_v)) {
+                $erros[] = 'Linha ' . $n . ': data inválida (' . $l['data_venda'] . ').';
+                continue;
+            }
+
+            $estado = strtolower(trim((string) ($l['estado'] ?? ''))) ?: 'reservado';
+            if (!in_array($estado, Dps_vendas_model::$fluxo, true)) {
+                $erros[] = 'Linha ' . $n . ': estado desconhecido (' . $l['estado'] . ').';
+                continue;
+            }
+
+            $saida[] = [
+                'unidade'                => $l['unidade'],
+                'cliente'                => $l['cliente'],
+                'valor'                  => $valor,
+                'data_venda'             => $data_v,
+                'staff_id'               => $this->resolver_comercial($l['comercial'] ?? '', $n, $erros),
+                '_estado'                => $estado,
+                'cliente_email'          => $l['email'] ?? '',
+                'cliente_telefone'       => $l['telefone'] ?? '',
+                'cliente_morada'         => $l['morada'] ?? '',
+                'cliente_codigo_postal'  => $l['codigo_postal'] ?? '',
+                'cliente_nif'            => $l['nif'] ?? '',
+                'cliente_tipo'           => $l['tipo'] ?? '',
+                'regime_civil'           => $l['regime_civil'] ?? '',
+                'taxa'                   => $l['taxa'] ?? '',
+                'origem'                 => 'importacao',
+            ];
+        }
+
+        return [$saida, $erros];
+    }
+
+    /**
+     * Aceita o comercial pelo número ou pelo nome.
+     *
+     * Quem preenche o ficheiro sabe o nome, não o id — obrigá-lo a ir buscar
+     * números a uma tabela era garantir enganos. O nome é comparado sem
+     * acentos nem maiúsculas, e basta o primeiro nome quando não é ambíguo.
+     */
+    private function resolver_comercial($valor, $linha, array &$erros)
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') {
+            return (int) get_staff_user_id();
+        }
+        if (ctype_digit($valor)) {
+            return (int) $valor;
+        }
+
+        static $equipa = null;
+        if ($equipa === null) {
+            $this->load->model('staff_model');
+            $equipa = [];
+            foreach ($this->staff_model->get('', ['active' => 1]) as $s) {
+                $equipa[(int) $s['staffid']] = trim($s['firstname'] . ' ' . $s['lastname']);
+            }
+        }
+
+        $normal = function ($t) {
+            $t = mb_strtolower(trim((string) $t), 'UTF-8');
+            $t = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $t) ?: $t;
+
+            return preg_replace('/\s+/', ' ', $t);
+        };
+
+        $procurado = $normal($valor);
+        $achados   = [];
+
+        foreach ($equipa as $id => $nome) {
+            $n = $normal($nome);
+            if ($n === $procurado || strpos($n, $procurado) === 0) {
+                $achados[$id] = $nome;
+            }
+        }
+
+        if (count($achados) === 1) {
+            return (int) array_key_first($achados);
+        }
+        if (count($achados) > 1) {
+            $erros[] = 'Linha ' . $linha . ': "' . $valor . '" corresponde a mais do que um comercial ('
+                . implode(', ', $achados) . '). Use o nome completo.';
+
+            return (int) get_staff_user_id();
+        }
+
+        $erros[] = 'Linha ' . $linha . ': comercial "' . $valor . '" não encontrado.';
+
+        return (int) get_staff_user_id();
+    }
 }
