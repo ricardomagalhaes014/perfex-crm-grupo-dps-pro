@@ -170,4 +170,55 @@ class Dps_reunioes extends AdminController
         set_alert('success', 'Reunião actualizada.');
         redirect(admin_url('dps_reunioes/ver/' . (int) $id));
     }
+
+    /**
+     * Página própria de marcação.
+     *
+     * Existe porque os botões que injectei por JavaScript na janela da lead
+     * nunca apareceram: este tema reconstrói a barra de separadores e deita
+     * fora o que lá se pendura. Um link para uma página não depende de nada
+     * disso — e serve tanto a lista de leads como a ficha.
+     */
+    public function nova($rel_type = 'lead', $rel_id = 0)
+    {
+        $rel_type = in_array($rel_type, ['lead', 'customer'], true) ? $rel_type : 'lead';
+        $rel_id   = (int) $rel_id;
+
+        if (!$rel_id) {
+            show_404();
+        }
+
+        if ($rel_type === 'lead') {
+            $f = $this->db->select('name, email, phonenumber')->where('id', $rel_id)
+                          ->get(db_prefix() . 'leads')->row_array();
+            $nome = $f['name'] ?? '';
+            $mail = $f['email'] ?? '';
+            $tel  = $f['phonenumber'] ?? '';
+        } else {
+            $c = $this->db->select('company, phonenumber')->where('userid', $rel_id)
+                          ->get(db_prefix() . 'clients')->row_array();
+            $ct = $this->db->select('firstname, lastname, email, phonenumber')
+                           ->where('userid', $rel_id)->where('is_primary', 1)
+                           ->get(db_prefix() . 'contacts')->row_array();
+            $nome = trim((string) ($c['company'] ?? ''))
+                    ?: trim(($ct['firstname'] ?? '') . ' ' . ($ct['lastname'] ?? ''));
+            $mail = $ct['email'] ?? '';
+            $tel  = $ct['phonenumber'] ?? ($c['phonenumber'] ?? '');
+        }
+
+        if (!$nome && !$mail && !$tel) {
+            show_404();
+        }
+
+        $data = [
+            'rel_type'  => $rel_type,
+            'rel_id'    => $rel_id,
+            'pre_nome'  => $nome,
+            'pre_email' => $mail,
+            'pre_tel'   => $tel,
+            'title'     => 'Marcar reunião — ' . $nome,
+        ];
+
+        $this->load->view('nova', $data);
+    }
 }

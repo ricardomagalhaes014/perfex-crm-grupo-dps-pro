@@ -137,7 +137,15 @@ $nomes = [
                         <label class="control-label">Convidar (opcional)</label>
                         <select name="convidado_id" class="form-control">
                             <option value="">— ninguém —</option>
-                            <?php foreach ($equipa as $s) { if (empty($s['admin'])) { continue; } ?>
+                            <?php
+                            /*
+                             * Lista fechada, não "todos os administradores": convidar
+                             * é interromper alguém, e só faz sentido para quem
+                             * acompanha reuniões comerciais.
+                             */
+                            $convidaveis = defined('DPS_REUNIOES_CONVIDAVEL') ? DPS_REUNIOES_CONVIDAVEL : [];
+                            foreach ($equipa as $s) {
+                                if (!in_array((int) $s['staffid'], $convidaveis, true)) { continue; } ?>
                                 <option value="<?php echo (int) $s['staffid']; ?>">
                                     <?php echo html_escape(trim($s['firstname'] . ' ' . $s['lastname'])); ?>
                                 </option>

@@ -241,14 +241,24 @@ return App_table::find('leads')
             // Telefone eram duplicados e enchiam a linha (pedido do Ricardo).
             if ($aRow['phonenumber'] != '') {
                 $phone_clean = preg_replace('/\D/', '', $aRow['phonenumber']);
-                $row[] = '<span style="white-space:nowrap;display:inline-flex;gap:3px;flex-wrap:wrap;">'
+                /*
+                 * white-space:nowrap ao pé de flex-wrap:wrap era uma
+                 * contradição: um proibia a mudança de linha que o outro
+                 * pedia, e os botões saíam empilhados um por linha. Com
+                 * largura mínima cabem em duas linhas, que é como se lê.
+                 */
+                $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
                     . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
                     . '<a href="tel:' . $phone_clean . '" title="Ligar" class="btn btn-xs btn-dark"><i class="fa fa-phone"></i></a>'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'disponiveis\'); return false;" title="Enviar unidades disponíveis" class="btn btn-xs" style="background:#1d6fb8;color:#fff;font-weight:600;">Disponíveis</a>'
+                    . '<a href="' . admin_url('dps_reunioes/nova/lead/' . $aRow['id']) . '" title="Marcar reunião online" class="btn btn-xs" style="background:#0f8b8d;color:#fff;font-weight:600;"><i class="fa fa-video-camera"></i> Reunião</a>'
                     . '</span>';
             } else {
-                $row[] = '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>';
+                $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
+                    . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
+                    . '<a href="' . admin_url('dps_reunioes/nova/lead/' . $aRow['id']) . '" title="Marcar reunião online" class="btn btn-xs" style="background:#0f8b8d;color:#fff;font-weight:600;"><i class="fa fa-video-camera"></i> Reunião</a>'
+                    . '</span>';
             }
 
             if (is_gdpr() && $consentLeads == '1') {

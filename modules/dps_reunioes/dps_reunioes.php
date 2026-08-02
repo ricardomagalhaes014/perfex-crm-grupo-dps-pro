@@ -13,6 +13,18 @@ Author: Grupo DPS
 define('DPS_REUNIOES_MODULE_NAME', 'dps_reunioes');
 
 /**
+ * Quem pode ser convidado para uma reunião.
+ *
+ * Só o Cláudio (#46), por decisão do dono (02/08/2026). Antes a lista era
+ * "todos os administradores", o que punha lá a direcção inteira e convidava
+ * gente que não acompanha reuniões comerciais.
+ *
+ * Para mudar, é só acrescentar ou trocar o número.
+ */
+define('DPS_REUNIOES_CONVIDAVEL', [46]);
+
+
+/**
  * PORQUÊ JITSI E NÃO GOOGLE MEET
  *
  * Um link do Meet não se gera sem OAuth: o Meet só nasce agarrado a um evento
@@ -316,18 +328,6 @@ function dps_reunioes_bloco_lead($lead)
     $pre_email = (string) ($lead->email ?? '');
     $pre_tel   = (string) ($lead->phonenumber ?? '');
 
-    /*
-     * NASCE VISÍVEL, sem a classe tab-pane.
-     *
-     * À primeira versão dei-lhe tab-pane logo à partida e disse que "degrada,
-     * não desaparece" — estava errado: o Bootstrap esconde um tab-pane que não
-     * esteja activo, esteja ele onde estiver. Quando o JavaScript não o
-     * promoveu a separador, o bloco não ficou em baixo: ficou invisível.
-     *
-     * Agora é o contrário. Fica à vista no fundo da janela, como faz o painel
-     * do dps_credito, e só se transforma em separador SE houver mesmo onde o
-     * encaixar. Falhando isso, continua a ver-se.
-     */
     echo '<div id="dps_reunioes_lead" class="mtop20">';
     $CI->load->view('dps_reunioes/bloco_ficha',
         compact('rel_type', 'rel_id', 'pre_nome', 'pre_email', 'pre_tel'));
@@ -336,72 +336,66 @@ function dps_reunioes_bloco_lead($lead)
 <script>
 (function () {
     /*
-     * O separador e o botao so podem ser postos DEPOIS de a janela da lead
-     * estar montada, e ela e carregada por AJAX. A primeira versao tentava
-     * uma vez so e falhava em silencio -- o separador nunca apareceu.
+     * NAO SE PoE UMA VEZ E FICA.
      *
-     * Isto repete a tentativa, tal como o dps_propostas faz ha meses no mesmo
-     * sitio: 20 tentativas de 150 em 150 ms. Tres segundos chegam.
+     * Este tema reconstroi a tira de separadores da janela da lead (e a que
+     * tem as setas nas pontas). Um <li> acrescentado uma vez e deitado fora
+     * na reconstrucao seguinte, e o botao da barra de accoes idem. Foi por
+     * isso que nem o separador nem o botao apareceram, mesmo com o HTML todo
+     * no sitio certo — confirmado por registo: a funcao corre e a vista
+     * carrega.
+     *
+     * Em vez de adivinhar quando a reconstrucao acontece, verifica-se de meio
+     * em meio segundo durante 15 segundos e repoe-se o que faltar. Passado
+     * isso pára — a janela ja estabilizou ha muito.
      */
     var painel = document.getElementById('dps_reunioes_lead');
     if (!painel) { return; }
 
-    function marcarBotao(modal) {
-        var barra = modal.querySelector('#dps_action_bar');
-        if (!barra || barra.querySelector('#dps_btn_reuniao')) { return; }
-
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.id = 'dps_btn_reuniao';
-        b.className = 'btn btn-sm';
-        b.style.cssText = 'background:#0f8b8d;color:#fff;';
-        b.innerHTML = '<i class="fa fa-video-camera"></i> Marcar reunião';
-        b.onclick = function () {
-            /*
-             * Salta para o separador em vez de abrir uma janela dentro de
-             * outra: no Bootstrap 3 duas janelas sobrepostas partem o fundo
-             * escurecido e prendem o rato. E o mesmo que o botao das
-             * propostas faz aqui ao lado.
-             */
-            var a = document.querySelector('a[href="#dps_reunioes_lead"]');
-            if (a && window.jQuery) { window.jQuery(a).tab('show'); }
-            var alvo = document.getElementById('dps_reunioes_lead');
-            if (alvo) { alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-        };
-        barra.appendChild(b);
+    function saltarParaReunioes() {
+        var a = document.querySelector('a[href="#dps_reunioes_lead"]');
+        if (a && window.jQuery) { window.jQuery(a).tab('show'); }
+        var alvo = document.getElementById('dps_reunioes_lead');
+        if (alvo) { alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     }
 
-    function ligar() {
-        var modal = painel.closest('.modal');
-        var scope = modal || document;
-        var lista = scope.querySelector('ul.nav-tabs');
-        var pai   = scope.querySelector('.tab-content');
+    function repor() {
+        var modal = painel.closest('.modal') || document;
 
-        if (!lista || !pai) { return false; }
+        // 1) Botao na barra de accoes, ao lado do "Enviar info / Proposta".
+        var barra = modal.querySelector('#dps_action_bar');
+        if (barra && !barra.querySelector('#dps_btn_reuniao')) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.id = 'dps_btn_reuniao';
+            b.className = 'btn btn-sm';
+            b.style.cssText = 'background:#0f8b8d;color:#fff;';
+            b.innerHTML = '<i class="fa fa-video-camera"></i> Marcar reunião';
+            b.onclick = saltarParaReunioes;
+            barra.appendChild(b);
+        }
 
-        if (!lista.querySelector('a[href="#dps_reunioes_lead"]')) {
+        // 2) Separador, se houver tira onde o pendurar.
+        var lista = modal.querySelector('ul.nav-tabs');
+        var pai   = modal.querySelector('.tab-content');
+        if (lista && pai && !lista.querySelector('a[href="#dps_reunioes_lead"]')) {
             var li = document.createElement('li');
             li.setAttribute('role', 'presentation');
             li.innerHTML = '<a href="#dps_reunioes_lead" role="tab" data-toggle="tab">'
                          + '<i class="fa fa-video-camera menu-icon"></i> Reuniões</a>';
             lista.appendChild(li);
-
             painel.classList.add('tab-pane');
             painel.classList.remove('mtop20');
             pai.appendChild(painel);
         }
-
-        if (modal) { marcarBotao(modal); }
-
-        return true;
     }
 
-    if (!ligar()) {
-        var t = 0;
-        var iv = setInterval(function () {
-            if (ligar() || ++t > 20) { clearInterval(iv); }
-        }, 150);
-    }
+    repor();
+    var voltas = 0;
+    var iv = setInterval(function () {
+        repor();
+        if (++voltas > 30) { clearInterval(iv); }
+    }, 500);
 })();
 </script>
     <?php
