@@ -335,26 +335,73 @@ function dps_reunioes_bloco_lead($lead)
     ?>
 <script>
 (function () {
+    /*
+     * O separador e o botao so podem ser postos DEPOIS de a janela da lead
+     * estar montada, e ela e carregada por AJAX. A primeira versao tentava
+     * uma vez so e falhava em silencio -- o separador nunca apareceu.
+     *
+     * Isto repete a tentativa, tal como o dps_propostas faz ha meses no mesmo
+     * sitio: 20 tentativas de 150 em 150 ms. Tres segundos chegam.
+     */
     var painel = document.getElementById('dps_reunioes_lead');
     if (!painel) { return; }
 
-    var modal = painel.closest('.modal') || document;
-    var lista = modal.querySelector('ul.nav-tabs');
-    var pai   = modal.querySelector('.tab-content');
+    function marcarBotao(modal) {
+        var barra = modal.querySelector('#dps_action_bar');
+        if (!barra || barra.querySelector('#dps_btn_reuniao')) { return; }
 
-    // Sem sítio onde encaixar, fica onde está — visível.
-    if (!lista || !pai || lista.querySelector('a[href="#dps_reunioes_lead"]')) { return; }
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.id = 'dps_btn_reuniao';
+        b.className = 'btn btn-sm';
+        b.style.cssText = 'background:#0f8b8d;color:#fff;';
+        b.innerHTML = '<i class="fa fa-video-camera"></i> Marcar reunião';
+        b.onclick = function () {
+            /*
+             * Salta para o separador em vez de abrir uma janela dentro de
+             * outra: no Bootstrap 3 duas janelas sobrepostas partem o fundo
+             * escurecido e prendem o rato. E o mesmo que o botao das
+             * propostas faz aqui ao lado.
+             */
+            var a = document.querySelector('a[href="#dps_reunioes_lead"]');
+            if (a && window.jQuery) { window.jQuery(a).tab('show'); }
+            var alvo = document.getElementById('dps_reunioes_lead');
+            if (alvo) { alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        };
+        barra.appendChild(b);
+    }
 
-    var li = document.createElement('li');
-    li.setAttribute('role', 'presentation');
-    li.innerHTML = '<a href="#dps_reunioes_lead" role="tab" data-toggle="tab">'
-                 + '<i class="fa fa-video-camera menu-icon"></i> Reuniões</a>';
-    lista.appendChild(li);
+    function ligar() {
+        var modal = painel.closest('.modal');
+        var scope = modal || document;
+        var lista = scope.querySelector('ul.nav-tabs');
+        var pai   = scope.querySelector('.tab-content');
 
-    // Só agora vira painel de separador: a partir daqui o Bootstrap manda nele.
-    painel.classList.add('tab-pane');
-    painel.classList.remove('mtop20');
-    pai.appendChild(painel);
+        if (!lista || !pai) { return false; }
+
+        if (!lista.querySelector('a[href="#dps_reunioes_lead"]')) {
+            var li = document.createElement('li');
+            li.setAttribute('role', 'presentation');
+            li.innerHTML = '<a href="#dps_reunioes_lead" role="tab" data-toggle="tab">'
+                         + '<i class="fa fa-video-camera menu-icon"></i> Reuniões</a>';
+            lista.appendChild(li);
+
+            painel.classList.add('tab-pane');
+            painel.classList.remove('mtop20');
+            pai.appendChild(painel);
+        }
+
+        if (modal) { marcarBotao(modal); }
+
+        return true;
+    }
+
+    if (!ligar()) {
+        var t = 0;
+        var iv = setInterval(function () {
+            if (ligar() || ++t > 20) { clearInterval(iv); }
+        }, 150);
+    }
 })();
 </script>
     <?php
