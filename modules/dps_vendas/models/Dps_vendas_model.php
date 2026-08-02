@@ -319,6 +319,14 @@ class Dps_vendas_model extends App_Model
             // (histórico, correcções à mão): ao concluir, fixa-se o que estava
             // em vigor.
             $update += $this->snapshot_taxas($venda, $this->calcular_comissao($venda));
+
+            /*
+             * Negócio fechado: quem comprou deixa de ser lead e passa a
+             * cliente. A criação fica para depois de o estado estar mesmo
+             * gravado — criá-lo antes deixaria uma ficha órfã se a gravação
+             * falhasse.
+             */
+            $passar_a_cliente = true;
         } elseif ($novo_estado === 'cancelado') {
             // Venda cancelada não gera comissão.
             $update['comissao_estado'] = 'na';
@@ -327,6 +335,21 @@ class Dps_vendas_model extends App_Model
 
         $this->db->where('id', $id);
         $this->db->update($this->tabela_vendas(), $update);
+
+        /*
+         * A passagem a cliente é "melhor esforço": se falhar, a venda fica
+         * concluída na mesma e o botão de sincronizar recupera-a depois. Uma
+         * falha a criar a ficha do cliente não pode travar o fecho de um
+         * negócio.
+         */
+        if (!empty($passar_a_cliente)) {
+            try {
+                $this->garantir_cliente($id);
+            } catch (\Throwable $e) {
+                log_activity('Venda #' . (int) $id . ' concluída, mas falhou a passagem a cliente: '
+                    . $e->getMessage());
+            }
+        }
 
         /*
          * O simulador acompanha SEMPRE o CRM (todos os empreendimentos):
@@ -1561,4 +1584,198 @@ class Dps_vendas_model extends App_Model
 
         return is_array($resposta) && !empty($resposta['ok']);
     }
+
+    /* ---------------------------------------------------------------------
+     * Da venda concluída para cliente do CRM
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Garante que existe um cliente no CRM para esta venda, e devolve o id.
+     *
+     * Uma venda concluída é um negócio fechado e pago: a pessoa deixou de ser
+     * uma lead e passou a ser cliente. Sem esta passagem, quem comprou fica
+     * preso no funil comercial e não há forma de lhe falar como cliente de um
+     * empreendimento — que é o que o acompanhamento de obra exige.
+     *
+     * É IDEMPOTENTE, de propósito: pode ser chamada as vezes que forem
+     * precisas — pelo circuito da venda, por um botão, ou pelas duas coisas ao
+     * mesmo tempo — que nunca cria um cliente a dobrar.
+     *
+     * A procura por cliente existente é feita primeiro pelo contribuinte e só
+     * depois pelo email, porque duas pessoas partilham um email de casa muito
+     * mais vezes do que partilham um NIF. Foi o que se viu nos dados: a mesma
+     * morada de email em vendas de compradores diferentes.
+     *
+     * @return int|false id do cliente, ou false se não deu
+     */
+    public function garantir_cliente($venda_id)
+    {
+        $venda = $this->get_venda($venda_id);
+        if (!$venda) {
+            return false;
+        }
+
+        // Já ligada? Confirma que o cliente ainda lá está antes de acreditar.
+        if (!empty($venda['client_id'])) {
+            $existe = $this->db->where('userid', (int) $venda['client_id'])
+                               ->count_all_results(db_prefix() . 'clients');
+            if ($existe) {
+                return (int) $venda['client_id'];
+            }
+        }
+
+        $nome  = trim((string) $venda['cliente']);
+        $nif   = trim((string) ($venda['cliente_nif'] ?? ''));
+        $email = trim((string) ($venda['cliente_email'] ?? ''));
+        $tel   = trim((string) ($venda['cliente_telefone'] ?? ''));
+
+        if ($nome === '') {
+            return false;                       // sem nome não se cria ficha
+        }
+
+        $client_id = $this->procurar_cliente($nif, $email, $nome);
+
+        if (!$client_id) {
+            $this->load->model('clients_model');
+
+            /*
+             * Sendo empresa, o nome do comprador É a denominação social e o
+             * contacto é quem assina por ela. Sendo particular, a empresa fica
+             * com o nome da pessoa — é como o Perfex guarda clientes
+             * singulares.
+             */
+            $e_empresa = strcasecmp(trim((string) ($venda['cliente_tipo'] ?? '')), 'empresa') === 0;
+            $contacto  = $e_empresa && !empty($venda['cliente_representante'])
+                ? trim((string) $venda['cliente_representante'])
+                : $nome;
+
+            $partes    = preg_split('/\s+/u', $contacto, 2);
+            $primeiro  = $partes[0] ?? $contacto;
+            $ultimo    = $partes[1] ?? '';
+
+            $client_id = $this->clients_model->add([
+                'company'     => $nome,
+                'vat'         => $nif,
+                'phonenumber' => $tel,
+                'address'     => trim((string) ($venda['cliente_morada'] ?? '')),
+                'zip'         => trim((string) ($venda['cliente_codigo_postal'] ?? '')),
+                'city'        => trim((string) ($venda['cliente_concelho'] ?? '')),
+                'active'      => 1,
+                // Contacto principal. Sem email não se envia convite nenhum,
+                // e não se cria palavra-passe: estes clientes não usam o
+                // portal, só recebem o acompanhamento da obra.
+                'firstname'   => $primeiro,
+                'lastname'    => $ultimo,
+                'email'       => $email,
+                'is_primary'  => 1,
+                'donotsendwelcomeemail' => true,
+            ], true);
+
+            if (!$client_id) {
+                return false;
+            }
+
+            log_activity('Venda #' . (int) $venda_id . ' — criado o cliente #' . $client_id
+                . ' (' . $nome . ') a partir do mapa de vendas');
+        }
+
+        $this->db->where('id', (int) $venda_id)
+                 ->update($this->tabela_vendas(), ['client_id' => (int) $client_id]);
+
+        return (int) $client_id;
+    }
+
+    /**
+     * Procura um cliente já existente. Contribuinte primeiro, email depois,
+     * nome em último — e o nome só quando é exacto, para não juntar dois
+     * "Silva" diferentes na mesma ficha.
+     */
+    private function procurar_cliente($nif, $email, $nome)
+    {
+        if ($nif !== '') {
+            $r = $this->db->select('userid')->where('vat', $nif)
+                          ->get(db_prefix() . 'clients')->row();
+            if ($r) {
+                return (int) $r->userid;
+            }
+        }
+
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $r = $this->db->select('userid')->where('email', $email)
+                          ->get(db_prefix() . 'contacts')->row();
+            if ($r) {
+                return (int) $r->userid;
+            }
+        }
+
+        $r = $this->db->select('userid')->where('company', $nome)
+                      ->get(db_prefix() . 'clients')->row();
+
+        return $r ? (int) $r->userid : 0;
+    }
+
+    /**
+     * Passa a cliente todas as vendas concluídas que ainda não o são.
+     *
+     * Serve para recuperar o que ficou para trás: as vendas fechadas antes de
+     * esta passagem existir. Depois disto, o circuito trata de cada uma no
+     * momento em que é concluída.
+     *
+     * @return array ['criados' => int, 'ja_existiam' => int, 'falhados' => array]
+     */
+    public function sincronizar_clientes()
+    {
+        $vendas = $this->db->select('id, cliente, client_id')
+                           ->where('estado', 'concluido')
+                           ->get($this->tabela_vendas())->result_array();
+
+        $r = ['criados' => 0, 'ja_existiam' => 0, 'falhados' => []];
+
+        foreach ($vendas as $v) {
+            $ja = !empty($v['client_id']);
+            $id = $this->garantir_cliente((int) $v['id']);
+
+            if (!$id) {
+                $r['falhados'][] = '#' . $v['id'] . ' ' . $v['cliente'];
+            } elseif ($ja) {
+                $r['ja_existiam']++;
+            } else {
+                $r['criados']++;
+            }
+        }
+
+        return $r;
+    }
+
+    /**
+     * Clientes de um empreendimento, com o email do contacto principal.
+     *
+     * A ligação é feita pelas vendas e não por um campo copiado para a ficha
+     * do cliente: assim quem compra no Gaia Douro E no Boavista aparece nos
+     * dois envios, em vez de o segundo apagar o primeiro.
+     *
+     * @param string $empreendimento vazio = todos
+     */
+    public function clientes_por_empreendimento($empreendimento = '')
+    {
+        $this->db->select('c.userid, c.company, c.vat, c.phonenumber,
+                           ct.email, ct.firstname, ct.lastname,
+                           GROUP_CONCAT(DISTINCT v.empreendimento ORDER BY v.empreendimento SEPARATOR ", ") AS empreendimentos,
+                           GROUP_CONCAT(DISTINCT v.unidade ORDER BY v.unidade SEPARATOR ", ") AS unidades', false);
+        $this->db->from($this->tabela_vendas() . ' v');
+        $this->db->join(db_prefix() . 'clients c', 'c.userid = v.client_id');
+        $this->db->join(db_prefix() . 'contacts ct', 'ct.userid = c.userid AND ct.is_primary = 1', 'left');
+        $this->db->where('v.estado', 'concluido');
+        $this->db->where('v.client_id IS NOT NULL');
+
+        if ($empreendimento !== '') {
+            $this->db->where('v.empreendimento', $empreendimento);
+        }
+
+        $this->db->group_by('c.userid');
+        $this->db->order_by('c.company', 'ASC');
+
+        return $this->db->get()->result_array();
+    }
+
 }

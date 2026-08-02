@@ -1909,4 +1909,31 @@ class Dps_vendas extends AdminController
         set_alert('success', 'Documento removido.');
         redirect(admin_url('dps_vendas/arquivo/' . $doc['pasta_id']));
     }
+
+    /**
+     * Passa a cliente as vendas concluídas que ainda não o são.
+     *
+     * O circuito já o faz sozinho quando uma venda é concluída. Isto serve
+     * para o que ficou para trás: as vendas fechadas antes desta passagem
+     * existir. Pode ser corrido as vezes que quiser — não duplica ninguém.
+     */
+    public function sincronizar_clientes()
+    {
+        if (!is_admin()) {
+            access_denied('dps_vendas');
+        }
+
+        $r = $this->dps_vendas_model->sincronizar_clientes();
+
+        $msg = $r['criados'] . ' cliente(s) criado(s)';
+        if ($r['ja_existiam']) {
+            $msg .= ', ' . $r['ja_existiam'] . ' já existia(m)';
+        }
+        if ($r['falhados']) {
+            $msg .= '. Sem dados suficientes: ' . implode(', ', $r['falhados']);
+        }
+
+        set_alert($r['falhados'] ? 'warning' : 'success', $msg . '.');
+        redirect(admin_url('dps_vendas'));
+    }
 }

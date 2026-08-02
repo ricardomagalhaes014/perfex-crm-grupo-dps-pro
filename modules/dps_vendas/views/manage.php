@@ -14,6 +14,15 @@
                                 </a>
                             </div>
                             <div class="col-md-6 text-right">
+                                <?php if (is_admin()) { ?>
+                                    <a href="<?php echo admin_url('dps_vendas/sincronizar_clientes'); ?>"
+                                       class="btn btn-default"
+                                       onclick="return confirm('Passar a cliente todas as vendas concluídas que ainda não o são?\n\nPode correr isto as vezes que quiser — não duplica ninguém.');"
+                                       data-toggle="tooltip"
+                                       title="Cria a ficha de cliente das vendas já fechadas. As novas passam sozinhas ao serem concluídas.">
+                                        <i class="fa fa-user-plus"></i> Passar concluídas a clientes
+                                    </a>
+                                <?php } ?>
                                 <a href="<?php echo admin_url('dps_vendas/comissoes'); ?>" class="btn btn-default">
                                     <i class="fa fa-eur"></i> Quadro de Comissões
                                 </a>
