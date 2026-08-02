@@ -1721,11 +1721,36 @@ class Dps_vendas_model extends App_Model
             }
         }
 
+        /*
+         * Pelo email SÓ SE O NOME TAMBÉM BATER.
+         *
+         * Um email não identifica ninguém: nos dados reais desta casa há um
+         * "Luís Filipe Magno Correia da Silva" e uma "DELZAGE - GESTÃO E
+         * ADMINISTRAÇÃO" a partilhar o lcs@parkhotel.pt — é o gestor a usar o
+         * seu email para a empresa dele. Casar só pelo email fundia os dois
+         * na mesma ficha, e separá-los depois é trabalho à mão.
+         *
+         * Com o nome a confirmar, o email deixa de ser suficiente e passa a
+         * ser corroboração.
+         */
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $r = $this->db->select('userid')->where('email', $email)
-                          ->get(db_prefix() . 'contacts')->row();
-            if ($r) {
-                return (int) $r->userid;
+            $candidatos = $this->db->select('c.userid, c.company')
+                                   ->from(db_prefix() . 'contacts ct')
+                                   ->join(db_prefix() . 'clients c', 'c.userid = ct.userid')
+                                   ->where('ct.email', $email)
+                                   ->get()->result_array();
+
+            $limpo = function ($t) {
+                $t = mb_strtolower(trim((string) $t), 'UTF-8');
+                $t = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $t) ?: $t;
+
+                return preg_replace('/[^a-z0-9]+/', ' ', $t);
+            };
+
+            foreach ($candidatos as $cand) {
+                if ($limpo($cand['company']) === $limpo($nome)) {
+                    return (int) $cand['userid'];
+                }
             }
         }
 
