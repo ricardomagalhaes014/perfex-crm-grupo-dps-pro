@@ -45,6 +45,20 @@ function dps_reunioes_activate()
 }
 
 hooks()->add_action('admin_init', 'dps_reunioes_ensure_schema');
+hooks()->add_action('admin_init', 'dps_reunioes_menu');
+
+/** Entrada no menu lateral. Sem ela o módulo existia mas não se via. */
+function dps_reunioes_menu()
+{
+    $CI = &get_instance();
+    $CI->app_menu->add_sidebar_menu_item('dps_reunioes', [
+        'name'     => 'Reuniões online',
+        'href'     => admin_url('dps_reunioes'),
+        'icon'     => 'fa fa-video-camera',
+        'position' => 91,
+        'badge'    => [],
+    ]);
+}
 hooks()->add_action('after_cron_run', 'dps_reunioes_cron');
 
 /** Cria a tabela se faltar. Idempotente — pode correr em todos os pedidos. */

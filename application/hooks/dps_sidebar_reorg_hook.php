@@ -128,7 +128,18 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         $outros_slugs = [
             'video_library',
             'wiki-module-menu-wiki-master',
-            'dps-meetings',
+            /*
+             * "Reuniões online" e "Google Calendar" TÊM de estar aqui.
+             *
+             * O que não entra em grupo nenhum cai na regra 5 — vai para
+             * "Admin" e passa a ser visível só a administradores. Para o
+             * Google Calendar isso era fatal: é a página onde CADA COMERCIAL
+             * liga a conta dele, e nenhum a veria.
+             *
+             * O 'dps-meetings' ficou de um módulo que já foi removido; sai.
+             */
+            'dps_reunioes',
+            'dps_google',
             'dps-interacoes',
             'dps-chatbot',
             'dps_voip',
