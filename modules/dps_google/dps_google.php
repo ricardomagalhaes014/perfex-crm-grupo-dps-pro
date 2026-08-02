@@ -230,6 +230,23 @@ function dps_google_evento_guardar($staff_id, array $ev, $event_id = null)
         $corpo['location'] = $ev['local'];
     }
 
+    /*
+     * Lembretes fixados, em vez dos que cada pessoa tiver por omissão.
+     *
+     * Sem isto, o evento herda as preferências do calendário de quem o
+     * recebe — que podem ser 10 minutos, 30, ou nenhum. Uma reunião com
+     * cliente não pode depender de a pessoa ter configurado bem o telemóvel.
+     *
+     * Trinta minutos para se preparar, dez para entrar.
+     */
+    $corpo['reminders'] = [
+        'useDefault' => false,
+        'overrides'  => [
+            ['method' => 'popup', 'minutes' => 30],
+            ['method' => 'popup', 'minutes' => 10],
+        ],
+    ];
+
     if (!empty($ev['convidados'])) {
         $corpo['attendees'] = [];
         foreach ($ev['convidados'] as $email) {
