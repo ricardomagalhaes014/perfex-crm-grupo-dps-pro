@@ -116,6 +116,15 @@ if (!function_exists('dps_clientes_separador_compras')) {
             return $tabs;
         }
 
+        $tabs['dps_reunioes'] = [
+            'name'     => 'Reuniões',
+            'icon'     => 'fa fa-video-camera',
+            'view'     => 'dps_reunioes/tab_cliente',
+            'position' => 8,
+            'badge'    => [],
+            'slug'     => 'dps_reunioes',
+        ];
+
         $tabs['dps_compras'] = [
             'name'     => 'Compras',
             'icon'     => 'fa fa-key',
