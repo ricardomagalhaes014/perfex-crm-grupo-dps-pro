@@ -85,6 +85,38 @@ class Dps_reunioes extends AdminController
         dps_reunioes_avisar_cliente($r, 'marcada');
         dps_reunioes_convidar($r);
 
+        /*
+         * Vai também para o Google Calendar do comercial, se ele tiver a conta
+         * ligada. O cliente entra como convidado e recebe o convite do próprio
+         * Google — com o lembrete dele, no telemóvel dele.
+         *
+         * Guarda-se o id do evento para que uma alteração o encontre em vez de
+         * criar um segundo ao lado. Falhando, a reunião fica marcada na mesma:
+         * o calendário é um extra, não a fonte da verdade.
+         */
+        if (function_exists('dps_google_evento_guardar')) {
+            $convidados = [$r['cliente_email']];
+            if (!empty($r['convidado_id'])) {
+                $convidados[] = $this->db->select('email')->where('staffid', (int) $r['convidado_id'])
+                                         ->get(db_prefix() . 'staff')->row('email');
+            }
+
+            $ev_id = dps_google_evento_guardar((int) $r['staff_id'], [
+                'titulo'     => 'Reunião — ' . $r['cliente_nome'],
+                'descricao'  => "Reunião online marcada no CRM.\n\nEntrar: " . $r['link']
+                                . "\nFicha: " . admin_url('dps_reunioes/ver/' . (int) $r['id']),
+                'inicio'     => $r['data_hora'],
+                'fim'        => date('Y-m-d H:i:s',
+                                    strtotime($r['data_hora']) + ((int) $r['duracao_min'] * 60)),
+                'local'      => $r['link'],
+                'convidados' => array_filter($convidados),
+            ]);
+
+            if ($ev_id) {
+                $this->dps_reunioes_model->actualizar($id, ['google_event_id' => $ev_id]);
+            }
+        }
+
         log_activity('Reunião #' . $id . ' marcada com ' . $r['cliente_nome']
             . ' para ' . dps_reunioes_quando($r['data_hora']));
 
