@@ -458,8 +458,9 @@ class Dps_vendas extends AdminController
             'cliente_cc_validade'   => 'validade do Cartão de Cidadão do gestor',
             'cliente_morada'        => 'sede',
             'cliente_codigo_postal' => 'código postal',
-            'cliente_freguesia'     => 'freguesia',
-            'cliente_concelho'      => 'concelho',
+            // Freguesia e concelho não se exigem a uma empresa: a sede e o
+            // código postal já a localizam, e é assim que a certidão a
+            // identifica.
         ] : [
             'cliente_nif'           => 'NIF',
             'cliente_cc'            => 'n.º do Cartão de Cidadão',

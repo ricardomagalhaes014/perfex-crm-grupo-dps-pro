@@ -250,12 +250,12 @@
                                     <input type="text" name="cliente_nacionalidade" class="form-control"
                                            value="<?php echo html_escape($venda['cliente_nacionalidade'] ?? 'Portuguesa'); ?>">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 dps-so-particular">
                                     <label class="control-label">Freguesia</label>
                                     <input type="text" name="cliente_freguesia" class="form-control"
                                            value="<?php echo html_escape($venda['cliente_freguesia'] ?? ''); ?>">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 dps-so-particular">
                                     <label class="control-label">Concelho</label>
                                     <input type="text" name="cliente_concelho" class="form-control"
                                            value="<?php echo html_escape($venda['cliente_concelho'] ?? ''); ?>">

@@ -44,26 +44,44 @@ if (!function_exists('dps_clientes_esconder_colunas')) {
         }
         ?>
 <script>
-$(function () {
-    var tabela = $('#clients');
-    if (!tabela.length || !$.fn.DataTable.isDataTable(tabela)) { return; }
-
+(function () {
     /*
      * Pelos ids do cabeçalho, não por posição: a posição muda assim que
      * alguém acrescentar um campo personalizado à tabela, e a coluna
      * escondida passaria a ser outra.
      */
     var esconder = ['#th-primary-contact', '#th-active', '#th-groups', '#th-status'];
-    var api = tabela.DataTable();
 
-    esconder.forEach(function (seletor) {
-        var th = tabela.find(seletor);
-        if (!th.length) { return; }
-        try { api.column(th.index()).visible(false, false); } catch (e) {}
-    });
+    /*
+     * A tabela é montada pelo main.js do Perfex, e não há garantia de que já
+     * exista quando este bloco corre — à primeira tentativa não existia, e o
+     * script saía em silêncio sem esconder nada. Em vez de assumir a ordem,
+     * espera-se por ela. Cinco segundos chegam de sobra; passado isso desiste
+     * em vez de ficar a rodar para sempre.
+     */
+    var tentativas = 0;
 
-    api.columns.adjust();
-});
+    function aplicar() {
+        if (typeof $ === 'undefined' || !$.fn || !$.fn.DataTable) { return false; }
+
+        var tabela = $('#clients');
+        if (!tabela.length || !$.fn.DataTable.isDataTable(tabela)) { return false; }
+
+        var api = tabela.DataTable();
+        for (var i = 0; i < esconder.length; i++) {
+            var th = tabela.find(esconder[i]);
+            if (!th.length) { continue; }
+            try { api.column(th.index()).visible(false, false); } catch (e) {}
+        }
+        api.columns.adjust();
+
+        return true;
+    }
+
+    var relogio = setInterval(function () {
+        if (aplicar() || ++tentativas > 50) { clearInterval(relogio); }
+    }, 100);
+})();
 </script>
         <?php
     }

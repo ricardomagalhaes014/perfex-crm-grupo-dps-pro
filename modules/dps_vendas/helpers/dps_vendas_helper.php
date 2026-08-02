@@ -355,8 +355,8 @@ function dps_cpcv_gerar(array $v)
                   . 'certidão permanente n.º ' . $crc
                 : '')
             . ', com sede na ' . $v['cliente_morada']
-            . ', freguesia de ' . $v['cliente_freguesia']
-            . ', concelho de ' . $v['cliente_concelho']
+            . (trim((string) $v['cliente_freguesia']) !== '' ? ', freguesia de ' . $v['cliente_freguesia'] : '')
+            . (trim((string) $v['cliente_concelho']) !== '' ? ', concelho de ' . $v['cliente_concelho'] : '')
             . ' (CP ' . $v['cliente_codigo_postal'] . '), neste ato representada por '
             . ($representante !== '' ? $representante : '«REPRESENTANTE — PREENCHER»')
             . ', NIF ' . ($rep_nif !== '' ? $rep_nif : '«NIF DO REPRESENTANTE — PREENCHER»')
