@@ -3,11 +3,10 @@ define('BASEPATH', __DIR__ . '/');
 $token = isset($_GET['token']) ? $_GET['token'] : '';
 if ($token !== 'dps2026deploy') { http_response_code(403); die('Forbidden'); }
 
-require __DIR__ . '/application/config/app-config.php';
 try {
     $pdo = new PDO(
-        "mysql:host=" . APP_DB_HOSTNAME . ";dbname=" . APP_DB_NAME . ";charset=utf8mb4",
-        APP_DB_USERNAME, APP_DB_PASSWORD
+        "mysql:host=localhost;dbname=u172337921_crmgrupopds;charset=utf8mb4",
+        'u172337921_crmgrupopds', '3AF5_ZCiqQ7:=At'
     );
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch (PDOException $e) {
