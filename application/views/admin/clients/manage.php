@@ -191,7 +191,9 @@ $_table_data                         = [
         'th_attrs' => ['class' => 'toggleable', 'id' => 'th-number'],
     ],
     [
-        'name'     => _l('clients_list_company'),
+        // "Cliente" e nao "Empresa": a maior parte destes compradores sao
+        // particulares, e a coluna leva o nome de quem comprou.
+        'name'     => 'Cliente',
         'th_attrs' => ['class' => 'toggleable', 'id' => 'th-company'],
     ],
     [
@@ -218,10 +220,13 @@ $_table_data                         = [
         'name'     => _l('date_created'),
         'th_attrs' => ['class' => 'toggleable', 'id' => 'th-date-created'],
     ],
-    // ADICIONADO: Coluna STATUS (apenas cabeçalho, sem alterar mais nada)
     [
-        'name'     => _l('status'),
-        'th_attrs' => ['class' => 'toggleable', 'id' => 'th-status'],
+        'name'     => 'Comercial',
+        'th_attrs' => ['class' => 'toggleable', 'id' => 'th-comercial'],
+    ],
+    [
+        'name'     => 'Empreendimentos',
+        'th_attrs' => ['class' => 'toggleable', 'id' => 'th-empreendimentos'],
     ],
 ];
 

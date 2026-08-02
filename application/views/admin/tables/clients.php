@@ -33,8 +33,22 @@ return App_table::find('clients')
               ORDER BY ' . db_prefix() . 'customers_groups.name ASC) as customerGroups',
             db_prefix() . 'clients.datecreated as datecreated',
 
-            // NOVO: coluna Status (manual, no próprio clients)
-            db_prefix() . 'clients.status as customer_status',
+            /*
+             * O comercial que vendeu, e onde comprou. Saem das vendas e nao
+             * de um campo copiado para a ficha: um cliente pode ter comprado
+             * em dois empreendimentos, e aparecem os dois.
+             *
+             * (Substituiram a coluna "Status", que alguem acrescentou e
+             * ficou sempre vazia.)
+             */
+            '(SELECT GROUP_CONCAT(DISTINCT CONCAT(dpsS.firstname, " ", dpsS.lastname) SEPARATOR ", ")
+                FROM ' . db_prefix() . 'simulador_vendas dpsV
+                JOIN ' . db_prefix() . 'staff dpsS ON dpsS.staffid = dpsV.staff_id
+               WHERE dpsV.client_id = ' . db_prefix() . 'clients.userid) as dps_comercial',
+
+            '(SELECT GROUP_CONCAT(DISTINCT dpsV2.empreendimento ORDER BY dpsV2.empreendimento SEPARATOR ", ")
+                FROM ' . db_prefix() . 'simulador_vendas dpsV2
+               WHERE dpsV2.client_id = ' . db_prefix() . 'clients.userid) as dps_empreendimentos',
         ];
 
         $sIndexColumn = 'userid';
@@ -179,9 +193,19 @@ return App_table::find('clients')
             // Data de criação
             $row[] = e(_dt($aRow['datecreated']));
 
-            // STATUS (manual)
-            $status = isset($aRow['customer_status']) ? trim((string) $aRow['customer_status']) : '';
-            $row[]  = $status !== '' ? '<span class="label label-default">' . e($status) . '</span>' : '';
+            // Comercial que vendeu
+            $comercial = trim((string) ($aRow['dps_comercial'] ?? ''));
+            $row[]     = $comercial !== '' ? e($comercial) : '';
+
+            // Empreendimentos onde comprou
+            $emps = trim((string) ($aRow['dps_empreendimentos'] ?? ''));
+            $empsHtml = '';
+            if ($emps !== '') {
+                foreach (explode(', ', $emps) as $emp) {
+                    $empsHtml .= '<span class="label label-info mleft5">' . e($emp) . '</span>';
+                }
+            }
+            $row[] = $empsHtml;
 
             // Campos customizados
             foreach ($customFieldsColumns as $customFieldColumn) {

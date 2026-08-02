@@ -50,7 +50,7 @@ if (!function_exists('dps_clientes_esconder_colunas')) {
      * alguém acrescentar um campo personalizado à tabela, e a coluna
      * escondida passaria a ser outra.
      */
-    var esconder = ['#th-primary-contact', '#th-active', '#th-groups', '#th-status'];
+    var esconder = ['#th-primary-contact', '#th-active', '#th-groups'];
 
     /*
      * A tabela é montada pelo main.js do Perfex, e não há garantia de que já
@@ -68,10 +68,26 @@ if (!function_exists('dps_clientes_esconder_colunas')) {
         if (!tabela.length || !$.fn.DataTable.isDataTable(tabela)) { return false; }
 
         var api = tabela.DataTable();
+
+        /*
+         * Os índices são recolhidos TODOS primeiro, e só depois se escondem —
+         * de trás para a frente.
+         *
+         * Esconder uma coluna faz o DataTables retirá-la do DOM, e as
+         * seguintes deslocam-se. À primeira versão escondi uma a uma lendo a
+         * posição no momento: escondida a primeira, as leituras seguintes já
+         * vinham trocadas e desapareceram o email e o telefone em vez do que
+         * era para desaparecer.
+         */
+        var indices = [];
         for (var i = 0; i < esconder.length; i++) {
             var th = tabela.find(esconder[i]);
-            if (!th.length) { continue; }
-            try { api.column(th.index()).visible(false, false); } catch (e) {}
+            if (th.length) { indices.push(th.index()); }
+        }
+        indices.sort(function (a, b) { return b - a; });
+
+        for (var j = 0; j < indices.length; j++) {
+            try { api.column(indices[j]).visible(false, false); } catch (e) {}
         }
         api.columns.adjust();
 
