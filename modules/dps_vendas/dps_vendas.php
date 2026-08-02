@@ -577,3 +577,39 @@ if (!function_exists('dps_vendas_cron_cpcv_por_assinar')) {
         }
     }
 }
+
+/*
+ * Vendas concluídas que ainda não têm ficha de cliente.
+ *
+ * A passagem já acontece no momento em que a venda é concluída. Isto é a rede
+ * por baixo: apanha as que ficaram para trás (as fechadas antes desta
+ * funcionalidade existir) e as que falharem por o Perfex estar ocupado ou a
+ * base de dados recusar naquele instante.
+ *
+ * É idempotente — corre de 5 em 5 minutos e não cria ninguém a dobrar. Quando
+ * não há nada por passar, sai sem tocar em nada.
+ */
+hooks()->add_action('after_cron_run', 'dps_vendas_cron_clientes');
+
+if (!function_exists('dps_vendas_cron_clientes')) {
+    function dps_vendas_cron_clientes()
+    {
+        $CI = &get_instance();
+        $CI->load->model('dps_vendas/dps_vendas_model');
+
+        $por_passar = $CI->db->where('estado', 'concluido')
+                             ->where('client_id IS NULL')
+                             ->count_all_results(db_prefix() . 'simulador_vendas');
+
+        if ($por_passar === 0) {
+            return;
+        }
+
+        $r = $CI->dps_vendas_model->sincronizar_clientes();
+
+        if ($r['criados'] > 0 || $r['falhados']) {
+            log_activity('Passagem automática a cliente: ' . $r['criados'] . ' criado(s)'
+                . ($r['falhados'] ? ', sem dados suficientes: ' . implode(', ', $r['falhados']) : ''));
+        }
+    }
+}
