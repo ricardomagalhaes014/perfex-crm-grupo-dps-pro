@@ -204,21 +204,48 @@
                             </div>
 
                             <script>
-                            $(function () {
-                                $('#dps-tipo-comprador').on('change', function () {
-                                    $('.dps-so-empresa').toggle($(this).val() === 'Empresa');
-                                }).trigger('change');
+                            /*
+                             * Sem jQuery de propósito. Este bloco fica a meio da página e
+                             * o Perfex só carrega o jQuery no rodapé — usar $ aqui dava
+                             * "$ is not defined", o script morria, e os campos da empresa
+                             * ficavam à vista mesmo com "Particular" escolhido.
+                             */
+                            document.addEventListener('DOMContentLoaded', function () {
+                                var sel = document.getElementById('dps-tipo-comprador');
+                                if (!sel) { return; }
+
+                                function mostrarSe(seletor, condicao) {
+                                    var els = document.querySelectorAll(seletor);
+                                    for (var i = 0; i < els.length; i++) {
+                                        els[i].style.display = condicao ? '' : 'none';
+                                    }
+                                }
+
+                                function aplicar() {
+                                    var empresa = sel.value === 'Empresa';
+
+                                    // Certidão e representante: só uma sociedade os tem.
+                                    mostrarSe('.dps-so-empresa', empresa);
+
+                                    // Naturalidade e nacionalidade: só uma pessoa as tem.
+                                    // Freguesia e concelho ficam nos dois casos — servem a
+                                    // residência do particular e a sede da empresa.
+                                    mostrarSe('.dps-so-particular', !empresa);
+                                }
+
+                                sel.addEventListener('change', aplicar);
+                                aplicar();
                             });
                             </script>
 
                             <div class="row mtop15">
-                                <div class="col-md-3">
+                                <div class="col-md-3 dps-so-particular">
                                     <label class="control-label">Naturalidade</label>
                                     <input type="text" name="cliente_naturalidade" class="form-control"
                                            placeholder="concelho de nascimento"
                                            value="<?php echo html_escape($venda['cliente_naturalidade'] ?? ''); ?>">
                                 </div>
-                                <div class="col-md-3">
+                                <div class="col-md-3 dps-so-particular">
                                     <label class="control-label">Nacionalidade</label>
                                     <input type="text" name="cliente_nacionalidade" class="form-control"
                                            value="<?php echo html_escape($venda['cliente_nacionalidade'] ?? 'Portuguesa'); ?>">
