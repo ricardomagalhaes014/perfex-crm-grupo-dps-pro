@@ -291,12 +291,18 @@ $pct    = function ($n) {
             }
 
             $desenhar = function ($i, $c) use ($det, $moeda) {
-                $abre = isset($det[$c[0]]);
+                /*
+                 * As Despesas abrem como os outros cartões, mas o que mostram
+                 * não é "de que é feito" venda a venda — é a lista do mês e o
+                 * formulário para lançar. Por isso têm painel próprio, e não
+                 * entram no mapa $det.
+                 */
+                $abre = isset($det[$c[0]]) || $c[0] === 'Despesas';
                 ?>
                 <div class="dps-card">
                     <div class="panel_s">
                         <div class="panel-body <?php echo $abre ? 'dps-card-abre' : ''; ?>"
-                             <?php if ($abre) { ?>data-alvo="dps-det-<?php echo $i; ?>" style="cursor:pointer;" title="Clique para ver de que é feito"<?php } ?>>
+                             <?php if ($abre) { ?>data-alvo="<?php echo $c[0] === 'Despesas' ? 'dps-det-despesas' : 'dps-det-' . $i; ?>" style="cursor:pointer;" title="<?php echo $c[0] === 'Despesas' ? 'Clique para ver e lançar despesas' : 'Clique para ver de que é feito'; ?>"<?php } ?>>
                             <div class="text-muted">
                                 <i class="fa <?php echo $c[3]; ?>"></i> <?php echo $c[0]; ?>
                                 <?php if ($abre) { ?><i class="fa fa-chevron-down pull-right text-muted" style="font-size:.8em;margin-top:3px;"></i><?php } ?>
@@ -921,6 +927,8 @@ $pct    = function ($n) {
             </div>
         </div></div>
 
+
+        <div id="dps-det-despesas" class="dps-card-det" style="display:none;">
         <!-- Despesas -->
         <div class="panel_s"><div class="panel-body">
             <div class="clearfix mbot15">
@@ -1004,6 +1012,7 @@ $pct    = function ($n) {
                 </tbody>
             </table>
         </div></div>
+        </div>
 
         <?php } /* fim do que é só do dono */ ?>
 
