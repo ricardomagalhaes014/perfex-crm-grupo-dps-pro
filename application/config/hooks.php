@@ -127,6 +127,13 @@ $hook['pre_controller_constructor'][] = [
     'filepath' => 'hooks'
 ];
 
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_clientes_register',
+    'filename' => 'dps_clientes_hook.php',
+    'filepath' => 'hooks'
+];
+
 /*
  * pre_system e nao pre_controller_constructor: este ultimo e disparado dentro
  * do construtor do App_Controller, ou seja ja depois de a base de dados ter
