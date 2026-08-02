@@ -507,3 +507,73 @@ function dps_vendas_js_proposta_enviada()
     </script>
     <?php
 }
+
+/*
+ * CPCV gerado e por assinar: avisar quem tem de agir.
+ *
+ * 72 horas depois de o contrato ser gerado, se ainda não houver validação de
+ * assinatura, o comercial leva um WhatsApp. Às 96 horas, a direcção.
+ *
+ * A contagem é feita a partir da PRIMEIRA geração (cpcv_gerado_em) e pára
+ * assim que a assinatura for validada (cpcv_assinado). Cada aviso é enviado
+ * UMA vez — a data de envio fica gravada, senão o cron repetia-o de cinco em
+ * cinco minutos até alguém desistir de ler as mensagens.
+ *
+ * Vendas canceladas não são avisadas: não há contrato para assinar.
+ */
+hooks()->add_action('after_cron_run', 'dps_vendas_cron_cpcv_por_assinar');
+
+if (!function_exists('dps_vendas_cron_cpcv_por_assinar')) {
+    function dps_vendas_cron_cpcv_por_assinar()
+    {
+        $CI = &get_instance();
+        $t  = db_prefix() . 'simulador_vendas';
+
+        $avisos = [
+            // coluna de controlo => [horas, a quem, texto]
+            'cpcv_aviso_72h' => [72, 'comercial'],
+            'cpcv_aviso_96h' => [96, 'direcao'],
+        ];
+
+        foreach ($avisos as $coluna => $cfg) {
+            list($horas, $quem) = $cfg;
+
+            $vendas = $CI->db
+                ->select('id, empreendimento, unidade, cliente, staff_id, cpcv_gerado_em')
+                ->from($t)
+                ->where('cpcv_gerado_em IS NOT NULL')
+                ->where('cpcv_gerado_em <=', date('Y-m-d H:i:s', strtotime('-' . $horas . ' hours')))
+                ->where('(cpcv_assinado IS NULL OR cpcv_assinado = 0)')
+                ->where('estado !=', 'cancelado')
+                ->where($coluna . ' IS NULL')
+                ->get()->result_array();
+
+            foreach ($vendas as $v) {
+                $dias = round((time() - strtotime($v['cpcv_gerado_em'])) / 3600);
+
+                $texto = 'CPCV por assinar há ' . $dias . ' horas — '
+                    . $v['empreendimento'] . ', fracção ' . $v['unidade']
+                    . ' (' . $v['cliente'] . ').';
+
+                if ($quem === 'comercial') {
+                    dps_vendas_notificar(
+                        (int) $v['staff_id'],
+                        $texto . ' Confirme com o cliente e valide a assinatura no CRM.',
+                        'dps_vendas/view/' . (int) $v['id']
+                    );
+                } else {
+                    dps_vendas_notificar_admins(
+                        $texto . ' O comercial já foi avisado às 72h.',
+                        'dps_vendas/view/' . (int) $v['id']
+                    );
+                }
+
+                $CI->db->where('id', (int) $v['id'])
+                       ->update($t, [$coluna => date('Y-m-d H:i:s')]);
+
+                log_activity('Venda #' . (int) $v['id'] . ' — aviso de CPCV por assinar ('
+                    . $horas . 'h) enviado a ' . $quem);
+            }
+        }
+    }
+}

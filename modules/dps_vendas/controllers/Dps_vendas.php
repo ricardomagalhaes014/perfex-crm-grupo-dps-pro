@@ -490,6 +490,18 @@ class Dps_vendas extends AdminController
 
         list($ok, $erro, $bytes, $nome) = dps_cpcv_gerar($venda);
 
+        /*
+         * Carimba a PRIMEIRA geração. É a partir daqui que se contam as 72h e
+         * as 96h sem assinatura — e só da primeira, senão bastava alguém
+         * voltar a descarregar o contrato para o relógio recomeçar e o aviso
+         * nunca chegar.
+         */
+        if ($ok && empty($venda['cpcv_gerado_em'])) {
+            $this->db->where('id', (int) $venda['id'])
+                     ->update(db_prefix() . 'simulador_vendas',
+                              ['cpcv_gerado_em' => date('Y-m-d H:i:s')]);
+        }
+
         if (!$ok) {
             set_alert('danger', $erro);
             redirect(admin_url('dps_vendas/view/' . (int) $id));
@@ -543,6 +555,18 @@ class Dps_vendas extends AdminController
         $pecas = [];
 
         list($ok, $erro, $bytes, $nome) = dps_cpcv_gerar($venda);
+
+        /*
+         * Carimba a PRIMEIRA geração. É a partir daqui que se contam as 72h e
+         * as 96h sem assinatura — e só da primeira, senão bastava alguém
+         * voltar a descarregar o contrato para o relógio recomeçar e o aviso
+         * nunca chegar.
+         */
+        if ($ok && empty($venda['cpcv_gerado_em'])) {
+            $this->db->where('id', (int) $venda['id'])
+                     ->update(db_prefix() . 'simulador_vendas',
+                              ['cpcv_gerado_em' => date('Y-m-d H:i:s')]);
+        }
         if (!$ok) {
             set_alert('danger', $erro);
             redirect(admin_url('dps_vendas/view/' . (int) $id));

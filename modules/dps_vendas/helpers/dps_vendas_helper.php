@@ -157,7 +157,17 @@ function dps_vendas_notificar($staff_id_destino, $texto, $link = null)
         if (strlen($numero) === 9) {
             $numero = '351' . $numero;
         }
-        $instancia = 'staff-' . (int) get_staff_user_id();
+        /*
+         * A mensagem sai da instância de quem praticou a ação. Num CRON não há
+         * ninguém autenticado e isto dava 'staff-0' — uma instância que não
+         * existe, e a mensagem falhava em silêncio. Sem sessão, sai pela
+         * instância da direcção (#1), que é a que está sempre ligada.
+         */
+        $remetente = (int) get_staff_user_id();
+        if ($remetente <= 0) {
+            $remetente = (int) (defined('DPS_WA_REMETENTE_CRON') ? DPS_WA_REMETENTE_CRON : 1);
+        }
+        $instancia = 'staff-' . $remetente;
         $ch = curl_init($evo_url . '/message/sendText/' . $instancia);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
