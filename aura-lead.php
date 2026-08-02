@@ -55,7 +55,7 @@ try {
 }
 
 // -------------------------------------------------------------------------
-// ENDPOINT DE DIAGNÓSTICO: ?check_leads=1
+// ENDPOINT DE DIAGNÓSTICO: ?check_leads=1 (v2)
 // -------------------------------------------------------------------------
 if (isset($_GET['check_leads'])) {
     $stmt_mv = $pdo->query("
