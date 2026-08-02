@@ -451,7 +451,9 @@ class Dps_vendas extends AdminController
         $e_empresa = trim((string) ($venda['cliente_crc'] ?? '')) !== '';
 
         $obrigatorios = $e_empresa ? [
-            'cliente_nif'           => 'NIPC',
+            // O NIF/NIPC não é exigido: a certidão (CRC) já identifica a
+            // sociedade, e pedir os dois era pedir a mesma coisa duas vezes.
+            'cliente_crc'           => 'código da certidão (CRC)',
             'cliente_cc'            => 'n.º do Cartão de Cidadão do gestor',
             'cliente_cc_validade'   => 'validade do Cartão de Cidadão do gestor',
             'cliente_morada'        => 'sede',

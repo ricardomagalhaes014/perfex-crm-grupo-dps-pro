@@ -134,7 +134,7 @@
                             </p>
 
                             <div class="row">
-                                <div class="col-md-4">
+                                <div class="col-md-4 dps-so-particular">
                                     <label class="control-label">NIF</label>
                                     <input type="text" name="cliente_nif" class="form-control" placeholder="000000000"
                                            value="<?php echo html_escape($venda['cliente_nif'] ?? ''); ?>">

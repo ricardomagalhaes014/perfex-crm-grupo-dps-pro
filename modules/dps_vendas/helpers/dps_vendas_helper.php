@@ -348,7 +348,8 @@ function dps_cpcv_gerar(array $v)
 
     if ($e_empresa) {
         $subs['PRIMEIRO OUTORGANTE:'] =
-            '____ PRIMEIRO OUTORGANTE: ' . $v['cliente'] . ', NIPC ' . $v['cliente_nif']
+            '____ PRIMEIRO OUTORGANTE: ' . $v['cliente']
+            . (trim((string) $v['cliente_nif']) !== '' ? ', NIPC ' . $v['cliente_nif'] : '')
             . ($crc !== ''
                 ? ', matriculada na Conservatória do Registo Comercial, com o código de acesso à '
                   . 'certidão permanente n.º ' . $crc
