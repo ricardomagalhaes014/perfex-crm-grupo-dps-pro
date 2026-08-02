@@ -4,8 +4,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
 
 /*
 Module Name: CAPI Meta - DPS
-Description: Envia o funil de leads para a Meta Conversions API via Make (funil cumulativo + estados VIP)
-Version: 1.3.0
+Description: Envia o funil de leads para a Meta Conversions API via Make (funil cumulativo + VIP + Google Offline Conversions)
+Version: 1.4.0
 Requires at least: 2.3.*
 Author: DPS Imobiliario
 */
@@ -179,6 +179,41 @@ function capi_meta_send($leadId, $fbLeadId, $lead, $eventName, $statusName)
     ];
 
     capi_meta_post_json(CAPI_META_WEBHOOK, $payload);
+
+    // v1.4: despacho paralelo para Google Ads Offline Conversions (se a lead tiver GCLID
+    // e o webhook estiver configurado na opcao: capi_google_webhook_url)
+    $googleWebhook = function_exists('get_option') ? trim((string) get_option('capi_google_webhook_url')) : '';
+    if ($googleWebhook !== '') {
+        $CI =& get_instance();
+        $gclid = capi_meta_get_gclid($CI, $leadId);
+        if (!empty($gclid)) {
+            capi_meta_post_json($googleWebhook, [
+                'gclid'          => $gclid,
+                'event_name'     => $eventName,
+                'status_name'    => $statusName,
+                'perfex_lead_id' => $leadId,
+                'email'          => $lead->email ?? '',
+                'phone'          => $lead->phonenumber ?? '',
+                'event_time'     => date('c'),
+            ]);
+        }
+    }
+}
+
+function capi_meta_get_gclid($CI, $leadId)
+{
+    $row = $CI->db->select('cv.value')
+        ->from(db_prefix() . 'customfieldsvalues cv')
+        ->join(db_prefix() . 'customfields cf', 'cf.id = cv.fieldid')
+        ->where('cv.relid', $leadId)
+        ->where('cv.fieldto', 'leads')
+        ->group_start()
+            ->where('cf.slug', 'leads_gclid')
+            ->or_where('cf.name', 'GCLID')
+        ->group_end()
+        ->get()->row();
+
+    return ($row && !empty($row->value)) ? trim($row->value) : null;
 }
 
 function capi_meta_get_fb_lead_id($CI, $leadId)
