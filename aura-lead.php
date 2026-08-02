@@ -55,6 +55,31 @@ try {
 }
 
 // -------------------------------------------------------------------------
+// ENDPOINT DE DIAGNÓSTICO: ?check_leads=1
+// -------------------------------------------------------------------------
+if (isset($_GET['check_leads']) && isset($_GET['token']) && $_GET['token'] === 'dps2026deploy') {
+    $stmt_mv = $pdo->query("
+        SELECT l.id, l.name, l.email, l.description, l.dateadded
+        FROM tblleads l
+        INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
+        INNER JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = 'MV'
+        ORDER BY l.dateadded DESC LIMIT 10
+    ");
+    $stmt_aura = $pdo->query("
+        SELECT l.id, l.name, l.email, l.description, l.dateadded
+        FROM tblleads l
+        INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
+        INNER JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = 'AURA'
+        ORDER BY l.dateadded DESC LIMIT 10
+    ");
+    echo json_encode([
+        'last_mv_leads' => $stmt_mv->fetchAll(PDO::FETCH_ASSOC),
+        'last_aura_leads' => $stmt_aura->fetchAll(PDO::FETCH_ASSOC)
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
+// -------------------------------------------------------------------------
 // ENDPOINT DE CORRECÇÃO DE TAGS: ?fix_aura=1 (dry) ou ?fix_aura=2 (executar)
 // Corrige leads com tag MV que vieram do formulário AURA (form_id 3920049508291548)
 // Identifica-as pelo Facebook Lead ID guardado na descrição, consultando a Graph API
