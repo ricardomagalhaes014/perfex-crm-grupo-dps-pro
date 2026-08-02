@@ -286,3 +286,61 @@ function dps_reunioes_cron()
         }
     }
 }
+
+/* =========================================================================
+ * O bloco na ficha da LEAD
+ *
+ * O cliente tem um registo de separadores próprio; a lead não tem. O único
+ * ponto de extensão é o after_lead_tabs_content, que fica FORA do contentor
+ * dos painéis — um <div class="tab-pane"> ali nunca seria mostrado pelo
+ * Bootstrap.
+ *
+ * Por isso o bloco é escrito ali e depois MUDADO de sítio por JavaScript:
+ * acrescenta-se o separador à lista e move-se o painel para dentro do
+ * contentor. Se esse JavaScript falhar por alguma razão, o bloco fica na
+ * mesma visível no fundo da janela — degrada, não desaparece.
+ * ====================================================================== */
+hooks()->add_action('after_lead_tabs_content', 'dps_reunioes_bloco_lead');
+
+function dps_reunioes_bloco_lead($lead)
+{
+    if (empty($lead) || empty($lead->id)) {
+        return;
+    }
+
+    $CI = &get_instance();
+
+    $rel_type  = 'lead';
+    $rel_id    = (int) $lead->id;
+    $pre_nome  = (string) ($lead->name ?? '');
+    $pre_email = (string) ($lead->email ?? '');
+    $pre_tel   = (string) ($lead->phonenumber ?? '');
+
+    echo '<div class="tab-pane" id="dps_reunioes_lead">';
+    $CI->load->view('dps_reunioes/bloco_ficha',
+        compact('rel_type', 'rel_id', 'pre_nome', 'pre_email', 'pre_tel'));
+    echo '</div>';
+    ?>
+<script>
+(function () {
+    var painel = document.getElementById('dps_reunioes_lead');
+    if (!painel) { return; }
+
+    var modal = painel.closest('.modal') || document;
+    var lista = modal.querySelector('ul.nav-tabs');
+    var pai   = modal.querySelector('.tab-content');
+
+    if (!lista || !pai || lista.querySelector('a[href="#dps_reunioes_lead"]')) { return; }
+
+    var li = document.createElement('li');
+    li.setAttribute('role', 'presentation');
+    li.innerHTML = '<a href="#dps_reunioes_lead" role="tab" data-toggle="tab">'
+                 + '<i class="fa fa-video-camera menu-icon"></i> Reuniões</a>';
+    lista.appendChild(li);
+
+    // O painel passa para dentro do contentor, senão o Bootstrap nunca o mostra.
+    pai.appendChild(painel);
+})();
+</script>
+    <?php
+}
