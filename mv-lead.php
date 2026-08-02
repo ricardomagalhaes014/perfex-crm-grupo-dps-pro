@@ -184,7 +184,11 @@ try {
 $wa_sent = false;
 $wa_error = '';
 
-if (!empty($phone)) {
+// DESATIVADO (2026-08-02): envio automatico de WhatsApp de boas-vindas desligado.
+// Motivo: a Evolution API (nao-oficial) faz banir os numeros. Migracao p/ Cloud API oficial.
+// NAO REMOVER este bloqueio sem decisao explicita do Ricardo.
+// Para reativar SO com a API oficial, repor a condicao original: if (!empty($phone))
+if (false) {
     try {
         // Obter configurações da Evolution API
         $stmt = $pdo->prepare("SELECT name, value FROM tbloptions WHERE name IN ('dps_whatsapp_evolution_url', 'dps_whatsapp_evolution_api_key')");
