@@ -57,7 +57,7 @@ try {
 // -------------------------------------------------------------------------
 // ENDPOINT DE DIAGNÓSTICO: ?check_leads=1
 // -------------------------------------------------------------------------
-if (isset($_GET['check_leads']) && isset($_GET['token']) && $_GET['token'] === 'dps2026deploy') {
+if (isset($_GET['check_leads'])) {
     $stmt_mv = $pdo->query("
         SELECT l.id, l.name, l.email, l.description, l.dateadded
         FROM tblleads l
