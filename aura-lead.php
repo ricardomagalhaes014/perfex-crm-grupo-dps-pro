@@ -54,6 +54,102 @@ try {
     exit;
 }
 
+// -------------------------------------------------------------------------
+// ENDPOINT DE CORRECÇÃO DE TAGS: ?fix_aura=1 (dry) ou ?fix_aura=2 (executar)
+// Corrige leads com tag MV que vieram do formulário AURA (form_id 3920049508291548)
+// Identifica-as pelo Facebook Lead ID guardado na descrição, consultando a Graph API
+// -------------------------------------------------------------------------
+if (isset($_GET['fix_aura'])) {
+    $dry = ($_GET['fix_aura'] == '1');
+    $AURA_FORM_ID = '3920049508291548';
+    $fb_token_param = isset($_GET['fb_token']) ? trim($_GET['fb_token']) : '';
+
+    // Obter tag IDs
+    $mv_row = $pdo->query("SELECT id FROM tbltags WHERE name = 'MV' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $aura_row = $pdo->query("SELECT id FROM tbltags WHERE name = 'AURA' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$mv_row) { echo json_encode(['error' => 'Tag MV nao encontrada']); exit; }
+    $mv_tag_id = $mv_row['id'];
+    $aura_tag_id = $aura_row ? $aura_row['id'] : null;
+    if (!$aura_tag_id) {
+        $pdo->prepare("INSERT INTO tbltags (name) VALUES ('AURA')")->execute();
+        $aura_tag_id = $pdo->lastInsertId();
+    }
+
+    // Obter leads com tag MV que têm Facebook Lead ID na descrição
+    $stmt = $pdo->prepare("
+        SELECT l.id, l.name, l.email, l.description, l.dateadded
+        FROM tblleads l
+        INNER JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead' AND t.tag_id = ?
+        WHERE l.description LIKE '%Facebook Lead ID:%'
+        ORDER BY l.dateadded DESC
+    ");
+    $stmt->execute([$mv_tag_id]);
+    $mv_leads = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Obter Facebook token das configurações se não foi passado como parâmetro
+    if (empty($fb_token_param)) {
+        $t = $pdo->query("SELECT value FROM tbloptions WHERE name = 'facebook_access_token' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $fb_token_param = $t ? $t['value'] : '';
+    }
+
+    $leads_to_fix = [];
+    $checked = [];
+    $fb_errors = [];
+
+    foreach ($mv_leads as $lead) {
+        if (preg_match('/Facebook Lead ID:\s*(\d+)/i', $lead['description'], $m)) {
+            $fb_lead_id = $m[1];
+            // Verificar form_id via Facebook Graph API
+            if (!empty($fb_token_param)) {
+                $url = "https://graph.facebook.com/v18.0/{$fb_lead_id}?fields=form_id&access_token={$fb_token_param}";
+                $ch = curl_init($url);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+                $resp = curl_exec($ch);
+                curl_close($ch);
+                $data = json_decode($resp, true);
+                if (isset($data['form_id']) && $data['form_id'] === $AURA_FORM_ID) {
+                    $leads_to_fix[] = array_merge($lead, ['fb_lead_id' => $fb_lead_id]);
+                } elseif (isset($data['error'])) {
+                    $fb_errors[$fb_lead_id] = $data['error']['message'];
+                }
+                $checked[] = ['crm_id' => $lead['id'], 'fb_lead_id' => $fb_lead_id, 'form_id' => $data['form_id'] ?? 'error'];
+            } else {
+                // Sem token FB, assumir que todas as leads MV com FB Lead ID são AURA
+                $leads_to_fix[] = array_merge($lead, ['fb_lead_id' => $fb_lead_id]);
+            }
+        }
+    }
+
+    $fixed = [];
+    $errors = [];
+    if (!$dry) {
+        foreach ($leads_to_fix as $lead) {
+            try {
+                $pdo->prepare("DELETE FROM tbltaggables WHERE tag_id = ? AND rel_id = ? AND rel_type = 'lead'")->execute([$mv_tag_id, $lead['id']]);
+                $pdo->prepare("INSERT IGNORE INTO tbltaggables (tag_id, rel_id, rel_type, tag_order) VALUES (?, ?, 'lead', 0)")->execute([$aura_tag_id, $lead['id']]);
+                $new_desc = str_replace('Formulário MV', 'Formulário AURA', $lead['description']);
+                $pdo->prepare("UPDATE tblleads SET description = ? WHERE id = ?")->execute([$new_desc, $lead['id']]);
+                $fixed[] = ['crm_id' => $lead['id'], 'fb_lead_id' => $lead['fb_lead_id'], 'name' => $lead['name'], 'status' => 'fixed'];
+            } catch (PDOException $e) {
+                $errors[] = ['crm_id' => $lead['id'], 'error' => $e->getMessage()];
+            }
+        }
+    }
+
+    echo json_encode([
+        'dry_run' => $dry,
+        'aura_form_id' => $AURA_FORM_ID,
+        'mv_leads_with_fb_id' => count($mv_leads),
+        'checked' => $checked,
+        'leads_to_fix' => count($leads_to_fix),
+        'fixed' => $dry ? array_map(fn($l) => ['crm_id'=>$l['id'],'name'=>$l['name'],'fb_lead_id'=>$l['fb_lead_id'],'action'=>'would_fix'], $leads_to_fix) : $fixed,
+        'errors' => $errors,
+        'fb_errors' => $fb_errors
+    ], JSON_PRETTY_PRINT);
+    exit;
+}
+
 if (isset($_GET['fixsrc'])) {
     $src_stmt = $pdo->prepare("SELECT id FROM tblleads_sources WHERE name LIKE ?");
     $src_stmt->execute(['%Imo Portugal%']);
