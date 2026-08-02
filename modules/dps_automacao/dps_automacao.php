@@ -245,6 +245,19 @@ function dps_automacao_menu()
         'position' => 4,
     ]);
 
+    /*
+     * O terceiro da família, e o único cujos destinatários já compraram:
+     * acompanhamento de obra por empreendimento. Fica ao lado dos outros dois
+     * porque a pergunta que leva a ele é a mesma — "quero escrever a um
+     * conjunto de pessoas de uma vez".
+     */
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_envio_massa_cliente',
+        'name'     => 'Envio Massa Cliente',
+        'href'     => admin_url('dps_automacao/envio_massa_cliente'),
+        'position' => 5,
+    ]);
+
     $CI->app_menu->add_sidebar_children_item('sms-central', [
         'slug'     => 'dps_automacao_proposta_massa',
         'name'     => 'Proposta em Massa',

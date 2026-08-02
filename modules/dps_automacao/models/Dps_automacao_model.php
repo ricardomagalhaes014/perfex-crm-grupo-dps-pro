@@ -626,4 +626,68 @@ class Dps_automacao_model extends App_Model
             ->order_by('email', 'ASC')
             ->get(db_prefix() . 'dps_envio_tarefa_fila')->result_array();
     }
+
+    /* ---------------------------------------------------------------------
+     * ENVIO EM MASSA A CLIENTES, por empreendimento
+     *
+     * O destinatário aqui não é uma lead: é quem já comprou. A lista sai das
+     * VENDAS e não de um campo copiado para a ficha do cliente — quem comprou
+     * em dois empreendimentos tem de aparecer nos dois envios, e um campo
+     * único fazia o segundo apagar o primeiro.
+     * ------------------------------------------------------------------ */
+
+    /** Empreendimentos que já têm clientes, com a contagem. */
+    public function empreendimentos_com_clientes()
+    {
+        return $this->db
+            ->select('v.empreendimento, COUNT(DISTINCT v.client_id) AS n', false)
+            ->from(db_prefix() . 'simulador_vendas v')
+            ->where('v.client_id IS NOT NULL')
+            ->group_by('v.empreendimento')
+            ->order_by('v.empreendimento', 'ASC')
+            ->get()->result_array();
+    }
+
+    /**
+     * Clientes de um empreendimento, um por linha, já com o email do contacto
+     * principal e o que compraram.
+     *
+     * @param string $empreendimento vazio = todos os empreendimentos
+     */
+    public function clientes_para_envio($empreendimento = '')
+    {
+        $this->db
+            ->select('c.userid, c.company, ct.email, ct.firstname,
+                      GROUP_CONCAT(DISTINCT v.empreendimento ORDER BY v.empreendimento SEPARATOR ", ") AS empreendimentos,
+                      GROUP_CONCAT(DISTINCT v.unidade ORDER BY v.unidade SEPARATOR ", ") AS unidades', false)
+            ->from(db_prefix() . 'simulador_vendas v')
+            ->join(db_prefix() . 'clients c', 'c.userid = v.client_id')
+            ->join(db_prefix() . 'contacts ct', 'ct.userid = c.userid AND ct.is_primary = 1', 'left')
+            ->where('v.client_id IS NOT NULL');
+
+        if (trim((string) $empreendimento) !== '') {
+            $this->db->where('v.empreendimento', $empreendimento);
+        }
+
+        $this->db->group_by('c.userid')->order_by('c.company', 'ASC');
+
+        return $this->db->get()->result_array();
+    }
+
+    /** Regista um envio a cliente, para o registo de envios. */
+    public function registar_envio_cliente($cliente_id, $staff_id, $assunto, $ok, $detalhe = null)
+    {
+        $this->db->insert(db_prefix() . 'dps_automacao_envios', [
+            'lead_id'   => 0,
+            'cliente_id'=> (int) $cliente_id,
+            'staff_id'  => (int) $staff_id,
+            'canal'     => 'email',
+            'tipo'      => 'massa_cliente',
+            'mensagem'  => mb_substr((string) $assunto, 0, 500),
+            'ok'        => $ok ? 1 : 0,
+            'detalhe'   => $detalhe ? mb_substr($detalhe, 0, 255) : null,
+            'dateadded' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
 }

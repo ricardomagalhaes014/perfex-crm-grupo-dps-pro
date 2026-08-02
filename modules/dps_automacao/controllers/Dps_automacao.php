@@ -1486,4 +1486,127 @@ class Dps_automacao extends AdminController
 
         return $l ? (int) $l->id : 1;
     }
+
+    /* =====================================================================
+     * ENVIO MASSA CLIENTE — acompanhamento de obra, por empreendimento
+     *
+     * Diferente do envio às leads e do envio por tarefa: aqui os
+     * destinatários já compraram. A lista sai das VENDAS, por isso quem
+     * comprou em dois empreendimentos recebe os dois acompanhamentos.
+     * ================================================================== */
+
+    public function envio_massa_cliente()
+    {
+        if (!is_admin()) {
+            access_denied('dps_automacao');
+        }
+
+        $emp = trim((string) $this->input->get('empreendimento'));
+
+        $data['empreendimentos'] = $this->dps_automacao_model->empreendimentos_com_clientes();
+        $data['empreendimento']  = $emp;
+        $data['clientes']        = $this->dps_automacao_model->clientes_para_envio($emp);
+        $data['title']           = 'Envio Massa Cliente';
+
+        $this->load->view('envio_massa_cliente', $data);
+    }
+
+    public function envio_massa_cliente_enviar()
+    {
+        if (!is_admin() || !$this->input->post()) {
+            show_404();
+        }
+
+        $emp      = trim((string) $this->input->post('empreendimento'));
+        $assunto  = trim((string) $this->input->post('assunto', false));
+        $mensagem = trim((string) $this->input->post('mensagem', false));
+
+        if ($assunto === '' || $mensagem === '') {
+            set_alert('danger', 'O assunto e a mensagem não podem ficar vazios.');
+            redirect(admin_url('dps_automacao/envio_massa_cliente?empreendimento=' . urlencode($emp)));
+        }
+
+        /*
+         * ANEXO — guardado uma vez e reaproveitado em todos os emails. Só os
+         * formatos que fazem sentido mandar a um cliente: uma foto de obra ou
+         * um PDF. Um envio em massa é o pior sítio para deixar passar um
+         * executável, porque sai para dezenas de caixas de uma vez.
+         */
+        $anexo = null;
+        $nome_anexo = '';
+        if (!empty($_FILES['anexo']['tmp_name'])) {
+            $ext = strtolower(pathinfo($_FILES['anexo']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) {
+                set_alert('danger', 'O anexo tem de ser PDF, JPG ou PNG.');
+                redirect(admin_url('dps_automacao/envio_massa_cliente?empreendimento=' . urlencode($emp)));
+            }
+            if ($_FILES['anexo']['size'] > 10 * 1024 * 1024) {
+                set_alert('danger', 'O anexo não pode passar dos 10 MB.');
+                redirect(admin_url('dps_automacao/envio_massa_cliente?empreendimento=' . urlencode($emp)));
+            }
+
+            $pasta = FCPATH . 'uploads/dps_automacao/';
+            if (!is_dir($pasta)) {
+                @mkdir($pasta, 0755, true);
+            }
+            $nome_anexo = 'obra-' . date('Ymd-His') . '.' . $ext;
+            $anexo      = $pasta . $nome_anexo;
+            move_uploaded_file($_FILES['anexo']['tmp_name'], $anexo);
+        }
+
+        $clientes = $this->dps_automacao_model->clientes_para_envio($emp);
+        $eu       = (int) get_staff_user_id();
+
+        $enviados = 0;
+        $falhados = [];
+
+        foreach ($clientes as $c) {
+            $email = trim((string) $c['email']);
+
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $falhados[] = $c['company'] . ' (sem email)';
+                $this->dps_automacao_model->registar_envio_cliente(
+                    $c['userid'], $eu, $assunto, false, 'sem email válido');
+                continue;
+            }
+
+            /*
+             * Os marcadores permitem escrever uma mensagem só e sair
+             * personalizada — sem isso, ou se escreve genérico ou se manda
+             * um a um.
+             */
+            $corpo = str_replace(
+                ['{nome}', '{empreendimento}', '{unidade}'],
+                [
+                    trim((string) ($c['firstname'] ?: $c['company'])),
+                    (string) $c['empreendimentos'],
+                    (string) $c['unidades'],
+                ],
+                $mensagem
+            );
+
+            $ok = $anexo
+                ? dps_automacao_enviar_email_proposta($email, $c['company'], $assunto, $corpo, $anexo, $nome_anexo, $eu)
+                : dps_automacao_enviar_email_lead($email, $assunto, nl2br($corpo), $eu);
+
+            $this->dps_automacao_model->registar_envio_cliente(
+                $c['userid'], $eu, $assunto, $ok, $ok ? null : 'falha no envio');
+
+            if ($ok) {
+                $enviados++;
+            } else {
+                $falhados[] = $c['company'];
+            }
+        }
+
+        log_activity('Envio Massa Cliente (' . ($emp ?: 'todos') . '): ' . $enviados . ' enviado(s)');
+
+        $msg = $enviados . ' email(s) enviado(s)';
+        if ($falhados) {
+            $msg .= '. Não foram: ' . implode(', ', array_slice($falhados, 0, 8))
+                  . (count($falhados) > 8 ? ' e mais ' . (count($falhados) - 8) : '');
+        }
+        set_alert($falhados ? 'warning' : 'success', $msg . '.');
+        redirect(admin_url('dps_automacao/envio_massa_cliente?empreendimento=' . urlencode($emp)));
+    }
 }

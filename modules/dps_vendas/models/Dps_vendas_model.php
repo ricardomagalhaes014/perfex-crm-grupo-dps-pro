@@ -1654,7 +1654,29 @@ class Dps_vendas_model extends App_Model
             return false;                       // sem nome não se cria ficha
         }
 
-        $client_id = $this->procurar_cliente($nif, $email, $nome);
+        /*
+         * Memória da passagem em curso.
+         *
+         * Duas vendas do mesmo comprador processadas no mesmo ciclo: a
+         * segunda procura tem de encontrar a ficha que a primeira acabou de
+         * criar. Aconteceu não encontrar — o Tiago de Castro ficou com duas
+         * fichas, uma por fracção, enquanto a Particula Veloz (caso idêntico)
+         * ficou com uma. Seja qual for a razão de a leitura não ter visto a
+         * escrita, deixa de importar: o que se cria fica aqui, e a mesma
+         * chave devolve sempre o mesmo cliente dentro da mesma passagem.
+         */
+        static $criados_agora = [];
+
+        $chave = $nif !== ''
+            ? 'nif:' . $nif
+            : 'nome:' . mb_strtolower(preg_replace('/\s+/u', ' ', trim($nome)), 'UTF-8')
+              . '|' . mb_strtolower($email, 'UTF-8');
+
+        if (isset($criados_agora[$chave])) {
+            $client_id = $criados_agora[$chave];
+        } else {
+            $client_id = $this->procurar_cliente($nif, $email, $nome);
+        }
 
         if (!$client_id) {
             $this->load->model('clients_model');
@@ -1695,6 +1717,8 @@ class Dps_vendas_model extends App_Model
             if (!$client_id) {
                 return false;
             }
+
+            $criados_agora[$chave] = (int) $client_id;
 
             log_activity('Venda #' . (int) $venda_id . ' — criado o cliente #' . $client_id
                 . ' (' . $nome . ') a partir do mapa de vendas');
