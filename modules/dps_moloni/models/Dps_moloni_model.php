@@ -1337,13 +1337,27 @@ class Dps_moloni_model extends App_Model
             return ['ok' => false, 'erro' => $api->last_error() ?: 'O Moloni não respondeu.'];
         }
 
-        $vendas     = $this->get_sales();
-        $sugestoes  = dps_moloni_match(
-            $documentos,
-            $vendas,
-            $this->linked_document_ids(),
-            $this->promoter_map()
-        );
+        /*
+         * EMPARELHAMENTO: EMPREENDIMENTO PRIMEIRO, FRACÇÃO DEPOIS.
+         *
+         * NÃO se procura por valor. Foi assim que isto nasceu — o
+         * dps_moloni_match() compara o valor do documento com a comissão da
+         * venda — e nunca podia funcionar por duas razões:
+         *
+         *  1. Compara o número errado. `comissao_total` é o que PAGAMOS ao
+         *     comercial (8.497,50 € na venda #13); a factura ao promotor é o
+         *     que RECEBEMOS (16.995,00 €). Nunca batem certo.
+         *  2. Mesmo com o número certo, valores repetem-se: duas facturas de
+         *     12.245,00 € em promotores diferentes, e a mesma letra de fracção
+         *     existe em empreendimentos diferentes.
+         *
+         * A regra do dono (03/08/2026) é determinística e não depende de
+         * dinheiro: o NIF da entidade do documento diz o EMPREENDIMENTO (mapa
+         * de promotores), e a linha do documento diz a FRACÇÃO — vem escrita,
+         * "CPCV Lote 1 torre 2 unidade CO". Cruzam-se as duas.
+         */
+        $vendas    = $this->get_sales();
+        $sugestoes = $this->emparelhar_por_fraccao($documentos, $api);
 
         /*
          * Contar quantas vezes cada documento e cada venda aparecem: só se
@@ -1540,5 +1554,231 @@ class Dps_moloni_model extends App_Model
         }
 
         return null;                           // 50/50 — não se adivinha
+    }
+
+    /**
+     * Emparelha documentos com vendas por EMPREENDIMENTO + FRACÇÃO.
+     *
+     * Devolve a mesma forma que dps_moloni_match() para o resto do método não
+     * ter de saber a diferença: confidence, reason, kind, sale, document.
+     *
+     * Só olha para facturas (FT) emitidas a promotores conhecidos. Um
+     * documento sem "unidade X" na descrição não entra — sem fracção não há
+     * emparelhamento possível e adivinhar seria pior do que não fazer nada.
+     */
+    private function emparelhar_por_fraccao($documentos, $api)
+    {
+        $promotores = [];
+        foreach ($this->promoters() as $p) {
+            $nif = preg_replace('/\D/', '', (string) ($p['vat'] ?? ''));
+            if ($nif !== '') {
+                $promotores[$nif] = (string) ($p['name'] ?? '');
+            }
+        }
+
+        if (empty($promotores)) {
+            return [];
+        }
+
+        $limpar = static function ($v) {
+            return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $v));
+        };
+
+        // Vendas indexadas por empreendimento + fracção.
+        $por_chave = [];
+        foreach ($this->get_sales() as $venda) {
+            $chave = ($venda['project'] ?? '') . '|' . $limpar($venda['unit'] ?? '');
+            $por_chave[$chave][] = $venda;
+        }
+
+        $ligados   = array_flip(array_map('intval', $this->linked_document_ids()));
+        $sugestoes = [];
+
+        foreach ($documentos as $doc) {
+            $doc_id = (int) ($doc['document_id'] ?? 0);
+
+            if (!$doc_id || isset($ligados[$doc_id])) {
+                continue;
+            }
+            if ((int) ($doc['document_type_id'] ?? 0) !== 1) {   // 1 = FT
+                continue;
+            }
+
+            $nif = preg_replace('/\D/', '', (string) ($doc['entity_vat'] ?? ''));
+            if (!isset($promotores[$nif])) {
+                continue;                                        // não é um promotor nosso
+            }
+
+            // A fracção vive na linha do documento, e o getAll não a traz.
+            $detalhe = $api->document_one($doc_id);
+            $descricao = (string) ($detalhe['products'][0]['name'] ?? '');
+
+            if (!preg_match('/unidade\s+([A-Za-z0-9_]+)/i', $descricao, $m)) {
+                continue;
+            }
+
+            $fraccao = $m[1];
+            $bloco   = preg_match('/(?:torre|bloco)\s+(\d+)/i', $descricao, $m2) ? $m2[1] : '';
+
+            /*
+             * Duas escritas possíveis da mesma fracção: com e sem o número da
+             * torre ("2_CO" e "CO"). A que traz a torre tem precedência —
+             * é mais específica e desempata quando as duas existem.
+             */
+            $tentativas = array_unique(array_filter([
+                $bloco !== '' ? $limpar($bloco . '_' . $fraccao) : '',
+                $limpar($fraccao),
+            ]));
+
+            foreach ($tentativas as $tentativa) {
+                $chave = $promotores[$nif] . '|' . $tentativa;
+
+                if (empty($por_chave[$chave])) {
+                    continue;
+                }
+                if (count($por_chave[$chave]) > 1) {
+                    break;    // duas vendas na mesma fracção: não se escolhe
+                }
+
+                $sugestoes[] = dps_moloni_suggestion(
+                    $doc,
+                    $por_chave[$chave][0],
+                    'certeza',
+                    'Empreendimento ' . $promotores[$nif] . ' + fracção ' . $fraccao,
+                    'invoice'
+                );
+                break;
+            }
+        }
+
+        return $sugestoes;
+    }
+
+    /**
+     * Emite no Moloni o RECIBO que liquida a factura desta venda.
+     *
+     * Chamado quando a direcção marca a venda como recebida no CRM. A regra do
+     * dono (03/08/2026): a factura fica em aberto até o dinheiro entrar; só aí
+     * se emite o recibo e o documento passa a liquidado.
+     *
+     * PORQUE UM RECIBO E NÃO UMA "CONVERSÃO":
+     * Uma Fatura já emitida é um documento fiscal fechado — não se transforma
+     * em Fatura-Recibo. O que a liquida é um Recibo associado; feito isso, a
+     * factura aparece paga no Moloni e o par vale o mesmo. A Fatura-Recibo só
+     * existe quando se emite já paga, que não é o caso destas.
+     *
+     * SAI EM RASCUNHO (status 0), por decisão do dono. Nada fica fechado sem
+     * ele ver: um engano de clique no CRM viraria um documento fiscal que só
+     * se corrige com nota de crédito.
+     *
+     * @param  int    $venda_id
+     * @param  string $data  AAAA-MM-DD do recebimento
+     * @return array  ok, erro, documento
+     */
+    public function emitir_recibo($venda_id, $data)
+    {
+        $CI = &get_instance();
+        $CI->load->library('dps_moloni/moloni_api');
+        $api = $CI->moloni_api;
+
+        if (!$api->is_configured() || !$api->company_id()) {
+            return ['ok' => false, 'erro' => 'Moloni por configurar.'];
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $data)) {
+            $data = date('Y-m-d');
+        }
+
+        // A factura desta venda. Sem factura não há nada a liquidar.
+        $factura = null;
+        foreach ($this->links_for_sale((int) $venda_id) as $lig) {
+            if (($lig['kind'] ?? '') === 'invoice' && !empty($lig['document_id'])) {
+                $factura = $lig;
+                break;
+            }
+        }
+
+        if (!$factura) {
+            return ['ok' => false, 'erro' => 'Esta venda não tem factura ligada no Moloni.'];
+        }
+
+        $doc = $api->document_one((int) $factura['document_id']);
+
+        if (!is_array($doc) || empty($doc['document_id'])) {
+            return ['ok' => false, 'erro' => 'Não consegui ler a factura no Moloni.'];
+        }
+
+        $total      = (float) ($doc['net_value'] ?? 0);
+        $liquidado  = (float) ($doc['reconciled_value'] ?? 0);
+        $em_aberto  = round($total - $liquidado, 2);
+
+        if ($em_aberto <= 0) {
+            return ['ok' => false, 'erro' => 'A factura já está liquidada no Moloni.'];
+        }
+
+        // Transferência bancária, procurada pelo nome — os ids mudam de
+        // empresa para empresa e fixá-los aqui era uma avaria à espera.
+        $metodo = 0;
+        foreach ((array) $api->payment_methods() as $m) {
+            if (is_array($m) && stripos((string) ($m['name'] ?? ''), 'transfer') !== false) {
+                $metodo = (int) ($m['payment_method_id'] ?? 0);
+                break;
+            }
+        }
+
+        if (!$metodo) {
+            return ['ok' => false, 'erro' => 'Não encontrei o método de pagamento "Transferência Bancária" no Moloni.'];
+        }
+
+        /*
+         * A série é obrigatória e não tem valor por omissão: sem ela o Moloni
+         * responde "5 document_set_id" e não cria nada (apanhado em ensaio,
+         * 03/08/2026). Usa-se a série da própria factura, para o recibo sair
+         * na mesma numeração.
+         */
+        $serie = (int) ($doc['document_set_id'] ?? 0);
+
+        if (!$serie) {
+            return ['ok' => false, 'erro' => 'A factura não diz a que série pertence.'];
+        }
+
+        $payload = [
+            'company_id'     => $api->company_id(),
+            'document_set_id' => $serie,
+            'customer_id'    => (int) ($doc['customer_id'] ?? 0),
+            'date'        => $data,
+            'net_value'   => $em_aberto,
+            'status'      => 0,                       // rascunho, sempre
+            'associated_documents' => [
+                ['associated_id' => (int) $doc['document_id'], 'value' => $em_aberto],
+            ],
+            'payments' => [
+                ['payment_method_id' => $metodo, 'date' => $data, 'value' => $em_aberto],
+            ],
+        ];
+
+        $r = $api->document_insert('receipts', $payload);
+
+        if (!is_array($r) || empty($r['document_id'])) {
+            $this->log('receipts/insert', $payload, $r, 'erro', $api->last_error());
+
+            return ['ok' => false, 'erro' => $api->last_error() ?: 'O Moloni recusou o recibo.'];
+        }
+
+        $this->log('receipts/insert', $payload, $r, 'ok', 'rascunho criado');
+
+        $this->link_document([
+            'sale_id'     => (int) $venda_id,
+            'kind'        => 'receipt',
+            'document_id' => (int) $r['document_id'],
+            'number'      => (string) ($r['number'] ?? ''),
+            'net_value'   => $em_aberto,
+            'total_value' => $em_aberto,
+            'doc_date'    => $data,
+            'status'      => 0,
+            'is_paid'     => 0,
+            'source'      => 'recebido_crm',
+        ]);
+
+        return ['ok' => true, 'documento' => (int) $r['document_id'], 'valor' => $em_aberto];
     }
 }

@@ -831,7 +831,28 @@ class Dps_vendas extends AdminController
 
         $this->dps_vendas_model->marcar_recebido_dps($id, $data);
         log_activity('DPS Vendas: venda #' . (int) $id . ' marcada como RECEBIDA da DPS em ' . $data);
-        set_alert('success', 'Venda #' . (int) $id . ' marcada como recebida em ' . _d($data) . '.');
+
+        /*
+         * O dinheiro entrou: emite-se no Moloni o recibo que liquida a
+         * factura. Sai em RASCUNHO — a direcção confirma-o lá.
+         *
+         * Não trava a marcação: se o Moloni estiver em baixo, ou a venda não
+         * tiver factura ligada, a marca de recebido fica na mesma e diz-se
+         * porquê. Perder o registo de um recebimento por causa de uma API
+         * seria pior do que emitir o recibo mais tarde à mão.
+         */
+        $aviso_moloni = '';
+
+        if (file_exists(APPPATH . '../modules/dps_moloni/models/Dps_moloni_model.php')) {
+            $this->load->model('dps_moloni_model');
+            $r = $this->dps_moloni_model->emitir_recibo((int) $id, $data);
+
+            $aviso_moloni = !empty($r['ok'])
+                ? ' Recibo criado no Moloni em rascunho (' . number_format((float) $r['valor'], 2, ',', '.') . ' €) — falta confirmá-lo lá.'
+                : ' No Moloni não ficou recibo: ' . ($r['erro'] ?? 'motivo desconhecido');
+        }
+
+        set_alert('success', 'Venda #' . (int) $id . ' marcada como recebida em ' . _d($data) . '.' . $aviso_moloni);
 
         redirect($this->voltar_para());
     }
