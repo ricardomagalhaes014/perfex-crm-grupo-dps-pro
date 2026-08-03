@@ -5,7 +5,96 @@
  * URL: https://crm.grupo-dps.com/sofia_call_history.php
  */
 
-$ELEVENLABS_API_KEY = "sk_c414c588b881d8e7a802ff9d9192ab671392c51eeb0e7afc";
+/* =====================================================================
+ * PORTA FECHADA
+ *
+ * Esta página esteve aberta a QUALQUER PESSOA na internet: bastava saber o
+ * endereço para ler o histórico de chamadas da Sofia — com quem falou, quando,
+ * e o resumo da conversa. Não pedia sessão, nem token, nem nada (03/08/2026).
+ *
+ * Agora exige uma sessão de funcionário do CRM, validada contra a tabela de
+ * sessões. Sendo um script fora do CodeIgniter, não há `is_staff_logged_in()`
+ * — lê-se o cookie e confirma-se na base de dados que aquela sessão existe e
+ * pertence a alguém autenticado.
+ * ================================================================== */
+
+$dps_cfg = (string) @file_get_contents(__DIR__ . '/application/config/app-config.php');
+$dps_ler = static function (string $k) use ($dps_cfg): string {
+    return preg_match("/define\(\s*'" . $k . "'\s*,\s*'([^']*)'\s*\)/", $dps_cfg, $m) ? $m[1] : '';
+};
+
+$dps_bd = @new mysqli(
+    $dps_ler('APP_DB_HOSTNAME') ?: 'localhost',
+    $dps_ler('APP_DB_USERNAME'),
+    $dps_ler('APP_DB_PASSWORD'),
+    $dps_ler('APP_DB_NAME')
+);
+
+$dps_autorizado = false;
+
+if (!$dps_bd->connect_error) {
+    $dps_bd->set_charset('utf8mb4');
+    $dps_prefixo = $dps_ler('APP_DB_PREFIX') ?: 'tbl';
+
+    foreach ($_COOKIE as $dps_valor) {
+        // Um id de sessão do CodeIgniter é uma cadeia longa de hexadecimais.
+        if (!is_string($dps_valor) || !preg_match('/^[A-Za-z0-9]{26,}$/', $dps_valor)) {
+            continue;
+        }
+
+        $dps_st = $dps_bd->prepare("SELECT data FROM `{$dps_prefixo}sessions` WHERE id = ? LIMIT 1");
+        if (!$dps_st) {
+            break;
+        }
+        $dps_st->bind_param('s', $dps_valor);
+        $dps_st->execute();
+        $dps_linha = $dps_st->get_result()->fetch_assoc();
+        $dps_st->close();
+
+        // A sessão tem de existir E pertencer a um funcionário autenticado.
+        if ($dps_linha && strpos((string) $dps_linha['data'], 'staff_user_id') !== false) {
+            $dps_autorizado = true;
+            break;
+        }
+    }
+}
+
+if (!$dps_autorizado) {
+    http_response_code(403);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<div style="font-family:system-ui,sans-serif;max-width:520px;margin:80px auto;'
+       . 'padding:26px 30px;border:1px solid #e5e7eb;border-radius:10px;line-height:1.6;">'
+       . '<h2 style="margin:0 0 10px;">Histórico de chamadas &mdash; privado</h2>'
+       . '<p>Esta página só abre a quem tem sessão iniciada no CRM.</p>'
+       . '<p><a href="https://crm.grupo-dps.com/admin">&larr; Entrar no CRM</a></p></div>';
+    exit;
+}
+
+/* =====================================================================
+ * A CHAVE
+ *
+ * Estava escrita aqui, em texto, e este ficheiro está no repositório — ou
+ * seja, a chave viajou para o GitHub e ficou no histórico para sempre.
+ * Passa a ser lida de um ficheiro fora do repositório, na pasta protegida
+ * uploads/dps_secure/ (o deploy não lhe toca e o .htaccess tapa-a).
+ *
+ * ATENÇÃO: tirá-la daqui NÃO desfaz a exposição. A chave antiga tem de ser
+ * REVOGADA no painel da ElevenLabs e substituída por uma nova nesse ficheiro.
+ * ================================================================== */
+
+$dps_ficheiro_chave = __DIR__ . '/uploads/dps_secure/elevenlabs_key';
+$ELEVENLABS_API_KEY = is_readable($dps_ficheiro_chave)
+    ? trim((string) file_get_contents($dps_ficheiro_chave))
+    : '';
+
+if ($ELEVENLABS_API_KEY === '') {
+    echo '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:60px auto;'
+       . 'padding:20px 24px;border:1px solid #e0575b;border-radius:8px;">'
+       . '<strong>Falta a chave da ElevenLabs.</strong><br>'
+       . 'Coloque-a em <code>uploads/dps_secure/elevenlabs_key</code>.</div>';
+    exit;
+}
+
 $AGENT_RAIZES       = "agent_4301kv1pv8g8e259bbdyfk7mrefb";
 $AGENT_BH           = "agent_9901kv1pvewveh9s9ebs1rys274k";
 
