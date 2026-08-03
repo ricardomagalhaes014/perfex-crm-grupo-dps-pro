@@ -20,6 +20,14 @@ class Dps_interacoes extends AdminController
         $periodo   = $this->input->get('periodo') ?: 'last_7';
         $status_id = (int)$this->input->get('status_id');
 
+        /*
+         * Filtro por comercial. Sem nada escolhido mostram-se todos — que é o
+         * que a direcção quer ver quando abre a página. Escolhendo um, a
+         * página passa a ser o relatório dessa pessoa e o gráfico deixa de
+         * comparar colegas para mostrar o dia-a-dia dela.
+         */
+        $comercial_id = (int) $this->input->get('comercial');
+
         // Calcular datas do período e objectivo proporcional
         switch ($periodo) {
             case 'today':
@@ -73,7 +81,8 @@ class Dps_interacoes extends AdminController
         $statuses = $this->db->get($p . 'leads_status')->result_array();
 
         // PASSO 1: Obter todos os staff activos
-        $staff_result = $this->db->query("SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome FROM {$p}staff WHERE active = 1 ORDER BY firstname ASC");
+        $filtro_staff = $comercial_id > 0 ? ' AND staffid = ' . $comercial_id : '';
+        $staff_result = $this->db->query("SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome FROM {$p}staff WHERE active = 1{$filtro_staff} ORDER BY firstname ASC");
         $staff_list   = $staff_result ? $staff_result->result_array() : [];
 
         // PASSO 2: Para cada staff, contar interacções no período
@@ -152,6 +161,60 @@ class Dps_interacoes extends AdminController
         $data['date_from']  = $date_from;
         $data['date_to']    = $date_to;
         $data['objectivo']  = $objectivo;
+
+        /* ------------------------------------------------------------------
+         * O GRÁFICO
+         *
+         * Muda de assunto conforme o filtro, porque a pergunta também muda:
+         *   - sem comercial escolhido -> quem fez quantas (comparação)
+         *   - com um comercial        -> como se portou dia a dia (evolução)
+         * ---------------------------------------------------------------- */
+        $g_etiquetas = [];
+        $g_valores   = [];
+
+        if ($comercial_id > 0) {
+            $por_dia = [];
+            $q = $this->db->query("
+                SELECT DATE(al.date) AS dia, COUNT(al.id) AS n
+                  FROM {$p}lead_activity_log al
+            INNER JOIN {$p}leads l ON l.id = al.leadid
+                 WHERE l.assigned = {$comercial_id}
+                   AND al.description LIKE '? Nota%'
+                   AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+              GROUP BY DATE(al.date)
+            ");
+            foreach (($q ? $q->result_array() : []) as $linha) {
+                $por_dia[$linha['dia']] = (int) $linha['n'];
+            }
+
+            // Os dias sem nenhuma interacção têm de aparecer a zero: um gráfico
+            // que salta de terça para sexta esconde precisamente os dias maus.
+            $dia = strtotime(substr($date_from, 0, 10));
+            $fim = strtotime(substr($date_to, 0, 10));
+            while ($dia <= $fim) {
+                $chave         = date('Y-m-d', $dia);
+                $g_etiquetas[] = date('d/m', $dia);
+                $g_valores[]   = $por_dia[$chave] ?? 0;
+                $dia           = strtotime('+1 day', $dia);
+            }
+        } else {
+            $ordenados = $comerciais;
+            usort($ordenados, fn ($a, $b) => $b['total_interacoes'] <=> $a['total_interacoes']);
+            foreach ($ordenados as $linha) {
+                $g_etiquetas[] = $linha['nome'];
+                $g_valores[]   = (int) $linha['total_interacoes'];
+            }
+        }
+
+        // Toda a equipa, para o seletor — independente do filtro aplicado.
+        $todos = $this->db->query("SELECT staffid, CONCAT(firstname,' ',lastname) AS nome
+                                     FROM {$p}staff WHERE active = 1 ORDER BY firstname ASC");
+        $data['equipa']       = $todos ? $todos->result_array() : [];
+        $data['comercial_id'] = $comercial_id;
+        $data['g_etiquetas']  = $g_etiquetas;
+        $data['g_valores']    = $g_valores;
+        $data['objectivo']    = $objectivo;
+
 
         $this->load->view('interacoes', $data);
     }

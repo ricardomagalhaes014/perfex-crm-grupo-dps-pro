@@ -62,6 +62,18 @@
                 <div class="ic-filters">
                     <form method="GET" action="<?php echo admin_url('dps_interacoes'); ?>">
                         <div class="form-group">
+                            <label>Comercial</label>
+                            <select name="comercial">
+                                <option value="0">Todos os comerciais</option>
+                                <?php foreach (($equipa ?? []) as $m): ?>
+                                <option value="<?php echo (int) $m['staffid']; ?>"
+                                    <?php echo (int) ($comercial_id ?? 0) === (int) $m['staffid'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($m['nome']); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label>Período</label>
                             <select name="periodo">
                                 <option value="today" <?php echo $periodo=='today'?'selected':''; ?>>Hoje</option>
@@ -85,9 +97,33 @@
                         </div>
                         <div class="form-group">
                             <button type="submit" class="ic-btn-filter btn-filter">Filtrar</button>
+                            <?php if ((int) ($comercial_id ?? 0) > 0 || $periodo !== 'last_7' || $status_id > 0): ?>
+                                <a href="<?php echo admin_url('dps_interacoes'); ?>"
+                                   style="margin-left:8px;font-size:13px;color:#888;">Limpar</a>
+                            <?php endif; ?>
                         </div>
                     </form>
                 </div>
+
+                <!-- Gráfico -->
+                <?php if (!empty($g_etiquetas)): ?>
+                <div style="background:#fff;border-radius:8px;padding:18px 20px 8px;margin-bottom:20px;
+                            box-shadow:0 1px 4px rgba(0,0,0,.08);">
+                    <div style="font-size:13px;font-weight:700;color:#333;margin-bottom:4px;">
+                        <?php echo (int) ($comercial_id ?? 0) > 0
+                            ? 'Interacções dia a dia'
+                            : 'Interacções por comercial'; ?>
+                    </div>
+                    <div style="font-size:12px;color:#888;margin-bottom:12px;">
+                        <?php echo (int) ($comercial_id ?? 0) > 0
+                            ? 'Os dias sem nenhuma interacção aparecem a zero — são precisamente os que interessa ver.'
+                            : 'Ordenado de quem mais fala com clientes para quem menos fala.'; ?>
+                    </div>
+                    <div style="height:<?php echo (int) ($comercial_id ?? 0) > 0 ? 220 : max(180, count($g_etiquetas) * 26); ?>px;">
+                        <canvas id="ic-grafico"></canvas>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Período activo + objectivo -->
                 <p class="ic-period-label">
@@ -205,4 +241,49 @@
         </div>
     </div>
 </div>
+<script src="<?php echo base_url('assets/plugins/Chart.js/Chart.min.js'); ?>"></script>
+<script>
+(function () {
+    var el = document.getElementById('ic-grafico');
+    if (!el || typeof Chart === 'undefined') { return; }
+
+    var etiquetas = <?php echo json_encode($g_etiquetas ?? [], JSON_UNESCAPED_UNICODE); ?>;
+    var valores   = <?php echo json_encode($g_valores ?? []); ?>;
+    var porDia    = <?php echo (int) ($comercial_id ?? 0) > 0 ? 'true' : 'false'; ?>;
+    var objectivo = <?php echo (float) ($objectivo ?? 0); ?>;
+
+    /*
+     * Um comercial -> linha, para se ver a evolução ao longo dos dias.
+     * Todos -> barras deitadas, que é como se compara gente: os nomes ficam
+     * legíveis e a lista cresce para baixo sem espremer o texto.
+     */
+    new Chart(el.getContext('2d'), {
+        type: porDia ? 'line' : 'horizontalBar',
+        data: {
+            labels: etiquetas,
+            datasets: [{
+                label: 'Interacções',
+                data: valores,
+                backgroundColor: porDia ? 'rgba(249,115,22,.15)' : '#f97316',
+                borderColor: '#f97316',
+                borderWidth: porDia ? 2 : 0,
+                pointBackgroundColor: '#f97316',
+                fill: porDia
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            legend: { display: false },
+            tooltips: { callbacks: {
+                label: function (t) { return t[porDia ? 'yLabel' : 'xLabel'] + ' interacções'; }
+            } },
+            scales: {
+                xAxes: [{ ticks: { beginAtZero: true, precision: 0 } }],
+                yAxes: [{ ticks: { beginAtZero: true, precision: 0 } }]
+            }
+        }
+    });
+})();
+</script>
 <?php init_tail(); ?>
