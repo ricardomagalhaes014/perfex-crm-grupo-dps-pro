@@ -91,13 +91,28 @@ class Dps_interacoes extends AdminController
             $sid = (int)$s['staffid'];
 
             // Contar interacções: notas manuais na tabela lead_activity_log
+            /*
+             * CONTA-SE O QUE A PESSOA FEZ, não o que aconteceu nas leads dela.
+             *
+             * Duas correcções, medidas na Cátia a 03/08/2026 (135 -> 53):
+             *
+             *  1. al.staffid, não l.assigned. Contava-se por DONO da lead, por
+             *     isso as 46 notas que o Ricardo escreveu nas leads dela
+             *     entravam no número dela. O trabalho é de quem o faz.
+             *
+             *  2. Cada nota fica gravada DUAS vezes — uma como "Nota: X" e
+             *     outra como "Nota gravada por Fulano: X". Sem excluir a
+             *     segunda, todos os números vinham a dobrar (306 linhas hoje
+             *     para 186 notas reais).
+             */
             $count_sql = "
                 SELECT COUNT(al.id) AS total
                 FROM {$p}lead_activity_log al
                 INNER JOIN {$p}leads l ON l.id = al.leadid
-                WHERE l.assigned = {$sid}
+                WHERE al.staffid = {$sid}
                 {$status_clause_leads}
                 AND al.description LIKE '? Nota%'
+                AND al.description NOT LIKE '%Nota gravada por%'
                 AND al.date >= '{$date_from}'
                 AND al.date <= '{$date_to}'
             ";
@@ -125,10 +140,12 @@ class Dps_interacoes extends AdminController
                     FROM {$p}leads l
                     LEFT JOIN {$p}leads_status ls ON ls.id = l.status
                     INNER JOIN {$p}lead_activity_log al ON al.leadid = l.id
+                        AND al.staffid = {$sid}
                         AND al.description LIKE '? Nota%'
+                        AND al.description NOT LIKE '%Nota gravada por%'
                         AND al.date >= '{$date_from}'
                         AND al.date <= '{$date_to}'
-                    WHERE l.assigned = {$sid}
+                    WHERE 1 = 1
                     {$status_clause_leads}
                     GROUP BY l.id, l.name, l.email, l.phonenumber, ls.name
                     ORDER BY num_interacoes DESC
@@ -178,7 +195,8 @@ class Dps_interacoes extends AdminController
                 SELECT DATE(al.date) AS dia, COUNT(al.id) AS n
                   FROM {$p}lead_activity_log al
             INNER JOIN {$p}leads l ON l.id = al.leadid
-                 WHERE l.assigned = {$comercial_id}
+                 WHERE al.staffid = {$comercial_id}
+                   AND al.description NOT LIKE '%Nota gravada por%'
                    AND al.description LIKE '? Nota%'
                    AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
               GROUP BY DATE(al.date)
