@@ -79,6 +79,27 @@ echo '<span class="tw-ml-5">' . format_task_status($task->status) . '</span>';
                     $task_rel_data  = get_relation_data($task->rel_type, $task->rel_id);
                     $task_rel_value = get_relation_values($task_rel_data, $task->rel_type);
                     echo '<div><span class="tw-font-medium">' . _l('task_single_related') . ':</span> <a href="' . e($task_rel_value['link']) . '" target="_blank">' . e($task_rel_value['name']) . '</a>';
+
+                    /*
+                     * Botão para a lead — a sério, não um link de texto.
+                     *
+                     * A ligação já existia, mas em letra pequena no meio da
+                     * ficha: quem recebe uma tarefa da Sofia ("☎️ Sofia:
+                     * contactar") precisa de chegar à lead para ligar, ver o
+                     * histórico e mudar o estado, e não a encontrava — ficava
+                     * a copiar o nome para a pesquisa. Pedido do dono
+                     * (03/08/2026).
+                     *
+                     * Só para leads: nos projetos e clientes o Perfex já tem
+                     * caminhos próprios bem visíveis.
+                     */
+                    if ($task->rel_type === 'lead' && !empty($task_rel_value['link'])) {
+                        echo '<div class="tw-mt-2">'
+                            . '<a href="' . e($task_rel_value['link']) . '" class="btn btn-primary btn-sm">'
+                            . '<i class="fa fa-user-o"></i> Abrir a lead'
+                            . '</a>'
+                            . '</div>';
+                    }
                     if ($task->rel_type == 'project' && $task->milestone != 0) {
                         echo '<div><span class="tw-font-medium">' . _l('task_milestone') . ':</span> ';
                         $milestones = get_project_milestones($task->rel_id);
