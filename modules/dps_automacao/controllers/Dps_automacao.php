@@ -1294,6 +1294,13 @@ class Dps_automacao extends AdminController
 
             if ($ok) {
                 $enviados++;
+
+                /*
+                 * A tarefa arranca no momento em que a mensagem sai. Sem isto
+                 * ficava em "Não iniciada" com o email já entregue, e o colega
+                 * seguinte escrevia outra vez à mesma pessoa.
+                 */
+                $this->dps_automacao_model->tarefa_em_progresso((int) ($d['id'] ?? 0));
             } else {
                 $falhas[] = $d['email'];
             }

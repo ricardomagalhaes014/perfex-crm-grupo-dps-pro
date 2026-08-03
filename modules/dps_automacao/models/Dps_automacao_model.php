@@ -514,6 +514,10 @@ class Dps_automacao_model extends App_Model
             $this->db->insert($t, [
                 'lote'          => $lote,
                 'staff_id'      => (int) $staff_id,
+                // Sem isto não havia como voltar da fila à tarefa: a linha só
+                // guardava o email, e é a tarefa que tem de mudar de estado
+                // quando a mensagem sai.
+                'task_id'       => (int) ($d['id'] ?? 0) ?: null,
                 'email'         => $d['email'],
                 'nome'          => $d['name'],
                 'assunto'       => $assunto,
@@ -543,11 +547,51 @@ class Dps_automacao_model extends App_Model
 
     public function fila_tarefa_marcar($id, $ok, $detalhe = '')
     {
+        $linha = $this->db->select('task_id')->where('id', (int) $id)
+            ->get(db_prefix() . 'dps_envio_tarefa_fila')->row_array();
+
         $this->db->where('id', (int) $id)->update(db_prefix() . 'dps_envio_tarefa_fila', [
             'estado'     => $ok ? 'enviado' : 'falhou',
             'enviado_em' => date('Y-m-d H:i:s'),
             'detalhe'    => mb_substr((string) $detalhe, 0, 250),
         ]);
+
+        if ($ok && !empty($linha['task_id'])) {
+            $this->tarefa_em_progresso((int) $linha['task_id']);
+        }
+    }
+
+    /**
+     * A tarefa passa a "Em progresso" quando a mensagem sai.
+     *
+     * O ponto é este: uma tarefa em "Não iniciada" depois de a mensagem já ter
+     * saído mente a quem olha para a lista — e leva o colega a escrever outra
+     * vez à mesma pessoa. Assim que o email sai, a tarefa deixa de estar por
+     * começar.
+     *
+     * Só se mexe em tarefas que ainda NÃO arrancaram. Uma tarefa já concluída,
+     * ou que alguém pôs à espera de resposta, é informação que a pessoa
+     * escreveu à mão e não é um envio automático que a vai apagar.
+     */
+    public function tarefa_em_progresso($task_id)
+    {
+        $task_id = (int) $task_id;
+        if (!$task_id) {
+            return false;
+        }
+
+        $t = $this->db->select('id, status')->where('id', $task_id)
+            ->get(db_prefix() . 'tasks')->row_array();
+
+        if (!$t || (int) $t['status'] !== DPS_AUTOMACAO_TAREFA_NAO_INICIADA) {
+            return false;
+        }
+
+        $this->db->where('id', $task_id)->update(db_prefix() . 'tasks', [
+            'status' => DPS_AUTOMACAO_TAREFA_EM_PROGRESSO,
+        ]);
+
+        return true;
     }
 
     /** Ainda falta alguma coisa deste lote? Serve para saber quando apagar o anexo. */

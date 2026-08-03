@@ -497,6 +497,45 @@ function dps_automacao_fila_tarefa_cron()
 
 hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
 
+/*
+ * Estados de tarefa do Perfex. 1 = Não iniciada, 4 = Em progresso.
+ * Ver Dps_automacao_model::tarefa_em_progresso().
+ */
+define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
+define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);
+
+hooks()->add_action('admin_init', 'dps_automacao_coluna_task_id');
+
+/**
+ * A fila passou a guardar a que tarefa pertence cada envio.
+ *
+ * CREATE TABLE IF NOT EXISTS não acrescenta colunas a uma tabela que já
+ * exista — daí o ALTER explícito, feito só quando a coluna falta.
+ */
+function dps_automacao_coluna_task_id()
+{
+    static $feito = false;
+    if ($feito) {
+        return;
+    }
+    $feito = true;
+
+    $CI = &get_instance();
+    $t  = db_prefix() . 'dps_envio_tarefa_fila';
+
+    if (!$CI->db->table_exists($t)) {
+        return;
+    }
+
+    foreach ($CI->db->field_data($t) as $f) {
+        if ($f->name === 'task_id') {
+            return;
+        }
+    }
+
+    $CI->db->query("ALTER TABLE `{$t}` ADD `task_id` INT(11) NULL DEFAULT NULL AFTER `staff_id`");
+}
+
 /**
  * Botão "Converter tarefa em lead", dentro da janela da tarefa.
  *
