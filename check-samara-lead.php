@@ -1,9 +1,7 @@
 <?php
+define('BASEPATH', __DIR__ . '/');
 $token = isset($_GET['token']) ? $_GET['token'] : '';
 if ($token !== 'dps-samara-check-2026') { http_response_code(403); die('Forbidden'); }
-
-// Evitar conflito com BASEPATH já definido
-if (!defined('BASEPATH')) define('BASEPATH', __DIR__ . '/');
 
 require_once __DIR__ . '/application/config/app-config.php';
 try {
