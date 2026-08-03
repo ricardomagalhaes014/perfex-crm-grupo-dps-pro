@@ -897,6 +897,30 @@ class Dps_vendas extends AdminController
         }
 
         $this->dps_vendas_model->marcar_pago($id);
+
+        /*
+         * É AQUI que a lead passa a Concretizado, e não quando a proposta foi
+         * aceite: uma proposta aceite é uma palavra dada, isto é dinheiro
+         * confirmado pela direção. Enquanto o negócio esteve entre os dois
+         * momentos, a lead ficou em PARA CONTRATO.
+         */
+        if (!empty($venda['lead_id'])) {
+            $this->db->where('id', (int) $venda['lead_id'])
+                     ->update(db_prefix() . 'leads', ['status' => DPS_VENDAS_ESTADO_CONCRETIZADO]);
+
+            $this->load->model('leads_model');
+            $this->leads_model->log_lead_activity(
+                (int) $venda['lead_id'],
+                'Pagamento confirmado pela direção — lead passada a Concretizado.'
+            );
+
+            hooks()->do_action('lead_status_changed', [
+                'lead_id'    => (int) $venda['lead_id'],
+                'old_status' => DPS_VENDAS_ESTADO_CONTRATO,
+                'new_status' => DPS_VENDAS_ESTADO_CONCRETIZADO,
+            ]);
+        }
+
         dps_vendas_notificar(
             (int) $venda['staff_id'],
             'Pagamento confirmado pela direção — ' . $venda['empreendimento'] . ' — Fracção '

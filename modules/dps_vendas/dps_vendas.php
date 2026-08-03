@@ -11,6 +11,13 @@ Author URI: https://grupo-dps.com
 */
 
 define('DPS_VENDAS_MODULE_NAME', 'dps_vendas');
+
+/*
+ * Estados de lead que este módulo mexe. Ver a nota em Dps_vendas::marcar_pago:
+ * a lead só chega a Concretizado quando o pagamento é confirmado.
+ */
+define('DPS_VENDAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
+define('DPS_VENDAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
 define('DPS_VENDAS_VERSION', '1.8.0');
 define('DPS_VENDAS_UPLOAD_PATH', 'uploads/dps_vendas/');
 define('DPS_ARQUIVO_UPLOAD_PATH', 'uploads/dps_arquivo/');

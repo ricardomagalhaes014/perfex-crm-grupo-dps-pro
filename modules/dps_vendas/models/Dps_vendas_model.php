@@ -216,8 +216,20 @@ class Dps_vendas_model extends App_Model
          */
         $venda = $this->get_venda($id);
 
+        /*
+         * Inclui os estados ANTES do CPCV (pedido, reservado, pendente,
+         * submetido). Antes só recalculava de "vendido" para cima, e as vendas
+         * que nascem de uma proposta aceite já trazem uma comissão escrita: a
+         * venda #42 ficou com 314.900 € de valor e 0 € de comissão porque o
+         * valor foi corrigido enquanto ela ainda estava em "reservado", e o
+         * número velho ficou lá a mentir no mapa.
+         *
+         * Recalcular aqui não toca em nada de definitivo: a comissão só fica
+         * congelada no CPCV (ver snapshot_taxas) e uma comissão já recebida
+         * continua protegida pela condição de cima.
+         */
         if ($venda && $venda['comissao_estado'] !== 'recebida'
-            && in_array($venda['estado'], ['vendido', 'concluido'], true)) {
+            && !in_array($venda['estado'], ['cancelado'], true)) {
             $calculo = $this->calcular_comissao($venda);
 
             if ((float) $calculo['valor'] !== (float) $venda['comissao_total']) {

@@ -531,3 +531,54 @@ function dps_propostas_proposta_token($lead_id, $staff_id)
     }
     return hash_hmac('sha256', (int) $lead_id . '|' . (int) $staff_id . '|' . date('Y-m-d'), $secret);
 }
+
+/**
+ * Preço de tabela de uma fracção, tirado do catálogo do simulador.
+ *
+ * É isto que faz o valor da venda aparecer sozinho quando uma proposta é
+ * aceite: o comercial já escolheu a unidade ao enviar a proposta, e o preço
+ * dessa unidade é um facto que está escrito — não há razão para lho pedir
+ * outra vez de cor, nem para arriscar que escreva um número diferente do da
+ * montra.
+ *
+ * O nome do empreendimento vem escrito à mão nas propostas ("AuraResidence",
+ * "Aura Residence"), por isso compara-se sem espaços, sem acentos e sem
+ * maiúsculas — senão metade não casava.
+ *
+ * @return float 0 quando não há preço conhecido (nunca inventa um)
+ */
+function dps_propostas_preco_unidade($empreendimento, $unidade)
+{
+    $unidade = trim((string) $unidade);
+    if ($unidade === '') {
+        return 0.0;
+    }
+
+    $achatar = static function ($t) {
+        $t = mb_strtolower((string) $t, 'UTF-8');
+        $t = strtr($t, ['á'=>'a','à'=>'a','ã'=>'a','â'=>'a','é'=>'e','ê'=>'e',
+                        'í'=>'i','ó'=>'o','ô'=>'o','õ'=>'o','ú'=>'u','ç'=>'c']);
+
+        return preg_replace('/[^a-z0-9]/', '', $t);
+    };
+
+    $alvo = $achatar($empreendimento);
+    $slug = null;
+
+    foreach (dps_propostas_empreendimentos() as $s => $e) {
+        if ($achatar($e['nome']) === $alvo || $achatar($s) === $alvo) {
+            $slug = $s;
+            break;
+        }
+    }
+
+    if ($slug === null) {
+        return 0.0;
+    }
+
+    $catalogo = dps_propostas_units();
+
+    return isset($catalogo[$slug][$unidade]['preco'])
+        ? (float) $catalogo[$slug][$unidade]['preco']
+        : 0.0;
+}

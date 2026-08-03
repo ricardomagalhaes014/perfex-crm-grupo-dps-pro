@@ -2,6 +2,14 @@
 
 defined('BASEPATH') or exit('No direct script access allowed');
 
+/**
+ * Estados de lead usados aqui. Os números vivem em tblleads_status e são
+ * editáveis no CRM; ter o 10 e o 13 espalhados pelo código era garantir que um
+ * dia alguém mexia nos estados e ninguém ligava os pontos.
+ */
+define('DPS_PROPOSTAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
+define('DPS_PROPOSTAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
+
 class Dps_propostas extends AdminController
 {
     /**
@@ -699,8 +707,15 @@ class Dps_propostas extends AdminController
 
     /**
      * Marca uma proposta como ACEITE ou RECUSADA e move o estado da lead:
-     *  - aceite  -> Concretizado (13) + guarda o valor (para comissões)
+     *  - aceite  -> PARA CONTRATO (10)
      *  - recusado-> Para outras oportunidades (3)
+     *
+     * CONCRETIZADO fica para o fim do circuito, e não para aqui: uma proposta
+     * aceite é uma palavra dada, não é dinheiro em casa. Só quando o
+     * comprovativo de pagamento é carregado E a direção o confirma
+     * (Dps_vendas::marcar_pago) é que a lead passa a Concretizado. Antes disto,
+     * uma proposta aceite que caísse a seguir ficava para sempre contada como
+     * negócio fechado. Regra do dono (03/08/2026).
      */
     public function resultado_proposta()
     {
@@ -726,24 +741,41 @@ class Dps_propostas extends AdminController
              * aí com o preço real da fração. Ter dois sítios a dizer quanto
              * vale a mesma venda só serve para eles divergirem.
              *
-             * A venda nasce a zero e é preenchida no formulário que abre logo
-             * a seguir. A comissão não sofre com isso: só é fixada quando a
-             * venda passa a CPCV, e nessa altura lê o valor que lá estiver.
+             * O valor vem sozinho do preço de tabela da fracção — a unidade
+             * já foi escolhida ao enviar a proposta. Só quando a fracção não
+             * está no catálogo é que a venda nasce a zero e se preenche no
+             * formulário que abre a seguir. A comissão não sofre: só é fixada
+             * quando a venda passa a CPCV, e aí lê o valor que lá estiver.
              */
             $valor = (float) preg_replace('/[^0-9]/', '', (string) $valor_raw);
             $venda = $this->dps_criar_venda($prop, $valor);
+            // O valor descoberto no catálogo também fica na proposta, senão a
+            // lista mostrava "valor por definir" numa venda que já tem preço.
+            $valor = $valor > 0 ? $valor : (float) ($venda['valor'] ?? 0);
+
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
                 'outcome'    => 'aceite',
                 'valor'      => $valor,
                 'outcome_at' => date('Y-m-d H:i:s'),
                 'venda_id'   => $venda['id'],
             ]);
-            $this->dps_set_lead_status((int) $prop->lead_id, 13);
+            $this->dps_set_lead_status((int) $prop->lead_id, DPS_PROPOSTAS_ESTADO_CONTRATO);
+
+            /*
+             * Apagar o recado que o dps_vendas deixa quando a lead entra em
+             * PARA CONTRATO. Esse recado serve para abrir o quadro de reserva
+             * e criar a venda — e aqui a venda JÁ foi criada. Sem isto, o
+             * comercial que voltasse à lista de leads nos dois minutos
+             * seguintes abria o quadro e criava uma segunda venda para a mesma
+             * proposta.
+             */
+            $this->session->unset_userdata('dps_vendas_reserva_lead');
             /*
              * Aceite a proposta, a reserva abre-se logo.
              *
-             * A venda já fica criada aqui, mas nasce só com o valor e a taxa —
-             * falta-lhe o cliente completo, a unidade e os documentos. Antes,
+             * A venda já fica criada aqui, com o cliente, a unidade, o valor
+             * de tabela e a taxa — falta-lhe o resto dos dados de contrato e
+             * os documentos. Antes,
              * quem aceitava ficava no mesmo ecrã e a venda ficava a metade até
              * alguém se lembrar dela. Agora o formulário abre a seguir, com a
              * venda já lá, e o caminho até ao mapa de vendas fica fechado.
@@ -752,9 +784,11 @@ class Dps_propostas extends AdminController
                 'success'  => true,
                 'redirect' => admin_url('dps_vendas/form/' . (int) $venda['id']),
                 'message' => $valor > 0
-                    ? 'Proposta ACEITE — Concretizado. Venda registada: ' . number_format($valor, 0, ',', '.')
-                      . ' € · comissão ' . number_format($venda['comissao'], 2, ',', '.') . ' €.'
-                    : 'Proposta ACEITE — Concretizado. A abrir a ficha da venda para escolher a unidade e o valor.',
+                    ? 'Proposta ACEITE — lead em PARA CONTRATO. Venda registada: '
+                      . number_format($valor, 0, ',', '.') . ' € · comissão '
+                      . number_format($venda['comissao'], 2, ',', '.') . ' €.'
+                    : 'Proposta ACEITE — lead em PARA CONTRATO. A fracção não tem preço no catálogo:'
+                      . ' preencha o valor na ficha da venda que abre a seguir.',
             ]);
             return;
         }
@@ -802,25 +836,61 @@ class Dps_propostas extends AdminController
      */
     private function dps_criar_venda($prop, $valor)
     {
+        /*
+         * O valor vem do preço de tabela da fracção, e não de alguém o
+         * escrever de cor. A unidade já foi escolhida ao enviar a proposta,
+         * portanto o preço é um facto que está no catálogo do simulador — o
+         * mesmo que o cliente viu.
+         *
+         * Se a unidade não estiver no catálogo (fracção antiga, nome trocado),
+         * a venda nasce a zero e preenche-se no formulário, que abre a seguir.
+         * Preferível a inventar um número.
+         */
+        if ($valor <= 0) {
+            $valor = dps_propostas_preco_unidade($prop->empreendimento, $prop->unidade);
+        }
+
         $emp  = $this->db->where('nome', $prop->empreendimento)->get(db_prefix() . 'simulador_empreendimentos')->row();
         $taxa = $emp ? (float) $emp->taxa : 0;
         $comissao = round($valor * $taxa / 100, 2);
 
-        $lead = $this->db->select('name')->where('id', (int) $prop->lead_id)->get(db_prefix() . 'leads')->row();
+        /*
+         * Leva-se a ficha do cliente inteira, não só o nome.
+         *
+         * A venda ia com o nome e mais nada. Quem depois precisava de falar com
+         * o comprador — para o CPCV, para a declaração, para marcar a escritura —
+         * tinha de voltar à lead à procura do contacto, e a venda ficava a valer
+         * menos do que a lead que lhe deu origem. O lead_id é o que fecha o
+         * caminho de volta.
+         */
+        $lead = $this->db->select('name, email, phonenumber')
+            ->where('id', (int) $prop->lead_id)
+            ->get(db_prefix() . 'leads')->row();
 
         $this->db->insert(db_prefix() . 'simulador_vendas', [
-            'empreendimento' => $prop->empreendimento,
-            'taxa'           => $taxa,
-            'unidade'        => $prop->unidade,
-            'cliente'        => $lead ? $lead->name : '',
-            'valor'          => $valor,
-            'comissao_total' => $comissao,
-            'data_venda'     => date('Y-m-d'),
-            'staff_id'       => (int) $prop->staff_id,
-            'date_created'   => date('Y-m-d H:i:s'),
+            'empreendimento'   => $prop->empreendimento,
+            'taxa'             => $taxa,
+            'unidade'          => $prop->unidade,
+            'cliente'          => $lead ? $lead->name : '',
+            'cliente_email'    => $lead ? ($lead->email ?: null) : null,
+            'cliente_telefone' => $lead ? ($lead->phonenumber ?: null) : null,
+            'lead_id'          => (int) $prop->lead_id ?: null,
+            'valor'            => $valor,
+            'comissao_total'   => $comissao,
+            'data_venda'       => date('Y-m-d'),
+            'staff_id'         => (int) $prop->staff_id,
+            'date_created'     => date('Y-m-d H:i:s'),
+            'created_by'       => get_staff_user_id(),
         ]);
 
-        return ['id' => $this->db->insert_id(), 'comissao' => $comissao, 'taxa' => $taxa];
+        return [
+            'id'       => $this->db->insert_id(),
+            'comissao' => $comissao,
+            'taxa'     => $taxa,
+            // O valor resolvido (do catálogo, quando não veio de fora): quem
+            // chama precisa dele para gravar na proposta e para a mensagem.
+            'valor'    => $valor,
+        ];
     }
 
     /**
