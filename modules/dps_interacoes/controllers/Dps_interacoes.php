@@ -92,29 +92,50 @@ class Dps_interacoes extends AdminController
 
             // Contar interacções: notas manuais na tabela lead_activity_log
             /*
-             * CONTA-SE O QUE A PESSOA FEZ, não o que aconteceu nas leads dela.
+             * O QUE CONTA COMO INTERACÇÃO (regra do dono, 03/08/2026):
              *
-             * Duas correcções, medidas na Cátia a 03/08/2026 (135 -> 53):
+             *   a) uma NOTA escrita na lead — e se a mesma pessoa escrever
+             *      duas vezes no mesmo cliente no mesmo dia, conta UMA;
+             *   b) cada PROPOSTA enviada.
              *
-             *  1. al.staffid, não l.assigned. Contava-se por DONO da lead, por
-             *     isso as 46 notas que o Ricardo escreveu nas leads dela
-             *     entravam no número dela. O trabalho é de quem o faz.
+             * Três armadilhas no caminho, todas medidas na Cátia (135 -> 64):
              *
-             *  2. Cada nota fica gravada DUAS vezes — uma como "Nota: X" e
-             *     outra como "Nota gravada por Fulano: X". Sem excluir a
-             *     segunda, todos os números vinham a dobrar (306 linhas hoje
-             *     para 186 notas reais).
+             *  1. al.staffid, não l.assigned: contava-se por DONO da lead, e
+             *     as 46 notas que o Ricardo escreveu nas leads dela entravam
+             *     no número dela. O trabalho é de quem o faz.
+             *  2. cada nota fica gravada DUAS vezes ("Nota: X" e "Nota gravada
+             *     por Fulano: X"), no mesmo segundo — sem excluir a segunda,
+             *     tudo vinha a dobrar.
+             *  3. as notas de proposta enviada também são notas: contadas nas
+             *     duas metades, apareciam a dobrar outra vez. Por isso as
+             *     notas manuais excluem-nas.
              */
+            $filtro_nota = "al.description LIKE '? Nota%'
+                            AND al.description NOT LIKE '%Nota gravada por%'";
+
             $count_sql = "
-                SELECT COUNT(al.id) AS total
-                FROM {$p}lead_activity_log al
-                INNER JOIN {$p}leads l ON l.id = al.leadid
-                WHERE al.staffid = {$sid}
-                {$status_clause_leads}
-                AND al.description LIKE '? Nota%'
-                AND al.description NOT LIKE '%Nota gravada por%'
-                AND al.date >= '{$date_from}'
-                AND al.date <= '{$date_to}'
+                SELECT
+                  (SELECT COUNT(*) FROM (
+                      SELECT DISTINCT al.leadid, DATE(al.date) AS dia
+                        FROM {$p}lead_activity_log al
+                  INNER JOIN {$p}leads l ON l.id = al.leadid
+                       WHERE al.staffid = {$sid}
+                         {$status_clause_leads}
+                         AND {$filtro_nota}
+                         AND al.description NOT LIKE '%Proposta enviada%'
+                         
+                         AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+                  ) AS notas_por_dia)
+                  +
+                  (SELECT COUNT(al.id)
+                     FROM {$p}lead_activity_log al
+               INNER JOIN {$p}leads l ON l.id = al.leadid
+                    WHERE al.staffid = {$sid}
+                      {$status_clause_leads}
+                      AND al.description LIKE '%Proposta enviada%'
+                      AND al.description NOT LIKE '%Nota gravada por%'
+                      AND al.date >= '{$date_from}' AND al.date <= '{$date_to}')
+                  AS total
             ";
             $count_res = $this->db->query($count_sql);
             $total     = 0;
@@ -136,12 +157,20 @@ class Dps_interacoes extends AdminController
                         l.email,
                         l.phonenumber,
                         ls.name AS status_name,
-                        COUNT(al.id) AS num_interacoes
+                        COUNT(DISTINCT CASE WHEN al.description NOT LIKE '%Proposta enviada%'
+                                            THEN DATE(al.date) END)
+                        + SUM(CASE WHEN al.description LIKE '%Proposta enviada%' THEN 1 ELSE 0 END)
+                        AS num_interacoes
                     FROM {$p}leads l
                     LEFT JOIN {$p}leads_status ls ON ls.id = l.status
                     INNER JOIN {$p}lead_activity_log al ON al.leadid = l.id
                         AND al.staffid = {$sid}
-                        AND al.description LIKE '? Nota%'
+                        -- Le as MESMAS linhas que o total, senao o detalhe
+                        -- nao soma o cabecalho: ha notas de proposta que nao
+                        -- comecam por Nota e ficavam de fora daqui mas
+                        -- contadas la em cima (11 de diferenca na Catia).
+                        AND (al.description LIKE '? Nota%'
+                             OR al.description LIKE '%Proposta enviada%')
                         AND al.description NOT LIKE '%Nota gravada por%'
                         AND al.date >= '{$date_from}'
                         AND al.date <= '{$date_to}'
@@ -191,15 +220,35 @@ class Dps_interacoes extends AdminController
 
         if ($comercial_id > 0) {
             $por_dia = [];
+            /*
+             * Mesma regra do total, dia a dia: as notas contam uma vez por
+             * cliente (COUNT DISTINCT leadid), as propostas contam todas.
+             * As duas metades somam-se por dia.
+             */
             $q = $this->db->query("
-                SELECT DATE(al.date) AS dia, COUNT(al.id) AS n
-                  FROM {$p}lead_activity_log al
-            INNER JOIN {$p}leads l ON l.id = al.leadid
-                 WHERE al.staffid = {$comercial_id}
-                   AND al.description NOT LIKE '%Nota gravada por%'
-                   AND al.description LIKE '? Nota%'
-                   AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
-              GROUP BY DATE(al.date)
+                SELECT dia, SUM(n) AS n FROM (
+                    SELECT DATE(al.date) AS dia, COUNT(DISTINCT al.leadid) AS n
+                      FROM {$p}lead_activity_log al
+                INNER JOIN {$p}leads l ON l.id = al.leadid
+                     WHERE al.staffid = {$comercial_id}
+                       AND al.description LIKE '? Nota%'
+                       AND al.description NOT LIKE '%Nota gravada por%'
+                       AND al.description NOT LIKE '%Proposta enviada%'
+                       AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+                  GROUP BY DATE(al.date)
+
+                    UNION ALL
+
+                    SELECT DATE(al.date) AS dia, COUNT(al.id) AS n
+                      FROM {$p}lead_activity_log al
+                INNER JOIN {$p}leads l ON l.id = al.leadid
+                     WHERE al.staffid = {$comercial_id}
+                       AND al.description LIKE '%Proposta enviada%'
+                       AND al.description NOT LIKE '%Nota gravada por%'
+                       AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+                  GROUP BY DATE(al.date)
+                ) AS juntos
+              GROUP BY dia
             ");
             foreach (($q ? $q->result_array() : []) as $linha) {
                 $por_dia[$linha['dia']] = (int) $linha['n'];
