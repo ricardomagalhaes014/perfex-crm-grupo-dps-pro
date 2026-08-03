@@ -176,6 +176,20 @@ function dps_reunioes_ensure_agenda($CI)
      * coluna partia as reuniões que já existem. Esta tabela acrescenta sem
      * mexer no que está feito.
      */
+    /*
+     * Que eventos da agenda esta reunião gerou. Guarda-se para os poder
+     * apagar quando ela for cancelada — sem isto ficavam órfãos no calendário
+     * de toda a gente, e ninguém saberia de onde vinham.
+     */
+    foreach ($CI->db->field_data(db_prefix() . 'dps_reunioes') as $f) {
+        if ($f->name === 'eventos') {
+            $tem_eventos = true;
+        }
+    }
+    if (empty($tem_eventos)) {
+        $CI->db->query('ALTER TABLE `' . db_prefix() . "dps_reunioes` ADD `eventos` VARCHAR(191) NULL DEFAULT NULL");
+    }
+
     $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_reunioes_participante` (
         `id` INT(11) NOT NULL AUTO_INCREMENT,
         `reuniao_id` INT(11) NOT NULL,
@@ -577,4 +591,100 @@ function dps_reunioes_avisar_interno(array $r, array $convidados, $tipo = 'marca
             );
         }
     }
+}
+
+/**
+ * Põe a reunião na AGENDA de quem lá vai estar.
+ *
+ * Uma reunião marcada que não aparece no calendário é uma reunião que se
+ * esquece: o comercial marca-a, fecha o CRM, e à hora está noutra coisa. E
+ * como o dps_google sincroniza a tblevents com o Google, entrar aqui é também
+ * entrar no telemóvel de cada um.
+ *
+ * Um evento POR PESSOA (o anfitrião e cada convidado), porque a tblevents tem
+ * um só dono por linha — é assim que cada um a vê na sua agenda e não na dos
+ * outros.
+ *
+ * @return string ids dos eventos criados, separados por vírgula
+ */
+function dps_reunioes_criar_eventos(array $r)
+{
+    $CI = &get_instance();
+
+    if (empty($r['data_hora'])) {
+        return '';
+    }
+
+    $inicio = date('Y-m-d H:i:s', strtotime($r['data_hora']));
+    $fim    = date('Y-m-d H:i:s', strtotime($r['data_hora']) + max(10, (int) ($r['duracao_min'] ?? 30)) * 60);
+
+    $quem = [(int) ($r['staff_id'] ?? 0)];
+    if (!empty($r['convidado_id'])) {
+        $quem[] = (int) $r['convidado_id'];
+    }
+    foreach ($CI->db->where('reuniao_id', (int) $r['id'])
+                    ->get(db_prefix() . 'dps_reunioes_participante')->result_array() as $p) {
+        $quem[] = (int) $p['staff_id'];
+    }
+
+    $titulo = trim((string) ($r['assunto'] ?? '')) ?: 'Reunião online';
+    if (!empty($r['cliente_nome']) && stripos($titulo, (string) $r['cliente_nome']) === false
+        && !in_array($r['cliente_nome'], ['Reunião interna', 'Reunião de equipa'], true)) {
+        $titulo .= ' — ' . $r['cliente_nome'];
+    }
+
+    $ids = [];
+
+    foreach (array_unique(array_filter($quem)) as $staff) {
+        $CI->db->insert(db_prefix() . 'events', [
+            'title'       => mb_substr($titulo, 0, 180),
+            'description' => 'Sala: ' . (string) ($r['link'] ?? ''),
+            'userid'      => $staff,
+            'start'       => $inicio,
+            'end'         => $fim,
+            'public'      => 0,
+            'color'       => '#28B8DA',
+            'isstartnotified' => 0,
+            'reminder_before' => 30,
+            'reminder_before_type' => 'minutes',
+        ]);
+
+        $novo = (int) $CI->db->insert_id();
+        if ($novo) {
+            $ids[] = $novo;
+        }
+    }
+
+    $lista = implode(',', $ids);
+
+    if ($lista !== '' && !empty($r['id'])) {
+        $CI->db->where('id', (int) $r['id'])
+               ->update(db_prefix() . 'dps_reunioes', ['eventos' => $lista]);
+    }
+
+    return $lista;
+}
+
+/**
+ * Tira da agenda os eventos de uma reunião cancelada.
+ */
+function dps_reunioes_apagar_eventos($reuniao_id)
+{
+    $CI = &get_instance();
+
+    $r = $CI->db->select('eventos')->where('id', (int) $reuniao_id)
+                ->get(db_prefix() . 'dps_reunioes')->row_array();
+
+    if (empty($r['eventos'])) {
+        return;
+    }
+
+    $ids = array_filter(array_map('intval', explode(',', $r['eventos'])));
+
+    if ($ids) {
+        $CI->db->where_in('eventid', $ids)->delete(db_prefix() . 'events');
+    }
+
+    $CI->db->where('id', (int) $reuniao_id)
+           ->update(db_prefix() . 'dps_reunioes', ['eventos' => null]);
 }

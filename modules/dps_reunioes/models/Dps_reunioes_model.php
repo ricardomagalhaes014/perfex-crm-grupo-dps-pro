@@ -58,7 +58,18 @@ class Dps_reunioes_model extends App_Model
 
         $this->db->insert($this->tabela(), $reuniao);
 
-        return $this->db->insert_id();
+        $id = (int) $this->db->insert_id();
+
+        /*
+         * A agenda é preenchida aqui, e não em cada um dos três sítios que
+         * marcam reuniões (ficha da lead, agenda partilhada, reunião de
+         * equipa) — um deles esquecer-se-ia, e seria o que ninguém testa.
+         */
+        if ($id && function_exists('dps_reunioes_criar_eventos')) {
+            dps_reunioes_criar_eventos($reuniao + ['id' => $id]);
+        }
+
+        return $id;
     }
 
     public function get($id)

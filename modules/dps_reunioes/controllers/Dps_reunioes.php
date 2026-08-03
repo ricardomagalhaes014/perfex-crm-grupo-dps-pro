@@ -62,6 +62,40 @@ class Dps_reunioes extends AdminController
             redirect($_SERVER['HTTP_REFERER'] ?? admin_url('dps_reunioes'));
         }
 
+        /*
+         * QUEM PUBLICOU AGENDA MANDA NA SUA AGENDA.
+         *
+         * Se se convida alguém que publicou horários, a reunião tem de cair
+         * num deles. Sem isto, a agenda partilhada era decorativa: o colega
+         * definia "quartas das 14h às 18h" e recebia na mesma um convite para
+         * sexta às 8h — e quem tem a agenda cheia é precisamente quem a
+         * publica. Pedido do dono (03/08/2026).
+         *
+         * Só se valida quando a pessoa publicou. Quem não publicou continua a
+         * poder ser convidado a qualquer hora, como sempre.
+         */
+        $convidado = (int) ($post['convidado_id'] ?? 0);
+
+        if ($convidado > 0) {
+            $regras = $this->dps_reunioes_model->get_partilha($convidado);
+
+            if (!empty($regras['publicada'])) {
+                $quando  = date('Y-m-d H:i:s', strtotime($data_hora));
+                $duracao = (int) ($post['duracao_min'] ?? $regras['duracao_min']);
+
+                if (!$this->dps_reunioes_model->slot_valido($convidado, $quando, $duracao)) {
+                    $nome = get_staff_full_name($convidado);
+
+                    set_alert('warning',
+                        $nome . ' só aceita reuniões nos horários que publicou, e '
+                        . dps_reunioes_quando($quando) . ' não é um deles. '
+                        . 'Escolha uma hora livre na agenda dele — nada foi marcado.');
+
+                    redirect(admin_url('dps_reunioes/agenda/' . $convidado));
+                }
+            }
+        }
+
         $id = $this->dps_reunioes_model->criar([
             'rel_type'         => $post['rel_type'] ?? 'lead',
             'rel_id'           => (int) ($post['rel_id'] ?? 0),
@@ -185,6 +219,17 @@ class Dps_reunioes extends AdminController
      * quanto tempo ficou sem infraestrutura própria a ouvir os eventos da
      * sala — prometer isso automático era prometer um número inventado.
      */
+    /**
+     * Ao cancelar, a reunião sai também da agenda de toda a gente — senão
+     * ficava lá um compromisso que já não existe, e no Google também.
+     */
+    private function limpar_agenda_se_cancelada($id, $estado)
+    {
+        if ($estado === 'cancelada' && function_exists('dps_reunioes_apagar_eventos')) {
+            dps_reunioes_apagar_eventos((int) $id);
+        }
+    }
+
     public function fechar($id)
     {
         if ($this->input->method() !== 'post') {
@@ -208,6 +253,8 @@ class Dps_reunioes extends AdminController
         ]);
 
         set_alert('success', 'Reunião actualizada.');
+        $this->limpar_agenda_se_cancelada($id, $estado);
+
         redirect(admin_url('dps_reunioes/ver/' . (int) $id));
     }
 
