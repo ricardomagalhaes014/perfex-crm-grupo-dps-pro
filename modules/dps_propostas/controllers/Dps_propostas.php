@@ -358,8 +358,34 @@ class Dps_propostas extends AdminController
             )->result_array();
         }
 
+        /*
+         * Pesquisa. Escreve-se o número como ele vier à cabeça — com espaços,
+         * com +351, com traços — e tem de encontrar na mesma.
+         *
+         * Os números estão guardados de todas as maneiras: "912345678",
+         * "912 345 678", "+351 912345678". Comparar texto com texto não
+         * encontrava nada. Por isso limpa-se dos dois lados e compara-se pelos
+         * últimos 9 algarismos, que é o número português sem indicativo.
+         *
+         * Se o que se escreveu não tiver algarismos, procura-se pelo nome —
+         * ninguém tem de saber qual é o campo certo.
+         */
+        $procura = trim((string) $this->input->get('q'));
+        $so_digitos = preg_replace('/\D+/', '', $procura);
+
+        if ($procura !== '') {
+            if ($so_digitos !== '') {
+                $agulha = strlen($so_digitos) > 9 ? substr($so_digitos, -9) : $so_digitos;
+                $limpo  = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE("
+                        . "l.phonenumber,' ',''),'-',''),'.',''),'(',''),')',''),'+','')";
+                $this->db->where($limpo . " LIKE " . $this->db->escape('%' . $agulha . '%'), null, false);
+            } else {
+                $this->db->like('l.name', $procura);
+            }
+        }
+
         // Propostas (com estado ATUAL da lead).
-        $this->db->select('p.*, l.name AS lead_nome, ls.name AS estado_atual');
+        $this->db->select('p.*, l.name AS lead_nome, l.phonenumber AS lead_telefone, ls.name AS estado_atual');
         $this->db->from(db_prefix() . 'dps_propostas p');
         $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
         $this->db->join(db_prefix() . 'leads_status ls', 'ls.id = l.status', 'left');
@@ -502,6 +528,7 @@ class Dps_propostas extends AdminController
         $data['can_view_all'] = $can_view_all;
         $data['comercial']    = $comercial;
         $data['comerciais']   = $comerciais;
+        $data['procura']      = $procura;
         $this->load->view('todas', $data);
     }
 

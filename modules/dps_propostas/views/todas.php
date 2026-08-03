@@ -10,8 +10,29 @@
                             <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas Enviadas</h4>
                             <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?></span>
 
+                            <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>"
+                                  style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                                <?php if ($comercial > 0) { ?>
+                                    <input type="hidden" name="comercial" value="<?= (int) $comercial; ?>">
+                                <?php } ?>
+                                <input type="search" name="q" value="<?= e($procura ?? ''); ?>"
+                                       class="form-control input-sm" style="width:230px;"
+                                       placeholder="Número ou nome do cliente">
+                                <button type="submit" class="btn btn-default btn-sm">
+                                    <i class="fa fa-search"></i>
+                                </button>
+                                <?php if (($procura ?? '') !== '') { ?>
+                                    <a href="<?= admin_url('dps_propostas/todas'
+                                        . ($comercial > 0 ? '?comercial=' . (int) $comercial : '')); ?>"
+                                       class="btn btn-default btn-sm">Limpar</a>
+                                <?php } ?>
+                            </form>
+
                             <?php if ($can_view_all) { ?>
-                            <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                            <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>" style="display:flex;align-items:center;gap:8px;">
+                                <?php if (($procura ?? '') !== '') { ?>
+                                    <input type="hidden" name="q" value="<?= e($procura); ?>">
+                                <?php } ?>
                                 <label style="margin:0;font-size:13px;color:#5a6673;"><i class="fa fa-user-o"></i> Comercial:</label>
                                 <select name="comercial" class="selectpicker" data-width="260px" data-live-search="true" onchange="this.form.submit()">
                                     <option value="0"<?= $comercial == 0 ? ' selected' : ''; ?>>Todos os comerciais</option>
@@ -98,6 +119,7 @@
                                 <thead>
                                     <tr>
                                         <th>Lead</th>
+                                        <th>Telefone</th>
                                         <th>Comercial</th>
                                         <th>Empreendimento</th>
                                         <th>Unidade</th>
@@ -110,11 +132,32 @@
                                 </thead>
                                 <tbody>
                                     <?php if (empty($propostas)) { ?>
-                                    <tr><td colspan="9" class="text-muted text-center">Sem propostas enviadas.</td></tr>
+                                    <tr><td colspan="10" class="text-muted text-center">
+                                        <?= ($procura ?? '') !== ''
+                                            ? 'Nenhuma proposta para «' . e($procura) . '».'
+                                            : 'Sem propostas enviadas.'; ?>
+                                    </td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
                                     <tr>
                                         <td><a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a></td>
+                                        <td style="white-space:nowrap;">
+                                            <?php
+                                            $tel = trim((string) ($p->lead_telefone ?? ''));
+                                            if ($tel === '') {
+                                                echo '<span class="text-muted">—</span>';
+                                            } else {
+                                                // Clicável nas duas vias: no computador liga pelo
+                                                // softphone, no telemóvel liga mesmo.
+                                                $wa = preg_replace('/\D+/', '', $tel);
+                                                if (strlen($wa) === 9 && $wa[0] === '9') { $wa = '351' . $wa; }
+                                                echo '<a href="tel:' . e(preg_replace('/[^0-9+]/', '', $tel)) . '">' . e($tel) . '</a>';
+                                                echo ' <a href="https://wa.me/' . e($wa) . '" target="_blank" rel="noopener"'
+                                                   . ' title="Abrir no WhatsApp" style="color:#25d366;margin-left:4px;">'
+                                                   . '<i class="fa fa-whatsapp"></i></a>';
+                                            }
+                                            ?>
+                                        </td>
                                         <td><?= $p->staff_id ? e(get_staff_full_name($p->staff_id)) : '—'; ?></td>
                                         <td><?= e($p->empreendimento ?: '—'); ?></td>
                                         <td><strong><?= e($p->unidade ?: '—'); ?></strong></td>
