@@ -1251,70 +1251,26 @@ class Dps_automacao extends AdminController
         // no registo.
         $lote = uniqid('lote', false);
 
-        $agora   = array_slice($destinos, 0, $por_lote);
-        $adiados = array_slice($destinos, $por_lote);
+        /*
+         * TUDO vai para a fila, incluindo o primeiro lote — que fica marcado
+         * para sair já e é levado pelo cron nos minutos seguintes.
+         *
+         * Antes os primeiros 80 saíam aqui dentro, um a um, com o browser à
+         * espera. Oitenta emails levam minutos; a ligação caía antes do fim e
+         * o comercial via "Erro de comunicação" num envio que tinha corrido
+         * bem. Pior: não sabia se havia de repetir, e repetir escrevia duas
+         * vezes às mesmas pessoas.
+         *
+         * O ritmo não muda — continua a ser 80 por dia, que é o que o
+         * fornecedor de email deixa passar.
+         */
+        $agendados = $this->dps_automacao_model->agendar_envio_tarefa(
+            $destinos, $eu, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote, $lote
+        );
 
-        $agendados = 0;
-        if (!empty($adiados)) {
-            $agendados = $this->dps_automacao_model->agendar_envio_tarefa(
-                $adiados, $eu, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote, $lote
-            );
-        }
-
+        $agora    = array_slice($destinos, 0, $por_lote);
         $enviados = 0;
         $falhas   = [];
-
-        foreach ($agora as $d) {
-            $nome_com = get_staff_full_name($eu) ?: (get_option('companyname') ?: 'A nossa equipa');
-            $texto    = dps_automacao_render_vars($mensagem, (string) $d['name'], $nome_com);
-
-            /*
-             * O email sai pela caixa do comercial da tarefa, como no envio das
-             * leads: o cliente responde a quem o acompanha, não a uma caixa
-             * geral que ninguém lê.
-             */
-            if ($anexo !== null) {
-                $ok = dps_automacao_enviar_email_proposta(
-                    $d['email'],
-                    (string) $d['name'],
-                    $assunto,
-                    $texto,
-                    $anexo,
-                    $anexo_nome,
-                    $eu
-                );
-            } else {
-                $ok = dps_automacao_enviar_email_lead(
-                    $d['email'],
-                    $assunto,
-                    nl2br(html_escape($texto)),
-                    $eu
-                );
-            }
-
-            if ($ok) {
-                $enviados++;
-
-                /*
-                 * A tarefa arranca no momento em que a mensagem sai. Sem isto
-                 * ficava em "Não iniciada" com o email já entregue, e o colega
-                 * seguinte escrevia outra vez à mesma pessoa.
-                 */
-                $this->dps_automacao_model->tarefa_em_progresso((int) ($d['id'] ?? 0));
-            } else {
-                $falhas[] = $d['email'];
-            }
-
-            // Fica registo de cada um, tenha saído ou não.
-            $this->dps_automacao_model->registar_envio_tarefa(
-                $lote, $eu, $d['email'], $d['name'], $assunto, $mensagem,
-                $anexo_nome, $ok, $ok ? '' : 'o servidor de email recusou'
-            );
-
-            // Pausa curta: um lote grande contra o SMTP sem respirar é a
-            // maneira mais rápida de ser tratado como spam.
-            usleep(200000);
-        }
 
         /*
          * O anexo só se apaga quando não fica nada agendado. Com lotes por

@@ -906,7 +906,7 @@ class Dps_vendas extends AdminController
          */
         if (!empty($venda['lead_id'])) {
             $this->db->where('id', (int) $venda['lead_id'])
-                     ->update(db_prefix() . 'leads', ['status' => DPS_VENDAS_ESTADO_CONCRETIZADO]);
+                     ->update(db_prefix() . 'leads', ['status' => DPS_VENDAS_ESTADO_CONCRETIZADO_ID]);
 
             $this->load->model('leads_model');
             $this->leads_model->log_lead_activity(
@@ -916,8 +916,8 @@ class Dps_vendas extends AdminController
 
             hooks()->do_action('lead_status_changed', [
                 'lead_id'    => (int) $venda['lead_id'],
-                'old_status' => DPS_VENDAS_ESTADO_CONTRATO,
-                'new_status' => DPS_VENDAS_ESTADO_CONCRETIZADO,
+                'old_status' => DPS_VENDAS_ESTADO_CONTRATO_ID,
+                'new_status' => DPS_VENDAS_ESTADO_CONCRETIZADO_ID,
             ]);
         }
 

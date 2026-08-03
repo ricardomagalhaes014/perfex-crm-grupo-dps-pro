@@ -7,8 +7,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * editáveis no CRM; ter o 10 e o 13 espalhados pelo código era garantir que um
  * dia alguém mexia nos estados e ninguém ligava os pontos.
  */
-define('DPS_PROPOSTAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
-define('DPS_PROPOSTAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
+defined('DPS_PROPOSTAS_ESTADO_CONTRATO') || define('DPS_PROPOSTAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
+defined('DPS_PROPOSTAS_ESTADO_CONCRETIZADO') || define('DPS_PROPOSTAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
 
 class Dps_propostas extends AdminController
 {

@@ -508,8 +508,16 @@ class Dps_automacao_model extends App_Model
         $n    = 0;
 
         foreach (array_values($destinos) as $i => $d) {
-            // +1 dia por cada lote de 80 que já ficou para trás.
-            $dias = (int) floor($i / max(1, (int) $por_lote)) + 1;
+            /*
+             * O primeiro lote sai JÁ (fica vencido no instante), os seguintes
+             * um dia por cada 80. Antes o primeiro lote era enviado ali mesmo,
+             * dentro do pedido do browser: 80 emails levam minutos, a ligação
+             * caía e o comercial via "Erro de comunicação" num envio que tinha
+             * corrido bem — e ficava sem saber se devia repetir. Agora ninguém
+             * espera: o cron leva-os nos minutos seguintes.
+             */
+            $lote_n = (int) floor($i / max(1, (int) $por_lote));
+            $dias   = $lote_n;
 
             $this->db->insert($t, [
                 'lote'          => $lote,
@@ -524,7 +532,9 @@ class Dps_automacao_model extends App_Model
                 'mensagem'      => $mensagem,
                 'anexo'         => $anexo,
                 'anexo_nome'    => $anexo_nome,
-                'agendado_para' => date('Y-m-d H:i:s', strtotime('+' . $dias . ' day')),
+                'agendado_para' => $dias === 0
+                    ? date('Y-m-d H:i:s')
+                    : date('Y-m-d H:i:s', strtotime('+' . $dias . ' day')),
                 'estado'        => 'pendente',
             ]);
             $n++;

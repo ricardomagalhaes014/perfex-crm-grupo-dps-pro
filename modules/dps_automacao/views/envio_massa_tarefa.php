@@ -243,7 +243,7 @@
         var assunto  = document.getElementById('dps-assunto').value.trim();
         var mensagem = document.getElementById('dps-mensagem').value.trim();
         if (!assunto || !mensagem) { alert('Falta o assunto ou a mensagem.'); return; }
-        if (!confirm('Enviar agora? Não há forma de recolher emails já enviados.')) { return; }
+        if (!confirm('Pôr em fila? A partir daqui saem sozinhas e não há forma de as recolher.')) { return; }
 
         botao.disabled = true;
         botao.innerHTML = '<i class="fa fa-spinner fa-spin"></i> A enviar…';
@@ -276,16 +276,26 @@
                 botao.disabled = false;
                 return;
             }
-            var h = '<div class="alert alert-success"><strong>' + r.enviados + '</strong> enviados';
-            if (r.falhas > 0) {
-                h += ' · <strong>' + r.falhas + '</strong> falharam';
-                if (r.exemplos && r.exemplos.length) { h += '<br><small>' + r.exemplos.join(', ') + '</small>'; }
+            /*
+             * Já não se diz "X enviados": nada sai dentro deste pedido. Tudo
+             * fica em fila e é o cron que leva — os primeiros nos minutos
+             * seguintes. Dizer "enviados" quando ainda não saíram era prometer
+             * o que não se tinha feito.
+             */
+            var primeiro = Math.min(r.total, LOTE);
+            var depois   = Math.max(0, r.total - primeiro);
+
+            var h = '<div class="alert alert-success">'
+                  + '<strong>' + r.total + '</strong> mensagens em fila.';
+            h += '<br>As primeiras <strong>' + primeiro + '</strong> saem nos próximos minutos.';
+            if (depois > 0) {
+                h += '<br>As restantes <strong>' + depois + '</strong> seguem '
+                   + LOTE + ' por dia — é o máximo que o fornecedor de email deixa passar.';
             }
             if (r.anexo) { h += '<div class="text-muted">com o anexo <strong>' + r.anexo + '</strong></div>'; }
-            if (r.agendados > 0) {
-                h += '<hr style="margin:10px 0"><strong>' + r.agendados + '</strong> ficaram agendados, '
-                   + LOTE + ' por dia, a começar amanhã. Saem sozinhos — não é preciso voltar aqui.';
-            }
+            h += '<hr style="margin:10px 0">'
+               + '<small>Saem sozinhas, não é preciso voltar aqui nem carregar outra vez. '
+               + 'Pode acompanhar em <em>Registo Envio Tarefa</em>.</small>';
             h += '</div>';
             res.innerHTML = h;
         }).fail(function () {

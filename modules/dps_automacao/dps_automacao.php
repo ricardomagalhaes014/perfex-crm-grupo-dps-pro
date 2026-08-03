@@ -501,8 +501,8 @@ hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
  * Estados de tarefa do Perfex. 1 = Não iniciada, 4 = Em progresso.
  * Ver Dps_automacao_model::tarefa_em_progresso().
  */
-define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
-define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);
+defined('DPS_AUTOMACAO_TAREFA_NAO_INICIADA') || define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
+defined('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO') || define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);
 
 hooks()->add_action('admin_init', 'dps_automacao_coluna_task_id');
 

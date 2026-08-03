@@ -16,8 +16,16 @@ define('DPS_VENDAS_MODULE_NAME', 'dps_vendas');
  * Estados de lead que este módulo mexe. Ver a nota em Dps_vendas::marcar_pago:
  * a lead só chega a Concretizado quando o pagamento é confirmado.
  */
-define('DPS_VENDAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
-define('DPS_VENDAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
+/*
+ * ATENÇÃO aos nomes: já existe mais abaixo DPS_VENDAS_ESTADO_CONTRATO, e essa
+ * guarda o NOME do estado ('PARA CONTRATO') porque é por nome que se procura o
+ * id em tblleads_status. Estas duas guardam IDS. Ter as duas com o mesmo nome
+ * fazia a primeira ganhar e a segunda ficar com o valor errado em silêncio —
+ * e o quadro de reserva deixava de abrir, porque procurava um estado chamado
+ * "10". Foi um engano meu de hoje (03/08/2026).
+ */
+defined('DPS_VENDAS_ESTADO_CONTRATO_ID') || define('DPS_VENDAS_ESTADO_CONTRATO_ID', 10);
+defined('DPS_VENDAS_ESTADO_CONCRETIZADO_ID') || define('DPS_VENDAS_ESTADO_CONCRETIZADO_ID', 13);
 define('DPS_VENDAS_VERSION', '1.8.0');
 define('DPS_VENDAS_UPLOAD_PATH', 'uploads/dps_vendas/');
 define('DPS_ARQUIVO_UPLOAD_PATH', 'uploads/dps_arquivo/');
@@ -634,7 +642,7 @@ if (!function_exists('dps_vendas_cron_clientes')) {
  * ================================================================== */
 
 /** Nome do estado de lead que dispara a reserva. */
-define('DPS_VENDAS_ESTADO_CONTRATO', 'PARA CONTRATO');
+defined('DPS_VENDAS_ESTADO_CONTRATO') || define('DPS_VENDAS_ESTADO_CONTRATO', 'PARA CONTRATO');
 
 hooks()->add_action('lead_status_changed', 'dps_vendas_lead_para_contrato');
 hooks()->add_action('app_admin_footer', 'dps_vendas_js_reserva_lead');
