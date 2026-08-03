@@ -613,3 +613,156 @@ if (!function_exists('dps_vendas_cron_clientes')) {
         }
     }
 }
+
+/* =====================================================================
+ * Lead em "PARA CONTRATO" -> abre o quadro de reserva
+ *
+ * Quem põe uma lead em PARA CONTRATO está a dizer que aquilo fechou. O que
+ * faltava era o passo seguinte: escolher a unidade e a venda aparecer no mapa.
+ * Ficava na cabeça do comercial, e por isso ficava por fazer.
+ *
+ * O gancho é do lado do servidor (lead_status_changed) de propósito: apanha a
+ * mudança venha ela do quadro kanban, da ficha da lead ou de uma alteração em
+ * massa. O JS no rodapé é só o mensageiro que leva o comercial ao quadro.
+ * ================================================================== */
+
+/** Nome do estado de lead que dispara a reserva. */
+define('DPS_VENDAS_ESTADO_CONTRATO', 'PARA CONTRATO');
+
+hooks()->add_action('lead_status_changed', 'dps_vendas_lead_para_contrato');
+hooks()->add_action('app_admin_footer', 'dps_vendas_js_reserva_lead');
+
+/**
+ * Id do estado "PARA CONTRATO", lido da base de dados.
+ *
+ * Não se fixa o 10 no código: os estados de lead são editáveis no CRM e um
+ * número à mão transforma-se em silêncio no dia em que alguém mexer neles.
+ */
+function dps_vendas_estado_contrato_id()
+{
+    static $id = null;
+
+    if ($id === null) {
+        $CI  = &get_instance();
+        $row = $CI->db->select('id')
+            ->where('name', DPS_VENDAS_ESTADO_CONTRATO)
+            ->get(db_prefix() . 'leads_status')
+            ->row();
+        $id = $row ? (int) $row->id : 0;
+    }
+
+    return $id;
+}
+
+/**
+ * Marca a lead para o quadro de reserva quando ela entra em PARA CONTRATO.
+ *
+ * ATENÇÃO ao formato: o Perfex dispara este mesmo gancho com dados diferentes
+ * conforme o caminho. Da ficha da lead vêm IDS de estado; do arrastar no
+ * kanban vêm NOMES (Leads_model::update_lead_status passa
+ * $this->get_status(...)->name). Comparar só ids fazia a reserva nunca abrir a
+ * quem trabalha no kanban — que são quase todos.
+ */
+function dps_vendas_lead_para_contrato($dados)
+{
+    $novo = $dados['new_status'] ?? null;
+
+    if ($novo === null || $novo === '') {
+        return;
+    }
+
+    $entrou = is_numeric($novo)
+        ? ((int) $novo === dps_vendas_estado_contrato_id())
+        : (trim((string) $novo) === DPS_VENDAS_ESTADO_CONTRATO);
+
+    if (!$entrou) {
+        return;
+    }
+
+    $lead_id = (int) ($dados['lead_id'] ?? 0);
+    if (!$lead_id) {
+        return;
+    }
+
+    // Validade curta: se o comercial mudar o estado e for almoçar, não é a
+    // meio da tarde, numa página qualquer, que o quadro lhe salta à frente.
+    get_instance()->session->set_userdata('dps_vendas_reserva_lead', [
+        'lead_id' => $lead_id,
+        'ate'     => time() + 120,
+    ]);
+}
+
+/**
+ * Devolve (e consome) a lead à espera de reserva.
+ */
+function dps_vendas_reserva_pendente()
+{
+    $CI  = &get_instance();
+    $mem = $CI->session->userdata('dps_vendas_reserva_lead');
+
+    $CI->session->unset_userdata('dps_vendas_reserva_lead');
+
+    if (!is_array($mem) || empty($mem['lead_id']) || ($mem['ate'] ?? 0) < time()) {
+        return 0;
+    }
+
+    return (int) $mem['lead_id'];
+}
+
+/**
+ * O mensageiro: depois de mudar o estado, leva o comercial ao quadro.
+ *
+ * Não se abre uma janela nova — os bloqueadores de pop-ups matam qualquer
+ * window.open que não venha directamente de um clique, e o quadro simplesmente
+ * não aparecia. Vai-se para lá na mesma página, com um botão de voltar.
+ */
+function dps_vendas_js_reserva_lead()
+{
+    if (!is_staff_member()) {
+        return;
+    }
+
+    $CI = &get_instance();
+
+    // Só nas páginas de leads: em mais lado nenhum isto faz sentido.
+    if (strpos((string) uri_string(), 'leads') === false) {
+        return;
+    }
+
+    $pendente = dps_vendas_reserva_pendente();
+    $destino  = admin_url('dps_vendas/reserva/');
+    $consulta = admin_url('dps_vendas/reserva_pendente');
+    ?>
+    <script>
+    (function () {
+        var DESTINO  = <?php echo json_encode($destino); ?>;
+        var CONSULTA = <?php echo json_encode($consulta); ?>;
+        var JA       = <?php echo (int) $pendente; ?>;
+
+        function abrir(id) {
+            if (id > 0) { window.location.href = DESTINO + id; }
+        }
+
+        // Caminho da ficha da lead: a página recarrega e a sessão já traz a lead.
+        if (JA > 0) { abrir(JA); return; }
+
+        /*
+         * Caminho do kanban: nada recarrega, por isso perguntamos ao servidor
+         * logo a seguir a um pedido que possa ter mudado o estado. Só nesses
+         * dois endereços — não se anda a bater à porta a cada AJAX da página.
+         */
+        if (typeof jQuery === 'undefined') { return; }
+
+        jQuery(document).ajaxComplete(function (e, xhr, opcoes) {
+            var url = (opcoes && opcoes.url) || '';
+            if (url.indexOf('leads/update_lead_status') === -1
+             && url.indexOf('leads/lead/') === -1) { return; }
+
+            jQuery.getJSON(CONSULTA).done(function (r) {
+                abrir(parseInt(r && r.lead_id, 10) || 0);
+            });
+        });
+    })();
+    </script>
+    <?php
+}

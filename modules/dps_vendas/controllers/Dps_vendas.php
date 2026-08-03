@@ -44,6 +44,168 @@ class Dps_vendas extends AdminController
         redirect($url);
     }
 
+    /* ---------------------------------------------------------------------
+     * Quadro de reserva a partir de uma lead
+     *
+     * Chega-se aqui quando a lead passa a "PARA CONTRATO". Escolhe-se a
+     * unidade entre as que o simulador dá como disponíveis e a venda nasce no
+     * mapa, já com o cliente preenchido pela lead e a fração marcada como
+     * reservada na montra.
+     * ------------------------------------------------------------------ */
+
+    /**
+     * Responde ao JS do rodapé: há alguma lead à espera de reserva?
+     */
+    public function reserva_pendente()
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['lead_id' => dps_vendas_reserva_pendente()]);
+        exit;
+    }
+
+    public function reserva($lead_id = null)
+    {
+        $lead_id = (int) $lead_id;
+
+        if (!is_admin() && !staff_can('create', 'dps_vendas')) {
+            access_denied('dps_vendas');
+        }
+
+        $this->load->model('leads_model');
+        $lead = $lead_id ? $this->leads_model->get($lead_id) : null;
+
+        if (!$lead) {
+            set_alert('warning', 'Lead não encontrada.');
+            redirect(admin_url('leads'));
+        }
+
+        $this->load->helper('dps_propostas/dps_propostas');
+
+        if ($this->input->post()) {
+            $slug    = (string) $this->input->post('slug');
+            $unidade = trim((string) $this->input->post('unidade'));
+            $valor   = (string) $this->input->post('valor');
+
+            $erro = $this->validar_reserva($slug, $unidade);
+
+            if ($erro) {
+                set_alert('danger', $erro);
+                redirect(admin_url('dps_vendas/reserva/' . $lead_id));
+            }
+
+            $emps  = dps_propostas_empreendimentos();
+            $nome  = $this->nome_empreendimento_crm($slug, $emps[$slug]['nome']);
+
+            $venda_id = $this->dps_vendas_model->add_venda([
+                'empreendimento'   => $nome,
+                'unidade'          => $unidade,
+                'cliente'          => $lead->name,
+                'cliente_email'    => $lead->email,
+                'cliente_telefone' => $lead->phonenumber,
+                'valor'            => $valor,
+                'data_venda'       => _d(date('Y-m-d')),
+                'origem'           => 'manual',
+                'lead_id'          => $lead_id,
+                // A venda é do dono da lead, não de quem carregou no botão: um
+                // admin a arrumar o kanban não fica com a venda do colega.
+                'staff_id'         => $lead->assigned ?: get_staff_user_id(),
+            ]);
+
+            if (!$venda_id) {
+                set_alert('danger', 'Não consegui criar a venda.');
+                redirect(admin_url('dps_vendas/reserva/' . $lead_id));
+            }
+
+            /*
+             * Marcar a fração na montra. A venda fica em "Pendente" (só a
+             * direção promove estados), mas o simulador tem de a mostrar já
+             * como reservada — senão outro comercial vende a mesma unidade
+             * nos minutos seguintes. É o mesmo que o simulador faz quando a
+             * reserva é feita de lá.
+             */
+            $na_montra = $this->dps_vendas_model
+                ->sincronizar_unidade_simulador($nome, $unidade, 'reservado');
+
+            if ($na_montra) {
+                set_alert('success', 'Reserva criada e fração marcada no simulador.');
+            } else {
+                set_alert('warning', 'Reserva criada, mas NÃO consegui marcar a fração '
+                    . $unidade . ' no simulador — marque-a à mão no Modo de Edição '
+                    . 'antes que outro comercial a venda.');
+            }
+
+            log_activity('Reserva criada a partir da lead #' . $lead_id
+                . ' (' . $nome . ' ' . $unidade . ') — venda #' . $venda_id);
+
+            redirect(admin_url('dps_vendas/view/' . $venda_id));
+        }
+
+        $data['lead']            = $lead;
+        $data['empreendimentos'] = dps_propostas_empreendimentos();
+        $data['slug']            = (string) $this->input->get('emp');
+        $data['disponibilidade'] = null;
+
+        if ($data['slug'] && isset($data['empreendimentos'][$data['slug']])) {
+            $data['disponibilidade'] = dps_propostas_disponibilidade($data['slug']);
+        }
+
+        $data['title'] = 'Reserva — ' . $lead->name;
+
+        $this->load->view('reserva', $data);
+    }
+
+    /**
+     * A unidade ainda está livre? Relê o simulador em vez de confiar no que o
+     * ecrã mostrava: entre abrir o quadro e carregar em confirmar podem ter
+     * passado minutos, e é exactamente aí que duas reservas se cruzam.
+     */
+    private function validar_reserva($slug, $unidade)
+    {
+        $emps = dps_propostas_empreendimentos();
+
+        if (!isset($emps[$slug])) {
+            return 'Empreendimento desconhecido.';
+        }
+        if ($unidade === '') {
+            return 'Escolha a unidade.';
+        }
+
+        $disp = dps_propostas_disponibilidade($slug);
+
+        if (empty($disp['ok'])) {
+            return 'Não consegui confirmar as unidades disponíveis no simulador. '
+                 . 'Nada foi reservado — tente de novo dentro de instantes.';
+        }
+        if (!in_array($unidade, (array) $disp['codes'], true)) {
+            return 'A fração ' . $unidade . ' já não está disponível. '
+                 . 'Volte a abrir a lista e escolha outra.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Nome do empreendimento tal como as Regras de Comissão o escrevem.
+     *
+     * Importa: é por este nome que add_venda() vai buscar a taxa. Se gravasse
+     * o nome do catálogo de propostas ("Belo Horizonte") e a regra estivesse
+     * como "BELO HORIZONTE — Setúbal", a venda nascia sem taxa e com comissão
+     * a zero.
+     */
+    private function nome_empreendimento_crm($slug, $omissao)
+    {
+        $chave = Dps_vendas_model::chave_empreendimento($omissao);
+
+        foreach ($this->dps_vendas_model->get_empreendimentos() as $nome) {
+            $nome = is_array($nome) ? ($nome['empreendimento'] ?? '') : $nome;
+            if ($nome !== '' && Dps_vendas_model::chave_empreendimento($nome) === $chave) {
+                return $nome;
+            }
+        }
+
+        return $omissao;
+    }
+
     public function index()
     {
         $filtros = [
