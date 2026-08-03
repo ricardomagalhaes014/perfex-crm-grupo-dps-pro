@@ -182,7 +182,13 @@
                                         <td><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
                                         <td>
                                             <?php if ($p->outcome === 'aceite') { ?>
-                                            <span class="label label-success">Aceite</span> <strong><?= number_format((float) $p->valor, 0, ',', '.'); ?> €</strong>
+                                            <span class="label label-success">Aceite</span>
+                                            <?php if ((float) $p->valor > 0) { ?>
+                                                <strong><?= number_format((float) $p->valor, 0, ',', '.'); ?> €</strong>
+                                            <?php } elseif (!empty($p->venda_id)) { ?>
+                                                <a href="<?= admin_url('dps_vendas/form/' . (int) $p->venda_id); ?>"
+                                                   class="text-muted" style="font-size:12px;">valor por definir</a>
+                                            <?php } ?>
                                             <?php } elseif ($p->outcome === 'recusado') { ?>
                                             <span class="label label-danger">Recusada</span>
                                             <?php } else { ?>
@@ -214,8 +220,16 @@ var DPS_CSRF = { name: '<?= $this->security->get_csrf_token_name(); ?>', hash: '
 function dpsResultado(id, outcome) {
     var valor = '';
     if (outcome === 'aceite') {
-        valor = prompt('Valor da proposta aceite (€):');
-        if (valor === null || valor === '') { return; }
+        /*
+         * Já não se pergunta o valor aqui.
+         *
+         * Perguntava-se, e a seguir abria-se a ficha da venda onde o valor é
+         * escolhido outra vez ao escolher a unidade — que é onde ele existe
+         * a sério, com o preço da fração. Escrevê-lo de cor num prompt era
+         * pedir um número que ninguém tem à mão e que ficava a divergir do
+         * preço real da unidade.
+         */
+        if (!confirm('Marcar como ACEITE?\n\nA seguir abre-se a ficha da venda para escolher a unidade e o valor.')) { return; }
     } else {
         if (!confirm('Marcar como RECUSADA? A lead passa para "Para outras oportunidades".')) { return; }
     }

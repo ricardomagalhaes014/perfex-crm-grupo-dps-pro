@@ -718,11 +718,19 @@ class Dps_propostas extends AdminController
         }
 
         if ($outcome === 'aceite') {
+            /*
+             * O valor deixou de ser obrigatório aqui.
+             *
+             * Vinha de um prompt no browser e a seguir abria-se a ficha da
+             * venda, onde o valor volta a ser definido ao escolher a unidade —
+             * aí com o preço real da fração. Ter dois sítios a dizer quanto
+             * vale a mesma venda só serve para eles divergirem.
+             *
+             * A venda nasce a zero e é preenchida no formulário que abre logo
+             * a seguir. A comissão não sofre com isso: só é fixada quando a
+             * venda passa a CPCV, e nessa altura lê o valor que lá estiver.
+             */
             $valor = (float) preg_replace('/[^0-9]/', '', (string) $valor_raw);
-            if ($valor <= 0) {
-                echo json_encode(['success' => false, 'message' => 'Indica o valor da proposta aceite.']);
-                return;
-            }
             $venda = $this->dps_criar_venda($prop, $valor);
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
                 'outcome'    => 'aceite',
@@ -743,7 +751,10 @@ class Dps_propostas extends AdminController
             echo json_encode([
                 'success'  => true,
                 'redirect' => admin_url('dps_vendas/form/' . (int) $venda['id']),
-                'message' => 'Proposta ACEITE — Concretizado. Venda registada nas comissões: ' . number_format($valor, 0, ',', '.') . ' € · comissão ' . number_format($venda['comissao'], 2, ',', '.') . ' € (' . rtrim(rtrim(number_format($venda['taxa'], 3, ',', '.'), '0'), ',') . '%).',
+                'message' => $valor > 0
+                    ? 'Proposta ACEITE — Concretizado. Venda registada: ' . number_format($valor, 0, ',', '.')
+                      . ' € · comissão ' . number_format($venda['comissao'], 2, ',', '.') . ' €.'
+                    : 'Proposta ACEITE — Concretizado. A abrir a ficha da venda para escolher a unidade e o valor.',
             ]);
             return;
         }
