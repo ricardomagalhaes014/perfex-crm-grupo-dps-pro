@@ -65,9 +65,47 @@
                         <hr>
                         <h5>Dados do cliente</h5>
 
+                        <?php
+                        /*
+                         * Particular ou Empresa é a PRIMEIRA pergunta, e não uma opção
+                         * escondida lá dentro do bloco do contrato.
+                         *
+                         * Decide o resto do formulário: uma empresa identifica-se pela
+                         * certidão permanente (CRC) e por quem assina por ela; uma pessoa
+                         * pelo Cartão de Cidadão, naturalidade e estado civil. Perguntar isto
+                         * no fim obrigava a voltar atrás e a corrigir o que já se tinha
+                         * escrito. Pedido do dono (03/08/2026).
+                         */
+                        $tipo_comprador = trim((string) ($venda['cliente_tipo'] ?? ''));
+                        $e_empresa_form = strcasecmp($tipo_comprador, 'empresa') === 0;
+                        ?>
                         <div class="row">
+                            <div class="col-md-4">
+                                <label class="control-label">Tipo de comprador</label>
+                                <select name="cliente_tipo" id="dps-tipo-comprador" class="form-control">
+                                    <option value="Particular" <?php echo $e_empresa_form ? '' : 'selected'; ?>>Particular</option>
+                                    <option value="Empresa" <?php echo $e_empresa_form ? 'selected' : ''; ?>>Empresa</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 dps-so-empresa" style="<?php echo $e_empresa_form ? '' : 'display:none;'; ?>">
+                                <label class="control-label">
+                                    Código de acesso à certidão permanente (CRC)
+                                </label>
+                                <input type="text" name="cliente_crc" class="form-control"
+                                       placeholder="0000-0000-0000"
+                                       value="<?php echo html_escape($venda['cliente_crc'] ?? ''); ?>">
+                                <span class="help-block" style="margin-bottom:0;">
+                                    Sendo empresa, é isto que identifica o comprador no contrato —
+                                    a certidão traz a firma, a sede e o NIPC.
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="row mtop15">
                             <div class="col-md-6">
-                                <label class="control-label">Nome <span class="text-danger">*</span></label>
+                                <label class="control-label">
+                                    <span id="dps-etiqueta-nome">Nome</span> <span class="text-danger">*</span>
+                                </label>
                                 <input type="text" name="cliente" class="form-control"
                                        value="<?php echo html_escape($venda['cliente'] ?? ''); ?>" required>
                             </div>
@@ -110,23 +148,54 @@
 
                         <?php
                         /*
-                         * DADOS DO CPCV — só aparecem no Aura.
+                         * DADOS DO CPCV — abertos no Aura, à mão de semear nos outros.
                          *
-                         * O contrato-promessa do Meixomil identifica o comprador com estes
-                         * campos. Os outros empreendimentos têm contratos diferentes, por isso
-                         * o bloco fica escondido e não lhes acrescenta atrito.
+                         * O contrato-promessa do Meixomil identifica o comprador por estes
+                         * campos, e por isso no Aura o bloco abre logo. Nos outros
+                         * empreendimentos estava ESCONDIDO — e escondido a sério: nem havia
+                         * como lá chegar. Quem precisava de guardar o número do Cartão de
+                         * Cidadão numa venda da Boavista não tinha onde (pedido do dono,
+                         * 03/08/2026). As colunas sempre aceitaram estes dados; era só o
+                         * formulário que os tapava.
                          *
-                         * A decisão é feita no browser (ao escrever/escolher o empreendimento)
-                         * porque o formulário é um campo de texto livre com datalist — não há
-                         * recarregamento de página onde o servidor pudesse decidir.
+                         * Agora fica atrás de um botão. Abre sozinho em três casos: é Aura,
+                         * já tem alguma coisa preenchida (senão os dados ficavam invisíveis
+                         * dentro de um bloco fechado), ou o utilizador carregou no botão.
+                         *
+                         * A decisão corre no browser porque o empreendimento é um campo de
+                         * texto livre com datalist — não há recarregamento onde o servidor
+                         * pudesse decidir.
                          */
                         $eh_aura = stripos((string) ($venda['empreendimento'] ?? ''), 'aura') !== false;
+
+                        $tem_dados = false;
+                        foreach (['cliente_nif', 'cliente_cc', 'cliente_cc_validade', 'cliente_naturalidade',
+                                  'cliente_nacionalidade', 'cliente_freguesia', 'cliente_concelho',
+                                  'cliente_crc', 'cliente_representante'] as $campo_cpcv) {
+                            if (trim((string) ($venda[$campo_cpcv] ?? '')) !== '') {
+                                $tem_dados = true;
+                                break;
+                            }
+                        }
+
+                        $abrir = $eh_aura || $tem_dados;
                         ?>
-                        <div id="bloco-cpcv" style="<?php echo $eh_aura ? '' : 'display:none;'; ?>">
+                        <div id="abrir-cpcv" style="<?php echo $abrir ? 'display:none;' : ''; ?>">
+                            <hr>
+                            <button type="button" class="btn btn-default" onclick="dpsAbrirCpcv()">
+                                <i class="fa fa-id-card-o"></i>
+                                Preencher dados do contrato
+                            </button>
+                            <span class="text-muted" style="margin-left:10px;font-size:13px;">
+                                Cartão de Cidadão, NIF, naturalidade, estado civil — o que o contrato pede.
+                            </span>
+                        </div>
+
+                        <div id="bloco-cpcv" style="<?php echo $abrir ? '' : 'display:none;'; ?>">
                             <hr>
                             <h5>
                                 Dados para o contrato-promessa (CPCV)
-                                <small class="text-muted">— só necessários no Aura</small>
+                                <small class="text-muted">— obrigatórios no Aura, opcionais nos outros</small>
                             </h5>
                             <p class="text-muted">
                                 Com estes campos preenchidos, a ficha da venda passa a ter o botão para
@@ -161,30 +230,10 @@
                              * Antes decidia-se pela presença do CRC, o que obrigava a
                              * preencher a certidão só para o texto sair na forma certa.
                              */
-                            $tipo_comprador = trim((string) ($venda['cliente_tipo'] ?? ''));
-                            $e_empresa_form = strcasecmp($tipo_comprador, 'empresa') === 0;
+                            // $tipo_comprador e $e_empresa_form já vêm de cima,
+                            // onde a pergunta é feita.
                             ?>
-                            <div class="row mtop15">
-                                <div class="col-md-4">
-                                    <label class="control-label">Tipo de comprador</label>
-                                    <select name="cliente_tipo" id="dps-tipo-comprador" class="form-control">
-                                        <option value="Particular" <?php echo $e_empresa_form ? '' : 'selected'; ?>>Particular</option>
-                                        <option value="Empresa" <?php echo $e_empresa_form ? 'selected' : ''; ?>>Empresa</option>
-                                    </select>
-                                    <span class="help-block" style="margin-bottom:0;">
-                                        Sendo particular, o contrato sai com o nome, estado civil e
-                                        residência — sem certidão nem representante.
-                                    </span>
-                                </div>
-                            </div>
-
                             <div class="row mtop15 dps-so-empresa" style="<?php echo $e_empresa_form ? '' : 'display:none;'; ?>">
-                                <div class="col-md-4">
-                                    <label class="control-label">Código de acesso à certidão permanente (CRC)</label>
-                                    <input type="text" name="cliente_crc" class="form-control"
-                                           placeholder="0000-0000-0000"
-                                           value="<?php echo html_escape($venda['cliente_crc'] ?? ''); ?>">
-                                </div>
                                 <div class="col-md-4">
                                     <label class="control-label">Representante legal da empresa</label>
                                     <input type="text" name="cliente_representante" class="form-control"
@@ -221,8 +270,16 @@
                                     }
                                 }
 
+                                var etiqueta = document.getElementById('dps-etiqueta-nome');
+
                                 function aplicar() {
                                     var empresa = sel.value === 'Empresa';
+
+                                    // Quem escreve no campo tem de saber o que lá pôr: a firma
+                                    // ou a pessoa. É o mesmo campo, mas não é a mesma coisa.
+                                    if (etiqueta) {
+                                        etiqueta.textContent = empresa ? 'Nome da empresa' : 'Nome';
+                                    }
 
                                     // Certidão e representante: só uma sociedade os tem.
                                     mostrarSe('.dps-so-empresa', empresa);
@@ -377,12 +434,34 @@
      * Corre no 'input' e não só no 'change' porque o campo tem datalist: quem
      * escreve "aura" à mão nunca dispara o change até sair do campo.
      */
-    var campo = document.querySelector('[name="empreendimento"]');
-    var bloco = document.getElementById('bloco-cpcv');
+    var campo  = document.querySelector('[name="empreendimento"]');
+    var bloco  = document.getElementById('bloco-cpcv');
+    var abrir  = document.getElementById('abrir-cpcv');
     if (!campo || !bloco) { return; }
 
+    // Uma vez aberto à mão, fica aberto: mudar o empreendimento não pode
+    // fazer desaparecer campos que a pessoa está a preencher.
+    var aberto_a_mao = false;
+
+    window.dpsAbrirCpcv = function () {
+        aberto_a_mao = true;
+        actualizar();
+        var primeiro = bloco.querySelector('input, select');
+        if (primeiro) { primeiro.focus(); }
+    };
+
+    function temDados() {
+        var campos = bloco.querySelectorAll('input, select, textarea');
+        for (var i = 0; i < campos.length; i++) {
+            if ((campos[i].value || '').trim() !== '') { return true; }
+        }
+        return false;
+    }
+
     function actualizar() {
-        bloco.style.display = /aura/i.test(campo.value || '') ? '' : 'none';
+        var mostrar = aberto_a_mao || /aura/i.test(campo.value || '') || temDados();
+        bloco.style.display = mostrar ? '' : 'none';
+        if (abrir) { abrir.style.display = mostrar ? 'none' : ''; }
     }
 
     campo.addEventListener('input', actualizar);

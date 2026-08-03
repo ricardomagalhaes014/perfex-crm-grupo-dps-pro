@@ -19,6 +19,10 @@ foreach ($dias_nome as $d => $nome) {
 <?php init_head(); ?>
 <div id="wrapper"><div class="content">
 
+  <div class="row"><div class="col-md-12">
+    <?php $this->load->view('_barra', ['atalho' => 'disponibilidade']); ?>
+  </div></div>
+
   <div class="row">
     <div class="col-md-12">
       <div class="panel_s"><div class="panel-body">

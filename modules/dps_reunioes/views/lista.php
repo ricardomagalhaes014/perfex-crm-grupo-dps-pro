@@ -1,11 +1,19 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <?php init_head(); ?>
 <div id="wrapper"><div class="content">
+  <div class="row"><div class="col-md-12">
+    <?php $this->load->view('_barra', ['atalho' => '']); ?>
+  </div></div>
   <div class="row"><div class="col-md-12"><div class="panel_s"><div class="panel-body">
     <h4 class="no-margin">Reuniões online</h4>
     <hr>
     <?php if (empty($reunioes)) { ?>
-      <p class="text-muted">Ainda não há reuniões. Marque a primeira a partir da ficha de uma lead ou de um cliente.</p>
+      <p class="text-muted" style="margin-bottom:6px;">Ainda não há reuniões marcadas.</p>
+      <p class="text-muted" style="font-size:13px;">
+        Marque uma a partir da ficha de uma lead ou de um cliente. Para deixar que os
+        colegas marquem consigo sem perguntar, publique os seus horários em
+        <a href="<?php echo admin_url('dps_reunioes/disponibilidade'); ?>"><strong>A minha disponibilidade</strong></a>.
+      </p>
     <?php } else { ?>
     <div class="table-responsive"><table class="table table-striped">
       <thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Comercial</th><th>Estado</th><th></th></tr></thead>

@@ -5,6 +5,9 @@ $dias_nome = [1 => 'Segunda-feira', 2 => 'Terça-feira', 3 => 'Quarta-feira',
 ?>
 <?php init_head(); ?>
 <div id="wrapper"><div class="content">
+  <div class="row"><div class="col-md-12">
+    <?php $this->load->view('_barra', ['atalho' => 'agenda']); ?>
+  </div></div>
   <div class="row">
 
     <div class="col-md-3">

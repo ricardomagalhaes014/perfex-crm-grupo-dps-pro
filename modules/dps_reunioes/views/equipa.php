@@ -1,6 +1,10 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed'); ?>
 <?php init_head(); ?>
 <div id="wrapper"><div class="content">
+
+  <div class="row"><div class="col-md-12">
+    <?php $this->load->view('_barra', ['atalho' => 'equipa']); ?>
+  </div></div>
   <div class="row">
 
     <div class="col-md-7">
