@@ -58,6 +58,38 @@ function dps_reunioes_menu()
         'position' => 91,
         'badge'    => [],
     ]);
+
+    /*
+     * Sem o filho "Todas", carregar no pai deixava de abrir a lista em alguns
+     * temas: o Perfex passa a tratar o item como um menu que só abre e fecha.
+     */
+    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
+        'slug'     => 'dps_reunioes_todas',
+        'name'     => 'Todas as reuniões',
+        'href'     => admin_url('dps_reunioes'),
+        'position' => 1,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
+        'slug'     => 'dps_reunioes_agenda',
+        'name'     => 'Agenda partilhada',
+        'href'     => admin_url('dps_reunioes/agenda'),
+        'position' => 2,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
+        'slug'     => 'dps_reunioes_disp',
+        'name'     => 'A minha disponibilidade',
+        'href'     => admin_url('dps_reunioes/disponibilidade'),
+        'position' => 3,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
+        'slug'     => 'dps_reunioes_equipa',
+        'name'     => 'Reunião de equipa',
+        'href'     => admin_url('dps_reunioes/equipa'),
+        'position' => 4,
+    ]);
 }
 hooks()->add_action('after_cron_run', 'dps_reunioes_cron');
 
@@ -74,6 +106,86 @@ function dps_reunioes_ensure_schema()
     if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
         require_once __DIR__ . '/install.php';
     }
+
+    dps_reunioes_ensure_agenda($CI);
+}
+
+/**
+ * Tabelas da agenda partilhada (o "Calendly" interno).
+ *
+ * Vivem à parte da tabela de reuniões de propósito: uma reunião é um facto
+ * passado ou marcado, a disponibilidade é uma regra que muda quando apetece.
+ * Misturá-las obrigava a reescrever reuniões sempre que o horário mudasse.
+ */
+function dps_reunioes_ensure_agenda($CI)
+{
+    $charset = $CI->db->char_set;
+
+    /*
+     * Horário semanal. Uma linha por bocado de dia — assim cabe "das 10h às
+     * 13h e das 15h às 18h" na mesma terça-feira, que é como as pessoas
+     * trabalham. dia_semana segue o ISO: 1 = segunda ... 7 = domingo.
+     */
+    $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_reunioes_horario` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `staff_id` INT(11) NOT NULL,
+        `dia_semana` TINYINT(1) NOT NULL,
+        `hora_inicio` TIME NOT NULL,
+        `hora_fim` TIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `staff_dia` (`staff_id`, `dia_semana`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $charset . ';');
+
+    /*
+     * Excepções: férias, um dia cheio, uma tarde que deixou de dar. Sem horas
+     * significa o dia inteiro — é o caso mais comum e não obriga a escrever
+     * 00:00 às 23:59.
+     */
+    $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_reunioes_bloqueio` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `staff_id` INT(11) NOT NULL,
+        `data` DATE NOT NULL,
+        `hora_inicio` TIME NULL DEFAULT NULL,
+        `hora_fim` TIME NULL DEFAULT NULL,
+        `motivo` VARCHAR(191) NULL DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        KEY `staff_data` (`staff_id`, `data`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $charset . ';');
+
+    /*
+     * As regras de quem publica a agenda. Uma linha por pessoa.
+     *
+     * `antecedencia_h` evita o pior defeito destas ferramentas: alguém marcar
+     * uma reunião para daqui a dez minutos com quem já está a conduzir.
+     */
+    $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_reunioes_partilha` (
+        `staff_id` INT(11) NOT NULL,
+        `publicada` TINYINT(1) NOT NULL DEFAULT 0,
+        `duracao_min` INT(11) NOT NULL DEFAULT 30,
+        `antecedencia_h` INT(11) NOT NULL DEFAULT 4,
+        `horizonte_dias` INT(11) NOT NULL DEFAULT 21,
+        `intervalo_min` INT(11) NOT NULL DEFAULT 0,
+        `nota` VARCHAR(255) NULL DEFAULT NULL,
+        `updated_at` DATETIME NULL DEFAULT NULL,
+        PRIMARY KEY (`staff_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $charset . ';');
+
+    /*
+     * Participantes internos. A tabela de reuniões já tem `convidado_id` para
+     * UM convidado; para a reunião de equipa isso não chega, e reescrever a
+     * coluna partia as reuniões que já existem. Esta tabela acrescenta sem
+     * mexer no que está feito.
+     */
+    $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_reunioes_participante` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `reuniao_id` INT(11) NOT NULL,
+        `staff_id` INT(11) NOT NULL,
+        `estado` VARCHAR(20) NOT NULL DEFAULT 'convidado',
+        `respondido_em` DATETIME NULL DEFAULT NULL,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `reuniao_staff` (`reuniao_id`, `staff_id`),
+        KEY `staff_id` (`staff_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $charset . ';');
 }
 
 /* =========================================================================
@@ -413,4 +525,56 @@ function dps_reunioes_bloco_lead($lead)
 })();
 </script>
     <?php
+}
+
+/**
+ * Avisa os convidados internos de uma reunião interna ou de equipa.
+ *
+ * Notificação no CRM sempre (é o que aparece no sino e não se perde), e
+ * WhatsApp a quem tiver número. O email fica de fora aqui de propósito:
+ * para dentro de casa, uma notificação e uma mensagem chegam, e mais um
+ * email é mais uma coisa que ninguém lê.
+ *
+ * @param array $r          a reunião, já lida com get()
+ * @param array $convidados staffids
+ * @param string $tipo      'marcada' (a dois) ou 'equipa'
+ */
+function dps_reunioes_avisar_interno(array $r, array $convidados, $tipo = 'marcada')
+{
+    if (empty($convidados)) {
+        return;
+    }
+
+    $CI     = &get_instance();
+    $quando = dps_reunioes_quando($r['data_hora']);
+    $quem   = $r['comercial'] ?: get_staff_full_name((int) $r['staff_id']);
+    $link   = admin_url('dps_reunioes/ver/' . (int) $r['id']);
+
+    $texto = $tipo === 'equipa'
+        ? 'Reunião de equipa — ' . $r['assunto'] . ' — ' . $quando . '. Marcada por ' . $quem . '.'
+        : $quem . ' marcou uma reunião consigo em ' . $quando . ' (' . $r['assunto'] . ').';
+
+    foreach (array_unique(array_map('intval', $convidados)) as $id) {
+        if ($id <= 0) {
+            continue;
+        }
+
+        add_notification([
+            'description' => $texto,
+            'touserid'    => $id,
+            'link'        => 'dps_reunioes/ver/' . (int) $r['id'],
+            'fromcompany' => true,
+        ]);
+
+        $d = $CI->db->select('phonenumber')->where('staffid', $id)
+                    ->get(db_prefix() . 'staff')->row_array();
+
+        if (!empty($d['phonenumber'])) {
+            dps_reunioes_whatsapp(
+                $d['phonenumber'],
+                $texto . "\n\nSala: " . $r['link'] . "\nDetalhes: " . $link,
+                (int) $r['staff_id']
+            );
+        }
+    }
 }

@@ -3,7 +3,11 @@
 <div id="wrapper"><div class="content">
   <div class="row">
     <div class="col-md-7"><div class="panel_s"><div class="panel-body">
-      <h4 class="no-margin">Reunião com <?php echo html_escape((string) $r['cliente_nome']); ?></h4>
+      <h4 class="no-margin">
+        <?php echo !empty($interna)
+            ? html_escape((string) $r['assunto'])
+            : 'Reunião com ' . html_escape((string) $r['cliente_nome']); ?>
+      </h4>
       <hr>
       <table class="table">
         <tr><td width="180" class="text-muted">Data e hora</td><td><strong><?php echo dps_reunioes_quando($r['data_hora']); ?></strong></td></tr>
@@ -17,10 +21,24 @@
           </span>
         </td></tr>
         <?php } ?>
-        <tr><td class="text-muted">Contactos</td><td>
-          <?php echo html_escape((string) $r['cliente_email']); ?><br>
-          <?php echo html_escape((string) $r['cliente_telefone']); ?>
-        </td></tr>
+        <?php if (!empty($interna)) { ?>
+          <tr><td class="text-muted">Participantes</td><td>
+            <?php if (empty($participantes)) { ?>
+              <span class="text-muted">ninguém convidado</span>
+            <?php } else { ?>
+              <?php foreach ($participantes as $p) { ?>
+                <span class="label label-default" style="font-weight:400;margin-right:4px;">
+                  <?php echo html_escape($p['nome']); ?>
+                </span>
+              <?php } ?>
+            <?php } ?>
+          </td></tr>
+        <?php } else { ?>
+          <tr><td class="text-muted">Contactos</td><td>
+            <?php echo html_escape((string) $r['cliente_email']); ?><br>
+            <?php echo html_escape((string) $r['cliente_telefone']); ?>
+          </td></tr>
+        <?php } ?>
         <tr><td class="text-muted">Link</td><td>
           <a href="<?php echo html_escape($r['link']); ?>" target="_blank" class="btn btn-success btn-sm">
             <i class="fa fa-video-camera"></i> Entrar na reunião
