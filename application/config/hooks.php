@@ -140,6 +140,22 @@ $hook['pre_controller_constructor'][] = [
  * sido carregada. A sonda instalada la nunca via as falhas de LIGACAO, que
  * sao precisamente o que se quer apanhar.
  */
+/*
+ * A base de dados corre em UTC e o PHP em Europe/Lisbon — uma hora de
+ * diferença entre as datas que o CRM escreve e as que a própria base de dados
+ * preenche. Ver a explicação inteira em dps_fuso_hook.php.
+ *
+ * post_controller_constructor e não pre_system: a ligação à base de dados só
+ * existe depois de o controlador ser construído, e é a ELA que se manda o
+ * fuso — em pre_system não haveria nada a quem falar.
+ */
+$hook['post_controller_constructor'][] = [
+    'class'    => '',
+    'function' => 'dps_fuso_alinhar_bd',
+    'filename' => 'dps_fuso_hook.php',
+    'filepath' => 'hooks',
+];
+
 $hook['pre_system'][] = [
     'class'    => '',
     'function' => 'dps_diagnostico_ligacoes_register',
