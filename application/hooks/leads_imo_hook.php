@@ -14,6 +14,21 @@ if (!function_exists('leads_imo_inject_ui')) {
             return;
         }
 
+        /*
+         * Isto injecta DOIS relatórios de direcção — "Fonte de lead" e a
+         * distribuição por comercial ao clicar num estado. Ambos batem em
+         * admin/leads_imo/*, que responde ajax_access_denied() a quem não é
+         * admin. O JavaScript apanhava essa recusa no .catch e escrevia
+         * "Erro ao carregar." dentro de um modal que o comercial nem devia ver.
+         *
+         * Foi o que aconteceu ao Miguel Silva: carregava em "Novos" à espera de
+         * filtrar e levava com uma janela de erro (03/08/2026). Para quem não é
+         * admin, o botão de estado volta a fazer o que ele esperava — filtrar.
+         */
+        if (!is_admin()) {
+            return;
+        }
+
         // Carregar mapa de statuses via PHP para injectar no JS
         $CI->db->order_by('statusorder', 'asc');
         $statuses = $CI->db->get(db_prefix() . 'leads_status')->result_array();

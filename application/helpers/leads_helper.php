@@ -96,6 +96,27 @@ function get_leads_summary()
     $sql                   = '';
     $whereNoViewPermission = '(addedfrom = ' . get_staff_user_id() . ' OR assigned=' . get_staff_user_id() . ' OR is_public = 1)';
 
+    /*
+     * A regra da casa manda nos números de cima.
+     *
+     * O Perfex conta aqui também as leads marcadas como públicas, mas a tabela
+     * de baixo (views/admin/tables/leads.php) segue a regra das equipas DPS:
+     * um comercial vê apenas as suas. O resultado era um contador que prometia
+     * o que a lista não entregava — o Miguel Silva via 281 em "Novos" e nenhuma
+     * lead por baixo (03/08/2026).
+     *
+     * Contar o que não se pode abrir não é um pormenor de apresentação: leva a
+     * pessoa a pensar que o CRM está avariado, e diz-lhe quantas leads existem
+     * fora do seu alcance.
+     */
+    if (function_exists('dps_teams_where_leads_visiveis')) {
+        $regra_dps = dps_teams_where_leads_visiveis(db_prefix() . 'leads');
+        if ($regra_dps !== '') {
+            $has_permission_view   = false;
+            $whereNoViewPermission = $regra_dps;
+        }
+    }
+
     $statuses[] = [
         'lost'  => true,
         'name'  => _l('lost_leads'),

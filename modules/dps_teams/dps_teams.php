@@ -88,3 +88,50 @@ function dps_teams_note_as_lead_activity($note_id, $note_data)
     $CI->load->model('leads_model');
     $CI->leads_model->log_lead_activity($lead_id, '📝 Nota: ' . $desc);
 }
+
+/**
+ * A REGRA, num sítio só: que leads é que esta pessoa pode ver.
+ *
+ *   Admin           -> todas
+ *   Gestor de equipa-> as dos seus comerciais + as suas
+ *   Comercial       -> só as suas
+ *
+ * Existe porque a regra estava escrita duas vezes e as duas cópias
+ * divergiram: a tabela de leads mostrava só as próprias, mas o contador de
+ * cima (get_leads_summary, do núcleo do Perfex) contava também as leads
+ * marcadas como públicas. O Miguel Silva via 281 no botão "Novos" e uma lista
+ * vazia por baixo — contava-se o que não se podia abrir (03/08/2026).
+ *
+ * Quem precisar da regra chama isto. Duas cópias voltam a divergir; uma não.
+ *
+ * @param  string $tabela  prefixo da tabela nas consultas (ex.: 'tblleads')
+ * @return string          condição SQL, ou '' quando não há restrição
+ */
+function dps_teams_where_leads_visiveis($tabela = null)
+{
+    if (is_admin()) {
+        return '';
+    }
+
+    $tabela   = $tabela ?: db_prefix() . 'leads';
+    $staff_id = (int) get_staff_user_id();
+
+    $CI = &get_instance();
+    $CI->load->model('dps_teams/Dps_teams_model', 'dps_teams_model');
+    $membro = $CI->dps_teams_model->get_member($staff_id);
+
+    if ($membro && $membro['role'] === 'manager') {
+        $ids   = array_column(
+            $CI->dps_teams_model->get_team_commercials((int) $membro['team_id']),
+            'staff_id'
+        );
+        $ids[] = $staff_id;
+        $lista = implode(',', array_map('intval', array_unique($ids)));
+
+        return '(' . $tabela . '.assigned IN (' . $lista . ') OR '
+             . $tabela . '.addedfrom IN (' . $lista . '))';
+    }
+
+    return '(' . $tabela . '.assigned = ' . $staff_id . ' OR '
+         . $tabela . '.addedfrom = ' . $staff_id . ')';
+}

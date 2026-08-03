@@ -17,9 +17,67 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Instalado a 01/08/2026 para uma única pergunta. Apagar quando respondida.
  */
 
+if (!function_exists('dps_diagnostico_tempos')) {
+    /**
+     * Cronómetro por pedido — para saber ONDE o CRM está lento.
+     *
+     * Sem isto andava-se a adivinhar: a base de dados responde em menos de
+     * 10 ms e o opcache tem 99% de acertos, mas a página de entrada leva 1,2 s.
+     * O tempo está algures no PHP executado, e só medindo pedido a pedido se
+     * descobre qual é a página (e não "o CRM" em geral).
+     *
+     * Custo: uma linha escrita no fim do pedido. Nada é calculado durante a
+     * página. Desligar quando a pergunta estiver respondida.
+     */
+    function dps_diagnostico_tempos()
+    {
+        $inicio = (float) ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+
+        register_shutdown_function(function () use ($inicio) {
+            $ficheiro = APPPATH . 'logs/dps-tempos.log';
+
+            // Um registo de diagnóstico não pode ser ele próprio um problema.
+            if (@filesize($ficheiro) > 500000) {
+                return;
+            }
+
+            $ms  = (microtime(true) - $inicio) * 1000;
+            $uri = (string) ($_SERVER['REQUEST_URI'] ?? '');
+
+            // Ficheiros estáticos servidos pelo PHP não interessam a ninguém.
+            if (preg_match('/\.(css|js|png|jpe?g|gif|svg|woff2?|ico|map)(\?|$)/i', $uri)) {
+                return;
+            }
+
+            $consultas = '?';
+            if (class_exists('CI_Controller', false) && function_exists('get_instance')) {
+                $CI = @get_instance();
+                if ($CI && isset($CI->db) && is_array(@$CI->db->queries)) {
+                    $consultas = count($CI->db->queries);
+                }
+            }
+
+            @file_put_contents(
+                $ficheiro,
+                sprintf(
+                    "[%s] %6.0f ms | %5.1f MB | %s consultas | %s\n",
+                    date('H:i:s'),
+                    $ms,
+                    memory_get_peak_usage(true) / 1048576,
+                    $consultas,
+                    substr($uri, 0, 90)
+                ),
+                FILE_APPEND
+            );
+        });
+    }
+}
+
 if (!function_exists('dps_diagnostico_ligacoes_register')) {
     function dps_diagnostico_ligacoes_register()
     {
+        dps_diagnostico_tempos();
+
         /*
          * Quem bate à porta do cron.
          *

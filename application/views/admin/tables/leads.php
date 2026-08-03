@@ -154,21 +154,18 @@ return App_table::find('leads')
         // Super Admin (Ricardo) → vê tudo
         // Gestor de Equipa       → vê leads dos seus comerciais + as suas
         // Comercial              → só vê as suas próprias leads
-        if (!is_admin()) {
-            $staff_id = get_staff_user_id();
-            $this->ci->load->model('dps_teams/Dps_teams_model', 'dps_teams_model');
-            $member = $this->ci->dps_teams_model->get_member($staff_id);
-            if ($member && $member['role'] === 'manager') {
-                // Gestor: vê leads dos comerciais da sua equipa + as suas próprias
-                $commercials = $this->ci->dps_teams_model->get_team_commercials((int)$member['team_id']);
-                $ids = array_column($commercials, 'staff_id');
-                $ids[] = (int)$staff_id;
-                $ids_str = implode(',', array_map('intval', $ids));
-                $where[] = 'AND (' . db_prefix() . 'leads.assigned IN (' . $ids_str . ') OR ' . db_prefix() . 'leads.addedfrom IN (' . $ids_str . '))';
-            } else {
-                // Comercial (ou sem equipa): só as suas leads
-                $where[] = 'AND (' . db_prefix() . 'leads.assigned = ' . (int)$staff_id . ' OR ' . db_prefix() . 'leads.addedfrom = ' . (int)$staff_id . ')';
-            }
+        /*
+         * A regra vive agora em dps_teams_where_leads_visiveis(), e o contador
+         * do topo da página chama a MESMA função. Estavam escritas duas vezes e
+         * divergiram: o contador somava as leads públicas, esta lista não —
+         * ver a nota em get_leads_summary().
+         */
+        $regra_dps = function_exists('dps_teams_where_leads_visiveis')
+            ? dps_teams_where_leads_visiveis(db_prefix() . 'leads')
+            : '';
+
+        if ($regra_dps !== '') {
+            $where[] = 'AND ' . $regra_dps;
         }
 
         $aColumns = hooks()->apply_filters('leads_table_sql_columns', $aColumns);
