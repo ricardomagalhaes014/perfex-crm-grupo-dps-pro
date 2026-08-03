@@ -1,9 +1,18 @@
 <?php
-define('BASEPATH', __DIR__ . '/');
 $token = isset($_GET['token']) ? $_GET['token'] : '';
 if ($token !== 'dps-samara-check-2026') { http_response_code(403); die('Forbidden'); }
+
+// Evitar conflito com BASEPATH já definido
+if (!defined('BASEPATH')) define('BASEPATH', __DIR__ . '/');
+
 require_once __DIR__ . '/application/config/app-config.php';
-$pdo = new PDO("mysql:host=".APP_DB_HOSTNAME.";dbname=".APP_DB_NAME.";charset=utf8mb4", APP_DB_USERNAME, APP_DB_PASSWORD);
+try {
+    $pdo = new PDO("mysql:host=".APP_DB_HOSTNAME.";dbname=".APP_DB_NAME.";charset=utf8mb4", APP_DB_USERNAME, APP_DB_PASSWORD);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+    http_response_code(500);
+    die(json_encode(['error' => $e->getMessage()]));
+}
 
 $lead_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($lead_id) {
