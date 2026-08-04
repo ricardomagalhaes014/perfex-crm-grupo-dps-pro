@@ -908,20 +908,17 @@ class Dps_painel_model extends App_Model
              * contabilizado em $v['direcao'].
              */
             /*
-             * O override só é DEVIDO quando há factura emitida ao promotor.
+             * O override viaja com a tranche do CPCV: chegado o mês, é devido.
              *
-             * Era só o calendário: chegado o mês do CPCV, a verba passava a
-             * "a receber" mesmo sem factura nenhuma. Regra do dono
-             * (04/08/2026), a propósito do Belo Horizonte: "não podes contar a
-             * receber porque é só quando for emitida a factura". Faz sentido —
-             * sem factura não há nada a cobrar ao promotor, logo não há nada de
-             * onde tirar os 0,5 pontos.
-             *
-             * Enquanto não houver factura fica no futuro, que é onde deve
-             * estar: previsto, não exigível.
+             * Houve aqui uma tentativa de o prender também à existência de
+             * factura — revertida no mesmo dia. A regra do dono é mais simples
+             * do que eu a tinha lido: em casa é o que já foi recebido; à espera
+             * de cobrança é o que já foi facturado e não pago; futuro é o que
+             * ainda não concluiu, mais o Belo Horizonte. A factura já decide o
+             * balde da verba, não precisa de decidir outra vez o do override.
              */
             $falta_dir = round($v['direcao_prevista'] - $v['direcao'], 2);
-            $dir_vencida = $venceu($v['mes_recebido_cpcv']) && $tem_factura['cpcv'];
+            $dir_vencida = $venceu($v['mes_recebido_cpcv']);
 
             $v['direcao_agora']  = $dir_vencida ? $falta_dir : 0.0;
             $v['direcao_futuro'] = $dir_vencida ? 0.0 : $falta_dir;
