@@ -65,6 +65,10 @@ if (isset($_GET['fixsrc'])) {
     exit;
 }
 
+// Detectar se é lead AURA (via parâmetro source=aura no URL)
+$is_aura = (isset($_GET['source']) && strtolower($_GET['source']) === 'aura');
+$tag_name = $is_aura ? 'AURA' : 'MV';
+
 // Receber dados do Make
 $name       = isset($_POST['name'])        ? trim($_POST['name'])        : '';
 $email      = isset($_POST['email'])       ? trim($_POST['email'])       : '';
@@ -125,7 +129,7 @@ try {
         VALUES
             (?, ?, ?, ?, ?, ?, ?, NOW(), NULL, 1, 0, NULL)
     ");
-    $description = "Lead Facebook Lead Ads - Formulário MV\nFacebook Lead ID: " . $fb_lead_id;
+    $description = "Lead Facebook Lead Ads - Formulário " . $tag_name . "\nFacebook Lead ID: " . $fb_lead_id;
     $stmt->execute([
         $status_id,
         $source_id,
@@ -153,29 +157,25 @@ try {
     exit;
 }
 
-// Adicionar tag MV
+// Adicionar tag (MV ou AURA conforme o source)
 try {
-    // Verificar se a tag MV existe
-    $stmt = $pdo->prepare("SELECT id FROM tbltags WHERE name = 'MV' LIMIT 1");
-    $stmt->execute();
+    $stmt = $pdo->prepare("SELECT id FROM tbltags WHERE name = ? LIMIT 1");
+    $stmt->execute([$tag_name]);
     $tag = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$tag) {
-        // Criar a tag MV se não existir
-        $stmt = $pdo->prepare("INSERT INTO tbltags (name) VALUES ('MV')");
-        $stmt->execute();
+        $stmt = $pdo->prepare("INSERT INTO tbltags (name) VALUES (?)");
+        $stmt->execute([$tag_name]);
         $tag_id = $pdo->lastInsertId();
     } else {
         $tag_id = $tag['id'];
     }
 
-    // Associar tag à lead - CORRIGIDO NOME DA TABELA (tbltaggables em vez de tbltagstaggables)
     $stmt = $pdo->prepare("INSERT IGNORE INTO tbltaggables (tag_id, rel_id, rel_type, tag_order) VALUES (?, ?, 'lead', 0)");
     $stmt->execute([$tag_id, $lead_id]);
-    log_debug("Tag MV associada com sucesso");
+    log_debug("Tag associada com sucesso", $tag_name);
 } catch (PDOException $e) {
-    // Não falhar por causa da tag
-    log_debug("Erro ao associar tag MV", $e->getMessage());
+    log_debug("Erro ao associar tag", $e->getMessage());
 }
 
 // -------------------------------------------------------------------------
@@ -282,7 +282,7 @@ $response = [
     'name'    => $name,
     'email'   => $email,
     'phone'   => $phone,
-    'tag'     => 'MV',
+    'tag'     => $tag_name,
     'whatsapp_sent' => $wa_sent
 ];
 
