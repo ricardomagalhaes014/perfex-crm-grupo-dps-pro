@@ -10,7 +10,8 @@
  * DOIS QUADROS lado a lado, e a diferença entre eles é a pergunta a que
  * respondem:
  *
- *   CONCLUÍDAS            — negócio fechado. É o que já está feito.
+ *   CONCLUÍDAS            — negócio fechado. É o que já está feito. O Belo
+ *                           Horizonte conta sempre aqui, ver mais abaixo.
  *   RESERVADAS+CONCLUÍDAS — tudo o que está de pé, incluindo o que ainda está
  *                           a caminho. É a carteira.
  *
@@ -61,9 +62,7 @@ if ($por_mes) {
 /* ------------------------------------------------------------------ *
  * Os dois conjuntos de dados
  * ------------------------------------------------------------------ */
-$por_comercial = function ($de, $ate, array $estados) use ($CI, $p) {
-    $lista = "'" . implode("','", array_map([$CI->db, 'escape_str'], $estados)) . "'";
-
+$por_comercial = function ($de, $ate, $condicao) use ($CI, $p) {
     return $CI->db->query(
         "SELECT v.staff_id,
                 COALESCE(NULLIF(TRIM(CONCAT(s.firstname,' ',s.lastname)), ''), 'Sem comercial') AS quem,
@@ -72,7 +71,7 @@ $por_comercial = function ($de, $ate, array $estados) use ($CI, $p) {
                 SUM(v.valor) AS total
            FROM {$p}simulador_vendas v
       LEFT JOIN {$p}staff s ON s.staffid = v.staff_id
-          WHERE v.estado IN ({$lista})
+          WHERE {$condicao}
             AND v.data_venda >= ? AND v.data_venda <= ?
        GROUP BY v.staff_id, v.empreendimento
        ORDER BY total DESC",
@@ -86,11 +85,22 @@ $por_comercial = function ($de, $ate, array $estados) use ($CI, $p) {
  * já têm CPCV assinado, que são as mais seguras de todas; ninguém entenderia
  * um total que salta por cima delas.
  */
-$estados_fechadas = ['concluido'];
-$estados_carteira = ['pedido', 'reservado', 'submetido', 'vendido', 'concluido'];
+$carteira_sql = "v.estado <> 'cancelado'";
 
-$linhas_fechadas = $por_comercial($de, $ate, $estados_fechadas);
-$linhas_carteira = $por_comercial($de, $ate, $estados_carteira);
+/*
+ * BELO HORIZONTE conta como concluído aqui, seja qual for o estado da venda.
+ *
+ * É uma regra só deste gráfico, decidida pelo dono (04/08/2026): o circuito do
+ * Belo Horizonte não passa pelos mesmos estados dos outros empreendimentos, e
+ * sem esta excepção o Cláudio e o Breno apareciam a zero num quadro em que
+ * têm negócio fechado. NÃO se mexe no estado das vendas nem em mais nenhum
+ * sítio — quem quiser saber o estado real continua a vê-lo no mapa de vendas.
+ */
+$fechadas_sql = "(v.estado = 'concluido'
+                  OR (v.empreendimento LIKE '%Belo Horizonte%' AND v.estado <> 'cancelado'))";
+
+$linhas_fechadas = $por_comercial($de, $ate, $fechadas_sql);
+$linhas_carteira = $por_comercial($de, $ate, $carteira_sql);
 
 /*
  * Uma cor por empreendimento, sempre a mesma nos dois gráficos — se o Aura
