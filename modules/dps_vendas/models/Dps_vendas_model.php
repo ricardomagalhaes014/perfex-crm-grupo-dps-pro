@@ -1608,12 +1608,45 @@ class Dps_vendas_model extends App_Model
             ? $atual[$chave . '_states']
             : [];
 
+        /*
+         * O simulador nem sempre escreve a fracção como o CRM.
+         *
+         * No Lake Towers a torre leva um "A" à frente — o simulador guarda
+         * "A2_CH" onde o CRM tem "2_CH". Escrever a chave do CRM não corrigia
+         * nada: acrescentava uma entrada nova ao lado da verdadeira, e a
+         * montra continuava a mostrar o estado antigo.
+         *
+         * Procura-se a chave existente que corresponda, ignorando símbolos e o
+         * "A" da torre. Se nenhuma corresponder devolve-se falso — NÃO se
+         * inventa uma unidade que o simulador não conhece.
+         */
+        $alvo = null;
+
+        if (isset($mapa[$unidade])) {
+            $alvo = $unidade;
+        } else {
+            $limpo = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $unidade));
+
+            foreach (array_keys($mapa) as $existente) {
+                $k = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $existente));
+
+                if ($k === $limpo || $k === 'A' . $limpo) {
+                    $alvo = $existente;
+                    break;
+                }
+            }
+        }
+
+        if ($alvo === null) {
+            return false;
+        }
+
         // Já está como deve ser: não gastar um pedido.
-        if (isset($mapa[$unidade]) && $mapa[$unidade] === $novo) {
+        if (($mapa[$alvo] ?? null) === $novo) {
             return true;
         }
 
-        $mapa[$unidade] = $novo;
+        $mapa[$alvo] = $novo;
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
