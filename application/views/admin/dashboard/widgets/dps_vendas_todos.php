@@ -14,8 +14,8 @@
  *                           Horizonte conta sempre aqui, ver mais abaixo.
  *   RESERVADAS+CONCLUÍDAS — tudo o que está de pé, incluindo o que ainda está
  *                           a caminho. É a carteira.
- *   O ANO, CONCLUÍDAS     — o acumulado de 2026. Não obedece ao selector de
- *                           período: é sempre o ano inteiro.
+ *   TUDO, CONCLUÍDAS      — o acumulado desde sempre. Não obedece ao selector
+ *                           de período: é sempre tudo.
  *
  * As duas juntas dizem mais do que qualquer uma sozinha: muita carteira e
  * pouco fechado é trabalho por rematar; o contrário é carteira a esvaziar.
@@ -115,13 +115,27 @@ $linhas_fechadas = $por_comercial($de, $ate, $fechadas_sql);
 $linhas_carteira = $por_comercial($de, $ate, $carteira_sql);
 
 /*
- * O terceiro quadro ignora o selector de período de propósito: é o agregado do
- * ANO, e é a única leitura que não muda quando alguém mexe no filtro. Serve
- * para responder a "quanto é que já fizemos este ano", pergunta que não tem
- * nada a ver com os últimos 3 meses.
+ * O terceiro quadro é TUDO o que ficou concluído, desde sempre, e ignora o
+ * selector de propósito: é a única leitura que não muda quando alguém mexe no
+ * filtro. Serve para responder a "quanto é que já fechámos ao todo".
+ *
+ * Era o ano civil, e ficava a repetir o primeiro quadro assim que alguém
+ * escolhesse esse ano no filtro de cima — duas vezes o mesmo número lado a
+ * lado, o que faz duvidar dos dois. Sendo o acumulado de sempre, só coincide
+ * se pedirem mesmo "Tudo", e aí é para coincidir.
  */
-$ano             = date('Y');
-$linhas_ano      = $por_comercial($ano . '-01-01', $ano . '-12-31', $fechadas_sql);
+$linhas_ano = $por_comercial('1970-01-01', '2999-12-31', $fechadas_sql);
+
+/* O período realmente coberto, para o rótulo não prometer mais do que há. */
+$span = $CI->db->query(
+    "SELECT MIN(v.data_venda) de, MAX(v.data_venda) ate
+       FROM {$p}simulador_vendas v
+      WHERE {$fechadas_sql} AND v.data_venda IS NOT NULL"
+)->row_array();
+
+$ano_rotulo = !empty($span['de'])
+    ? 'desde ' . date('m/Y', strtotime($span['de']))
+    : '';
 
 /* ------------------------------------------------------------------ *
  * A TABELA tem período PRÓPRIO, e abre no mês corrente
@@ -360,12 +374,13 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
         <!-- O ANO INTEIRO, CONCLUÍDAS -->
         <div class="col-md-4">
           <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
-            <?php echo $ano; ?> — concluídas
+            Tudo — concluídas
+            <?php if ($ano_rotulo !== '') { ?><span style="text-transform:none;letter-spacing:0;">(<?php echo $ano_rotulo; ?>)</span><?php } ?>
             — <strong class="text-success"><?php echo app_format_money($anual['total'], $moeda); ?></strong>
           </p>
 
           <?php if (empty($anual['pessoas']) || $anual['total'] <= 0) { ?>
-            <p class="text-muted">Sem vendas concluídas em <?php echo $ano; ?>.</p>
+            <p class="text-muted">Ainda não há vendas concluídas.</p>
           <?php } else { ?>
             <div style="height:<?php echo $altura; ?>px;">
               <canvas id="<?php echo $uid; ?>_ano"></canvas>
