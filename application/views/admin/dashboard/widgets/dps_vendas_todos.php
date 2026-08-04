@@ -141,14 +141,14 @@ $ano_rotulo = !empty($span['de'])
  * A TABELA tem período PRÓPRIO, e abre no mês corrente
  * ------------------------------------------------------------------ *
  * Os gráficos servem para ver a forma das coisas ao longo do trimestre; a
- * tabela serve para conferir nomes e números, e quem confere quer o mês em
- * que está. Partilhar um filtro só obrigava sempre um dos dois a estar no
- * período errado.
+ * tabela serve para conferir nomes e números, e para isso quer-se o ano
+ * inteiro à frente. Partilhar um filtro só obrigava sempre um dos dois a
+ * estar no período errado.
  */
 $tab_pedido = trim((string) $CI->input->get('dps_vendas_tabela'));
 
 if ($tab_pedido === '') {
-    $tab_pedido = 'mes:' . date('Y-m');   // por omissão, o mês corrente
+    $tab_pedido = 'ano:' . date('Y');   // por omissão, o ano corrente
 }
 
 if (preg_match('/^mes:(\d{4}-\d{2})$/', $tab_pedido, $mt)) {
@@ -188,10 +188,13 @@ $tab_anos = array_column($CI->db->query(
    ORDER BY a DESC"
 )->result_array(), 'a');
 
-/* O mês corrente entra na lista mesmo sem vendas — senão o que abre por
-   omissão não estava lá para se voltar a ele. */
+/* O mês e o ano correntes entram na lista mesmo sem vendas — senão o que abre
+   por omissão não estava lá para se voltar a ele. */
 if (!in_array(date('Y-m'), $tab_meses, true)) {
     array_unshift($tab_meses, date('Y-m'));
+}
+if (!in_array(date('Y'), array_map('strval', $tab_anos), true)) {
+    array_unshift($tab_anos, date('Y'));
 }
 
 /*
