@@ -1991,7 +1991,22 @@ class Dps_moloni_model extends App_Model
             'customer_id'    => (int) ($doc['customer_id'] ?? 0),
             'date'        => $data,
             'net_value'   => $em_aberto,
-            'status'      => 0,                       // rascunho, sempre
+            /*
+             * FECHADO, não rascunho.
+             *
+             * Saía em rascunho por decisão do dono a 03/08 — "nada fica
+             * fechado sem ele ver" — enquanto o circuito era novo e não havia
+             * confiança nele. Autorizada a mudança a 04/08, depois de o
+             * emparelhamento passar a ser determinístico (promotor, fracção e
+             * valor) e de o recibo só sair quando a direção marca a venda como
+             * paga. Um recibo fechado liquida a factura no Moloni e o par
+             * passa a valer como fatura-recibo, que é o que se quer ver do
+             * lado do promotor.
+             *
+             * Continua a respeitar o "sempre em rascunho" das Definições, para
+             * quem quiser voltar a travar sem mexer no código.
+             */
+            'status'      => ((string) $this->get_setting('always_draft', '0') === '1') ? 0 : 1,
             'associated_documents' => [
                 ['associated_id' => (int) $doc['document_id'], 'value' => $em_aberto],
             ],

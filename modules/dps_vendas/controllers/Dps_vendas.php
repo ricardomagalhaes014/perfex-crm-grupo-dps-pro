@@ -1387,8 +1387,17 @@ class Dps_vendas extends AdminController
 
         $etiqueta = Dps_vendas_model::$colunas_parcela[$parcela]['etiqueta'] ?? $parcela;
 
+        /*
+         * A parcela da direção é devida ao DIRECTOR, não ao comercial da
+         * venda. Avisar o comercial de um pagamento que não é dele confundia
+         * quem recebe e quem não recebe.
+         */
+        $avisar = $parcela === 'direcao'
+            ? (int) get_option('dps_painel_director_id')
+            : (int) $venda['staff_id'];
+
         dps_vendas_notificar(
-            (int) $venda['staff_id'],
+            $avisar,
             'Comissão paga — parcela ' . $etiqueta . ' da venda #' . (int) $venda_id . ' ('
                 . $venda['empreendimento'] . ' ' . $venda['unidade'] . ').',
             'dps_vendas/comissoes'
@@ -1473,6 +1482,53 @@ class Dps_vendas extends AdminController
      * O comercial anexa o recibo da sua comissão (recibo verde/fatura).
      * Só depois disto é que a direção pode marcar PAGO.
      */
+    /**
+     * Recibo do OVERRIDE DA DIREÇÃO, em coluna própria.
+     *
+     * Gémeo do comissao_recibo(), e separado de propósito: a mesma venda pode
+     * ter o recibo do comercial entregue e o da direção por entregar. Quem
+     * carrega é o director (ou um admin) — não o comercial da venda, que aqui
+     * não tem nada a receber.
+     */
+    public function direcao_recibo($venda_id)
+    {
+        $venda = $this->dps_vendas_model->get_venda($venda_id);
+        if (!$venda) {
+            show_404();
+        }
+
+        $director = (int) get_option('dps_painel_director_id');
+
+        if (!is_admin() && (int) get_staff_user_id() !== $director) {
+            access_denied('dps_vendas');
+        }
+        if (!Dps_vendas_model::direcao_da_venda($venda)) {
+            set_alert('warning', 'Esta venda não gera override da direção.');
+            redirect(admin_url('dps_vendas/comissoes'));
+        }
+
+        if ($this->guardar_documento_unico($venda_id, 'recibo_file', 'recibo_direcao', 'Recibo do override da direção')) {
+            $doc = $this->db->select('id')
+                ->where('venda_id', (int) $venda_id)
+                ->where('tipo', 'recibo_direcao')
+                ->order_by('id', 'DESC')
+                ->get(db_prefix() . 'vendas_docs')->row_array();
+
+            if ($doc) {
+                $this->db->where('id', (int) $venda_id)
+                    ->update(db_prefix() . 'simulador_vendas', ['direcao_recibo_doc' => (int) $doc['id']]);
+            }
+
+            dps_vendas_notificar_admins(
+                'Recibo da direção carregado — venda #' . (int) $venda_id . ' ('
+                    . $venda['empreendimento'] . ' ' . $venda['unidade'] . ').',
+                'dps_vendas/comissoes'
+            );
+        }
+
+        redirect(admin_url('dps_vendas/comissoes'));
+    }
+
     public function comissao_recibo($venda_id)
     {
         $venda = $this->dps_vendas_model->get_venda($venda_id);

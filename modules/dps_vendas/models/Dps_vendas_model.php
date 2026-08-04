@@ -807,7 +807,64 @@ class Dps_vendas_model extends App_Model
             'pago'     => 'cpcv_pago',
             'pago_em'  => 'cpcv_pago_em',
         ],
+        /*
+         * O override da direção viaja pelo mesmo circuito das comissões: tem
+         * recibo para carregar, validação da direção e marca de pago. Vive em
+         * colunas próprias para não disputar as do comercial — a mesma venda
+         * pode ter a comissão paga e o override por pagar, que é o caso mais
+         * comum. Pedido do dono (04/08/2026).
+         */
+        'direcao' => [
+            'etiqueta' => 'Direção (0,5%)',
+            'mes'      => 'cpcv_mes_previsto',
+            'pago'     => 'direcao_pago',
+            'pago_em'  => 'direcao_pago_em',
+        ],
     ];
+
+    /**
+     * O override da direção nesta venda: quanto, e a quem.
+     *
+     * Devolve null quando não há override — vendas do comercial a 0% (a
+     * comissão fica em casa, não há de onde tirar meio ponto) ou a 100% (não
+     * sobra nada), e quando não há director definido.
+     */
+    public static function direcao_da_venda($venda)
+    {
+        $director = (int) get_option('dps_painel_director_id');
+
+        if ($director <= 0) {
+            return null;
+        }
+
+        $lista = function ($nome) {
+            $out = [];
+            foreach (explode(',', (string) get_option($nome)) as $x) {
+                $x = (int) trim($x);
+                if ($x > 0) { $out[] = $x; }
+            }
+
+            return $out;
+        };
+
+        $staff = (int) ($venda['staff_id'] ?? 0);
+
+        if (in_array($staff, $lista('dps_painel_comerciais_0'), true)
+            || in_array($staff, $lista('dps_painel_comerciais_100'), true)) {
+            return null;
+        }
+
+        $pct = (string) get_option('dps_painel_director_pct');
+        $pct = $pct === '' ? 0.5 : (float) str_replace(',', '.', $pct);
+
+        $valor = round((float) ($venda['valor'] ?? 0) * $pct / 100, 2);
+
+        if ($valor <= 0) {
+            return null;
+        }
+
+        return ['director_id' => $director, 'pct' => $pct, 'valor' => $valor];
+    }
 
     /**
      * Divide a comissão de uma venda nas parcelas que a direção paga.
@@ -936,7 +993,21 @@ class Dps_vendas_model extends App_Model
     public function previsao_comissoes($filtros = [], $apenas_minhas = false, $incluir_futuras = true)
     {
         $estados = $incluir_futuras ? ['concluido', 'vendido'] : ['concluido'];
-        $vendas  = $this->get_comissoes($apenas_minhas, $filtros, $estados);
+
+        /*
+         * O DIRECTOR VÊ TUDO, mas só as linhas que são dele.
+         *
+         * O override incide sobre vendas dos OUTROS — se a leitura ficasse
+         * restrita às vendas dele, o Cláudio nunca via os 0,5% que lhe são
+         * devidos, que é precisamente o que este quadro existe para mostrar.
+         * Lê-se tudo e filtram-se as linhas no fim: as dele como comercial,
+         * mais as da direção de toda a gente.
+         */
+        $eu        = (int) get_staff_user_id();
+        $sou_dir   = $eu > 0 && $eu === (int) get_option('dps_painel_director_id');
+        $so_minhas = $apenas_minhas && !$sou_dir;
+
+        $vendas = $this->get_comissoes($so_minhas, $filtros, $estados);
 
         $vazio = ['previsto' => 0.0, 'pago' => 0.0, 'por_pagar' => 0.0, 'futuro' => 0.0, 'retido' => 0.0, 'linhas' => []];
 
@@ -1033,6 +1104,109 @@ class Dps_vendas_model extends App_Model
                 $totais['previsto'] += $linha['valor'];
                 $totais[$onde]      += $linha['valor'];
             }
+
+            /*
+             * A LINHA DA DIREÇÃO, a seguir às do comercial.
+             *
+             * Entra na mesma lista e com a mesma forma, para percorrer o mesmo
+             * circuito — recibo carregado, direção valida, marca de pago — sem
+             * precisar de um ecrã à parte. O que muda é o dono: a linha é
+             * atribuída ao DIRECTOR, não ao comercial da venda, senão aparecia
+             * na lista dele uma dívida que não é dele. Pedido do dono
+             * (04/08/2026).
+             */
+            $dir = self::direcao_da_venda($venda);
+
+            if ($dir) {
+                $dir_paga = !empty($venda['direcao_pago']);
+
+                $nome_dir = $this->db->select('firstname, lastname')
+                    ->where('staffid', $dir['director_id'])
+                    ->get(db_prefix() . 'staff')->row();
+
+                $linha = [
+                    'venda_id'       => (int) $venda['id'],
+                    'empreendimento' => $venda['empreendimento'],
+                    'unidade'        => $venda['unidade'],
+                    'cliente'        => $venda['cliente'],
+                    'comercial_id'   => (int) $dir['director_id'],
+                    'comercial_nome' => $nome_dir
+                        ? trim($nome_dir->firstname . ' ' . $nome_dir->lastname) : 'Direção',
+                    'parcela'        => 'direcao',
+                    'etiqueta'       => 'Direção (' . rtrim(rtrim(number_format($dir['pct'], 2, ',', ''), '0'), ',') . '%)',
+                    'taxa'           => $dir['pct'],
+                    'valor'          => $dir['valor'],
+                    'mes'            => (string) ($venda['cpcv_mes_previsto'] ?? ''),
+                    'mes_da_regra'   => false,
+                    'pago'           => $dir_paga,
+                    'pago_em'        => (string) ($venda['direcao_pago_em'] ?? ''),
+                    'bloqueio'       => $bloqueio,
+                    'futura'         => ($venda['estado'] ?? '') !== 'concluido',
+                    'fatura_moloni'  => (string) ($venda['fatura_moloni_cpcv'] ?? ''),
+                    'e_direcao'      => true,
+                    'venda'          => $venda,
+                ];
+
+                if ($linha['pago']) {
+                    $onde = 'pago';
+                } elseif ($linha['futura']) {
+                    $onde = 'futuro';
+                } elseif (empty($venda['pago'])) {
+                    $onde = 'retido';
+                } else {
+                    $onde = 'por_pagar';
+                }
+
+                $linha['retido'] = ($onde === 'retido');
+                $linhas[] = $linha;
+
+                $balde = &$sem_data;
+                if ($linha['mes'] !== '') {
+                    if (!isset($meses[$linha['mes']])) {
+                        $meses[$linha['mes']] = $vazio;
+                    }
+                    $balde = &$meses[$linha['mes']];
+                }
+
+                $balde['previsto'] += $linha['valor'];
+                $balde[$onde]      += $linha['valor'];
+                $balde['linhas'][]  = $linha;
+                unset($balde);
+
+                $totais['previsto'] += $linha['valor'];
+                $totais[$onde]      += $linha['valor'];
+            }
+        }
+
+        /*
+         * Filtro final para o director: fica com o que é dele, venha da sua
+         * própria venda ou do override sobre a de outro.
+         */
+        if ($apenas_minhas && $sou_dir) {
+            $linhas = array_values(array_filter($linhas, function ($l) use ($eu) {
+                return (int) $l['comercial_id'] === $eu;
+            }));
+
+            $meses    = [];
+            $sem_data = $vazio;
+            $totais   = ['previsto' => 0.0, 'pago' => 0.0, 'por_pagar' => 0.0, 'futuro' => 0.0, 'retido' => 0.0];
+
+            foreach ($linhas as $l) {
+                $onde = $l['pago'] ? 'pago' : ($l['futura'] ? 'futuro' : ($l['retido'] ? 'retido' : 'por_pagar'));
+
+                $balde = &$sem_data;
+                if ($l['mes'] !== '') {
+                    if (!isset($meses[$l['mes']])) { $meses[$l['mes']] = $vazio; }
+                    $balde = &$meses[$l['mes']];
+                }
+                $balde['previsto'] += $l['valor'];
+                $balde[$onde]      += $l['valor'];
+                $balde['linhas'][]  = $l;
+                unset($balde);
+
+                $totais['previsto'] += $l['valor'];
+                $totais[$onde]      += $l['valor'];
+            }
         }
 
         ksort($meses); // 'YYYY-MM' ordena bem como texto
@@ -1095,6 +1269,37 @@ class Dps_vendas_model extends App_Model
 
         if (!$venda || !isset(self::$colunas_parcela[$parcela])) {
             return ['ok' => false, 'erro' => 'Parcela inválida.'];
+        }
+
+        /*
+         * A DIREÇÃO tem circuito próprio: colunas próprias, e não faz parte da
+         * repartição da comissão do comercial. Por isso não passa pela
+         * verificação das parcelas nem pelo congelamento das taxas — congelar
+         * ali mexia na comissão de outra pessoa.
+         */
+        if ($parcela === 'direcao') {
+            $dir = self::direcao_da_venda($venda);
+
+            if (!$dir) {
+                return ['ok' => false, 'erro' => 'Esta venda não gera override da direção.'];
+            }
+
+            $data_d = trim((string) $data);
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data_d)) {
+                $data_d = date('Y-m-d');
+            }
+
+            $this->db->where('id', (int) $venda_id)->update($this->tabela_vendas(), [
+                'direcao_pago'    => 1,
+                'direcao_pago_em' => $data_d,
+                'dateupdated'     => date('Y-m-d H:i:s'),
+            ]);
+
+            $this->registar_historico((int) $venda_id, null, $venda['estado'],
+                'Direção — override de ' . number_format($dir['valor'], 2, ',', '.')
+                . ' € PAGO em ' . $data_d);
+
+            return ['ok' => true];
         }
 
         // A parcela tem de existir MESMO nesta venda: 'total' e 'cpcv'

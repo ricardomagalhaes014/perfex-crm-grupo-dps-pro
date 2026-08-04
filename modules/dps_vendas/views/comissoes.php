@@ -299,11 +299,24 @@
                                                     ?>
                                                     <?php if ($l['bloqueio'] !== '') { ?>
                                                         <span class="label label-default"><?php echo html_escape($l['bloqueio']); ?></span>
-                                                        <?php if (empty($venda['comissao_recibo_doc']) && ($e_dono || is_admin())) { ?>
-                                                            <?php echo form_open_multipart(admin_url('dps_vendas/comissao_recibo/' . $l['venda_id']), ['style' => 'margin:4px 0 0;display:flex;gap:4px;align-items:center;']); ?>
+                                                        <?php
+                                                        /*
+                                                         * O recibo da DIREÇÃO tem coluna própria e acção
+                                                         * própria: a mesma venda pode ter o recibo do
+                                                         * comercial entregue e o da direção por entregar,
+                                                         * e partilhar o campo escondia uma das duas coisas.
+                                                         */
+                                                        $e_dir     = ($l['parcela'] ?? '') === 'direcao';
+                                                        $ja_tem    = $e_dir
+                                                            ? !empty($venda['direcao_recibo_doc'])
+                                                            : !empty($venda['comissao_recibo_doc']);
+                                                        $accao_rec = $e_dir ? 'dps_vendas/direcao_recibo/' : 'dps_vendas/comissao_recibo/';
+                                                        ?>
+                                                        <?php if (!$ja_tem && ($e_dono || is_admin())) { ?>
+                                                            <?php echo form_open_multipart(admin_url($accao_rec . $l['venda_id']), ['style' => 'margin:4px 0 0;display:flex;gap:4px;align-items:center;']); ?>
                                                                 <input type="file" name="recibo_file" accept=".pdf,.jpg,.jpeg,.png" required
                                                                        style="font-size:.75em;max-width:140px;">
-                                                                <button type="submit" class="btn btn-info btn-xs" title="Anexar recibo da comissão">
+                                                                <button type="submit" class="btn btn-info btn-xs" title="<?php echo $e_dir ? 'Anexar recibo do override da direção' : 'Anexar recibo da comissão'; ?>">
                                                                     <i class="fa fa-upload"></i>
                                                                 </button>
                                                             <?php echo form_close(); ?>
