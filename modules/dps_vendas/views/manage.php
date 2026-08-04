@@ -97,7 +97,69 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($vendas as $v) { ?>
+                                <?php
+                                /*
+                                 * A LISTA SAI AGRUPADA POR EMPREENDIMENTO.
+                                 *
+                                 * Corrida, com 100 e tal vendas de cinco
+                                 * empreendimentos misturadas, obrigava a ler
+                                 * linha a linha para encontrar uma fracção.
+                                 *
+                                 * Regras de ordem, pedidas pelo dono
+                                 * (04/08/2026):
+                                 *   - o empreendimento com venda mais recente
+                                 *     fica em cima;
+                                 *   - o Belo Horizonte vai sempre para o fim,
+                                 *     é o maior e o menos consultado;
+                                 *   - dentro de cada um, a mais recente
+                                 *     primeiro;
+                                 *   - as canceladas não entram. Continuam a
+                                 *     existir e a ver-se pelo filtro de estado
+                                 *     — o que se tira é o ruído da lista de
+                                 *     todos os dias.
+                                 */
+                                $grupos = [];
+
+                                foreach ($vendas as $_v) {
+                                    if (($_v['estado'] ?? '') === 'cancelado') {
+                                        continue;
+                                    }
+                                    $grupos[trim((string) $_v['empreendimento']) ?: 'Sem empreendimento'][] = $_v;
+                                }
+
+                                $recencia = [];
+                                foreach ($grupos as $ge => $lista) {
+                                    usort($lista, function ($a, $b) {
+                                        return [$b['data_venda'] ?? '', (int) $b['id']]
+                                           <=> [$a['data_venda'] ?? '', (int) $a['id']];
+                                    });
+                                    $grupos[$ge]   = $lista;
+                                    $recencia[$ge] = $lista[0]['data_venda'] ?? '';
+                                }
+
+                                uksort($grupos, function ($a, $b) use ($recencia) {
+                                    $bh_a = stripos($a, 'belo') !== false ? 1 : 0;
+                                    $bh_b = stripos($b, 'belo') !== false ? 1 : 0;
+
+                                    if ($bh_a !== $bh_b) {
+                                        return $bh_a <=> $bh_b;   // Belo Horizonte por último
+                                    }
+
+                                    return ($recencia[$b] ?? '') <=> ($recencia[$a] ?? '');
+                                });
+                                ?>
+                                <?php foreach ($grupos as $g_nome => $g_lista) { ?>
+                                    <tr style="background:rgba(0,0,0,.04);">
+                                        <td colspan="20">
+                                            <strong><?php echo html_escape($g_nome); ?></strong>
+                                            <small class="text-muted">
+                                                — <?php echo count($g_lista); ?> venda(s)<?php
+                                                $soma_g = array_sum(array_map(function ($x) { return (float) $x['valor']; }, $g_lista));
+                                                echo ' · ' . app_format_money($soma_g, get_base_currency()); ?>
+                                            </small>
+                                        </td>
+                                    </tr>
+                                <?php foreach ($g_lista as $v) { ?>
                                     <tr>
                                         <td>
                                             <a href="<?php echo admin_url('dps_vendas/view/' . $v['id']); ?>">
@@ -230,7 +292,8 @@
                                             <?php } ?>
                                         </td>
                                     </tr>
-                                <?php } ?>
+                                <?php } /* vendas do grupo */ ?>
+                                <?php } /* grupos */ ?>
                             </tbody>
                         </table>
 
