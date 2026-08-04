@@ -993,7 +993,66 @@ $pct    = function ($n) {
                 <?php if (empty($vendas)) { ?>
                     <tr><td colspan="12" class="text-center text-muted">Sem vendas para os filtros escolhidos.</td></tr>
                 <?php } ?>
-                <?php foreach ($vendas as $v) { $ff = 'pv_' . $v['id']; ?>
+                <?php
+                /*
+                 * A LISTA SAI AGRUPADA PELA ORIGEM DO VALOR RECEBIDO.
+                 *
+                 * Corrida, misturava três coisas que se leem de maneira
+                 * diferente e obrigava a olhar para a etiqueta de cada linha:
+                 *
+                 *   real      — a verba veio do extracto do promotor, está
+                 *               confirmada ao cêntimo. É o que se pode dar por
+                 *               assente.
+                 *   estimado  — calculada pela taxa do empreendimento. Serve
+                 *               para prever, não para fechar contas.
+                 *   sem taxa  — nem taxa há: entra a zero e puxa o resultado
+                 *               para baixo. É trabalho por fazer, e por isso
+                 *               fica à vista no fim.
+                 *
+                 * Pedido do dono (05/08/2026).
+                 */
+                $ordem_fonte = ['real' => 0, 'estimado' => 1, 'sem_taxa' => 2];
+                $nomes_fonte = [
+                    'real'     => ['Valor real', 'Confirmado pelo extracto do promotor', 'label-success'],
+                    'estimado' => ['Estimado', 'Calculado pela taxa do empreendimento', 'label-info'],
+                    'sem_taxa' => ['Sem taxa definida', 'Entra a zero — falta definir a taxa do empreendimento', 'label-danger'],
+                ];
+
+                $vendas_ord = $vendas;
+                usort($vendas_ord, function ($a, $b) use ($ordem_fonte) {
+                    $fa = $ordem_fonte[$a['recebido_fonte'] ?? 'estimado'] ?? 1;
+                    $fb = $ordem_fonte[$b['recebido_fonte'] ?? 'estimado'] ?? 1;
+
+                    if ($fa !== $fb) {
+                        return $fa <=> $fb;
+                    }
+
+                    // Dentro do grupo, maior primeiro.
+                    return (float) $b['recebido_previsto'] <=> (float) $a['recebido_previsto'];
+                });
+
+                $fonte_actual = null;
+                ?>
+                <?php foreach ($vendas_ord as $v) { $ff = 'pv_' . $v['id'];
+                    $f_v = $v['recebido_fonte'] ?? 'estimado';
+                    if ($f_v !== $fonte_actual) {
+                        $fonte_actual = $f_v;
+                        list($t_f, $e_f, $c_f) = $nomes_fonte[$f_v] ?? ['Outros', '', 'label-default'];
+                        $n_f = 0; $s_f = 0.0;
+                        foreach ($vendas_ord as $_x) {
+                            if (($_x['recebido_fonte'] ?? 'estimado') === $f_v) {
+                                $n_f++; $s_f += (float) $_x['recebido_previsto'];
+                            }
+                        }
+                        ?>
+                        <tr style="background:rgba(0,0,0,.04);">
+                            <td colspan="12">
+                                <span class="label <?php echo $c_f; ?>"><?php echo $t_f; ?></span>
+                                <small class="text-muted"><?php echo $e_f; ?> · <?php echo $n_f; ?> venda(s)
+                                    · <?php echo app_format_money($s_f, $moeda); ?></small>
+                            </td>
+                        </tr>
+                    <?php } ?>
                     <tr>
                         <td><a href="<?php echo admin_url('dps_vendas/view/' . $v['id']); ?>">#<?php echo $v['id']; ?></a></td>
                         <td><?php echo html_escape($v['empreendimento']); ?></td>
