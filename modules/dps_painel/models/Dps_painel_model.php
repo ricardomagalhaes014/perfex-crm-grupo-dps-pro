@@ -717,18 +717,26 @@ class Dps_painel_model extends App_Model
          */
         $agora = $futuro_cpcv = $futuro_esc = 0.0;
 
+        /*
+         * NÃO reutilizar $valor aqui: é o PREÇO DA VENDA e ainda é preciso
+         * mais abaixo, no override da direção (0,5% do preço). Chamar-lhe
+         * $valor dentro deste ciclo esmagava-o com o valor da tranche, e a
+         * direção passava a receber 0,5% da comissão em vez de 0,5% da venda —
+         * 148,25 € onde deviam estar 17.759,50 €. Custou duas horas a
+         * encontrar, e não deu erro nenhum: só um número mais pequeno.
+         */
         foreach (['cpcv', 'escritura'] as $qual) {
-            $estado = $por_tranche[$qual]['estado'] ?? null;
-            $valor  = (float) ($por_tranche[$qual]['valor'] ?? 0);
+            $estado_tr = $por_tranche[$qual]['estado'] ?? null;
+            $valor_tr  = (float) ($por_tranche[$qual]['valor'] ?? 0);
 
-            if ($estado === 'futuro') {
+            if ($estado_tr === 'futuro') {
                 if ($qual === 'cpcv') {
-                    $futuro_cpcv += $valor;
+                    $futuro_cpcv += $valor_tr;
                 } else {
-                    $futuro_esc += $valor;
+                    $futuro_esc += $valor_tr;
                 }
-            } elseif ($estado === 'por_receber') {
-                $agora += $valor;
+            } elseif ($estado_tr === 'por_receber') {
+                $agora += $valor_tr;
             }
         }
 
