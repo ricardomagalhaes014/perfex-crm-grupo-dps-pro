@@ -451,6 +451,88 @@ class Dps_vendas extends AdminController
         redirect(admin_url('dps_vendas/view/' . $id));
     }
 
+    /**
+     * O comercial cancela a venda quando o cliente desiste.
+     *
+     * PORQUE É SEPARADO DO change_status():
+     * Mudar estados é da direcção — uma venda não sobe sozinha de degrau. Mas
+     * DESCER, quando o cliente desiste, tem de ser imediato: a unidade está a
+     * ocupar lugar na montra e outro comercial pode estar a perder um negócio
+     * por ela aparecer reservada. Pedido do dono (04/08/2026).
+     *
+     * Só cancela quem é dono da venda, ou um admin. E é só para descer: uma
+     * venda já concluída não se cancela por aqui — isso é correcção de
+     * contabilidade e passa pela direcção.
+     *
+     * Ao cancelar, o mudar_estado() trata do resto: devolve a fracção a
+     * DISPONÍVEL no simulador e regista no histórico quem cancelou e porquê.
+     */
+    public function cancelar($id)
+    {
+        if (!$this->input->post()) {
+            show_404();
+        }
+
+        $venda = $this->dps_vendas_model->get_venda($id);
+        if (!$venda) {
+            show_404();
+        }
+
+        $eu     = (int) get_staff_user_id();
+        $e_dono = (int) $venda['staff_id'] === $eu;
+
+        if (!is_admin() && !$e_dono) {
+            access_denied('dps_vendas');
+        }
+
+        if ($venda['estado'] === 'cancelado') {
+            set_alert('warning', 'Esta venda já estava cancelada.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        if (in_array($venda['estado'], ['vendido', 'concluido'], true) && !is_admin()) {
+            set_alert('warning',
+                'Esta venda já tem CPCV. Cancelar a partir daqui é decisão da direcção — '
+                . 'fale com eles antes de a unidade voltar ao mercado.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        $motivo = trim((string) $this->input->post('motivo'));
+
+        if ($motivo === '') {
+            set_alert('warning', 'Diga porque está a cancelar — é o que fica no histórico.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        $resultado = $this->dps_vendas_model->mudar_estado($id, 'cancelado', $motivo);
+
+        if (empty($resultado['ok'])) {
+            set_alert('danger', $resultado['erro'] ?? 'Não foi possível cancelar.');
+            redirect(admin_url('dps_vendas/view/' . (int) $id));
+        }
+
+        /*
+         * A direcção tem de saber, e depressa: uma unidade que volta ao mercado
+         * muda o que se pode vender hoje. Vai por notificação no CRM e por
+         * WhatsApp a quem tiver número.
+         */
+        dps_vendas_notificar_admins(
+            'Venda CANCELADA — ' . $venda['empreendimento'] . ' Fracção ' . $venda['unidade']
+            . ' (' . $venda['cliente'] . '), por ' . get_staff_full_name($eu) . '. '
+            . 'Motivo: ' . $motivo . '. A fracção voltou a DISPONÍVEL no simulador.',
+            'dps_vendas/view/' . (int) $id
+        );
+
+        log_activity('DPS Vendas: venda #' . (int) $id . ' cancelada por staff ' . $eu . ' — ' . $motivo);
+
+        $aviso = !empty($resultado['aviso']) ? ' ' . $resultado['aviso'] : '';
+        set_alert('success',
+            'Venda cancelada. A fracção ' . $venda['unidade']
+            . ' voltou a estar disponível no simulador e a direcção foi avisada.' . $aviso);
+
+        redirect(admin_url('dps_vendas/view/' . (int) $id));
+    }
+
     public function delete($id)
     {
         // Só admin: os registos de venda devem manter-se na listagem para os

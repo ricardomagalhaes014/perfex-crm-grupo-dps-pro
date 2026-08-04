@@ -415,6 +415,47 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
                     </div>
                 </div>
 
+                <?php
+                /*
+                 * CANCELAR — para o comercial, sem ter de pedir à direcção.
+                 *
+                 * Quando o cliente desiste, a fracção está a ocupar lugar na
+                 * montra e outro colega pode estar a perder um negócio por ela
+                 * aparecer reservada. Por isso descer é imediato; subir é que
+                 * continua a ser da direcção.
+                 *
+                 * Depois do CPCV deixa de aparecer a quem não é admin: aí
+                 * cancelar já mexe em contabilidade.
+                 */
+                $pode_cancelar = $venda['estado'] !== 'cancelado'
+                    && (is_admin()
+                        || ((int) $venda['staff_id'] === (int) get_staff_user_id()
+                            && !in_array($venda['estado'], ['vendido', 'concluido'], true)));
+                ?>
+                <?php if ($pode_cancelar) { ?>
+                <div class="panel_s">
+                    <div class="panel-body">
+                        <h5 class="no-margin text-danger">Cancelar venda</h5>
+                        <hr>
+                        <p class="text-muted" style="font-size:13px;">
+                            O cliente desistiu? Ao cancelar, a fracção
+                            <strong><?php echo html_escape($venda['unidade']); ?></strong>
+                            volta a estar <strong>disponível no simulador</strong> e a direcção é avisada.
+                        </p>
+                        <?php echo form_open(admin_url('dps_vendas/cancelar/' . (int) $venda['id'])); ?>
+                        <div class="form-group">
+                            <textarea name="motivo" class="form-control" rows="2" required
+                                      placeholder="Porquê? (ex.: cliente não conseguiu financiamento)"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-danger btn-block"
+                                onclick="return confirm('Cancelar esta venda?\n\nA fracção <?php echo html_escape($venda['unidade']); ?> volta ao mercado e a direcção é avisada.');">
+                            <i class="fa fa-times"></i> Cancelar e libertar a fracção
+                        </button>
+                        <?php echo form_close(); ?>
+                    </div>
+                </div>
+                <?php } ?>
+
                 <?php if (is_admin()) { ?>
                 <div class="panel_s">
                     <div class="panel-body">
