@@ -7,13 +7,15 @@
  * relance quem vendeu quanto, e de quê. TODOS veem TODOS, de propósito — é o
  * quadro da equipa, não o de cada um. Pedido do dono (04/08/2026).
  *
- * DOIS QUADROS lado a lado, e a diferença entre eles é a pergunta a que
+ * TRÊS QUADROS lado a lado, e a diferença entre eles é a pergunta a que
  * respondem:
  *
  *   CONCLUÍDAS            — negócio fechado. É o que já está feito. O Belo
  *                           Horizonte conta sempre aqui, ver mais abaixo.
  *   RESERVADAS+CONCLUÍDAS — tudo o que está de pé, incluindo o que ainda está
  *                           a caminho. É a carteira.
+ *   O ANO, CONCLUÍDAS     — o acumulado de 2026. Não obedece ao selector de
+ *                           período: é sempre o ano inteiro.
  *
  * As duas juntas dizem mais do que qualquer uma sozinha: muita carteira e
  * pouco fechado é trabalho por rematar; o contrário é carteira a esvaziar.
@@ -101,6 +103,15 @@ $fechadas_sql = "(v.estado = 'concluido'
 
 $linhas_fechadas = $por_comercial($de, $ate, $fechadas_sql);
 $linhas_carteira = $por_comercial($de, $ate, $carteira_sql);
+
+/*
+ * O terceiro quadro ignora o selector de período de propósito: é o agregado do
+ * ANO, e é a única leitura que não muda quando alguém mexe no filtro. Serve
+ * para responder a "quanto é que já fizemos este ano", pergunta que não tem
+ * nada a ver com os últimos 3 meses.
+ */
+$ano             = date('Y');
+$linhas_ano      = $por_comercial($ano . '-01-01', $ano . '-12-31', $fechadas_sql);
 
 /*
  * Uma cor por empreendimento, sempre a mesma nos dois gráficos — se o Aura
@@ -193,7 +204,14 @@ $monta = function ($linhas, ?array $ordem = null) use ($cor) {
 $carteira = $monta($linhas_carteira);
 $fechadas = $monta($linhas_fechadas, $carteira['pessoas']);
 
-$altura = max(200, 46 * count($carteira['pessoas']) + 60);
+/*
+ * O do ano ordena-se por si e tem escala própria: cobre um período diferente,
+ * com gente que pode não aparecer nos outros dois. Forçá-lo à mesma régua dos
+ * outros esmagava-os a todos, porque o ano é sempre maior que o trimestre.
+ */
+$anual = $monta($linhas_ano);
+
+$altura = max(200, 46 * max(count($carteira['pessoas']), count($anual['pessoas'])) + 60);
 $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
 ?>
 
@@ -235,7 +253,7 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
       <div class="row">
 
         <!-- CONCLUÍDAS -->
-        <div class="col-md-6">
+        <div class="col-md-4">
           <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
             Concluídas
             — <strong class="text-success"><?php echo app_format_money($fechadas['total'], $moeda); ?></strong>
@@ -251,7 +269,7 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
         </div>
 
         <!-- RESERVADAS + CONCLUÍDAS -->
-        <div class="col-md-6">
+        <div class="col-md-4">
           <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
             Reservadas + concluídas
             — <strong class="text-success"><?php echo app_format_money($carteira['total'], $moeda); ?></strong>
@@ -262,6 +280,22 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
           <?php } else { ?>
             <div style="height:<?php echo $altura; ?>px;">
               <canvas id="<?php echo $uid; ?>_car"></canvas>
+            </div>
+          <?php } ?>
+        </div>
+
+        <!-- O ANO INTEIRO, CONCLUÍDAS -->
+        <div class="col-md-4">
+          <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
+            <?php echo $ano; ?> — concluídas
+            — <strong class="text-success"><?php echo app_format_money($anual['total'], $moeda); ?></strong>
+          </p>
+
+          <?php if (empty($anual['pessoas']) || $anual['total'] <= 0) { ?>
+            <p class="text-muted">Sem vendas concluídas em <?php echo $ano; ?>.</p>
+          <?php } else { ?>
+            <div style="height:<?php echo $altura; ?>px;">
+              <canvas id="<?php echo $uid; ?>_ano"></canvas>
             </div>
           <?php } ?>
         </div>
@@ -398,6 +432,9 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
     quandoHouverChart(function () {
         barras('<?php echo $uid; ?>_fec', pessoas, sFechado, tecto);
         barras('<?php echo $uid; ?>_car', pessoas, sTotal,   tecto);
+        barras('<?php echo $uid; ?>_ano',
+               <?php echo json_encode($anual['pessoas'], JSON_UNESCAPED_UNICODE); ?>,
+               <?php echo json_encode($anual['series'], JSON_UNESCAPED_UNICODE); ?>);
     });
 })();
 </script>
