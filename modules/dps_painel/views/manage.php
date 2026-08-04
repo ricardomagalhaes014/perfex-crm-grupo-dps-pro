@@ -68,6 +68,106 @@ $pct    = function ($n) {
             </div>
         <?php } ?>
 
+        <?php
+        /*
+         * Os filtros ficam EM CIMA, antes dos números.
+         *
+         * Estavam a meio da página, depois dos cartões e do resumo — quem
+         * abria via primeiro os totais e só ao rolar descobria que havia um
+         * filtro, e nessa altura já tinha lido os números sem saber a que
+         * período pertenciam. O filtro é a pergunta; a resposta vem depois.
+         */
+        ?>
+        <!-- Filtros -->
+        <div class="panel_s"><div class="panel-body">
+            <?php echo form_open(admin_url('dps_painel'), ['method' => 'get', 'class' => 'form-inline']); ?>
+            <div class="row">
+                <?php
+                /*
+                 * Um só selector para o tempo, em vez de Ano + Mês separados.
+                 * Com dois selectores era possível pedir "Março de ano nenhum"
+                 * ou "2025 de mês nenhum", e ninguém sabia o que isso queria
+                 * dizer. Agora escolhe-se uma coisa de cada vez: os últimos 3
+                 * meses (o que abre por omissão), um ano, um mês, ou tudo.
+                 */
+                $p_actual = $filtros['periodo'] ?? '3m';
+                ?>
+                <div class="col-md-3 col-sm-6"><label>Período</label>
+                    <select name="periodo" class="form-control" style="width:100%;">
+                        <option value="3m" <?php echo $p_actual === '3m' ? 'selected' : ''; ?>>Últimos 3 meses</option>
+                        <option value="tudo" <?php echo $p_actual === 'tudo' ? 'selected' : ''; ?>>Tudo</option>
+                        <optgroup label="Ano">
+                            <?php foreach ($opcoes['anos'] as $a) { $vv = 'ano:' . $a; ?>
+                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo $a; ?></option>
+                            <?php } ?>
+                        </optgroup>
+                        <optgroup label="Mês">
+                            <?php foreach (($opcoes['meses'] ?? []) as $m) { $vv = 'mes:' . $m; ?>
+                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
+                            <?php } ?>
+                        </optgroup>
+                    </select></div>
+                <div class="col-md-3 col-sm-4"><label>Comercial</label>
+                    <select name="comercial" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($opcoes['comerciais'] as $co) { ?><option value="<?php echo (int) $co['staff_id']; ?>" <?php echo $filtros['comercial'] == $co['staff_id'] ? 'selected' : ''; ?>><?php echo html_escape($co['nome']); ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-3 col-sm-6"><label>Empreendimento</label>
+                    <select name="empreendimento" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($opcoes['emps'] as $e) { ?><option value="<?php echo html_escape($e); ?>" <?php echo $filtros['empreendimento'] === $e ? 'selected' : ''; ?>><?php echo html_escape($e); ?></option><?php } ?>
+                    </select></div>
+                <div class="col-md-2 col-sm-6"><label>Estado</label>
+                    <select name="estado" class="form-control" style="width:100%;"><option value="">Todos</option>
+                        <?php foreach ($f_estados as $k => $nm) { ?><option value="<?php echo $k; ?>" <?php echo $filtros['estado'] === $k ? 'selected' : ''; ?>><?php echo $nm; ?></option><?php } ?>
+                    </select></div>
+            </div>
+            <?php
+            /*
+             * Filtro pelo mês em que a DPS RECEBEU — pergunta diferente do
+             * Ano/Mês acima, que filtram pela data da VENDA. "Quanto entrou em
+             * Julho" e "quanto se vendeu em Julho" são coisas distintas, e
+             * misturá-las num só filtro dava respostas erradas às duas.
+             *
+             * A lista sai das datas realmente marcadas, para não oferecer meses
+             * onde nunca entrou nada.
+             */
+            $meses_recebidos = [];
+            foreach ($vendas as $_v) {
+                if (!empty($_v['recebido_em'])) {
+                    $meses_recebidos[substr($_v['recebido_em'], 0, 7)] = true;
+                }
+            }
+            krsort($meses_recebidos);
+            ?>
+            <div class="row mtop10">
+                <div class="col-md-3 col-sm-6">
+                    <label>Mês em que recebemos</label>
+                    <select name="mes_recebido" class="form-control" style="width:100%;">
+                        <option value="">Todos</option>
+                        <?php foreach (array_keys($meses_recebidos) as $mr) { ?>
+                            <option value="<?php echo html_escape($mr); ?>" <?php echo ($filtros['mes_recebido'] ?? '') === $mr ? 'selected' : ''; ?>>
+                                <?php echo substr($mr, 5, 2) . '/' . substr($mr, 0, 4); ?>
+                            </option>
+                        <?php } ?>
+                    </select>
+                    <small class="text-muted">Pela marca de recebido, não pela data da venda.</small>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label>&nbsp;</label>
+                    <div class="checkbox checkbox-primary">
+                        <input type="checkbox" name="so_recebidas" id="so_recebidas" value="1"
+                               <?php echo !empty($filtros['so_recebidas']) ? 'checked' : ''; ?>>
+                        <label for="so_recebidas">Só vendas já recebidas</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mtop15">
+                <button type="submit" class="btn btn-info"><i class="fa fa-filter"></i> Filtrar</button>
+                <a href="<?php echo admin_url('dps_painel'); ?>" class="btn btn-default">Limpar</a>
+            </div>
+            <?php echo form_close(); ?>
+        </div></div>
+
         <!-- Cartões, agrupados pelo percurso do dinheiro -->
         <div>
             <?php
@@ -676,96 +776,6 @@ $pct    = function ($n) {
                 <?php } ?>
             </table>
             </div>
-        </div></div>
-
-        <!-- Filtros -->
-        <div class="panel_s"><div class="panel-body">
-            <?php echo form_open(admin_url('dps_painel'), ['method' => 'get', 'class' => 'form-inline']); ?>
-            <div class="row">
-                <?php
-                /*
-                 * Um só selector para o tempo, em vez de Ano + Mês separados.
-                 * Com dois selectores era possível pedir "Março de ano nenhum"
-                 * ou "2025 de mês nenhum", e ninguém sabia o que isso queria
-                 * dizer. Agora escolhe-se uma coisa de cada vez: os últimos 3
-                 * meses (o que abre por omissão), um ano, um mês, ou tudo.
-                 */
-                $p_actual = $filtros['periodo'] ?? '3m';
-                ?>
-                <div class="col-md-3 col-sm-6"><label>Período</label>
-                    <select name="periodo" class="form-control" style="width:100%;">
-                        <option value="3m" <?php echo $p_actual === '3m' ? 'selected' : ''; ?>>Últimos 3 meses</option>
-                        <option value="tudo" <?php echo $p_actual === 'tudo' ? 'selected' : ''; ?>>Tudo</option>
-                        <optgroup label="Ano">
-                            <?php foreach ($opcoes['anos'] as $a) { $vv = 'ano:' . $a; ?>
-                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo $a; ?></option>
-                            <?php } ?>
-                        </optgroup>
-                        <optgroup label="Mês">
-                            <?php foreach (($opcoes['meses'] ?? []) as $m) { $vv = 'mes:' . $m; ?>
-                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
-                            <?php } ?>
-                        </optgroup>
-                    </select></div>
-                <div class="col-md-3 col-sm-4"><label>Comercial</label>
-                    <select name="comercial" class="form-control" style="width:100%;"><option value="">Todos</option>
-                        <?php foreach ($opcoes['comerciais'] as $co) { ?><option value="<?php echo (int) $co['staff_id']; ?>" <?php echo $filtros['comercial'] == $co['staff_id'] ? 'selected' : ''; ?>><?php echo html_escape($co['nome']); ?></option><?php } ?>
-                    </select></div>
-                <div class="col-md-3 col-sm-6"><label>Empreendimento</label>
-                    <select name="empreendimento" class="form-control" style="width:100%;"><option value="">Todos</option>
-                        <?php foreach ($opcoes['emps'] as $e) { ?><option value="<?php echo html_escape($e); ?>" <?php echo $filtros['empreendimento'] === $e ? 'selected' : ''; ?>><?php echo html_escape($e); ?></option><?php } ?>
-                    </select></div>
-                <div class="col-md-2 col-sm-6"><label>Estado</label>
-                    <select name="estado" class="form-control" style="width:100%;"><option value="">Todos</option>
-                        <?php foreach ($f_estados as $k => $nm) { ?><option value="<?php echo $k; ?>" <?php echo $filtros['estado'] === $k ? 'selected' : ''; ?>><?php echo $nm; ?></option><?php } ?>
-                    </select></div>
-            </div>
-            <?php
-            /*
-             * Filtro pelo mês em que a DPS RECEBEU — pergunta diferente do
-             * Ano/Mês acima, que filtram pela data da VENDA. "Quanto entrou em
-             * Julho" e "quanto se vendeu em Julho" são coisas distintas, e
-             * misturá-las num só filtro dava respostas erradas às duas.
-             *
-             * A lista sai das datas realmente marcadas, para não oferecer meses
-             * onde nunca entrou nada.
-             */
-            $meses_recebidos = [];
-            foreach ($vendas as $_v) {
-                if (!empty($_v['recebido_em'])) {
-                    $meses_recebidos[substr($_v['recebido_em'], 0, 7)] = true;
-                }
-            }
-            krsort($meses_recebidos);
-            ?>
-            <div class="row mtop10">
-                <div class="col-md-3 col-sm-6">
-                    <label>Mês em que recebemos</label>
-                    <select name="mes_recebido" class="form-control" style="width:100%;">
-                        <option value="">Todos</option>
-                        <?php foreach (array_keys($meses_recebidos) as $mr) { ?>
-                            <option value="<?php echo html_escape($mr); ?>" <?php echo ($filtros['mes_recebido'] ?? '') === $mr ? 'selected' : ''; ?>>
-                                <?php echo substr($mr, 5, 2) . '/' . substr($mr, 0, 4); ?>
-                            </option>
-                        <?php } ?>
-                    </select>
-                    <small class="text-muted">Pela marca de recebido, não pela data da venda.</small>
-                </div>
-                <div class="col-md-3 col-sm-6">
-                    <label>&nbsp;</label>
-                    <div class="checkbox checkbox-primary">
-                        <input type="checkbox" name="so_recebidas" id="so_recebidas" value="1"
-                               <?php echo !empty($filtros['so_recebidas']) ? 'checked' : ''; ?>>
-                        <label for="so_recebidas">Só vendas já recebidas</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mtop15">
-                <button type="submit" class="btn btn-info"><i class="fa fa-filter"></i> Filtrar</button>
-                <a href="<?php echo admin_url('dps_painel'); ?>" class="btn btn-default">Limpar</a>
-            </div>
-            <?php echo form_close(); ?>
         </div></div>
 
         <!-- Vendas -->
