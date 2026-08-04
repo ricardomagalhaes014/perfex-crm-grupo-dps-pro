@@ -621,9 +621,10 @@ class Dps_painel_model extends App_Model
         $v['tem_factura_escritura'] = $tem_factura['escritura'];
 
         $baldes = [
-            'recebido'    => 0.0,   // factura + visto = em caixa
-            'por_receber' => 0.0,   // factura, sem visto
-            'a_emitir'    => 0.0,   // validado, sem factura
+            'recebido'    => 0.0,   // visto de recebido = em caixa
+            'por_receber' => 0.0,   // vencido, com factura, sem visto
+            'a_emitir'    => 0.0,   // vencido e validado, sem factura
+            'futuro'      => 0.0,   // validado, mas o mês da tranche ainda não chegou
             'perspectiva' => 0.0,   // sem pagamento validado
         ];
         $por_tranche = [];
@@ -651,10 +652,31 @@ class Dps_painel_model extends App_Model
              *
              * Regra do dono (04/08/2026).
              */
+            /*
+             * O MÊS DA TRANCHE ENTRA ANTES DA FACTURA.
+             *
+             * Uma tranche cujo mês ainda não chegou NÃO PODE ter factura — não
+             * se factura o que ainda não venceu. Como o teste da factura vinha
+             * primeiro, essas tranches caíam em "a emitir" e o cartão "A
+             * receber no futuro" dava sempre zero, por construção. Não havia
+             * dado nenhum que o pudesse encher.
+             *
+             * Agora o calendário decide primeiro: validado e por vencer é
+             * FUTURO. O Belo Horizonte é o caso — CPCV em 12/2026, escritura em
+             * 01/2029, tudo validado e nada por facturar ainda.
+             *
+             * Regra do dono (04/08/2026).
+             */
+            $mes_desta = $qual === 'cpcv'
+                ? $v['mes_recebido_cpcv']
+                : $v['mes_recebido_escritura'];
+
             if ($v['recebido_marcado']) {
                 $estado = 'recebido';
             } elseif (!$v['validada']) {
                 $estado = 'perspectiva';
+            } elseif (!$venceu($mes_desta)) {
+                $estado = 'futuro';
             } elseif (!$tem_factura[$qual]) {
                 $estado = 'a_emitir';
             } else {
@@ -689,25 +711,24 @@ class Dps_painel_model extends App_Model
         $v['recebido_sem_factura'] = round($sem_titulo, 2);
 
         /*
-         * Dentro do "por receber", separa-se ainda o que já venceu do que tem
-         * data marcada à frente — são dois problemas diferentes: um cobra-se
-         * hoje, o outro é calendário. E o futuro parte-se por tranche, porque
-         * um CPCV é o próximo horizonte e uma escritura pode ser anos depois.
+         * O que se cobra HOJE e o que é calendário — dois problemas diferentes.
+         * O futuro parte-se por tranche, porque um CPCV é o próximo horizonte e
+         * uma escritura pode ser anos depois.
          */
         $agora = $futuro_cpcv = $futuro_esc = 0.0;
 
-        if (($por_tranche['cpcv']['estado'] ?? null) === 'por_receber') {
-            if ($venceu($v['mes_recebido_cpcv'])) {
-                $agora += $por_tranche['cpcv']['valor'];
-            } else {
-                $futuro_cpcv += $por_tranche['cpcv']['valor'];
-            }
-        }
-        if (($por_tranche['escritura']['estado'] ?? null) === 'por_receber') {
-            if ($venceu($v['mes_recebido_escritura'])) {
-                $agora += $por_tranche['escritura']['valor'];
-            } else {
-                $futuro_esc += $por_tranche['escritura']['valor'];
+        foreach (['cpcv', 'escritura'] as $qual) {
+            $estado = $por_tranche[$qual]['estado'] ?? null;
+            $valor  = (float) ($por_tranche[$qual]['valor'] ?? 0);
+
+            if ($estado === 'futuro') {
+                if ($qual === 'cpcv') {
+                    $futuro_cpcv += $valor;
+                } else {
+                    $futuro_esc += $valor;
+                }
+            } elseif ($estado === 'por_receber') {
+                $agora += $valor;
             }
         }
 
@@ -886,8 +907,21 @@ class Dps_painel_model extends App_Model
              * venda já está marcada como recebida, saiu de "por pagar" e está
              * contabilizado em $v['direcao'].
              */
+            /*
+             * O override só é DEVIDO quando há factura emitida ao promotor.
+             *
+             * Era só o calendário: chegado o mês do CPCV, a verba passava a
+             * "a receber" mesmo sem factura nenhuma. Regra do dono
+             * (04/08/2026), a propósito do Belo Horizonte: "não podes contar a
+             * receber porque é só quando for emitida a factura". Faz sentido —
+             * sem factura não há nada a cobrar ao promotor, logo não há nada de
+             * onde tirar os 0,5 pontos.
+             *
+             * Enquanto não houver factura fica no futuro, que é onde deve
+             * estar: previsto, não exigível.
+             */
             $falta_dir = round($v['direcao_prevista'] - $v['direcao'], 2);
-            $dir_vencida = $venceu($v['mes_recebido_cpcv']);
+            $dir_vencida = $venceu($v['mes_recebido_cpcv']) && $tem_factura['cpcv'];
 
             $v['direcao_agora']  = $dir_vencida ? $falta_dir : 0.0;
             $v['direcao_futuro'] = $dir_vencida ? 0.0 : $falta_dir;
