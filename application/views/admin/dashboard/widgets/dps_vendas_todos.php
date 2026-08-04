@@ -34,28 +34,38 @@ $p  = db_prefix();
 $moeda = function_exists('get_base_currency') ? get_base_currency() : null;
 
 /* ------------------------------------------------------------------ *
- * Período — 3 meses por omissão, mês à escolha se o pedirem
- * ------------------------------------------------------------------ */
-$mes_pedido = trim((string) $CI->input->get('dps_vendas_mes'));
-$por_mes    = (bool) preg_match('/^\d{4}-\d{2}$/', $mes_pedido);
+ * Período dos gráficos — 3 meses por omissão, ano ou mês à escolha
+ * ------------------------------------------------------------------ *
+ * Três formas, todas escritas no endereço: '3m', 'ano:AAAA', 'mes:AAAA-MM'
+ * e 'tudo'. É o mesmo vocabulário do selector da tabela e do Painel do
+ * Negócio — três sítios com a mesma pergunta devem falar a mesma língua.
+ */
+$per_pedido = trim((string) $CI->input->get('dps_vendas_periodo'));
 
-/* Os meses com vendas, para o selector não oferecer meses vazios. */
-$meses = array_column($CI->db->query(
-    "SELECT DISTINCT DATE_FORMAT(v.data_venda, '%Y-%m') m
-       FROM {$p}simulador_vendas v
-      WHERE v.data_venda IS NOT NULL AND v.estado <> 'cancelado'
-   ORDER BY m DESC LIMIT 18"
-)->result_array(), 'm');
-
-if ($por_mes && !in_array($mes_pedido, $meses, true)) {
-    $por_mes = false;   // mês sem vendas nenhumas — volta aos 3 meses
+/* Endereços antigos traziam ?dps_vendas_mes=AAAA-MM. Continuam a valer. */
+$mes_antigo = trim((string) $CI->input->get('dps_vendas_mes'));
+if ($per_pedido === '' && preg_match('/^\d{4}-\d{2}$/', $mes_antigo)) {
+    $per_pedido = 'mes:' . $mes_antigo;
 }
 
-if ($por_mes) {
-    $de     = $mes_pedido . '-01';
+if ($per_pedido === '') {
+    $per_pedido = '3m';
+}
+
+if (preg_match('/^mes:(\d{4}-\d{2})$/', $per_pedido, $pm)) {
+    $de     = $pm[1] . '-01';
     $ate    = date('Y-m-t', strtotime($de));
     $rotulo = date('m/Y', strtotime($de));
+} elseif (preg_match('/^ano:(\d{4})$/', $per_pedido, $pm)) {
+    $de     = $pm[1] . '-01-01';
+    $ate    = $pm[1] . '-12-31';
+    $rotulo = $pm[1] . ' · desde Janeiro';
+} elseif ($per_pedido === 'tudo') {
+    $de     = '1970-01-01';
+    $ate    = '2999-12-31';
+    $rotulo = 'desde sempre';
 } else {
+    $per_pedido = '3m';
     $de     = date('Y-m-01', strtotime('-2 months'));
     $ate    = date('Y-m-t');
     $rotulo = 'últimos 3 meses · ' . date('m/Y', strtotime($de)) . ' a ' . date('m/Y');
@@ -149,7 +159,7 @@ if (preg_match('/^mes:(\d{4}-\d{2})$/', $tab_pedido, $mt)) {
 $tab_linhas_fech = $por_comercial($tab_de, $tab_ate, $fechadas_sql);
 $tab_linhas_cart = $por_comercial($tab_de, $tab_ate, $carteira_sql);
 
-/* Anos e meses com vendas, para o selector não oferecer períodos vazios. */
+/* Anos e meses com vendas, para os selectores não oferecerem períodos vazios. */
 $tab_meses = array_column($CI->db->query(
     "SELECT DISTINCT DATE_FORMAT(v.data_venda,'%Y-%m') m
        FROM {$p}simulador_vendas v
@@ -291,17 +301,20 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
         </div>
         <div class="col-md-5 text-right">
           <span class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-right:6px;">Período</span>
-          <select class="form-control input-sm" style="width:auto;display:inline-block;"
-                  onchange="var u=new URL(window.location.href);
-                            if(this.value){u.searchParams.set('dps_vendas_mes',this.value);}
-                            else{u.searchParams.delete('dps_vendas_mes');}
-                            window.location=u.toString();">
-            <option value="" <?php echo $por_mes ? '' : 'selected'; ?>>Últimos 3 meses</option>
-            <?php foreach ($meses as $m) { ?>
-              <option value="<?php echo $m; ?>" <?php echo ($por_mes && $m === $mes_pedido) ? 'selected' : ''; ?>>
-                <?php echo date('m/Y', strtotime($m . '-01')); ?>
-              </option>
-            <?php } ?>
+          <select id="<?php echo $uid; ?>_selper" data-dps-param="dps_vendas_periodo"
+                  class="form-control input-sm" style="width:auto;display:inline-block;">
+            <option value="3m" <?php echo $per_pedido === '3m' ? 'selected' : ''; ?>>Últimos 3 meses</option>
+            <option value="tudo" <?php echo $per_pedido === 'tudo' ? 'selected' : ''; ?>>Tudo</option>
+            <optgroup label="Ano">
+              <?php foreach ($tab_anos as $a) { $vv = 'ano:' . $a; ?>
+                <option value="<?php echo $vv; ?>" <?php echo $per_pedido === $vv ? 'selected' : ''; ?>><?php echo $a; ?></option>
+              <?php } ?>
+            </optgroup>
+            <optgroup label="Mês">
+              <?php foreach ($tab_meses as $m) { $vv = 'mes:' . $m; ?>
+                <option value="<?php echo $vv; ?>" <?php echo $per_pedido === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
+              <?php } ?>
+            </optgroup>
           </select>
         </div>
       </div>
@@ -369,10 +382,8 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
           </p>
         </div>
         <div class="col-md-5 text-right">
-          <select class="form-control input-sm" style="width:auto;display:inline-block;"
-                  onchange="var u=new URL(window.location.href);
-                            u.searchParams.set('dps_vendas_tabela',this.value);
-                            window.location=u.toString();">
+          <select id="<?php echo $uid; ?>_seltab" data-dps-param="dps_vendas_tabela"
+                  class="form-control input-sm" style="width:auto;display:inline-block;">
             <optgroup label="Mês">
               <?php foreach ($tab_meses as $m) { $vv = 'mes:' . $m; ?>
                 <option value="<?php echo $vv; ?>" <?php echo $tab_pedido === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
@@ -519,6 +530,27 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
         if (soma > tecto) { tecto = soma; }
     });
     tecto = tecto ? Math.ceil(tecto * 1.05) : undefined;
+
+    /*
+     * Os selectores ligam-se AQUI, e não com um onchange no próprio <select>.
+     *
+     * O Perfex monta o painel passando o HTML de cada widget por um parser
+     * (render_dashboard_widgets -> simple_html_dom), e esse parser come os
+     * atributos de evento: o onchange desaparecia e o selector mudava de
+     * valor sem nunca recarregar a página — parecia avariado sem dar erro.
+     * O <script> passa intacto, portanto é daqui que se liga.
+     */
+    ['<?php echo $uid; ?>_selper', '<?php echo $uid; ?>_seltab'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el || el.dataset.dpsLigado) { return; }
+        el.dataset.dpsLigado = '1';
+        el.addEventListener('change', function () {
+            var u = new URL(window.location.href);
+            u.searchParams.set(el.getAttribute('data-dps-param'), el.value);
+            u.searchParams.delete('dps_vendas_mes');   // parâmetro antigo, já não se usa
+            window.location = u.toString();
+        });
+    });
 
     quandoHouverChart(function () {
         barras('<?php echo $uid; ?>_fec', pessoas, sFechado, tecto);
