@@ -1,19 +1,28 @@
 <?php defined('BASEPATH') or exit('No direct script access allowed');
 
 /**
- * Widget VENDAS — o que a casa vendeu, por empreendimento.
+ * Widget VENDAS — quanto cada comercial vendeu, por empreendimento.
  *
- * TODOS veem TUDO, de propósito: é o quadro da equipa, não o de cada um. O
- * comercial que vê o Boavista a puxar e o Aura parado sabe onde vale a pena
- * empurrar hoje. Pedido do dono (04/08/2026).
+ * Uma barra por PESSOA, dividida pelas cores dos empreendimentos: vê-se de
+ * relance quem vendeu quanto, e de quê. TODOS veem TODOS, de propósito — é o
+ * quadro da equipa, não o de cada um. Pedido do dono (04/08/2026).
+ *
+ * DOIS QUADROS lado a lado, e a diferença entre eles é a pergunta a que
+ * respondem:
+ *
+ *   CONCLUÍDAS            — negócio fechado. É o que já está feito.
+ *   RESERVADAS+CONCLUÍDAS — tudo o que está de pé, incluindo o que ainda está
+ *                           a caminho. É a carteira.
+ *
+ * As duas juntas dizem mais do que qualquer uma sozinha: muita carteira e
+ * pouco fechado é trabalho por rematar; o contrário é carteira a esvaziar.
  *
  * Mostra o VALOR das vendas (o preço das fracções), não a comissão — a
- * comissão de cada um continua a ser assunto privado e vive no simulador de
- * comissões.
+ * comissão de cada um continua assunto privado e vive no simulador.
  *
- * Dois períodos: os últimos 3 meses (o que está a acontecer) e um mês à
- * escolha (para comparar). O mês escolhido viaja no endereço, para o quadro
- * poder ser partilhado tal como se vê.
+ * O período é o mesmo nos dois: os últimos 3 meses por omissão, ou um mês à
+ * escolha. O que for escolhido viaja no endereço, para o quadro poder ser
+ * partilhado tal como se vê.
  */
 
 $CI = &get_instance();
@@ -21,57 +30,67 @@ $p  = db_prefix();
 
 $moeda = function_exists('get_base_currency') ? get_base_currency() : null;
 
-/*
- * Vendas canceladas ficam de fora: uma venda cancelada não é uma venda, e
- * mantê-la no gráfico dava um total que ninguém reconhecia.
- */
-$fora_canceladas = "v.estado <> 'cancelado'";
-
 /* ------------------------------------------------------------------ *
- * Mês à escolha — vindo do endereço, validado
+ * Período — 3 meses por omissão, mês à escolha se o pedirem
  * ------------------------------------------------------------------ */
-$mes_pedido = (string) $CI->input->get('dps_vendas_mes');
+$mes_pedido = trim((string) $CI->input->get('dps_vendas_mes'));
+$por_mes    = (bool) preg_match('/^\d{4}-\d{2}$/', $mes_pedido);
 
-if (!preg_match('/^\d{4}-\d{2}$/', $mes_pedido)) {
-    $mes_pedido = date('Y-m');
-}
-
-/* Os 12 meses com vendas, para o selector não oferecer meses vazios. */
-$meses = $CI->db->query(
+/* Os meses com vendas, para o selector não oferecer meses vazios. */
+$meses = array_column($CI->db->query(
     "SELECT DISTINCT DATE_FORMAT(v.data_venda, '%Y-%m') m
        FROM {$p}simulador_vendas v
-      WHERE v.data_venda IS NOT NULL AND {$fora_canceladas}
+      WHERE v.data_venda IS NOT NULL AND v.estado <> 'cancelado'
    ORDER BY m DESC LIMIT 18"
-)->result_array();
+)->result_array(), 'm');
 
-$meses = array_column($meses, 'm');
+if ($por_mes && !in_array($mes_pedido, $meses, true)) {
+    $por_mes = false;   // mês sem vendas nenhumas — volta aos 3 meses
+}
 
-if (!in_array($mes_pedido, $meses, true) && $meses) {
-    $mes_pedido = $meses[0];
+if ($por_mes) {
+    $de     = $mes_pedido . '-01';
+    $ate    = date('Y-m-t', strtotime($de));
+    $rotulo = date('m/Y', strtotime($de));
+} else {
+    $de     = date('Y-m-01', strtotime('-2 months'));
+    $ate    = date('Y-m-t');
+    $rotulo = 'últimos 3 meses · ' . date('m/Y', strtotime($de)) . ' a ' . date('m/Y');
 }
 
 /* ------------------------------------------------------------------ *
  * Os dois conjuntos de dados
  * ------------------------------------------------------------------ */
-$por_emp = function ($de, $ate) use ($CI, $p, $fora_canceladas) {
+$por_comercial = function ($de, $ate, array $estados) use ($CI, $p) {
+    $lista = "'" . implode("','", array_map([$CI->db, 'escape_str'], $estados)) . "'";
+
     return $CI->db->query(
-        "SELECT v.empreendimento AS emp, COUNT(*) AS n, SUM(v.valor) AS total
+        "SELECT v.staff_id,
+                COALESCE(NULLIF(TRIM(CONCAT(s.firstname,' ',s.lastname)), ''), 'Sem comercial') AS quem,
+                v.empreendimento AS emp,
+                COUNT(*)     AS n,
+                SUM(v.valor) AS total
            FROM {$p}simulador_vendas v
-          WHERE {$fora_canceladas}
+      LEFT JOIN {$p}staff s ON s.staffid = v.staff_id
+          WHERE v.estado IN ({$lista})
             AND v.data_venda >= ? AND v.data_venda <= ?
-       GROUP BY v.empreendimento
+       GROUP BY v.staff_id, v.empreendimento
        ORDER BY total DESC",
         [$de, $ate]
     )->result_array();
 };
 
-$tres_de  = date('Y-m-01', strtotime('-2 months'));
-$tres_ate = date('Y-m-t');
-$trimestre = $por_emp($tres_de, $tres_ate);
+/*
+ * O segundo quadro é tudo o que está de pé — ou seja, tudo menos cancelado.
+ * Ser literal e ficar só por 'reservado' e 'concluido' deixava de fora as que
+ * já têm CPCV assinado, que são as mais seguras de todas; ninguém entenderia
+ * um total que salta por cima delas.
+ */
+$estados_fechadas = ['concluido'];
+$estados_carteira = ['pedido', 'reservado', 'submetido', 'vendido', 'concluido'];
 
-$mes_de  = $mes_pedido . '-01';
-$mes_ate = date('Y-m-t', strtotime($mes_de));
-$do_mes  = $por_emp($mes_de, $mes_ate);
+$linhas_fechadas = $por_comercial($de, $ate, $estados_fechadas);
+$linhas_carteira = $por_comercial($de, $ate, $estados_carteira);
 
 /*
  * Uma cor por empreendimento, sempre a mesma nos dois gráficos — se o Aura
@@ -103,25 +122,69 @@ $cor = function ($nome) use ($paleta, &$reserva) {
     return $atribuidas[$nome];
 };
 
-$monta = function ($linhas) use ($cor) {
-    $out = ['labels' => [], 'valores' => [], 'cores' => [], 'contagens' => [], 'total' => 0.0];
+/**
+ * Transforma as linhas (comercial × empreendimento) em barras empilhadas:
+ * uma barra por comercial, um segmento por empreendimento.
+ *
+ * A ordem das pessoas é imposta de fora ($ordem) para os dois gráficos ficarem
+ * alinhados linha a linha — se cada um ordenasse por si, a mesma pessoa estava
+ * em alturas diferentes e a comparação lado a lado perdia-se.
+ */
+$monta = function ($linhas, ?array $ordem = null) use ($cor) {
+    $por_pessoa = [];
+    $emps       = [];
+    $total      = 0.0;
 
     foreach ($linhas as $l) {
-        $nome = trim((string) $l['emp']) ?: 'Sem empreendimento';
-        $out['labels'][]    = $nome;
-        $out['valores'][]   = round((float) $l['total'], 2);
-        $out['contagens'][] = (int) $l['n'];
-        $out['cores'][]     = $cor($nome);
-        $out['total']      += (float) $l['total'];
+        $quem = trim((string) $l['quem']) ?: 'Sem comercial';
+        $emp  = trim((string) $l['emp']) ?: 'Sem empreendimento';
+        $val  = (float) $l['total'];
+
+        $por_pessoa[$quem]['total']      = ($por_pessoa[$quem]['total'] ?? 0) + $val;
+        $por_pessoa[$quem]['n']          = ($por_pessoa[$quem]['n'] ?? 0) + (int) $l['n'];
+        $por_pessoa[$quem]['emps'][$emp] = ($por_pessoa[$quem]['emps'][$emp] ?? 0) + $val;
+        $emps[$emp]                      = true;
+        $total                          += $val;
     }
 
-    return $out;
+    if ($ordem === null) {
+        // Quem vendeu mais fica em cima — é a leitura que toda a gente procura.
+        uasort($por_pessoa, fn ($a, $b) => $b['total'] <=> $a['total']);
+        $pessoas = array_keys($por_pessoa);
+    } else {
+        $pessoas = $ordem;
+    }
+
+    $emps = array_keys($emps);
+    sort($emps);
+
+    // Um conjunto de dados por empreendimento, com o valor de cada pessoa.
+    $series = [];
+    foreach ($emps as $emp) {
+        $valores = [];
+        foreach ($pessoas as $quem) {
+            $valores[] = round($por_pessoa[$quem]['emps'][$emp] ?? 0, 2);
+        }
+        $series[] = ['label' => $emp, 'cor' => $cor($emp), 'valores' => $valores];
+    }
+
+    return [
+        'pessoas' => $pessoas,
+        'dados'   => $por_pessoa,
+        'series'  => $series,
+        'total'   => $total,
+    ];
 };
 
-$g3  = $monta($trimestre);
-$gm  = $monta($do_mes);
+/*
+ * A ordem manda-a a carteira, não as concluídas: é o conjunto maior, logo
+ * ninguém desaparece da lista por ainda não ter fechado nada no período.
+ */
+$carteira = $monta($linhas_carteira);
+$fechadas = $monta($linhas_fechadas, $carteira['pessoas']);
 
-$uid = 'dpsv' . substr(md5($mes_pedido . count($g3['labels'])), 0, 6);
+$altura = max(200, 46 * count($carteira['pessoas']) + 60);
+$uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
 ?>
 
 <div class="col-md-12">
@@ -129,90 +192,113 @@ $uid = 'dpsv' . substr(md5($mes_pedido . count($g3['labels'])), 0, 6);
     <div class="panel-body">
 
       <div class="row mbot15">
-        <div class="col-md-6">
+        <div class="col-md-7">
           <h4 class="no-margin" style="letter-spacing:.04em;">
-            <i class="fa fa-building-o"></i> VENDAS
-            <small class="text-muted">— a casa toda, por empreendimento</small>
+            <i class="fa fa-trophy"></i> VENDAS
+            <small class="text-muted">— por comercial, com as cores dos empreendimentos</small>
           </h4>
         </div>
-        <div class="col-md-6 text-right">
-          <h4 class="no-margin text-success">
-            <?php echo app_format_money($g3['total'], $moeda); ?>
-            <small class="text-muted" style="font-size:12px;">últimos 3 meses</small>
-          </h4>
+        <div class="col-md-5 text-right">
+          <span class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-right:6px;">Período</span>
+          <select class="form-control input-sm" style="width:auto;display:inline-block;"
+                  onchange="var u=new URL(window.location.href);
+                            if(this.value){u.searchParams.set('dps_vendas_mes',this.value);}
+                            else{u.searchParams.delete('dps_vendas_mes');}
+                            window.location=u.toString();">
+            <option value="" <?php echo $por_mes ? '' : 'selected'; ?>>Últimos 3 meses</option>
+            <?php foreach ($meses as $m) { ?>
+              <option value="<?php echo $m; ?>" <?php echo ($por_mes && $m === $mes_pedido) ? 'selected' : ''; ?>>
+                <?php echo date('m/Y', strtotime($m . '-01')); ?>
+              </option>
+            <?php } ?>
+          </select>
         </div>
       </div>
+
+      <p class="text-muted" style="font-size:12px;margin-bottom:12px;">
+        <?php echo html_escape($rotulo); ?>
+      </p>
 
       <div class="row">
 
-        <!-- Últimos 3 meses -->
-        <div class="col-md-7">
-          <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">
-            Últimos 3 meses
-            <span style="text-transform:none;letter-spacing:0;">
-              (<?php echo date('m/Y', strtotime($tres_de)); ?> a <?php echo date('m/Y'); ?>)
-            </span>
+        <!-- CONCLUÍDAS -->
+        <div class="col-md-6">
+          <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
+            Concluídas
+            — <strong class="text-success"><?php echo app_format_money($fechadas['total'], $moeda); ?></strong>
           </p>
 
-          <?php if (empty($g3['labels'])) { ?>
-            <p class="text-muted">Sem vendas neste período.</p>
+          <?php if (empty($fechadas['pessoas']) || $fechadas['total'] <= 0) { ?>
+            <p class="text-muted">Sem vendas concluídas neste período.</p>
           <?php } else { ?>
-            <div style="height:250px;"><canvas id="<?php echo $uid; ?>_tri"></canvas></div>
+            <div style="height:<?php echo $altura; ?>px;">
+              <canvas id="<?php echo $uid; ?>_fec"></canvas>
+            </div>
           <?php } ?>
         </div>
 
-        <!-- Mês à escolha -->
-        <div class="col-md-5">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-            <span class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;">Mês</span>
-            <select class="form-control input-sm" style="width:auto;"
-                    onchange="var u=new URL(window.location.href);u.searchParams.set('dps_vendas_mes',this.value);window.location=u.toString();">
-              <?php foreach ($meses as $m) { ?>
-                <option value="<?php echo $m; ?>" <?php echo $m === $mes_pedido ? 'selected' : ''; ?>>
-                  <?php echo date('m/Y', strtotime($m . '-01')); ?>
-                </option>
-              <?php } ?>
-            </select>
-            <strong class="text-success" style="margin-left:auto;">
-              <?php echo app_format_money($gm['total'], $moeda); ?>
-            </strong>
-          </div>
+        <!-- RESERVADAS + CONCLUÍDAS -->
+        <div class="col-md-6">
+          <p class="text-muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">
+            Reservadas + concluídas
+            — <strong class="text-success"><?php echo app_format_money($carteira['total'], $moeda); ?></strong>
+          </p>
 
-          <?php if (empty($gm['labels'])) { ?>
-            <p class="text-muted">Sem vendas neste mês.</p>
+          <?php if (empty($carteira['pessoas'])) { ?>
+            <p class="text-muted">Sem vendas neste período.</p>
           <?php } else { ?>
-            <div style="height:250px;"><canvas id="<?php echo $uid; ?>_mes"></canvas></div>
+            <div style="height:<?php echo $altura; ?>px;">
+              <canvas id="<?php echo $uid; ?>_car"></canvas>
+            </div>
           <?php } ?>
         </div>
 
       </div>
 
-      <?php if (!empty($g3['labels'])) { ?>
+      <?php if (!empty($carteira['pessoas'])) { ?>
       <div class="table-responsive mtop15">
         <table class="table table-condensed" style="font-size:13px;">
           <thead>
             <tr>
-              <th>Empreendimento</th>
-              <th class="text-right">Vendas</th>
-              <th class="text-right">Valor (3 meses)</th>
-              <th class="text-right"><?php echo date('m/Y', strtotime($mes_pedido . '-01')); ?></th>
+              <th style="width:34px;"></th>
+              <th>Comercial</th>
+              <th class="text-right">Concluídas</th>
+              <th class="text-right">Valor concluído</th>
+              <th class="text-right">Total</th>
+              <th class="text-right">Valor total</th>
             </tr>
           </thead>
           <tbody>
-            <?php
-            $mes_por_nome = array_combine($gm['labels'], $gm['valores']) ?: [];
-            foreach ($g3['labels'] as $k => $nome) { ?>
+            <?php $pos = 0; foreach ($carteira['pessoas'] as $quem) { $pos++; ?>
               <tr>
+                <td class="text-muted" style="font-variant-numeric:tabular-nums;"><?php echo $pos; ?>.</td>
                 <td>
-                  <span style="display:inline-block;width:10px;height:10px;border-radius:2px;
-                               background:<?php echo $g3['cores'][$k]; ?>;margin-right:7px;"></span>
-                  <?php echo html_escape($nome); ?>
+                  <?php echo html_escape($quem); ?>
+                  <br>
+                  <?php
+                  /* As fracções de cada um, em pequenino — diz de que é feito o total. */
+                  $partes = $carteira['dados'][$quem]['emps'] ?? [];
+                  arsort($partes);
+                  foreach ($partes as $emp => $v) { ?>
+                    <span class="text-muted" style="font-size:11px;margin-right:8px;white-space:nowrap;">
+                      <span style="display:inline-block;width:8px;height:8px;border-radius:2px;
+                                   background:<?php echo $cor($emp); ?>;margin-right:4px;"></span><?php
+                      echo html_escape($emp); ?>
+                    </span>
+                  <?php } ?>
                 </td>
-                <td class="text-right"><?php echo (int) $g3['contagens'][$k]; ?></td>
-                <td class="text-right"><strong><?php echo app_format_money($g3['valores'][$k], $moeda); ?></strong></td>
-                <td class="text-right text-muted">
-                  <?php echo isset($mes_por_nome[$nome]) ? app_format_money($mes_por_nome[$nome], $moeda) : '—'; ?>
+                <td class="text-right" style="font-variant-numeric:tabular-nums;">
+                  <?php echo (int) ($fechadas['dados'][$quem]['n'] ?? 0); ?>
                 </td>
+                <td class="text-right">
+                  <?php echo isset($fechadas['dados'][$quem])
+                      ? '<strong>' . app_format_money($fechadas['dados'][$quem]['total'], $moeda) . '</strong>'
+                      : '<span class="text-muted">—</span>'; ?>
+                </td>
+                <td class="text-right text-muted" style="font-variant-numeric:tabular-nums;">
+                  <?php echo (int) ($carteira['dados'][$quem]['n'] ?? 0); ?>
+                </td>
+                <td class="text-right"><strong><?php echo app_format_money($carteira['dados'][$quem]['total'] ?? 0, $moeda); ?></strong></td>
               </tr>
             <?php } ?>
           </tbody>
@@ -227,66 +313,74 @@ $uid = 'dpsv' . substr(md5($mes_pedido . count($g3['labels'])), 0, 6);
 <script>
 (function () {
     /*
-     * O Chart.js já vem com o Perfex, mas o dashboard nem sempre o tem
-     * carregado quando este bloco corre. Espera-se por ele em vez de falhar
-     * em silêncio — um gráfico que não aparece lê-se como avaria.
+     * O Chart.js vem com o Perfex, mas o dashboard nem sempre o tem carregado
+     * quando este bloco corre. Espera-se por ele em vez de falhar em silêncio —
+     * um gráfico que não aparece lê-se como avaria.
      */
-    function quandoHouverChart(fn, tentativas) {
+    function quandoHouverChart(fn, n) {
         if (typeof Chart !== 'undefined') { return fn(); }
-        if ((tentativas || 0) > 40) { return; }
-        setTimeout(function () { quandoHouverChart(fn, (tentativas || 0) + 1); }, 150);
+        if ((n || 0) > 40) { return; }
+        setTimeout(function () { quandoHouverChart(fn, (n || 0) + 1); }, 150);
     }
 
     var euros = function (v) {
         return new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 }).format(v) + ' €';
     };
 
-    quandoHouverChart(function () {
-        var tri = document.getElementById('<?php echo $uid; ?>_tri');
-        if (tri) {
-            new Chart(tri.getContext('2d'), {
-                type: 'horizontalBar',
-                data: {
-                    labels: <?php echo json_encode($g3['labels'], JSON_UNESCAPED_UNICODE); ?>,
-                    datasets: [{
-                        data: <?php echo json_encode($g3['valores']); ?>,
-                        backgroundColor: <?php echo json_encode($g3['cores']); ?>,
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    legend: { display: false },
-                    tooltips: { callbacks: { label: function (t) { return euros(t.xLabel); } } },
-                    scales: {
-                        xAxes: [{ ticks: { beginAtZero: true, callback: euros } }],
-                        yAxes: [{ gridLines: { display: false } }]
-                    }
-                }
-            });
-        }
+    /* Barras EMPILHADAS: uma por comercial, um pedaço por empreendimento. */
+    function barras(id, pessoas, series, tecto) {
+        var el = document.getElementById(id);
+        if (!el || !pessoas.length) { return; }
 
-        var mes = document.getElementById('<?php echo $uid; ?>_mes');
-        if (mes) {
-            new Chart(mes.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: <?php echo json_encode($gm['labels'], JSON_UNESCAPED_UNICODE); ?>,
-                    datasets: [{
-                        data: <?php echo json_encode($gm['valores']); ?>,
-                        backgroundColor: <?php echo json_encode($gm['cores']); ?>,
-                        borderWidth: 0
-                    }]
+        new Chart(el.getContext('2d'), {
+            type: 'horizontalBar',
+            data: {
+                labels: pessoas,
+                datasets: series.map(function (s) {
+                    return { label: s.label, data: s.valores, backgroundColor: s.cor, borderWidth: 0 };
+                })
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                legend: { position: 'bottom', labels: { boxWidth: 12, fontSize: 11 } },
+                tooltips: {
+                    callbacks: {
+                        label: function (t, d) {
+                            var v = d.datasets[t.datasetIndex].data[t.index];
+                            if (!v) { return null; }   // não mostra empreendimentos a zero
+                            return d.datasets[t.datasetIndex].label + ': ' + euros(v);
+                        }
+                    }
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    legend: { position: 'bottom', labels: { boxWidth: 12, fontSize: 11 } },
-                    tooltips: { callbacks: { label: function (t, d) {
-                        return d.labels[t.index] + ': ' + euros(d.datasets[0].data[t.index]);
-                    } } }
+                scales: {
+                    /*
+                     * A mesma escala nos dois gráficos. Sem isto, uma barra de
+                     * 300k ao lado de uma de 3M ficava do mesmo tamanho e o par
+                     * enganava em vez de comparar.
+                     */
+                    xAxes: [{ stacked: true, ticks: { beginAtZero: true, max: tecto, callback: euros } }],
+                    yAxes: [{ stacked: true, gridLines: { display: false } }]
                 }
-            });
-        }
+            }
+        });
+    }
+
+    var pessoas  = <?php echo json_encode($carteira['pessoas'], JSON_UNESCAPED_UNICODE); ?>;
+    var sFechado = <?php echo json_encode($fechadas['series'], JSON_UNESCAPED_UNICODE); ?>;
+    var sTotal   = <?php echo json_encode($carteira['series'], JSON_UNESCAPED_UNICODE); ?>;
+
+    /* Tecto comum: o maior total individual da carteira, com uma folga. */
+    var tecto = 0;
+    pessoas.forEach(function (_, i) {
+        var soma = 0;
+        sTotal.forEach(function (s) { soma += (s.valores[i] || 0); });
+        if (soma > tecto) { tecto = soma; }
+    });
+    tecto = tecto ? Math.ceil(tecto * 1.05) : undefined;
+
+    quandoHouverChart(function () {
+        barras('<?php echo $uid; ?>_fec', pessoas, sFechado, tecto);
+        barras('<?php echo $uid; ?>_car', pessoas, sTotal,   tecto);
     });
 })();
 </script>

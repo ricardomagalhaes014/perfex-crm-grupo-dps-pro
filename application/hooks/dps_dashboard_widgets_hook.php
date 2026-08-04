@@ -18,18 +18,19 @@ if (!function_exists('dps_dashboard_widgets_add')) {
     {
         // Logo a seguir ao primeiro widget (as 4 estatísticas do topo),
         // para os gráficos ficarem imediatamente por baixo dos ícones.
+        /*
+         * VENDAS vem PRIMEIRO, antes dos números de cada um.
+         *
+         * É o quadro que se quer ver ao abrir o CRM: quem vendeu quanto, e de
+         * quê. Os números pessoais vêm a seguir — respondem a "como vou eu",
+         * que é uma pergunta que se faz depois de ver como vai a casa.
+         * Pedido do dono (04/08/2026).
+         */
         $novos = [[
-            'path'      => 'admin/dashboard/widgets/dps_graficos',
+            'path'      => 'admin/dashboard/widgets/dps_vendas_todos',
             'container' => 'top-12',
         ], [
-            /*
-             * VENDAS — o quadro da casa, para TODOS. Ao contrário de "Os meus
-             * números", este mostra o que a equipa inteira vendeu, por
-             * empreendimento. Um comercial que vê onde as vendas estão a
-             * acontecer sabe onde vale a pena empurrar hoje. Pedido do dono
-             * (04/08/2026).
-             */
-            'path'      => 'admin/dashboard/widgets/dps_vendas_todos',
+            'path'      => 'admin/dashboard/widgets/dps_graficos',
             'container' => 'top-12',
         ]];
 
