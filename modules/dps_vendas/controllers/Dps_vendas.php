@@ -844,7 +844,17 @@ class Dps_vendas extends AdminController
         $aviso_moloni = '';
 
         if (file_exists(APPPATH . '../modules/dps_moloni/models/Dps_moloni_model.php')) {
-            $this->load->model('dps_moloni_model');
+            /*
+         * O CAMINHO DO MÓDULO É OBRIGATÓRIO AQUI.
+         *
+         * Sem o prefixo, o CodeIgniter procura primeiro na pasta do módulo
+         * ACTUAL — e existe um modules/dps_vendas/models/Dps_moloni_model.php,
+         * cópia velha de 31/07. Era essa que carregava, e é por isso que os
+         * métodos novos apareciam como "undefined": estavam no ficheiro certo,
+         * mas quem era carregado era o outro. Custou dois enganos seguidos:
+         * o sincronizar() e depois o emitir_recibo() (04/08/2026).
+         */
+        $this->load->model('dps_moloni/dps_moloni_model');
             $r = $this->dps_moloni_model->emitir_recibo((int) $id, $data);
 
             $aviso_moloni = !empty($r['ok'])
@@ -1097,7 +1107,17 @@ class Dps_vendas extends AdminController
             ? admin_url('dps_painel')
             : admin_url('dps_vendas/comissoes');
 
-        $this->load->model('dps_moloni_model');
+        /*
+         * O CAMINHO DO MÓDULO É OBRIGATÓRIO AQUI.
+         *
+         * Sem o prefixo, o CodeIgniter procura primeiro na pasta do módulo
+         * ACTUAL — e existe um modules/dps_vendas/models/Dps_moloni_model.php,
+         * cópia velha de 31/07. Era essa que carregava, e é por isso que os
+         * métodos novos apareciam como "undefined": estavam no ficheiro certo,
+         * mas quem era carregado era o outro. Custou dois enganos seguidos:
+         * o sincronizar() e depois o emitir_recibo() (04/08/2026).
+         */
+        $this->load->model('dps_moloni/dps_moloni_model');
         $r = $this->dps_moloni_model->sincronizar(true);
 
         if (empty($r['ok'])) {
