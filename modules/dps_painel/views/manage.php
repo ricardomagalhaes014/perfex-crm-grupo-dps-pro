@@ -219,6 +219,24 @@ $pct    = function ($n) {
                 ? 'Direcção (' . $pct($regras['director_pct']) . '% ' . $s_base[$regras['director_base']] . ')'
                 : 'Direcção (ninguém)';
 
+            /*
+             * OS DOIS CARTOES DIZEM AGORA DE QUE E FEITO O SEU NUMERO.
+             *
+             * Mostram o que SOBRA, não o que se recebe — e isso enganava.
+             * No Belo Horizonte a DPS recebe metade no CPCV e metade na
+             * escritura (275.340 € de cada lado, iguais como devem ser),
+             * mas paga a comissão inteira no CPCV. Os custos caem todos de
+             * um lado, e o das escrituras parecia lucro limpo enquanto o do
+             * CPCV parecia estar em falta. Escrita a subtracção, deixa de
+             * haver dúvida. Pedido do dono (04/08/2026).
+             */
+            $sub_cp = 'a receber ' . app_format_money($totais['a_receber_futuro_cpcv'], $moeda)
+                . ' − comerciais ' . app_format_money($totais['comerciais_futuro_cpcv'], $moeda)
+                . ' − direção ' . app_format_money($totais['direcao_futuro_cpcv'], $moeda);
+
+            $sub_es = 'a receber ' . app_format_money($totais['a_receber_futuro_escritura'], $moeda)
+                . ' − comerciais ' . app_format_money($totais['comerciais_futuro_escritura'], $moeda);
+
             $cards = [
                 [
                     'Recebemos (em caixa)', $totais['recebido'], 'text-success', 'fa-arrow-down',
@@ -353,12 +371,12 @@ $pct    = function ($n) {
                 [
                     'Resultado futuro — CPCV', $totais['resultado_futuro_cpcv'],
                     $totais['resultado_futuro_cpcv'] >= 0 ? 'text-success' : 'text-danger', 'fa-calendar-check-o',
-                    'CPCV com mês marcado à frente',
+                    $sub_cp,
                 ],
                 [
                     'Resultado futuro — Escrituras', $totais['resultado_futuro_escritura'],
                     $totais['resultado_futuro_escritura'] >= 0 ? 'text-success' : 'text-danger', 'fa-institution',
-                    'total previsto: ' . app_format_money($totais['resultado'], $moeda),
+                    $sub_es,
                 ],
             ];
             /*
