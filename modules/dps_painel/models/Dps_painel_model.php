@@ -635,14 +635,30 @@ class Dps_painel_model extends App_Model
                 continue;
             }
 
-            if (!$v['validada']) {
+            /*
+             * O VISTO DE RECEBIDO MANDA, com ou sem número de factura.
+             *
+             * A ordem era outra: sem número de factura a verba caía em "a
+             * emitir", mesmo com o visto posto. Nasceu de uma regra certa —
+             * dinheiro que entrou sem estar titulado tem de se ver — mas
+             * aplicada no sítio errado: escondia dos totais dinheiro que a
+             * direcção já tinha declarado em caixa. Foi o caso das 21 do Lake
+             * Towers, recebidas em Fevereiro e a aparecer como por facturar.
+             *
+             * A falta de factura não desaparece: fica marcada na linha e
+             * contada à parte, em "recebido sem factura". Vê-se o que falta
+             * titular sem mentir sobre o que está em caixa.
+             *
+             * Regra do dono (04/08/2026).
+             */
+            if ($v['recebido_marcado']) {
+                $estado = 'recebido';
+            } elseif (!$v['validada']) {
                 $estado = 'perspectiva';
             } elseif (!$tem_factura[$qual]) {
                 $estado = 'a_emitir';
-            } elseif (!$v['recebido_marcado']) {
-                $estado = 'por_receber';
             } else {
-                $estado = 'recebido';
+                $estado = 'por_receber';
             }
 
             $baldes[$estado] += $montante;
@@ -654,6 +670,23 @@ class Dps_painel_model extends App_Model
         $v['recebido']    = round($baldes['recebido'], 2);
         $v['a_emitir']    = round($baldes['a_emitir'], 2);
         $v['perspectiva'] = round($baldes['perspectiva'], 2);
+
+        /*
+         * Recebido mas por titular: está em caixa e ainda não tem número de
+         * factura. Não sai dos totais — sai à parte, para se saber o que
+         * falta emitir sem que isso mexa no dinheiro.
+         */
+        $sem_titulo = 0.0;
+
+        if ($v['recebido_marcado']) {
+            foreach (['cpcv', 'escritura'] as $qual) {
+                if (($por_tranche[$qual]['valor'] ?? 0) > 0 && !$tem_factura[$qual]) {
+                    $sem_titulo += (float) $por_tranche[$qual]['valor'];
+                }
+            }
+        }
+
+        $v['recebido_sem_factura'] = round($sem_titulo, 2);
 
         /*
          * Dentro do "por receber", separa-se ainda o que já venceu do que tem
@@ -1139,6 +1172,9 @@ class Dps_painel_model extends App_Model
             'volume'             => 0.0,
             'sem_taxa'           => 0,
             'estimado'           => 0.0,
+            // Em caixa mas ainda sem numero de factura.
+            'recebido_sem_factura'  => 0.0,
+            'vendas_sem_factura'    => 0,
         ];
 
         foreach ($vendas as $v) {
@@ -1188,6 +1224,11 @@ class Dps_painel_model extends App_Model
             $t['direcao']            += (float) $v['direcao'];
             $t['direcao_prevista']   += (float) $v['direcao_prevista'];
             $t['volume']             += (float) $v['valor'];
+
+            if (!empty($v['recebido_sem_factura'])) {
+                $t['recebido_sem_factura'] += (float) $v['recebido_sem_factura'];
+                $t['vendas_sem_factura']++;
+            }
 
             if ($v['recebido_fonte'] === 'sem_taxa') {
                 $t['sem_taxa']++;

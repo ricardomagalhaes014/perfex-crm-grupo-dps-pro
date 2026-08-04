@@ -59,6 +59,25 @@ $pct    = function ($n) {
             </div>
         </div>
 
+        <?php
+        /*
+         * Em caixa mas por titular. Antes, uma venda sem número de factura era
+         * empurrada para "a emitir" e desaparecia dos totais de caixa. Agora
+         * conta como recebida — o visto da direcção manda — e o que falta
+         * titular diz-se aqui, à parte, em vez de se disfarçar de dinheiro que
+         * não entrou.
+         */
+        ?>
+        <?php if (empty($so_o_que_sai) && !empty($totais['vendas_sem_factura'])) { ?>
+            <div class="alert alert-info">
+                <i class="fa fa-file-text-o"></i>
+                <strong><?php echo app_format_money($totais['recebido_sem_factura'], $moeda); ?></strong>
+                já em caixa em <strong><?php echo (int) $totais['vendas_sem_factura']; ?></strong> venda(s)
+                <strong>sem número de factura</strong>. O dinheiro conta; falta titular.
+                Escreve-se o número na coluna “Factura” da lista de vendas, aqui em baixo.
+            </div>
+        <?php } ?>
+
         <?php if (empty($so_o_que_sai) && !empty($totais['sem_taxa'])) { ?>
             <div class="alert alert-warning">
                 <i class="fa fa-warning"></i>
