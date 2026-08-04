@@ -496,8 +496,48 @@ $pct    = function ($n) {
                     $itens[] = [$v, $parcela];
                 }
             }
-            // Maior contribuição primeiro: é o que se quer ver de relance.
-            usort($itens, function ($a, $b) { return abs($b[1]) <=> abs($a[1]); });
+            /*
+             * O DETALHE SAI AGRUPADO, não numa lista corrida.
+             *
+             * Estavam todas as vendas juntas por ordem de valor, e por isso
+             * lia-se mal: dinheiro que já entrou ao lado de dinheiro que só
+             * chega em 2029, sem nada a separá-los. Os grupos são os mesmos
+             * que os cartões anunciam, pela definição do dono (04/08/2026):
+             *
+             *   em casa    — venda concluída e já recebida
+             *   a cobrar   — já facturada, ainda por receber
+             *   futuro     — ainda por concluir, e o Belo Horizonte
+             *
+             * Dentro de cada grupo, maior primeiro — que era a ordem antiga e
+             * continua a ser a útil.
+             */
+            $balde_de = function ($v) {
+                if (!empty($v['recebido_marcado'])) {
+                    return 'casa';
+                }
+                if (!empty($v['tem_factura_cpcv']) || !empty($v['tem_factura_escritura'])) {
+                    return 'cobrar';
+                }
+
+                return 'futuro';
+            };
+
+            $baldes_nome = [
+                'casa'   => ['Com dinheiro em casa', 'Concluídas e já recebidas', 'label-success'],
+                'cobrar' => ['À espera de cobrança', 'Facturadas ao promotor, ainda por receber', 'label-warning'],
+                'futuro' => ['Futuro', 'Por concluir, e o Belo Horizonte', 'label-default'],
+            ];
+
+            $por_balde = ['casa' => [], 'cobrar' => [], 'futuro' => []];
+
+            foreach ($itens as $it) {
+                $por_balde[$balde_de($it[0])][] = $it;
+            }
+
+            foreach ($por_balde as $bk => $lista) {
+                usort($lista, function ($a, $b) { return abs($b[1]) <=> abs($a[1]); });
+                $por_balde[$bk] = $lista;
+            }
             ?>
             <div id="dps-det-<?php echo $i; ?>" class="panel_s dps-card-det" style="display:none;">
                 <div class="panel-body">
@@ -523,7 +563,19 @@ $pct    = function ($n) {
                                 <th>Situação</th><th>Factura</th><th>Prazos</th><th class="text-right">Parcela</th>
                             </tr></thead>
                             <tbody>
-                            <?php foreach ($itens as list($v, $parcela)) { ?>
+                            <?php foreach ($por_balde as $bk => $lista_b) {
+                                if (empty($lista_b)) { continue; }
+                                list($titulo_b, $expl_b, $cor_b) = $baldes_nome[$bk];
+                                $soma_b = array_sum(array_column($lista_b, 1));
+                                ?>
+                                <tr style="background:rgba(0,0,0,.03);">
+                                    <td colspan="8">
+                                        <span class="label <?php echo $cor_b; ?>"><?php echo $titulo_b; ?></span>
+                                        <small class="text-muted"><?php echo $expl_b; ?> · <?php echo count($lista_b); ?> venda(s)</small>
+                                    </td>
+                                    <td class="text-right"><strong><?php echo app_format_money($soma_b, $moeda); ?></strong></td>
+                                </tr>
+                            <?php foreach ($lista_b as list($v, $parcela)) { ?>
                                 <tr>
                                     <td><a href="<?php echo admin_url('dps_vendas/view/' . (int) $v['id']); ?>">#<?php echo (int) $v['id']; ?></a></td>
                                     <td><?php echo html_escape($v['empreendimento']); ?></td>
@@ -634,7 +686,8 @@ $pct    = function ($n) {
                                         <br><small class="text-muted">venda <?php echo app_format_money($v['valor'], $moeda); ?></small>
                                     </td>
                                 </tr>
-                            <?php } ?>
+                            <?php } /* vendas do balde */ ?>
+                            <?php } /* baldes */ ?>
                             </tbody>
                             <tfoot><tr>
                                 <th colspan="7" class="text-right">Total (<?php echo count($itens); ?> vendas)</th>
