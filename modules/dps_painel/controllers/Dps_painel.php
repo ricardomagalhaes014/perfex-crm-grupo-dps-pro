@@ -191,6 +191,8 @@ class Dps_painel extends AdminController
             // ano/mês, que filtram pela data da venda.
             'mes_recebido'   => $this->input->get('mes_recebido'),
             'so_recebidas'   => $this->input->get('so_recebidas'),
+            // Recebido / Por receber, pela marca de recebido do promotor.
+            'recebimento'    => $this->input->get('recebimento'),
             'comercial'      => $this->input->get('comercial'),
             'empreendimento' => $this->input->get('empreendimento'),
             'estado'         => $this->input->get('estado'),

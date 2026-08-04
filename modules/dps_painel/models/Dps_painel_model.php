@@ -471,6 +471,18 @@ class Dps_painel_model extends App_Model
             $this->db->where('v.recebido_dps', 1);
         }
 
+        /*
+         * Recebido / Por receber. Lê-se da marca de recebido — a mesma que a
+         * direcção põe no mapa de vendas — e não do balde do quadro de cima:
+         * uma verba pode estar recebida e ainda assim viver em "a emitir
+         * factura" por lhe faltar o número.
+         */
+        if (($filtros['recebimento'] ?? '') === 'sim') {
+            $this->db->where('v.recebido_dps', 1);
+        } elseif (($filtros['recebimento'] ?? '') === 'nao') {
+            $this->db->where('v.recebido_dps', 0);
+        }
+
         $this->db->order_by('v.data_venda', 'DESC');
         $this->db->order_by('v.id', 'DESC');
         $vendas = $this->db->get()->result_array();

@@ -151,13 +151,28 @@ $pct    = function ($n) {
                     </select>
                     <small class="text-muted">Pela marca de recebido, não pela data da venda.</small>
                 </div>
+                <?php
+                /*
+                 * Recebido / Por receber num só selector, em vez do visto
+                 * "só vendas já recebidas" que só sabia dizer metade: dava
+                 * para isolar o que entrou, não dava para isolar o que falta
+                 * cobrar — que é a pergunta que a direcção faz mais vezes.
+                 *
+                 * É a marca de recebido que manda, a mesma que põe o visto no
+                 * mapa de vendas. Não é o balde do quadro de cima: uma verba
+                 * pode estar recebida e ainda assim aparecer em "a emitir
+                 * factura" por lhe faltar o número.
+                 */
+                $f_receb = (string) ($filtros['recebimento'] ?? '');
+                ?>
                 <div class="col-md-3 col-sm-6">
-                    <label>&nbsp;</label>
-                    <div class="checkbox checkbox-primary">
-                        <input type="checkbox" name="so_recebidas" id="so_recebidas" value="1"
-                               <?php echo !empty($filtros['so_recebidas']) ? 'checked' : ''; ?>>
-                        <label for="so_recebidas">Só vendas já recebidas</label>
-                    </div>
+                    <label>Recebimento</label>
+                    <select name="recebimento" class="form-control" style="width:100%;">
+                        <option value="" <?php echo $f_receb === '' ? 'selected' : ''; ?>>Todas</option>
+                        <option value="sim" <?php echo $f_receb === 'sim' ? 'selected' : ''; ?>>Recebido</option>
+                        <option value="nao" <?php echo $f_receb === 'nao' ? 'selected' : ''; ?>>Por receber</option>
+                    </select>
+                    <small class="text-muted">Pela marca de recebido do promotor.</small>
                 </div>
             </div>
 
