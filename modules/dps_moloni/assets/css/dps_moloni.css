@@ -1,0 +1,26 @@
+.dps-kpi .panel-body {
+    padding: 18px 20px;
+}
+
+.dps-kpi h3 {
+    margin-top: 6px;
+    font-size: 24px;
+    letter-spacing: -0.3px;
+}
+
+.dps-log-pre {
+    max-height: 220px;
+    overflow: auto;
+    font-size: 11px;
+    background: #f7f8fa;
+    border: 1px solid #e6e8eb;
+}
+
+table.table td .label {
+    font-weight: 500;
+}
+
+.dps-col-select {
+    font-family: SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+}
