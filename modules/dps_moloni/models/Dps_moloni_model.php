@@ -1325,10 +1325,33 @@ class Dps_moloni_model extends App_Model
         }
 
         /*
-         * Seis meses para trás. Chega para apanhar o que foi emitido há pouco
-         * sem obrigar a ler anos de facturação a cada clique.
+         * A janela vai até à venda mais antiga que ainda não tem factura.
+         *
+         * Eram seis meses fixos, e isso deixava de fora precisamente as vendas
+         * que mais precisam de emparelhamento: as antigas. As 21 do Lake
+         * Towers, de Fevereiro, caíam mesmo em cima do limite — bastava a
+         * factura ser de dia 3 para o Moloni nunca a devolver, e a leitura
+         * ficava vazia sem dizer porquê.
+         *
+         * Um mês de folga antes dessa venda, porque a factura pode ser
+         * anterior ao registo. E um tecto de 24 meses, para um dado velho e
+         * esquecido não obrigar a ler anos de facturação a cada clique.
          */
-        $de  = date('Y-m-d', strtotime('-6 months'));
+        $mais_antiga = $this->db->query(
+            'SELECT MIN(data_venda) d FROM ' . db_prefix() . 'simulador_vendas
+              WHERE data_venda IS NOT NULL AND estado <> "cancelado"
+                AND (fatura_moloni_cpcv IS NULL OR fatura_moloni_cpcv = "")'
+        )->row_array();
+
+        $tecto = date('Y-m-d', strtotime('-24 months'));
+        $de    = date('Y-m-d', strtotime('-6 months'));
+
+        if (!empty($mais_antiga['d'])) {
+            $candidato = date('Y-m-d', strtotime($mais_antiga['d'] . ' -1 month'));
+            $de        = min($de, $candidato);
+        }
+
+        $de  = max($de, $tecto);
         $ate = date('Y-m-d');
 
         $documentos = $api->documents_between($de, $ate);
@@ -1439,6 +1462,23 @@ class Dps_moloni_model extends App_Model
                         $liquidada ? dps_moloni_doc_value($doc) : null,
                         $doc_id
                     );
+
+                    /*
+                     * Documento liquidado traz consigo a DATA em que o dinheiro
+                     * entrou. Regra do dono (04/08/2026): a sincronização deve
+                     * encontrar a fatura-recibo daquela fracção daquele
+                     * promotor e pôr essa data como data de pagamento.
+                     *
+                     * Só marca quem ainda não estava marcado — uma data posta à
+                     * mão pela direcção vale mais do que a do documento, e
+                     * sobrescrevê-la apagava uma decisão sem aviso.
+                     */
+                    if ($liquidada) {
+                        $this->marcar_recebido_pelo_documento(
+                            $vid,
+                            isset($doc['date']) ? substr((string) $doc['date'], 0, 10) : null
+                        );
+                    }
                 } else {
                     // Recibos somam-se: uma venda pode ter mais do que um.
                     $numeros = [];
@@ -1600,7 +1640,24 @@ class Dps_moloni_model extends App_Model
             if (!$doc_id || isset($ligados[$doc_id])) {
                 continue;
             }
-            if ((int) ($doc['document_type_id'] ?? 0) !== 1) {   // 1 = FT
+            /*
+             * Facturas E facturas-recibo. Era só o tipo 1 (FT), e por isso as
+             * do Lake Towers passavam ao lado: já foram emitidas como
+             * fatura-recibo, porque já estavam pagas. Uma fatura-recibo é
+             * exactamente a mesma factura com o pagamento incluído — deixá-la
+             * de fora era ignorar precisamente o caso mais resolvido.
+             *
+             * Lê-se pelo NOME do tipo e não por uma lista de ids: os ids do
+             * Moloni são configuráveis por conta e uma lista fixa envelhece
+             * mal. As notas de crédito ficam de fora — anulam, não facturam.
+             */
+            $tipo_nome = (string) ($doc['document_type']['name']
+                ?? $doc['document_type_name'] ?? '');
+
+            $e_factura = (int) ($doc['document_type_id'] ?? 0) === 1
+                || preg_match('/fa[ct]tura|venda a dinheiro/i', $tipo_nome);
+
+            if (!$e_factura || preg_match('/cr[eé]dito|debito|débito/i', $tipo_nome)) {
                 continue;
             }
 
@@ -1652,6 +1709,33 @@ class Dps_moloni_model extends App_Model
         }
 
         return $sugestoes;
+    }
+
+    /**
+     * Marca a venda como recebida com a data do documento que a liquidou.
+     *
+     * Não mexe em quem já está marcado: a data posta à mão pela direcção é uma
+     * decisão, e a do documento não a deve apagar em silêncio.
+     *
+     * @param  int         $venda_id
+     * @param  string|null $data  AAAA-MM-DD saída do documento
+     * @return bool  se marcou agora
+     */
+    private function marcar_recebido_pelo_documento($venda_id, $data)
+    {
+        if (empty($data)) {
+            return false;
+        }
+
+        $this->db->where('id', (int) $venda_id)
+                 ->where('recebido_dps', 0)
+                 ->update(db_prefix() . 'simulador_vendas', [
+                     'recebido_dps'    => 1,
+                     'recebido_dps_em' => $data,
+                     'dateupdated'     => date('Y-m-d H:i:s'),
+                 ]);
+
+        return $this->db->affected_rows() > 0;
     }
 
     /**
