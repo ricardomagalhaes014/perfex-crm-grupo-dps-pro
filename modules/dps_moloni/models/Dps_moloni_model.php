@@ -1706,27 +1706,43 @@ class Dps_moloni_model extends App_Model
             $detalhe = $api->document_one($doc_id);
             $descricao = (string) ($detalhe['products'][0]['name'] ?? '');
 
-            $bloco = preg_match('/(?:torre|bloco|lote)\s*(\d+)/i', $descricao, $m2) ? $m2[1] : '';
+            /*
+             * NORMALIZAR AS ASPAS ANTES DE LER.
+             *
+             * O Moloni escreve a fracção entre aspas curvas — Fração: “CK” — e
+             * uma expressão que espere uma letra a seguir aos dois pontos
+             * encalha na aspa. Foi o que travou as 21 do Lake Towers: 29 linhas
+             * seguidas por perceber, todas legíveis a olho.
+             */
+            $norm = str_replace(
+                ["\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99", "\xC2\xAB", "\xC2\xBB"],
+                '"',
+                $descricao
+            );
 
             /*
-             * A FRACÇÃO, escrita de todas as maneiras que os promotores usam.
-             *
-             * Era só /unidade X/. Bastava um promotor escrever "fracção CH" ou
-             * "apartamento CH" para o documento passar despercebido — e passava
-             * em silêncio, o que é pior: a leitura dava zero achados e ninguém
-             * sabia se era por não haver facturas ou por não se perceber o que
-             * lá estava escrito.
-             *
-             * Última tentativa: uma ou duas letras soltas a seguir à torre
-             * ("torre 2 CH"), que é como o Lake Towers vem escrito.
+             * A TORRE. No Moloni vem "Torre A2"; no CRM a fracção chama-se
+             * "2_CK". A letra da torre ignora-se e fica o número — foi assim
+             * que se confirmou o par: Torre A2 → 2_CK, A4 → 4_AP, A1 → 1_CX.
+             */
+            $bloco = preg_match('/torre\s*[A-Za-z]?\s*(\d+)/iu', $norm, $m2) ? $m2[1] : '';
+
+            /*
+             * A FRACÇÃO, pelas três escritas que aparecem nas facturas:
+             *   Fração: "CK" ...          — a mais comum
+             *   ... a fração é "CF" ...   — o CPCV escrito por extenso
+             *   "CK"                      — só as aspas, sem palavra à frente
+             * e ainda o formato antigo, "torre 2 unidade CO", que continua a
+             * existir noutros empreendimentos.
              */
             $fraccao = '';
 
             foreach ([
-                '/(?:unidade|fra[cç][cç]?[ãa]o|frac[cç][ãa]o|apartamento|apto|habita[cç][ãa]o)\s*[:\-]?\s*([A-Za-z]{1,3}\d{0,3}|\d+_[A-Za-z]{1,3}|\d+[A-Za-z]{0,3})\b/iu',
+                '/(?:unidade|fra[cç]{1,2}[ãa]o|apartamento|apto)\s*(?:é|:|\-)?\s*"?\s*([A-Za-z]{1,3}\d{0,3})\b/iu',
+                '/"\s*([A-Za-z]{1,3}\d{0,3})\s*"/u',
                 '/(?:torre|bloco|lote)\s*\d+\s*[,\-]?\s*([A-Za-z]{1,3})\b/iu',
             ] as $padrao) {
-                if (preg_match($padrao, $descricao, $m)) {
+                if (preg_match($padrao, $norm, $m)) {
                     $fraccao = $m[1];
                     break;
                 }
