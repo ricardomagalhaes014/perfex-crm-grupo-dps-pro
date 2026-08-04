@@ -1027,8 +1027,24 @@ $pct    = function ($n) {
                         return $fa <=> $fb;
                     }
 
-                    // Dentro do grupo, maior primeiro.
-                    return (float) $b['recebido_previsto'] <=> (float) $a['recebido_previsto'];
+                    /*
+                     * O BELO HORIZONTE VAI PARA O FIM do seu grupo.
+                     *
+                     * São 52 das 89 vendas: por valor ficavam espalhadas por
+                     * toda a lista e enterravam as dos outros empreendimentos.
+                     * Empurradas para o fim, o que é excepção volta a ver-se.
+                     * Pedido do dono (05/08/2026).
+                     */
+                    $bh_a = stripos((string) $a['empreendimento'], 'belo') !== false ? 1 : 0;
+                    $bh_b = stripos((string) $b['empreendimento'], 'belo') !== false ? 1 : 0;
+
+                    if ($bh_a !== $bh_b) {
+                        return $bh_a <=> $bh_b;
+                    }
+
+                    // E depois pela ordem de entrada no CRM, a mais recente em cima.
+                    return [$b['date_created'] ?? '', (int) $b['id']]
+                       <=> [$a['date_created'] ?? '', (int) $a['id']];
                 });
 
                 $fonte_actual = null;
