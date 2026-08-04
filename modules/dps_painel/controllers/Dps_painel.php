@@ -147,9 +147,46 @@ class Dps_painel extends AdminController
     public function index()
     {
         $this->correr(function () {
+        /*
+         * PERÍODO — por omissão, os últimos 3 meses.
+         *
+         * Antes o painel abria com tudo desde sempre, e a primeira coisa que
+         * qualquer pessoa via era um total de anos misturados que não servia
+         * para decidir nada. Agora abre no que está a acontecer, e quem quiser
+         * o ano ou um mês escolhe-o. "Tudo" continua a existir para quem
+         * precisar do acumulado.
+         *
+         * O valor viaja no endereço em três formas: '3m', 'ano:AAAA' e
+         * 'mes:AAAA-MM'. Um endereço antigo com ?ano=&mes= continua a
+         * funcionar — é lido como filtro explícito e não leva o período.
+         */
+        $periodo = (string) $this->input->get('periodo');
+        $f_ano   = $this->input->get('ano');
+        $f_mes   = $this->input->get('mes');
+        $de      = null;
+        $ate     = null;
+
+        if ($periodo === '' && $f_ano === null && $f_mes === null) {
+            $periodo = '3m';   // primeira visita: os últimos 3 meses
+        }
+
+        if (preg_match('/^ano:(\d{4})$/', $periodo, $m)) {
+            $f_ano = $m[1];
+            $f_mes = null;
+        } elseif (preg_match('/^mes:(\d{4})-(\d{2})$/', $periodo, $m)) {
+            $f_ano = $m[1];
+            $f_mes = (int) $m[2];
+        } elseif ($periodo === '3m') {
+            $de  = date('Y-m-01', strtotime('-2 months'));
+            $ate = date('Y-m-t');
+        }
+
         $filtros = [
-            'ano'            => $this->input->get('ano'),
-            'mes'            => $this->input->get('mes'),
+            'periodo'        => $periodo,
+            'de'             => $de,
+            'ate'            => $ate,
+            'ano'            => $f_ano,
+            'mes'            => $f_mes,
             // Mês em que a DPS RECEBEU (formato 'AAAA-MM'). Diferente de
             // ano/mês, que filtram pela data da venda.
             'mes_recebido'   => $this->input->get('mes_recebido'),

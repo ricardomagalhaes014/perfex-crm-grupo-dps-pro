@@ -437,6 +437,17 @@ class Dps_painel_model extends App_Model
         if (!empty($filtros['mes'])) {
             $this->db->where('MONTH(v.data_venda)', (int) $filtros['mes']);
         }
+
+        /*
+         * Intervalo de datas — é o que serve o "últimos 3 meses", que não se
+         * escreve com ano/mês porque atravessa a viragem do ano.
+         */
+        if (!empty($filtros['de'])) {
+            $this->db->where('v.data_venda >=', $filtros['de']);
+        }
+        if (!empty($filtros['ate'])) {
+            $this->db->where('v.data_venda <=', $filtros['ate']);
+        }
         if (!empty($filtros['comercial'])) {
             $this->db->where('v.staff_id', (int) $filtros['comercial']);
         }
@@ -1287,8 +1298,13 @@ class Dps_painel_model extends App_Model
         $com  = $this->db->query('SELECT DISTINCT v.staff_id, CONCAT(s.firstname," ",s.lastname) nome FROM ' . $this->t_vendas()
             . ' v LEFT JOIN ' . db_prefix() . "staff s ON s.staffid=v.staff_id WHERE v.estado IN ('vendido','concluido') ORDER BY nome")->result_array();
 
+        // Meses com vendas, para o selector de período não oferecer meses vazios.
+        $meses = $this->db->query("SELECT DISTINCT DATE_FORMAT(data_venda,'%Y-%m') m FROM " . $this->t_vendas()
+            . " WHERE estado IN ('vendido','concluido') AND data_venda IS NOT NULL ORDER BY m DESC LIMIT 24")->result_array();
+
         return [
             'anos'       => array_column($anos, 'a'),
+            'meses'      => array_column($meses, 'm'),
             'emps'       => array_column($emps, 'e'),
             'comerciais' => $com,
         ];

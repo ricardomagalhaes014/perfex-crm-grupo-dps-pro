@@ -682,13 +682,30 @@ $pct    = function ($n) {
         <div class="panel_s"><div class="panel-body">
             <?php echo form_open(admin_url('dps_painel'), ['method' => 'get', 'class' => 'form-inline']); ?>
             <div class="row">
-                <div class="col-md-2 col-sm-4"><label>Ano</label>
-                    <select name="ano" class="form-control" style="width:100%;"><option value="">Todos</option>
-                        <?php foreach ($opcoes['anos'] as $a) { ?><option value="<?php echo $a; ?>" <?php echo $filtros['ano'] == $a ? 'selected' : ''; ?>><?php echo $a; ?></option><?php } ?>
-                    </select></div>
-                <div class="col-md-2 col-sm-4"><label>Mês</label>
-                    <select name="mes" class="form-control" style="width:100%;"><option value="">Todos</option>
-                        <?php foreach ($f_meses as $n => $nm) { ?><option value="<?php echo $n; ?>" <?php echo $filtros['mes'] == $n ? 'selected' : ''; ?>><?php echo $nm; ?></option><?php } ?>
+                <?php
+                /*
+                 * Um só selector para o tempo, em vez de Ano + Mês separados.
+                 * Com dois selectores era possível pedir "Março de ano nenhum"
+                 * ou "2025 de mês nenhum", e ninguém sabia o que isso queria
+                 * dizer. Agora escolhe-se uma coisa de cada vez: os últimos 3
+                 * meses (o que abre por omissão), um ano, um mês, ou tudo.
+                 */
+                $p_actual = $filtros['periodo'] ?? '3m';
+                ?>
+                <div class="col-md-3 col-sm-6"><label>Período</label>
+                    <select name="periodo" class="form-control" style="width:100%;">
+                        <option value="3m" <?php echo $p_actual === '3m' ? 'selected' : ''; ?>>Últimos 3 meses</option>
+                        <option value="tudo" <?php echo $p_actual === 'tudo' ? 'selected' : ''; ?>>Tudo</option>
+                        <optgroup label="Ano">
+                            <?php foreach ($opcoes['anos'] as $a) { $vv = 'ano:' . $a; ?>
+                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo $a; ?></option>
+                            <?php } ?>
+                        </optgroup>
+                        <optgroup label="Mês">
+                            <?php foreach (($opcoes['meses'] ?? []) as $m) { $vv = 'mes:' . $m; ?>
+                                <option value="<?php echo $vv; ?>" <?php echo $p_actual === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
+                            <?php } ?>
+                        </optgroup>
                     </select></div>
                 <div class="col-md-3 col-sm-4"><label>Comercial</label>
                     <select name="comercial" class="form-control" style="width:100%;"><option value="">Todos</option>
