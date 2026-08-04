@@ -884,6 +884,12 @@ class Dps_vendas extends AdminController
      */
     private function voltar_para()
     {
+        // Quem carregou no visto dentro do Painel do Negócio volta para lá —
+        // cair na lista de vendas depois de um clique faz duvidar se resultou.
+        if ((string) $this->input->post('voltar') === 'painel') {
+            return admin_url('dps_painel');
+        }
+
         if ((string) $this->input->post('voltar') === 'lista') {
             $qs = (string) $this->input->post('qs');
 

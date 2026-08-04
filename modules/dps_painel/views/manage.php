@@ -418,6 +418,44 @@ $pct    = function ($n) {
                                             <?php } ?>
                                         <?php } else { ?>
                                             <span class="label label-warning">por receber</span>
+
+                                            <?php
+                                            /*
+                                             * O VISTO DE RECEBIDO, AQUI MESMO.
+                                             *
+                                             * Antes era preciso sair do painel, procurar a venda na
+                                             * lista e marcá-la lá — três passos para dizer uma coisa
+                                             * que se sabe ao olhar para este quadro. Pedido do dono
+                                             * (04/08/2026).
+                                             *
+                                             * É o MESMO caminho (Dps_vendas::marcar_recebido), por
+                                             * isso faz tudo o que já fazia: marca a venda, e cria no
+                                             * Moloni o recibo em rascunho contra a factura, com
+                                             * transferência bancária na data indicada. Não há aqui
+                                             * lógica nova a poder divergir da outra.
+                                             *
+                                             * Por POST porque escreve: um link com efeitos deixava
+                                             * um clique perdido dar dinheiro por recebido.
+                                             */
+                                            if (function_exists('dps_painel_is_owner') && dps_painel_is_owner()) {
+                                                echo form_open(
+                                                    admin_url('dps_vendas/marcar_recebido/' . (int) $v['id']),
+                                                    ['style' => 'margin:6px 0 0;']
+                                                );
+                                                ?>
+                                                <input type="hidden" name="voltar" value="painel">
+                                                <input type="date" name="data" value="<?php echo date('Y-m-d'); ?>"
+                                                       class="input-sm" style="width:120px;padding:2px 5px;font-size:.8em;"
+                                                       title="Data em que o dinheiro entrou">
+                                                <button type="submit" class="btn btn-success btn-xs"
+                                                        title="Marcar como recebido do promotor e criar o recibo no Moloni"
+                                                        onclick="return confirm('Marcar a venda #<?php echo (int) $v['id']; ?> como RECEBIDA?\n\nVai ser criado no Moloni um recibo em rascunho para confirmar lá.');">
+                                                    <i class="fa fa-check"></i> Recebido
+                                                </button>
+                                                <?php
+                                                echo form_close();
+                                            }
+                                            ?>
                                         <?php } ?>
                                         <?php
                                         /*
