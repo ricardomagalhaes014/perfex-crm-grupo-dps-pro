@@ -113,6 +113,63 @@ $linhas_carteira = $por_comercial($de, $ate, $carteira_sql);
 $ano             = date('Y');
 $linhas_ano      = $por_comercial($ano . '-01-01', $ano . '-12-31', $fechadas_sql);
 
+/* ------------------------------------------------------------------ *
+ * A TABELA tem período PRÓPRIO, e abre no mês corrente
+ * ------------------------------------------------------------------ *
+ * Os gráficos servem para ver a forma das coisas ao longo do trimestre; a
+ * tabela serve para conferir nomes e números, e quem confere quer o mês em
+ * que está. Partilhar um filtro só obrigava sempre um dos dois a estar no
+ * período errado.
+ */
+$tab_pedido = trim((string) $CI->input->get('dps_vendas_tabela'));
+
+if ($tab_pedido === '') {
+    $tab_pedido = 'mes:' . date('Y-m');   // por omissão, o mês corrente
+}
+
+if (preg_match('/^mes:(\d{4}-\d{2})$/', $tab_pedido, $mt)) {
+    $tab_de     = $mt[1] . '-01';
+    $tab_ate    = date('Y-m-t', strtotime($tab_de));
+    $tab_rotulo = date('m/Y', strtotime($tab_de));
+} elseif (preg_match('/^ano:(\d{4})$/', $tab_pedido, $mt)) {
+    $tab_de     = $mt[1] . '-01-01';
+    $tab_ate    = $mt[1] . '-12-31';
+    $tab_rotulo = $mt[1];
+} elseif ($tab_pedido === 'tudo') {
+    $tab_de     = '1970-01-01';
+    $tab_ate    = '2999-12-31';
+    $tab_rotulo = 'desde sempre';
+} else {
+    $tab_pedido = '3m';
+    $tab_de     = date('Y-m-01', strtotime('-2 months'));
+    $tab_ate    = date('Y-m-t');
+    $tab_rotulo = 'últimos 3 meses';
+}
+
+$tab_linhas_fech = $por_comercial($tab_de, $tab_ate, $fechadas_sql);
+$tab_linhas_cart = $por_comercial($tab_de, $tab_ate, $carteira_sql);
+
+/* Anos e meses com vendas, para o selector não oferecer períodos vazios. */
+$tab_meses = array_column($CI->db->query(
+    "SELECT DISTINCT DATE_FORMAT(v.data_venda,'%Y-%m') m
+       FROM {$p}simulador_vendas v
+      WHERE v.data_venda IS NOT NULL AND v.estado <> 'cancelado'
+   ORDER BY m DESC LIMIT 24"
+)->result_array(), 'm');
+
+$tab_anos = array_column($CI->db->query(
+    "SELECT DISTINCT YEAR(v.data_venda) a
+       FROM {$p}simulador_vendas v
+      WHERE v.data_venda IS NOT NULL AND v.estado <> 'cancelado'
+   ORDER BY a DESC"
+)->result_array(), 'a');
+
+/* O mês corrente entra na lista mesmo sem vendas — senão o que abre por
+   omissão não estava lá para se voltar a ele. */
+if (!in_array(date('Y-m'), $tab_meses, true)) {
+    array_unshift($tab_meses, date('Y-m'));
+}
+
 /*
  * Uma cor por empreendimento, sempre a mesma nos dois gráficos — se o Aura
  * mudasse de cor entre um quadro e o outro, comparar dava trabalho em vez de
@@ -211,6 +268,9 @@ $fechadas = $monta($linhas_fechadas, $carteira['pessoas']);
  */
 $anual = $monta($linhas_ano);
 
+$tab_cart = $monta($tab_linhas_cart);
+$tab_fech = $monta($tab_linhas_fech, $tab_cart['pessoas']);
+
 $altura = max(200, 46 * max(count($carteira['pessoas']), count($anual['pessoas'])) + 60);
 $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
 ?>
@@ -302,8 +362,39 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
 
       </div>
 
-      <?php if (!empty($carteira['pessoas'])) { ?>
-      <div class="table-responsive mtop15">
+      <div class="row mtop15" style="border-top:1px solid rgba(0,0,0,.06);padding-top:12px;">
+        <div class="col-md-7">
+          <p class="text-muted no-margin" style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;">
+            Detalhe — <span style="text-transform:none;letter-spacing:0;"><?php echo html_escape($tab_rotulo); ?></span>
+          </p>
+        </div>
+        <div class="col-md-5 text-right">
+          <select class="form-control input-sm" style="width:auto;display:inline-block;"
+                  onchange="var u=new URL(window.location.href);
+                            u.searchParams.set('dps_vendas_tabela',this.value);
+                            window.location=u.toString();">
+            <optgroup label="Mês">
+              <?php foreach ($tab_meses as $m) { $vv = 'mes:' . $m; ?>
+                <option value="<?php echo $vv; ?>" <?php echo $tab_pedido === $vv ? 'selected' : ''; ?>><?php echo date('m/Y', strtotime($m . '-01')); ?></option>
+              <?php } ?>
+            </optgroup>
+            <optgroup label="Ano">
+              <?php foreach ($tab_anos as $a) { $vv = 'ano:' . $a; ?>
+                <option value="<?php echo $vv; ?>" <?php echo $tab_pedido === $vv ? 'selected' : ''; ?>><?php echo $a; ?></option>
+              <?php } ?>
+            </optgroup>
+            <optgroup label="Outros">
+              <option value="3m" <?php echo $tab_pedido === '3m' ? 'selected' : ''; ?>>Últimos 3 meses</option>
+              <option value="tudo" <?php echo $tab_pedido === 'tudo' ? 'selected' : ''; ?>>Tudo</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <?php if (empty($tab_cart['pessoas'])) { ?>
+        <p class="text-muted mtop10">Sem vendas em <?php echo html_escape($tab_rotulo); ?>.</p>
+      <?php } else { ?>
+      <div class="table-responsive">
         <table class="table table-condensed" style="font-size:13px;">
           <thead>
             <tr>
@@ -316,7 +407,7 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
             </tr>
           </thead>
           <tbody>
-            <?php $pos = 0; foreach ($carteira['pessoas'] as $quem) { $pos++; ?>
+            <?php $pos = 0; foreach ($tab_cart['pessoas'] as $quem) { $pos++; ?>
               <tr>
                 <td class="text-muted" style="font-variant-numeric:tabular-nums;"><?php echo $pos; ?>.</td>
                 <td>
@@ -324,7 +415,7 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
                   <br>
                   <?php
                   /* As fracções de cada um, em pequenino — diz de que é feito o total. */
-                  $partes = $carteira['dados'][$quem]['emps'] ?? [];
+                  $partes = $tab_cart['dados'][$quem]['emps'] ?? [];
                   arsort($partes);
                   foreach ($partes as $emp => $v) { ?>
                     <span class="text-muted" style="font-size:11px;margin-right:8px;white-space:nowrap;">
@@ -335,17 +426,17 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
                   <?php } ?>
                 </td>
                 <td class="text-right" style="font-variant-numeric:tabular-nums;">
-                  <?php echo (int) ($fechadas['dados'][$quem]['n'] ?? 0); ?>
+                  <?php echo (int) ($tab_fech['dados'][$quem]['n'] ?? 0); ?>
                 </td>
                 <td class="text-right">
-                  <?php echo isset($fechadas['dados'][$quem])
-                      ? '<strong>' . app_format_money($fechadas['dados'][$quem]['total'], $moeda) . '</strong>'
+                  <?php echo isset($tab_fech['dados'][$quem])
+                      ? '<strong>' . app_format_money($tab_fech['dados'][$quem]['total'], $moeda) . '</strong>'
                       : '<span class="text-muted">—</span>'; ?>
                 </td>
                 <td class="text-right text-muted" style="font-variant-numeric:tabular-nums;">
-                  <?php echo (int) ($carteira['dados'][$quem]['n'] ?? 0); ?>
+                  <?php echo (int) ($tab_cart['dados'][$quem]['n'] ?? 0); ?>
                 </td>
-                <td class="text-right"><strong><?php echo app_format_money($carteira['dados'][$quem]['total'] ?? 0, $moeda); ?></strong></td>
+                <td class="text-right"><strong><?php echo app_format_money($tab_cart['dados'][$quem]['total'] ?? 0, $moeda); ?></strong></td>
               </tr>
             <?php } ?>
           </tbody>
