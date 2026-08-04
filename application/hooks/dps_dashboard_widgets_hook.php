@@ -21,6 +21,16 @@ if (!function_exists('dps_dashboard_widgets_add')) {
         $novos = [[
             'path'      => 'admin/dashboard/widgets/dps_graficos',
             'container' => 'top-12',
+        ], [
+            /*
+             * VENDAS — o quadro da casa, para TODOS. Ao contrário de "Os meus
+             * números", este mostra o que a equipa inteira vendeu, por
+             * empreendimento. Um comercial que vê onde as vendas estão a
+             * acontecer sabe onde vale a pena empurrar hoje. Pedido do dono
+             * (04/08/2026).
+             */
+            'path'      => 'admin/dashboard/widgets/dps_vendas_todos',
+            'container' => 'top-12',
         ]];
 
         /*
