@@ -1314,14 +1314,36 @@ class Dps_moloni_model extends App_Model
 
         $api = $CI->moloni_api;
 
+        /*
+         * MARCA DE ENTRADA, sempre.
+         *
+         * Custou uma tarde: a sincronização devolvia zero e o registo de
+         * chamadas estava vazio — e um registo vazio tanto quer dizer "não
+         * correu" como "correu e não encontrou nada". São diagnósticos
+         * opostos e não havia forma de os distinguir. Agora cada pedido
+         * deixa marca antes de qualquer guarda, e as guardas dizem qual
+         * delas travou.
+         */
+        $this->log('sincronizar/inicio', ['write_back' => (bool) $write_back], [], 'ok',
+            'Sincronização pedida');
+
         if (!$this->mapping_ready()) {
-            return ['ok' => false, 'erro' => 'O mapeamento das colunas do Moloni não está feito (Moloni → Mapeamento).'];
+            $erro = 'O mapeamento das colunas do Moloni não está feito (Moloni → Mapeamento).';
+            $this->log('sincronizar/parou', [], [], 'error', $erro);
+
+            return ['ok' => false, 'erro' => $erro];
         }
         if (!$api->is_configured()) {
-            return ['ok' => false, 'erro' => 'Faltam as credenciais do Moloni (Moloni → Definições).'];
+            $erro = 'Faltam as credenciais do Moloni (Moloni → Definições).';
+            $this->log('sincronizar/parou', [], [], 'error', $erro);
+
+            return ['ok' => false, 'erro' => $erro];
         }
         if (!$api->company_id()) {
-            return ['ok' => false, 'erro' => 'Falta escolher a empresa do Moloni (Moloni → Definições).'];
+            $erro = 'Falta escolher a empresa do Moloni (Moloni → Definições).';
+            $this->log('sincronizar/parou', [], [], 'error', $erro);
+
+            return ['ok' => false, 'erro' => $erro];
         }
 
         /*
@@ -1536,11 +1558,21 @@ class Dps_moloni_model extends App_Model
             ['lidas' => count($documentos), 'aplicadas' => count($achados), 'duvidas' => count($duvidas)],
             'ok', '');
 
+        $this->log('sincronizar/fim', [], [
+            'documentos_lidos' => count($documentos),
+            'preenchidas'      => count($achados),
+            'duvidas'          => count($duvidas),
+            'linhas_ilegiveis' => $this->ultimos_ilegiveis,
+        ], 'ok', sprintf('%d documentos lidos, %d preenchidas, %d em dúvida, %d linhas por perceber',
+            count($documentos), count($achados), count($duvidas), count($this->ultimos_ilegiveis)));
+
         return [
             'ok'             => true,
             'facturas_lidas' => count($documentos),
             'achados'        => $achados,
             'duvidas'        => $duvidas,
+            // Documentos de promotores nossos cuja linha nao se percebeu.
+            'ilegiveis'      => $this->ultimos_ilegiveis,
         ];
     }
 
@@ -1606,6 +1638,9 @@ class Dps_moloni_model extends App_Model
      * documento sem "unidade X" na descrição não entra — sem fracção não há
      * emparelhamento possível e adivinhar seria pior do que não fazer nada.
      */
+    /** Documentos de promotores nossos cuja linha não se conseguiu ler. */
+    public $ultimos_ilegiveis = [];
+
     private function emparelhar_por_fraccao($documentos, $api)
     {
         $promotores = [];
@@ -1631,8 +1666,9 @@ class Dps_moloni_model extends App_Model
             $por_chave[$chave][] = $venda;
         }
 
-        $ligados   = array_flip(array_map('intval', $this->linked_document_ids()));
-        $sugestoes = [];
+        $ligados    = array_flip(array_map('intval', $this->linked_document_ids()));
+        $sugestoes  = [];
+        $ilegiveis  = [];
 
         foreach ($documentos as $doc) {
             $doc_id = (int) ($doc['document_id'] ?? 0);
@@ -1670,12 +1706,44 @@ class Dps_moloni_model extends App_Model
             $detalhe = $api->document_one($doc_id);
             $descricao = (string) ($detalhe['products'][0]['name'] ?? '');
 
-            if (!preg_match('/unidade\s+([A-Za-z0-9_]+)/i', $descricao, $m)) {
-                continue;
+            $bloco = preg_match('/(?:torre|bloco|lote)\s*(\d+)/i', $descricao, $m2) ? $m2[1] : '';
+
+            /*
+             * A FRACÇÃO, escrita de todas as maneiras que os promotores usam.
+             *
+             * Era só /unidade X/. Bastava um promotor escrever "fracção CH" ou
+             * "apartamento CH" para o documento passar despercebido — e passava
+             * em silêncio, o que é pior: a leitura dava zero achados e ninguém
+             * sabia se era por não haver facturas ou por não se perceber o que
+             * lá estava escrito.
+             *
+             * Última tentativa: uma ou duas letras soltas a seguir à torre
+             * ("torre 2 CH"), que é como o Lake Towers vem escrito.
+             */
+            $fraccao = '';
+
+            foreach ([
+                '/(?:unidade|fra[cç][cç]?[ãa]o|frac[cç][ãa]o|apartamento|apto|habita[cç][ãa]o)\s*[:\-]?\s*([A-Za-z]{1,3}\d{0,3}|\d+_[A-Za-z]{1,3}|\d+[A-Za-z]{0,3})\b/iu',
+                '/(?:torre|bloco|lote)\s*\d+\s*[,\-]?\s*([A-Za-z]{1,3})\b/iu',
+            ] as $padrao) {
+                if (preg_match($padrao, $descricao, $m)) {
+                    $fraccao = $m[1];
+                    break;
+                }
             }
 
-            $fraccao = $m[1];
-            $bloco   = preg_match('/(?:torre|bloco)\s+(\d+)/i', $descricao, $m2) ? $m2[1] : '';
+            if ($fraccao === '') {
+                /*
+                 * Guarda-se o que não se percebeu, com a descrição tal como
+                 * veio. É o que permite corrigir a leitura sem adivinhar.
+                 */
+                $ilegiveis[] = [
+                    'documento' => dps_moloni_doc_number($doc),
+                    'promotor'  => $promotores[$nif],
+                    'descricao' => mb_substr(trim($descricao), 0, 160),
+                ];
+                continue;
+            }
 
             /*
              * Duas escritas possíveis da mesma fracção: com e sem o número da
@@ -1707,6 +1775,9 @@ class Dps_moloni_model extends App_Model
                 break;
             }
         }
+
+        // Fica acessível a quem chamou, para o ecrã poder dizer o que não leu.
+        $this->ultimos_ilegiveis = $ilegiveis;
 
         return $sugestoes;
     }
