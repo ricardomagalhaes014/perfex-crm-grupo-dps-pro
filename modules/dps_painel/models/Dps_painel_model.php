@@ -1001,9 +1001,26 @@ class Dps_painel_model extends App_Model
          */
         $v['devido_do_recebido'] = 0.0;
 
+        $v['devido_ao_comercial'] = 0.0;
+        $v['devido_a_direcao']    = 0.0;
+
         if ($v['recebido'] > 0) {
             $falta_comercial = max(0.0, (float) $v['comissao_comercial'] - (float) $v['comissao_paga']);
-            $v['devido_do_recebido'] = round($falta_comercial + (float) $v['direcao'], 2);
+
+            /*
+             * As duas parcelas ficam SEPARADAS e com nome.
+             *
+             * Somadas num número só, uma venda com a comissão do comercial já
+             * paga aparecia na lista com o nome dele ao lado de uma dívida que
+             * é da direção — e lia-se como se ainda se lhe devesse alguma
+             * coisa. Foi o caso da 1_S do Gaia Douro: comissão do Miguel paga a
+             * 28/07, e os 1.699,50 € que sobravam eram os 0,5% do Cláudio.
+             * Regra do dono (04/08/2026): o valor fica, o que faltava era dizer
+             * a quem.
+             */
+            $v['devido_ao_comercial'] = round($falta_comercial, 2);
+            $v['devido_a_direcao']    = round((float) $v['direcao'], 2);
+            $v['devido_do_recebido']  = round($falta_comercial + (float) $v['direcao'], 2);
         }
 
         /*

@@ -511,6 +511,19 @@ $pct    = function ($n) {
              * Dentro de cada grupo, maior primeiro — que era a ordem antiga e
              * continua a ser a útil.
              */
+            /* O nome de quem leva o override, para a lista poder dizer a quem se deve. */
+            if (!isset($nome_director)) {
+                $nome_director = '';
+                $did = 0;
+                foreach ($vendas as $_vv) { if (!empty($_vv['director_id'])) { $did = (int) $_vv['director_id']; break; } }
+                if ($did > 0) {
+                    $CI_d = &get_instance();
+                    $r_d = $CI_d->db->select('firstname, lastname')->where('staffid', $did)
+                        ->get(db_prefix() . 'staff')->row();
+                    $nome_director = $r_d ? trim($r_d->firstname . ' ' . $r_d->lastname) : '';
+                }
+            }
+
             $balde_de = function ($v) {
                 if (!empty($v['recebido_marcado'])) {
                     return 'casa';
@@ -683,7 +696,29 @@ $pct    = function ($n) {
                                     </td>
                                     <td class="text-right">
                                         <strong><?php echo app_format_money($parcela, $moeda); ?></strong>
-                                        <br><small class="text-muted">venda <?php echo app_format_money($v['valor'], $moeda); ?></small>
+                                        <?php
+                                        /*
+                                         * A QUEM SE DEVE, quando a parcela junta as duas coisas.
+                                         *
+                                         * Sem isto, uma venda com a comissão do comercial já paga
+                                         * aparecia com o nome dele ao lado de uma dívida que é da
+                                         * direção — e lia-se como se ainda se lhe devesse.
+                                         */
+                                        $dc = (float) ($v['devido_ao_comercial'] ?? 0);
+                                        $dd = (float) ($v['devido_a_direcao'] ?? 0);
+
+                                        if (($dc + $dd) > 0.004 && abs(($dc + $dd) - $parcela) < 0.01) { ?>
+                                            <br>
+                                            <?php if ($dc > 0.004) { ?>
+                                                <small class="text-muted"><?php echo html_escape($v['comercial_nome']); ?>:
+                                                    <?php echo app_format_money($dc, $moeda); ?></small><br>
+                                            <?php } ?>
+                                            <?php if ($dd > 0.004) { ?>
+                                                <small class="text-muted"><?php echo html_escape($nome_director ?: 'Direção'); ?>:
+                                                    <?php echo app_format_money($dd, $moeda); ?></small><br>
+                                            <?php } ?>
+                                        <?php } ?>
+                                        <small class="text-muted">venda <?php echo app_format_money($v['valor'], $moeda); ?></small>
                                     </td>
                                 </tr>
                             <?php } /* vendas do balde */ ?>
