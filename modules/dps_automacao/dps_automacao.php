@@ -355,6 +355,23 @@ function dps_automacao_cron_followups($manualmente = null)
         }
 
         foreach ($leads as $lead) {
+            /*
+             * A CAIXA É A DO COMERCIAL DA LEAD.
+             *
+             * Esta chamada ia sem staff_id, e sem ele o envio caía no SMTP
+             * geral do CRM — mas o registo era gravado em nome do comercial.
+             * Resultado: milhares de "falhas do Breno" que nunca saíram da
+             * caixa dele, e uma única caixa a aguentar os follow-ups de toda
+             * a gente. Corrigido a 04/08/2026.
+             */
+            $dono = (int) ($lead['assigned'] ?? 0);
+
+            // Quota cheia nesta caixa: fica para a passagem seguinte do cron.
+            // NÃO se marca como falhado — não falhou, ainda não foi tentado.
+            if ($dono > 0 && !dps_automacao_pode_enviar($dono)) {
+                continue;
+            }
+
             $comercial = trim((string) ($lead['comercial'] ?? ''));
             if ($comercial === '') {
                 $comercial = get_option('companyname') ?: 'A nossa equipa';
@@ -381,7 +398,7 @@ function dps_automacao_cron_followups($manualmente = null)
             $assunto = 'Continuamos à sua disposição — ' . (get_option('companyname') ?: 'Grupo DPS');
             $corpo   = nl2br(html_escape($texto));
 
-            $ok = dps_automacao_enviar_email_lead($lead['email'], $assunto, $corpo);
+            $ok = dps_automacao_enviar_email_lead($lead['email'], $assunto, $corpo, $dono ?: null);
 
             $CI->db->where('id', $registo_id)->update($envios, [
                 'ok'      => $ok ? 1 : 0,
@@ -458,6 +475,16 @@ function dps_automacao_fila_tarefa_cron()
     $lotes = [];
 
     foreach ($linhas as $l) {
+        /*
+         * Quota da caixa deste comercial. Se estiver cheia, a linha fica
+         * PENDENTE e sai na passagem seguinte — o cron corre de 5 em 5
+         * minutos, por isso um lote grande escoa sozinho ao ritmo que a
+         * Hostinger aceita, em vez de falhar de uma vez.
+         */
+        if (!dps_automacao_pode_enviar((int) $l['staff_id'])) {
+            continue;
+        }
+
         $nome_com = get_staff_full_name((int) $l['staff_id'])
             ?: (get_option('companyname') ?: 'A nossa equipa');
 
@@ -501,6 +528,14 @@ hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
  * Estados de tarefa do Perfex. 1 = Não iniciada, 4 = Em progresso.
  * Ver Dps_automacao_model::tarefa_em_progresso().
  */
+/*
+ * Tecto de envios por hora e por caixa de correio.
+ *
+ * 90 e não 100: a Hostinger corta perto dos 100 e a contagem é feita sobre uma
+ * janela deslizante, por isso convém margem. Ver dps_automacao_quota_restante().
+ */
+defined('DPS_AUTOMACAO_LIMITE_HORA') || define('DPS_AUTOMACAO_LIMITE_HORA', 90);
+
 defined('DPS_AUTOMACAO_TAREFA_NAO_INICIADA') || define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
 defined('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO') || define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);
 

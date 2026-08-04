@@ -715,3 +715,41 @@ function dps_automacao_pessoa_da_tarefa($tarefa)
         'empreendimento' => $ler('Empreendimento'),
     ];
 }
+
+/**
+ * Quantos emails ainda cabem nesta hora, para esta caixa.
+ *
+ * A Hostinger aceita cerca de 100 emails por hora POR CAIXA. Medido no
+ * histórico: três horas diferentes pararam exactamente em 101 e 102 entregues,
+ * com centenas a falhar a seguir (Breno, 29/07, 31/07 e 01/08).
+ *
+ * O que acontecia sem isto: um lote de 350 saía de rajada, os primeiros 100
+ * passavam e os outros 250 batiam na porta e voltavam — marcados como
+ * "Falha no envio SMTP" e perdidos para sempre. Foram quase 15.000 emails
+ * assim, em todos os comerciais.
+ *
+ * A contagem olha só para os que SAÍRAM (ok=1): os recusados não gastam quota.
+ *
+ * @param  int $staff_id  a quem pertence a caixa
+ * @return int  quantos ainda podem sair nesta hora (0 = esperar)
+ */
+function dps_automacao_quota_restante($staff_id, $limite = DPS_AUTOMACAO_LIMITE_HORA)
+{
+    $CI = &get_instance();
+
+    $saidos = (int) $CI->db
+        ->where('staff_id', (int) $staff_id)
+        ->where('ok', 1)
+        ->where('dateadded >=', date('Y-m-d H:i:s', strtotime('-1 hour')))
+        ->count_all_results(db_prefix() . 'dps_automacao_envios');
+
+    return max(0, (int) $limite - $saidos);
+}
+
+/**
+ * Ainda pode sair um email por esta caixa?
+ */
+function dps_automacao_pode_enviar($staff_id)
+{
+    return dps_automacao_quota_restante($staff_id) > 0;
+}
