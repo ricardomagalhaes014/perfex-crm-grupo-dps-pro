@@ -187,9 +187,12 @@ $altura = max(200, 46 * count($carteira['pessoas']) + 60);
 $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
 ?>
 
-<div class="col-md-12">
-  <div class="panel_s">
+<div class="widget" id="widget-<?php echo create_widget_id(); ?>" data-name="DPS — Vendas da equipa">
+ <div class="row">
+  <div class="col-md-12">
+   <div class="panel_s">
     <div class="panel-body">
+      <div class="widget-dragger"></div>
 
       <div class="row mbot15">
         <div class="col-md-7">
@@ -307,7 +310,9 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
       <?php } ?>
 
     </div>
+   </div>
   </div>
+ </div>
 </div>
 
 <script>
