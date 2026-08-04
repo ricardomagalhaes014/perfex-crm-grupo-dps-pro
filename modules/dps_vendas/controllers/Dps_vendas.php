@@ -1174,9 +1174,18 @@ class Dps_vendas extends AdminController
             access_denied('dps_vendas');
         }
 
-        // Escrita só por POST: um GET com efeitos deixava qualquer link mexer
-        // nos números das facturas.
-        if (!$this->input->post()) {
+        /*
+         * Escrita só por POST: um GET com efeitos deixava qualquer link mexer
+         * nos números das facturas.
+         *
+         * Pergunta-se pelo MÉTODO, não pelo conteúdo. Era `!$this->input->post()`
+         * — que é falso quando o POST vem vazio — e o formulário das Comissões
+         * não tem campo nenhum (o do Painel tem um "voltar" escondido, e por
+         * isso funcionava). Com o CSRF desligado, o corpo ia mesmo vazio: o
+         * botão recarregava a página e voltava ao mesmo sítio sem correr nada,
+         * sem erro e sem registo. Uma tarde à procura no sítio errado.
+         */
+        if ($this->input->method(true) !== 'POST') {
             redirect(admin_url('dps_vendas/comissoes'));
         }
 

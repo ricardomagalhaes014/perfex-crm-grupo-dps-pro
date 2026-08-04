@@ -26,6 +26,8 @@
                                 if (is_admin()) {
                                     echo form_open(admin_url('dps_vendas/moloni_sincronizar'), ['style' => 'display:inline;']);
                                     ?>
+                                    <?php /* O campo diz de onde se veio, e garante que o POST não vai vazio. */ ?>
+                                    <input type="hidden" name="voltar" value="comissoes">
                                     <button type="submit" class="btn btn-default"
                                             title="Procura no Moloni a factura já emitida para cada fracção e preenche o número. Só escreve quando a unidade e o valor batem certo; o resto fica assinalado para confirmar à mão.">
                                         <i class="fa fa-refresh"></i> Buscar facturas ao Moloni
