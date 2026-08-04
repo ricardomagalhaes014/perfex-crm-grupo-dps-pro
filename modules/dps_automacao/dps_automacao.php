@@ -529,12 +529,13 @@ hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
  * Ver Dps_automacao_model::tarefa_em_progresso().
  */
 /*
- * Tecto de envios por hora e por caixa de correio.
+ * Tecto de envios por DIA e por caixa de correio.
  *
- * 90 e não 100: a Hostinger corta perto dos 100 e a contagem é feita sobre uma
- * janela deslizante, por isso convém margem. Ver dps_automacao_quota_restante().
+ * 90 e não 100: a Hostinger corta perto dos 100 e convém margem para os avisos
+ * e emails avulsos que saem pela mesma caixa fora do módulo.
+ * Ver dps_automacao_quota_restante().
  */
-defined('DPS_AUTOMACAO_LIMITE_HORA') || define('DPS_AUTOMACAO_LIMITE_HORA', 90);
+defined('DPS_AUTOMACAO_LIMITE_DIA') || define('DPS_AUTOMACAO_LIMITE_DIA', 90);
 
 defined('DPS_AUTOMACAO_TAREFA_NAO_INICIADA') || define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
 defined('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO') || define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);

@@ -282,7 +282,7 @@ class Dps_automacao extends AdminController
                 $caixa = $comercial_id ?: (int) ($lead['assigned'] ?: get_staff_user_id());
 
                 /*
-                 * Quota da caixa. A Hostinger aceita ~100 emails por hora por
+                 * Quota da caixa. A Hostinger aceita ~100 emails por DIA por
                  * caixa; passado isso recusa tudo, e o que se perdeu não volta.
                  * Preferimos PARAR e dizer quantos ficaram do que continuar a
                  * disparar contra uma porta fechada — foi assim que se
@@ -292,9 +292,9 @@ class Dps_automacao extends AdminController
                     $restantes = count($leads) - $enviados - count($falhas);
 
                     set_alert('warning',
-                        'A caixa de ' . get_staff_full_name($caixa) . ' atingiu o limite de envios desta hora. '
-                        . 'Saíram ' . $enviados . '. Ficaram ' . max(0, $restantes) . ' por enviar — '
-                        . 'repita daqui a uma hora e continuam de onde pararam.');
+                        'A caixa de ' . get_staff_full_name($caixa) . ' atingiu o limite de envios de hoje ('
+                        . DPS_AUTOMACAO_LIMITE_DIA . '). Saíram ' . $enviados . '. Ficaram '
+                        . max(0, $restantes) . ' por enviar — retome amanhã e continuam de onde pararam.');
                     break;
                 }
 

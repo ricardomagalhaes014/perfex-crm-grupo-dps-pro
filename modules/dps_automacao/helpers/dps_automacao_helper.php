@@ -717,37 +717,38 @@ function dps_automacao_pessoa_da_tarefa($tarefa)
 }
 
 /**
- * Quantos emails ainda cabem nesta hora, para esta caixa.
+ * Quantos emails ainda cabem HOJE, nesta caixa.
  *
- * A Hostinger aceita cerca de 100 emails por hora POR CAIXA. Medido no
- * histórico: três horas diferentes pararam exactamente em 101 e 102 entregues,
- * com centenas a falhar a seguir (Breno, 29/07, 31/07 e 01/08).
+ * O limite da Hostinger é de cerca de 100 por DIA e por caixa — não por hora.
+ * Os números confundem à primeira vista: o Breno chegou a entregar 102 numa
+ * só hora, mas o dia inteiro ficou-se por 108. Não era um tecto horário a ser
+ * atingido; era o tecto do dia a ser gasto de uma vez, numa rajada.
  *
- * O que acontecia sem isto: um lote de 350 saía de rajada, os primeiros 100
- * passavam e os outros 250 batiam na porta e voltavam — marcados como
- * "Falha no envio SMTP" e perdidos para sempre. Foram quase 15.000 emails
- * assim, em todos os comerciais.
+ * O que acontecia sem isto: um lote de 350 saía todo de seguida, os primeiros
+ * 100 passavam e os outros 250 batiam na porta e voltavam — marcados como
+ * "Falha no envio SMTP" e perdidos. Foram quase 15.000 emails assim.
  *
- * A contagem olha só para os que SAÍRAM (ok=1): os recusados não gastam quota.
+ * Conta-se por dia de calendário, e só o que SAIU (ok=1): os recusados não
+ * gastam quota.
  *
  * @param  int $staff_id  a quem pertence a caixa
- * @return int  quantos ainda podem sair nesta hora (0 = esperar)
+ * @return int  quantos ainda podem sair hoje (0 = só amanhã)
  */
-function dps_automacao_quota_restante($staff_id, $limite = DPS_AUTOMACAO_LIMITE_HORA)
+function dps_automacao_quota_restante($staff_id, $limite = DPS_AUTOMACAO_LIMITE_DIA)
 {
     $CI = &get_instance();
 
     $saidos = (int) $CI->db
         ->where('staff_id', (int) $staff_id)
         ->where('ok', 1)
-        ->where('dateadded >=', date('Y-m-d H:i:s', strtotime('-1 hour')))
+        ->where('DATE(dateadded)', date('Y-m-d'))
         ->count_all_results(db_prefix() . 'dps_automacao_envios');
 
     return max(0, (int) $limite - $saidos);
 }
 
 /**
- * Ainda pode sair um email por esta caixa?
+ * Ainda pode sair um email por esta caixa hoje?
  */
 function dps_automacao_pode_enviar($staff_id)
 {
