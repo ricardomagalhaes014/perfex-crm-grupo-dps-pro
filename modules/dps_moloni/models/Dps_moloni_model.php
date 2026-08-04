@@ -1405,6 +1405,79 @@ class Dps_moloni_model extends App_Model
         $sugestoes = $this->emparelhar_por_fraccao($documentos, $api);
 
         /*
+         * TERCEIRO CRITÉRIO: O VALOR — mas só para desempatar.
+         *
+         * Regra do dono (04/08/2026): "primeiro promotor, depois fracção, e a
+         * seguir valor". A ordem não é decorativa. Procurar por valor à cabeça
+         * nunca podia resultar — valores repetem-se entre empreendimentos, e a
+         * mesma letra de fracção existe em vários. Mas DEPOIS de o promotor e a
+         * fracção já terem reduzido a escolha a duas ou três facturas da mesma
+         * unidade, o valor separa-as sem margem para dúvida.
+         *
+         * O que se compara é a BASE do documento (sem IVA) com o que a DPS
+         * factura àquela venda: preço × taxa do empreendimento. No Lake Towers
+         * são 5% — a fracção BW tinha três facturas, de 6.895, 11.895 e 12.145,
+         * e só a última bate com os 242.900 € da venda.
+         *
+         * Se nenhuma bater, ou se bater mais do que uma, não se escolhe: fica
+         * dúvida, como estava. O valor desempata, não decide sozinho.
+         */
+        $taxas_recebidas = [];
+        foreach ($this->db->get(db_prefix() . 'dps_painel_recebimento')->result_array() as $lin) {
+            $taxas_recebidas[dps_moloni_norm_key($lin['empreendimento'])] = (float) $lin['taxa_recebida'];
+        }
+
+        $bate_valor = function ($doc, $venda) use ($taxas_recebidas) {
+            $taxa = $taxas_recebidas[dps_moloni_norm_key($venda['project'] ?? '')] ?? 0;
+            $preco = (float) ($venda['sale_value'] ?? 0);
+
+            if ($taxa <= 0 || $preco <= 0) {
+                return false;   // sem taxa definida não se arrisca nada
+            }
+
+            $esperado = round($preco * $taxa / 100, 2);
+            $base     = (float) ($doc['gross_value'] ?? 0);
+
+            // Um euro de tolerância, para arredondamentos do lado do Moloni.
+            return $base > 0 && abs($base - $esperado) < 1.0;
+        };
+
+        $por_venda_cands = [];
+        foreach ($sugestoes as $i => $sg) {
+            $por_venda_cands[(int) ($sg['sale']['id'] ?? 0)][] = $i;
+        }
+
+        $desempatadas = 0;
+
+        foreach ($por_venda_cands as $vid => $indices) {
+            if (count($indices) < 2) {
+                continue;
+            }
+
+            $certeiros = array_values(array_filter($indices, function ($i) use ($sugestoes, $bate_valor) {
+                return $bate_valor($sugestoes[$i]['document'], $sugestoes[$i]['sale']);
+            }));
+
+            if (count($certeiros) !== 1) {
+                continue;   // nenhuma bate, ou bate mais do que uma: fica dúvida
+            }
+
+            foreach ($indices as $i) {
+                if ($i !== $certeiros[0]) {
+                    unset($sugestoes[$i]);
+                }
+            }
+            $desempatadas++;
+        }
+
+        $sugestoes = array_values($sugestoes);
+
+        if ($desempatadas > 0) {
+            $this->log('sincronizar/desempate', [], ['vendas' => $desempatadas], 'ok',
+                $desempatadas . ' venda(s) desempatadas pelo valor da factura');
+        }
+
+        /*
          * Contar quantas vezes cada documento e cada venda aparecem: só se
          * aplica sozinho o que aparece UMA vez de cada lado.
          */
