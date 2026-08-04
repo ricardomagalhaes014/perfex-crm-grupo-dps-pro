@@ -1495,7 +1495,8 @@ class Dps_vendas_model extends App_Model
      * O simulador é a montra: tem de refletir o que está no CRM, senão dois
      * comerciais vendem a mesma fração. A regra pedida pela direção:
      *   pedido / reservado / submetido  -> Reservado
-     *   vendido (CPCV) / concluido      -> Vendido
+     *   vendido (CPCV)                  -> Vendido
+     *   concluido                       -> DPS  (foi a casa que a vendeu)
      *   cancelado                       -> Disponível (volta ao mercado)
      *
      * Devolve null quando o estado não deve mexer no simulador.
@@ -1507,7 +1508,17 @@ class Dps_vendas_model extends App_Model
             'reservado' => 'Reservado',
             'submetido' => 'Reservado',
             'vendido'   => 'Vendido',     // "vendido" é o CPCV no circuito interno
-            'concluido' => 'Vendido',
+            /*
+             * CONCLUÍDA -> DPS, e não "Vendido".
+             *
+             * Na montra as duas palavras dizem coisas diferentes: "Vendido" é
+             * uma unidade que saiu do mercado, venha de onde vier; "DPS" é uma
+             * que saiu porque fomos nós a vendê-la. Uma venda concluída no CRM
+             * é sempre nossa — mostrá-la como "Vendido" apagava a única parte
+             * da informação que interessa ao promotor. Pedido do dono
+             * (04/08/2026).
+             */
+            'concluido' => 'DPS',
             'cancelado' => 'Disponível',
         ];
 
