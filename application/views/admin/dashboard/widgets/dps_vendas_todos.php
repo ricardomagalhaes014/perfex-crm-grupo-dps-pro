@@ -313,8 +313,10 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
    </div>
   </div>
  </div>
-</div>
 
+<?php /* O <script> TEM de ficar dentro da div raiz: o renderizador de
+   widgets (render_dashboard_widgets) so aproveita o primeiro elemento
+   HTML do ficheiro e descarta tudo o que venha depois. */ ?>
 <script>
 (function () {
     /*
@@ -389,3 +391,4 @@ $uid    = 'dpsv' . substr(md5($de . $ate . count($carteira['pessoas'])), 0, 6);
     });
 })();
 </script>
+</div>
