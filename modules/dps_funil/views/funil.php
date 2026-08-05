@@ -94,8 +94,12 @@
                      *
                      * A ordem é a do negócio, de cima para baixo: os novos
                      * entram em cima, e o que sobrevive desce até às propostas.
-                     * Perdidas e Outros ficam de fora do corpo — não são uma
-                     * fase por onde se passa, são onde se sai.
+                     *
+                     * Ficam de fora do corpo: Perdidas e Outros, que não são
+                     * uma fase por onde se passa mas onde se sai, e
+                     * Oportunidades, retirada por decisão do dono (05/08/2026)
+                     * — com 1.156 leads inchava o funil a meio e a forma
+                     * deixava de se ler.
                      *
                      * Obedece aos mesmos filtros do resto da página: escolhido
                      * um comercial, o funil passa a ser o dele. Pedido do dono
@@ -105,7 +109,7 @@
                     $fora  = [];
 
                     foreach ($phases as $ph) {
-                        if (in_array($ph['key'], ['perdidas', 'outros'], true)) {
+                        if (in_array($ph['key'], ['perdidas', 'outros', 'oportunidades'], true)) {
                             $fora[] = $ph;
                         } else {
                             $corpo[] = $ph;
@@ -166,7 +170,7 @@
                                     $p[] = e($ph['title']) . ': ' . number_format((int) $ph['total'], 0, ',', '.');
                                 }
                                 echo implode(' &nbsp;·&nbsp; ', $p); ?>
-                                &nbsp;— fora do funil: não são uma fase por onde se passa
+                                &nbsp;— fora do funil
                             </div>
                         <?php } ?>
                     </div>
