@@ -51,6 +51,11 @@ class Dps_automacao extends AdminController
 
     public function envio_massa()
     {
+        // Os PDFs já carregados, para poderem ser anexados a um envio normal.
+        $data['propostas'] = $this->dps_automacao_model->get_propostas(
+            is_admin() ? null : (int) get_staff_user_id()
+        );
+
         $data['estados']         = $this->dps_automacao_model->get_estados_lead();
         $data['comerciais']      = is_admin() ? $this->dps_automacao_model->get_comerciais() : [];
         $data['sms_disponivel']  = dps_automacao_sms_disponivel();
@@ -238,6 +243,29 @@ class Dps_automacao extends AdminController
         $comercial_id = $this->comercial_do_post();
         $last_id      = (int) $this->input->post('last_id');
 
+        /*
+         * ANEXO OPCIONAL — reaproveita os PDFs já carregados na Proposta em
+         * Massa, em vez de uma segunda máquina de upload com as suas próprias
+         * validações e a sua própria pasta. Um sítio só para carregar
+         * ficheiros, dois sítios para os usar. Pedido do dono (05/08/2026).
+         *
+         * Sem anexo escolhido, tudo se comporta como antes.
+         */
+        $anexo_id  = (int) $this->input->post('proposta_id');
+        $anexo     = null;
+        $anexo_b64 = null;
+
+        if ($anexo_id > 0) {
+            $anexo = $this->dps_automacao_model->get_proposta($anexo_id);
+
+            if (!$anexo) {
+                $this->responder_json(['erro' => 'O anexo escolhido já não existe.']);
+            }
+
+            // caminho_da_proposta() já responde com erro se o ficheiro sumiu.
+            $anexo_caminho = $this->caminho_da_proposta($anexo);
+        }
+
         @set_time_limit(0);
 
         $leads = $this->dps_automacao_model->get_leads_por_estados(
@@ -290,7 +318,18 @@ class Dps_automacao extends AdminController
                         if ($numero === '') {
                             $detalhe = 'Número de telefone inválido: ' . $lead['phonenumber'];
                         } else {
-                            list($ok, $detalhe) = dps_automacao_whatsapp_enviar($assigned, $numero, $texto);
+                            if ($anexo) {
+                                // O PDF é lido/codificado UMA vez por lote, nunca por lead.
+                                if ($anexo_b64 === null) {
+                                    $anexo_b64 = base64_encode((string) file_get_contents($anexo_caminho));
+                                }
+
+                                list($ok, $detalhe) = dps_automacao_whatsapp_enviar_documento(
+                                    $assigned, $numero, $anexo_b64, $anexo['original_name'], $texto
+                                );
+                            } else {
+                                list($ok, $detalhe) = dps_automacao_whatsapp_enviar($assigned, $numero, $texto);
+                            }
                             // Pausa entre mensagens para não rebentar a Evolution.
                             usleep(300000);
                         }
@@ -316,13 +355,25 @@ class Dps_automacao extends AdminController
                     break;
                 }
 
-                $ok      = dps_automacao_enviar_email_lead(
-                    $lead['email'],
-                    $assunto,
-                    nl2br(html_escape($texto)),
-                    $caixa
-                );
-                $detalhe = $ok ? 'Enviado para ' . $lead['email'] : 'Falha no envio SMTP';
+                if ($anexo) {
+                    list($ok, $detalhe) = dps_automacao_enviar_email_proposta(
+                        $lead['email'],
+                        (string) $lead['name'],
+                        $assunto,
+                        $texto,
+                        $anexo_caminho,
+                        $anexo['original_name'],
+                        $caixa
+                    );
+                } else {
+                    $ok      = dps_automacao_enviar_email_lead(
+                        $lead['email'],
+                        $assunto,
+                        nl2br(html_escape($texto)),
+                        $caixa
+                    );
+                    $detalhe = $ok ? 'Enviado para ' . $lead['email'] : 'Falha no envio SMTP';
+                }
             } else { // sms
                 $numero = dps_automacao_normalizar_numero($lead['phonenumber']);
                 if ($numero === '') {
@@ -678,9 +729,19 @@ class Dps_automacao extends AdminController
             $this->responder_json(['erro' => 'Canal inválido.']);
         }
 
-        $estados = $this->estados_do_post();
-        if (empty($estados)) {
-            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads.']);
+        $estados        = $this->estados_do_post();
+        $empreendimento = trim((string) $this->input->post('empreendimento'));
+
+        /*
+         * Mesma regra da pré-visualização: escolhido um empreendimento, o alvo
+         * já está definido e o estado é opcional. Ver envio_massa_preview().
+         *
+         * Esta correcção nasceu torta: a substituição que a devia trazer para
+         * aqui apanhou primeiro o envio_massa_enviar(), que tem o mesmo bloco
+         * de código. O ecrã das propostas continuava a exigir o estado.
+         */
+        if (empty($estados) && $empreendimento === '') {
+            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads, ou um empreendimento.']);
         }
 
         $mensagem = trim((string) $this->input->post('mensagem'));

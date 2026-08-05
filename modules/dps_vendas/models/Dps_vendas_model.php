@@ -717,7 +717,7 @@ class Dps_vendas_model extends App_Model
      * O que falta para a comissão desta venda ser devida (texto curto para a
      * listagem). Devolve '' quando já não falta nada.
      */
-    public static function falta_para_comissao($venda)
+    public static function falta_para_comissao($venda, $parcela = '')
     {
         if ($venda['estado'] !== 'concluido') {
             return 'Aguarda conclusão da venda';
@@ -725,6 +725,20 @@ class Dps_vendas_model extends App_Model
         if (empty($venda['pago'])) {
             return 'Aguarda validação do pagamento';
         }
+
+        /*
+         * CADA UM ESPERA PELO SEU RECIBO.
+         *
+         * O override da direção tem recibo próprio, em coluna própria — e a
+         * linha dele estava a olhar para o recibo do COMERCIAL. O Cláudio
+         * entregou o dele e as vendas #22 e #23 continuavam a dizer "aguarda
+         * recibo", porque o Sérgio ainda não tinha entregue o seu. Um
+         * bloqueava o outro sem que nada o dissesse. Corrigido a 05/08/2026.
+         */
+        if ($parcela === 'direcao') {
+            return empty($venda['direcao_recibo_doc']) ? 'Aguarda recibo da direção' : '';
+        }
+
         if (empty($venda['comissao_recibo_doc'])) {
             return 'Aguarda recibo do comercial';
         }
@@ -1140,7 +1154,7 @@ class Dps_vendas_model extends App_Model
                     'mes_da_regra'   => false,
                     'pago'           => $dir_paga,
                     'pago_em'        => (string) ($venda['direcao_pago_em'] ?? ''),
-                    'bloqueio'       => $bloqueio,
+                    'bloqueio'       => self::falta_para_comissao($venda, 'direcao'),
                     'futura'         => ($venda['estado'] ?? '') !== 'concluido',
                     'fatura_moloni'  => (string) ($venda['fatura_moloni_cpcv'] ?? ''),
                     'e_direcao'      => true,
@@ -1282,6 +1296,13 @@ class Dps_vendas_model extends App_Model
 
             if (!$dir) {
                 return ['ok' => false, 'erro' => 'Esta venda não gera override da direção.'];
+            }
+
+            // O circuito é o mesmo dos comerciais: só se paga depois do recibo.
+            $falta_dir = self::falta_para_comissao($venda, 'direcao');
+
+            if ($falta_dir !== '') {
+                return ['ok' => false, 'erro' => $falta_dir . ' — ainda não se pode pagar esta parcela.'];
             }
 
             $data_d = trim((string) $data);

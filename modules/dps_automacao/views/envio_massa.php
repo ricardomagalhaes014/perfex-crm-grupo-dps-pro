@@ -98,6 +98,39 @@
                         </div>
 
                         <div class="form-group">
+                            <?php
+                            /*
+                             * ANEXO OPCIONAL.
+                             *
+                             * Reaproveita os PDFs já carregados na Proposta em
+                             * Massa em vez de uma segunda máquina de upload —
+                             * um sítio só para carregar ficheiros, dois para os
+                             * usar. Sem anexo, o envio é o de sempre.
+                             *
+                             * No WhatsApp o PDF vai como documento com a
+                             * mensagem por legenda; no email vai anexado.
+                             * Pedido do dono (05/08/2026).
+                             */
+                            ?>
+                            <div class="form-group">
+                                <label for="proposta_id">Anexar PDF <small class="text-muted">(opcional)</small></label>
+                                <select name="proposta_id" id="proposta_id" class="form-control selectpicker"
+                                        data-live-search="true">
+                                    <option value="0">Sem anexo</option>
+                                    <?php foreach (($propostas ?? []) as $pdf) { ?>
+                                        <option value="<?php echo (int) $pdf['id']; ?>">
+                                            <?php echo html_escape($pdf['original_name']); ?>
+                                            (<?php echo number_format(((int) $pdf['tamanho']) / 1048576, 1, ',', '.'); ?> MB)
+                                        </option>
+                                    <?php } ?>
+                                </select>
+                                <small class="text-muted">
+                                    Os ficheiros são os que já estão carregados em
+                                    <a href="<?php echo admin_url('dps_automacao/proposta_massa'); ?>">Proposta em Massa</a>.
+                                    No WhatsApp segue como documento, no email como anexo.
+                                </small>
+                            </div>
+
                             <label for="mensagem">Mensagem</label>
                             <textarea name="mensagem" id="mensagem" rows="6" class="form-control"
                                       placeholder="Olá {nome}, ..."></textarea>
