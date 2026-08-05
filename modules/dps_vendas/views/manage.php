@@ -106,68 +106,7 @@
                          * trocar de separador era trabalho a mais.
                          */
                         ?>
-                        <div class="btn-group mtop15 mbot15" role="group">
-                            <?php foreach ($blocos as $b) { ?>
-                                <button type="button"
-                                        class="btn btn-<?php echo $b['chave'] === 'pendentes' ? 'info' : 'default'; ?> dps-aba-vendas"
-                                        data-alvo="dps-bloco-<?php echo $b['chave']; ?>">
-                                    <i class="fa <?php echo $b['icone']; ?>"></i>
-                                    <?php echo $b['titulo']; ?> (<?php echo $b['n']; ?>)
-                                </button>
-                            <?php } ?>
-                        </div>
-
-                        <?php foreach ($blocos as $bloco) { ?>
-                        <div id="dps-bloco-<?php echo $bloco['chave']; ?>" class="dps-bloco-vendas"
-                             style="<?php echo $bloco['chave'] === 'pendentes' ? '' : 'display:none;'; ?>">
-
-                        <p class="text-muted" style="margin:0 0 8px;">
-                            <?php echo $bloco['ajuda']; ?>
-                        </p>
-
-                        <?php if (empty($bloco['grupos'])) { ?>
-                            <p class="text-muted"><?php echo $bloco['vazio']; ?></p>
-                        <?php } else { ?>
-                        <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Empreendimento</th>
-                                    <th>Unidade</th>
-                                    <th>Cliente</th>
-                                    <th>Valor</th>
-                                    <th>Comercial</th>
-                                    <th>Estado</th>
-                                    <?php if (is_admin()) { ?>
-                                        <th title="Marque quando o promotor pagar à DPS">Recebido</th>
-                                    <?php } ?>
-                                    <th>Data</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                /*
-                                 * A LISTA SAI AGRUPADA POR EMPREENDIMENTO.
-                                 *
-                                 * Corrida, com 100 e tal vendas de cinco
-                                 * empreendimentos misturadas, obrigava a ler
-                                 * linha a linha para encontrar uma fracção.
-                                 *
-                                 * Regras de ordem, pedidas pelo dono
-                                 * (04/08/2026):
-                                 *   - o empreendimento com venda mais recente
-                                 *     fica em cima;
-                                 *   - o Belo Horizonte vai sempre para o fim,
-                                 *     é o maior e o menos consultado;
-                                 *   - dentro de cada um, a mais recente
-                                 *     primeiro;
-                                 *   - as canceladas não entram. Continuam a
-                                 *     existir e a ver-se pelo filtro de estado
-                                 *     — o que se tira é o ruído da lista de
-                                 *     todos os dias.
-                                 */
+                        <?php
                                 /*
                                  * DOIS QUADROS: pendentes e concluídas.
                                  *
@@ -252,7 +191,49 @@
                                         'vazio'    => 'Ainda não há vendas concluídas.',
                                     ],
                                 ];
-                                ?>
+                        ?>
+
+                        <div class="btn-group mtop15 mbot15" role="group">
+                            <?php foreach ($blocos as $b) { ?>
+                                <button type="button"
+                                        class="btn btn-<?php echo $b['chave'] === 'pendentes' ? 'info' : 'default'; ?> dps-aba-vendas"
+                                        data-alvo="dps-bloco-<?php echo $b['chave']; ?>">
+                                    <i class="fa <?php echo $b['icone']; ?>"></i>
+                                    <?php echo $b['titulo']; ?> (<?php echo $b['n']; ?>)
+                                </button>
+                            <?php } ?>
+                        </div>
+
+                        <?php foreach ($blocos as $bloco) { ?>
+                        <div id="dps-bloco-<?php echo $bloco['chave']; ?>" class="dps-bloco-vendas"
+                             style="<?php echo $bloco['chave'] === 'pendentes' ? '' : 'display:none;'; ?>">
+
+                        <p class="text-muted" style="margin:0 0 8px;">
+                            <?php echo $bloco['ajuda']; ?>
+                        </p>
+
+                        <?php if (empty($bloco['grupos'])) { ?>
+                            <p class="text-muted"><?php echo $bloco['vazio']; ?></p>
+                        <?php } else { ?>
+                        <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Empreendimento</th>
+                                    <th>Unidade</th>
+                                    <th>Cliente</th>
+                                    <th>Valor</th>
+                                    <th>Comercial</th>
+                                    <th>Estado</th>
+                                    <?php if (is_admin()) { ?>
+                                        <th title="Marque quando o promotor pagar à DPS">Recebido</th>
+                                    <?php } ?>
+                                    <th>Data</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 <?php foreach ($bloco['grupos'] as $g_nome => $g_lista) { ?>
                                     <tr style="background:rgba(0,0,0,.04);">
                                         <td colspan="10">
