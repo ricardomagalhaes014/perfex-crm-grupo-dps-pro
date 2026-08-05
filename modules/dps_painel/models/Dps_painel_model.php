@@ -423,7 +423,7 @@ class Dps_painel_model extends App_Model
             v.cpcv_pago, v.escritura_paga, v.cpcv_taxa, v.escritura_taxa,
             v.cpcv_mes_previsto, v.escritura_mes_previsto,
             v.recebido_dps, v.recebido_dps_em, v.pago,
-            v.date_created,
+            v.date_created, v.direcao_pago, v.direcao_pago_em,
             v.fatura_moloni_cpcv, v.fatura_moloni_escritura,
             CONCAT(s.firstname, " ", s.lastname) AS comercial_nome,
             o.comissao_recebida, o.recibo_emitido, o.recibo_numero, o.recibo_data, o.notas, o.moloni_doc_id', false);
@@ -926,7 +926,21 @@ class Dps_painel_model extends App_Model
              * ainda não concluiu, mais o Belo Horizonte. A factura já decide o
              * balde da verba, não precisa de decidir outra vez o do override.
              */
-            $falta_dir = round($v['direcao_prevista'] - $v['direcao'], 2);
+            /*
+             * O OVERRIDE JÁ PAGO DEIXA DE SER DEVIDO.
+             *
+             * O quadro de comissões marca o pagamento do override em
+             * direcao_pago, e o Painel não olhava para lá: pagas as vendas #22
+             * e #23 ao Cláudio, continuavam aqui a aparecer por pagar, com o
+             * valor inteiro. Duas partes do CRM a dizer coisas opostas sobre o
+             * mesmo dinheiro. Corrigido a 05/08/2026.
+             */
+            $v['direcao_paga'] = !empty($v['direcao_pago']);
+
+            $falta_dir = $v['direcao_paga']
+                ? 0.0
+                : round($v['direcao_prevista'] - $v['direcao'], 2);
+
             $dir_vencida = $venceu($v['mes_recebido_cpcv']);
 
             $v['direcao_agora']  = $dir_vencida ? $falta_dir : 0.0;
@@ -1019,9 +1033,12 @@ class Dps_painel_model extends App_Model
              * Regra do dono (04/08/2026): o valor fica, o que faltava era dizer
              * a quem.
              */
+            // Override já pago não é dívida — ver direcao_paga mais abaixo.
+            $dir_por_pagar = !empty($v['direcao_pago']) ? 0.0 : (float) $v['direcao'];
+
             $v['devido_ao_comercial'] = round($falta_comercial, 2);
-            $v['devido_a_direcao']    = round((float) $v['direcao'], 2);
-            $v['devido_do_recebido']  = round($falta_comercial + (float) $v['direcao'], 2);
+            $v['devido_a_direcao']    = round($dir_por_pagar, 2);
+            $v['devido_do_recebido']  = round($falta_comercial + $dir_por_pagar, 2);
         }
 
         /*

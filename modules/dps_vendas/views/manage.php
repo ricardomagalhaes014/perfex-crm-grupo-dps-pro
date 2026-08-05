@@ -221,8 +221,18 @@
                                             <?php if (!empty($v['cpcv_assinado'])) { ?>
                                                 <br><span class="label label-success" style="font-size:.7em;" title="CPCV assinado">CPCV assinado</span>
                                             <?php } ?>
+                                            <?php
+                                            /*
+                                             * "Pago" sozinho lia-se como comissão paga, e é outra coisa:
+                                             * esta marca é do pagamento do CLIENTE, validado pela direção.
+                                             * A comissão do comercial vive no quadro de comissões e pode
+                                             * estar por pagar com esta marca já posta — foi o que se
+                                             * passou na 2_CO. Corrigido a 05/08/2026.
+                                             */
+                                            ?>
                                             <?php if (!empty($v['pago'])) { ?>
-                                                <span class="label label-success" style="font-size:.7em;" title="Pagamento confirmado">Pago</span>
+                                                <span class="label label-success" style="font-size:.7em;"
+                                                      title="O pagamento do cliente foi validado pela direção. Não diz nada sobre a comissão do comercial.">Sinal validado</span>
                                             <?php } ?>
                                         </td>
                                         <?php if (is_admin()) { ?>
