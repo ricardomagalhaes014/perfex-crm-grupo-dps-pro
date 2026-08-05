@@ -79,7 +79,57 @@
                             </div>
                         </form>
 
-                        <table class="table dt-table">
+                        <?php
+                        /*
+                         * SEM DataTables nesta tabela: ela é agrupada à mão e o
+                         * DataTables reordena as linhas por sua conta, o que
+                         * espalharia os cabeçalhos de grupo pelo meio dos dados.
+                         * Os filtros de cima já fazem o trabalho, do lado do
+                         * servidor.
+                         *
+                         * E dentro de .table-responsive, senão com muitas
+                         * colunas a tabela sai da página sem forma de a
+                         * deslocar.
+                         */
+                        ?>
+                        <?php
+                        /*
+                         * ABRE NAS PENDENTES.
+                         *
+                         * É a lista de trabalho; as concluídas são arquivo e só
+                         * se consultam quando se procura alguma coisa. Ficam a
+                         * um clique, com a contagem à vista para não parecerem
+                         * escondidas. Pedido do dono (05/08/2026).
+                         *
+                         * Alterna sem recarregar: as duas listas já vieram na
+                         * página, e ir buscá-las outra vez ao servidor só para
+                         * trocar de separador era trabalho a mais.
+                         */
+                        ?>
+                        <div class="btn-group mtop15 mbot15" role="group">
+                            <?php foreach ($blocos as $b) { ?>
+                                <button type="button"
+                                        class="btn btn-<?php echo $b['chave'] === 'pendentes' ? 'info' : 'default'; ?> dps-aba-vendas"
+                                        data-alvo="dps-bloco-<?php echo $b['chave']; ?>">
+                                    <i class="fa <?php echo $b['icone']; ?>"></i>
+                                    <?php echo $b['titulo']; ?> (<?php echo $b['n']; ?>)
+                                </button>
+                            <?php } ?>
+                        </div>
+
+                        <?php foreach ($blocos as $bloco) { ?>
+                        <div id="dps-bloco-<?php echo $bloco['chave']; ?>" class="dps-bloco-vendas"
+                             style="<?php echo $bloco['chave'] === 'pendentes' ? '' : 'display:none;'; ?>">
+
+                        <p class="text-muted" style="margin:0 0 8px;">
+                            <?php echo $bloco['ajuda']; ?>
+                        </p>
+
+                        <?php if (empty($bloco['grupos'])) { ?>
+                            <p class="text-muted"><?php echo $bloco['vazio']; ?></p>
+                        <?php } else { ?>
+                        <div class="table-responsive">
+                        <table class="table">
                             <thead>
                                 <tr>
                                     <th>#</th>
@@ -118,39 +168,94 @@
                                  *     — o que se tira é o ruído da lista de
                                  *     todos os dias.
                                  */
-                                $grupos = [];
+                                /*
+                                 * DOIS QUADROS: pendentes e concluídas.
+                                 *
+                                 * Uma venda concluída já não se trabalha — só
+                                 * se consulta. Misturada com as que estão em
+                                 * curso, obrigava a ler o estado de cada linha
+                                 * para saber onde é que ainda há trabalho.
+                                 * Separadas, o primeiro quadro é a lista de
+                                 * afazeres e o segundo o arquivo.
+                                 *
+                                 * É só arrumação: nenhum número muda, nenhuma
+                                 * conta é refeita. As canceladas continuam de
+                                 * fora dos dois, como já estavam. Pedido do
+                                 * dono (05/08/2026).
+                                 */
+                                $agrupar = function (array $lista) {
+                                    $grupos = [];
+
+                                    foreach ($lista as $_v) {
+                                        $grupos[trim((string) $_v['empreendimento']) ?: 'Sem empreendimento'][] = $_v;
+                                    }
+
+                                    $recencia = [];
+
+                                    foreach ($grupos as $ge => $l) {
+                                        usort($l, function ($a, $b) {
+                                            return [$b['data_venda'] ?? '', (int) $b['id']]
+                                               <=> [$a['data_venda'] ?? '', (int) $a['id']];
+                                        });
+                                        $grupos[$ge]   = $l;
+                                        $recencia[$ge] = $l[0]['data_venda'] ?? '';
+                                    }
+
+                                    uksort($grupos, function ($a, $b) use ($recencia) {
+                                        $bh_a = stripos($a, 'belo') !== false ? 1 : 0;
+                                        $bh_b = stripos($b, 'belo') !== false ? 1 : 0;
+
+                                        if ($bh_a !== $bh_b) {
+                                            return $bh_a <=> $bh_b;   // Belo Horizonte por último
+                                        }
+
+                                        return ($recencia[$b] ?? '') <=> ($recencia[$a] ?? '');
+                                    });
+
+                                    return $grupos;
+                                };
+
+                                $pendentes  = [];
+                                $concluidas = [];
 
                                 foreach ($vendas as $_v) {
-                                    if (($_v['estado'] ?? '') === 'cancelado') {
+                                    $est = (string) ($_v['estado'] ?? '');
+
+                                    if ($est === 'cancelado') {
                                         continue;
                                     }
-                                    $grupos[trim((string) $_v['empreendimento']) ?: 'Sem empreendimento'][] = $_v;
-                                }
 
-                                $recencia = [];
-                                foreach ($grupos as $ge => $lista) {
-                                    usort($lista, function ($a, $b) {
-                                        return [$b['data_venda'] ?? '', (int) $b['id']]
-                                           <=> [$a['data_venda'] ?? '', (int) $a['id']];
-                                    });
-                                    $grupos[$ge]   = $lista;
-                                    $recencia[$ge] = $lista[0]['data_venda'] ?? '';
-                                }
-
-                                uksort($grupos, function ($a, $b) use ($recencia) {
-                                    $bh_a = stripos($a, 'belo') !== false ? 1 : 0;
-                                    $bh_b = stripos($b, 'belo') !== false ? 1 : 0;
-
-                                    if ($bh_a !== $bh_b) {
-                                        return $bh_a <=> $bh_b;   // Belo Horizonte por último
+                                    if ($est === 'concluido') {
+                                        $concluidas[] = $_v;
+                                    } else {
+                                        $pendentes[] = $_v;
                                     }
+                                }
 
-                                    return ($recencia[$b] ?? '') <=> ($recencia[$a] ?? '');
-                                });
+                                $blocos = [
+                                    [
+                                        'chave'    => 'pendentes',
+                                        'titulo'   => 'Vendas pendentes',
+                                        'ajuda'    => 'reservadas, submetidas e com CPCV — o que ainda dá trabalho',
+                                        'icone'    => 'fa-hourglass-half',
+                                        'n'        => count($pendentes),
+                                        'grupos'   => $agrupar($pendentes),
+                                        'vazio'    => 'Nenhuma venda pendente.',
+                                    ],
+                                    [
+                                        'chave'    => 'concluidas',
+                                        'titulo'   => 'Vendas concluídas',
+                                        'ajuda'    => 'negócio fechado — consulta e correcção',
+                                        'icone'    => 'fa-check-circle',
+                                        'n'        => count($concluidas),
+                                        'grupos'   => $agrupar($concluidas),
+                                        'vazio'    => 'Ainda não há vendas concluídas.',
+                                    ],
+                                ];
                                 ?>
-                                <?php foreach ($grupos as $g_nome => $g_lista) { ?>
+                                <?php foreach ($bloco['grupos'] as $g_nome => $g_lista) { ?>
                                     <tr style="background:rgba(0,0,0,.04);">
-                                        <td colspan="20">
+                                        <td colspan="10">
                                             <strong><?php echo html_escape($g_nome); ?></strong>
                                             <small class="text-muted">
                                                 — <?php echo count($g_lista); ?> venda(s)<?php
@@ -306,6 +411,32 @@
                                 <?php } /* grupos */ ?>
                             </tbody>
                         </table>
+                        </div>
+                        <?php } /* bloco com grupos */ ?>
+                        </div>
+                        <?php } /* blocos */ ?>
+
+                        <script>
+                        (function () {
+                            var abas = document.querySelectorAll('.dps-aba-vendas');
+
+                            Array.prototype.forEach.call(abas, function (b) {
+                                b.addEventListener('click', function () {
+                                    Array.prototype.forEach.call(
+                                        document.querySelectorAll('.dps-bloco-vendas'),
+                                        function (d) { d.style.display = 'none'; }
+                                    );
+                                    Array.prototype.forEach.call(abas, function (o) {
+                                        o.className = o.className.replace('btn-info', 'btn-default');
+                                    });
+
+                                    var alvo = document.getElementById(b.getAttribute('data-alvo'));
+                                    if (alvo) { alvo.style.display = ''; }
+                                    b.className = b.className.replace('btn-default', 'btn-info');
+                                });
+                            });
+                        })();
+                        </script>
 
                         <?php if (empty($vendas)) { ?>
                             <p class="text-muted text-center">Não há vendas que correspondam a este filtro.</p>
