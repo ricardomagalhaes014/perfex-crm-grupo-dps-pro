@@ -26,7 +26,16 @@ class Dps_funil extends AdminController
             ['key' => 'contacto',      'title' => 'Em contacto',                  'icon' => 'fa fa-phone',        'statuses' => [7, 6, 9, 1, 12]],
             ['key' => 'vip',           'title' => 'VIP (quentes)',                'icon' => 'fa fa-star',         'statuses' => [17, 14, 18]],
             ['key' => 'oportunidades', 'title' => 'Oportunidades / Necessidades', 'icon' => 'fa fa-bullseye',     'statuses' => [3, 2, 19, 16]],
-            ['key' => 'fecho',         'title' => 'Fecho',                        'icon' => 'fa fa-check-circle', 'statuses' => [13, 10]],
+            /*
+             * PROPOSTAS ENVIADAS é uma fase do funil, e faltava.
+             *
+             * O estado #20 não estava mapeado em fase nenhuma: caía no balde
+             * "Outros" e 176 leads desapareciam do funil — precisamente as que
+             * estão mais perto de fechar. Regra do dono (05/08/2026): entrada,
+             * em contacto, VIP, propostas enviadas, fechos.
+             */
+            ['key' => 'propostas',     'title' => 'Propostas enviadas',           'icon' => 'fa fa-paper-plane',  'statuses' => [20]],
+            ['key' => 'fecho',         'title' => 'Fechos',                       'icon' => 'fa fa-check-circle', 'statuses' => [13, 10]],
             ['key' => 'perdidas',      'title' => 'Perdidas',                     'icon' => 'fa fa-times-circle', 'statuses' => [5]],
         ];
     }
