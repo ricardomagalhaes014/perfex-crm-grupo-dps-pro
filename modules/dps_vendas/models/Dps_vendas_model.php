@@ -1131,6 +1131,24 @@ class Dps_vendas_model extends App_Model
              */
             $dir = self::direcao_da_venda($venda);
 
+            /*
+             * A LINHA DA DIREÇÃO NÃO ENTRA NO QUADRO DE OUTRO COMERCIAL.
+             *
+             * Filtrado o ecrã por um comercial, carregam-se as vendas dele — e
+             * a linha do override, que é do DIRECTOR, vinha atrás e somava na
+             * previsão mensal dele. O Miguel via 10.197,00 € previstos para
+             * Julho: 8.497,50 da comissão dele mais 1.699,50 do override do
+             * Cláudio sobre a mesma venda. Dinheiro de outra pessoa na conta
+             * dele. Corrigido a 05/08/2026.
+             *
+             * Sem filtro entram todas, que é o quadro geral.
+             */
+            $filtro_com = (int) ($filtros['comercial_id'] ?? 0);
+
+            if ($dir && $filtro_com > 0 && $filtro_com !== (int) $dir['director_id']) {
+                $dir = null;
+            }
+
             if ($dir) {
                 $dir_paga = !empty($venda['direcao_pago']);
 
