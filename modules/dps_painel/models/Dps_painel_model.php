@@ -873,6 +873,8 @@ class Dps_painel_model extends App_Model
          * Regra do dono, 30/07/2026.
          */
         if ($v['comercial_100'] || $v['comercial_0'] || !$v['tem_director']) {
+            $v['direcao_ja_paga']      = 0.0;
+            $v['direcao_paga']         = false;
             $v['direcao']              = 0.0;
             $v['direcao_prevista']     = 0.0;
             $v['direcao_base']         = 0.0;
@@ -936,6 +938,18 @@ class Dps_painel_model extends App_Model
              * mesmo dinheiro. Corrigido a 05/08/2026.
              */
             $v['direcao_paga'] = !empty($v['direcao_pago']);
+
+            /*
+             * O QUE JÁ SAIU PARA A DIREÇÃO.
+             *
+             * Circuito, nas palavras do dono (05/08/2026): "o comercial emite
+             * recibo, é por pagar; quando eu pago e valido como pago, é paga".
+             * O Painel mostrava só o que falta — e o dinheiro que já saiu não
+             * aparecia em lado nenhum, como se nunca tivesse sido pago.
+             */
+            $v['direcao_ja_paga'] = $v['direcao_paga']
+                ? round((float) $v['direcao_prevista'], 2)
+                : 0.0;
 
             $falta_dir = $v['direcao_paga']
                 ? 0.0
@@ -1242,6 +1256,8 @@ class Dps_painel_model extends App_Model
             'pago_comercial'     => 0.0,
             'comissao_comercial' => 0.0,
             'direcao'            => 0.0,
+            // Override que JA saiu para a direccao.
+            'direcao_ja_paga'    => 0.0,
             'despesas'           => 0.0,
             'volume'             => 0.0,
             'sem_taxa'           => 0,
@@ -1296,6 +1312,7 @@ class Dps_painel_model extends App_Model
             $t['pago_comercial']     += (float) $v['comissao_paga'];
             $t['comissao_comercial'] += (float) $v['comissao_comercial'];
             $t['direcao']            += (float) $v['direcao'];
+            $t['direcao_ja_paga']    += (float) ($v['direcao_ja_paga'] ?? 0);
             $t['direcao_prevista']   += (float) $v['direcao_prevista'];
             $t['volume']             += (float) $v['valor'];
 

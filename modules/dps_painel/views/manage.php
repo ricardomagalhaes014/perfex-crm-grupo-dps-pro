@@ -320,7 +320,15 @@ $pct    = function ($n) {
                  */
                 [
                     $rot_dir, $totais['direcao_prevista'], 'text-danger', 'fa-user',
-                    'com dinheiro em casa: ' . app_format_money($totais['direcao'], $moeda)
+                    /*
+                     * Quatro números e não três: faltava o que JÁ SAIU.
+                     * "O comercial emite recibo, é por pagar; quando eu pago e
+                     * valido como pago, é paga" — e o pago tem de se ver, senão
+                     * o cartão só sabe falar de dívida. Pedido do dono
+                     * (05/08/2026).
+                     */
+                    'já pago: ' . app_format_money($totais['direcao_ja_paga'], $moeda)
+                        . ' · com dinheiro em casa: ' . app_format_money($totais['direcao'], $moeda)
                         . ' · à espera de cobrança: ' . app_format_money($totais['direcao_agora'], $moeda)
                         . ' · prazo futuro: ' . app_format_money($totais['direcao_futuro'], $moeda),
                 ],
