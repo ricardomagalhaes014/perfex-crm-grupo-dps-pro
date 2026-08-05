@@ -122,29 +122,35 @@
                          * Não é a etiqueta da lead — essa diz de que campanha
                          * ela veio, não o que já lhe mandámos. Vem de
                          * dps_propostas, que guarda lead + empreendimento a
-                         * cada envio. A contagem à frente é de LEADS
-                         * distintas, não de propostas: a mesma pessoa pode ter
-                         * recebido três documentos do mesmo empreendimento.
+                         * cada envio.
                          *
-                         * Vazio = todos, que é como funcionava até aqui.
-                         * Pedido do dono (05/08/2026).
+                         * A contagem é de PROPOSTAS — quantos documentos
+                         * saíram, não a quantas pessoas — e ACOMPANHA o
+                         * comercial escolhido: a matriz inteira vai no
+                         * atributo data-, e o número muda sem ir outra vez ao
+                         * servidor. Regra do dono (05/08/2026).
                          */
+                        $emp_totais = $empreendimentos['totais'] ?? [];
+                        $emp_matriz = $empreendimentos['por_comercial'] ?? [];
                         ?>
                         <div class="row">
                             <div class="col-md-12">
                                 <div class="form-group">
                                     <label for="empreendimento">Empreendimento</label>
                                     <select name="empreendimento" id="empreendimento" class="form-control selectpicker"
-                                            data-live-search="true">
+                                            data-live-search="true"
+                                            data-matriz="<?php echo html_escape(json_encode($emp_matriz, JSON_UNESCAPED_UNICODE)); ?>"
+                                            data-totais="<?php echo html_escape(json_encode($emp_totais, JSON_UNESCAPED_UNICODE)); ?>">
                                         <option value="">Todos os empreendimentos</option>
-                                        <?php foreach (($empreendimentos ?? []) as $emp) { ?>
-                                            <option value="<?php echo html_escape($emp['nome']); ?>">
-                                                <?php echo html_escape($emp['nome']); ?> (<?php echo (int) $emp['n']; ?> leads)
+                                        <?php foreach ($emp_totais as $nome => $n) { ?>
+                                            <option value="<?php echo html_escape($nome); ?>"
+                                                    data-nome="<?php echo html_escape($nome); ?>">
+                                                <?php echo html_escape($nome); ?> (<?php echo (int) $n; ?> propostas)
                                             </option>
                                         <?php } ?>
                                     </select>
-                                    <small class="text-muted">
-                                        Leads a quem já foi enviada proposta ou informação deste empreendimento.
+                                    <small class="text-muted" id="emp-nota">
+                                        Propostas já enviadas de cada empreendimento. Escolha um comercial para ver só as dele.
                                     </small>
                                 </div>
                             </div>
@@ -342,6 +348,37 @@ $(function () {
     // Mudar o alvo ou o canal invalida a contagem mostrada — limpa-se o que
     // está no ecrã, mas o botão de enviar continua utilizável: ele recalcula
     // sempre antes de disparar.
+    /*
+     * As contagens do selector de empreendimento seguem o comercial escolhido.
+     * A matriz inteira já veio na página, por isso é só reescrever os rótulos —
+     * sem pedido ao servidor e sem esperar.
+     */
+    function actualizarContagensEmpreendimento() {
+        var $sel = $('#empreendimento');
+        if (!$sel.length) { return; }
+
+        var matriz = $sel.data('matriz') || {};
+        var totais = $sel.data('totais') || {};
+        var quem   = parseInt($('#comercial_id').val() || '0', 10);
+        var fonte  = (quem > 0 && matriz[quem]) ? matriz[quem] : totais;
+
+        $sel.find('option').each(function () {
+            var nome = $(this).data('nome');
+            if (!nome) { return; }
+            var n = fonte[nome] || 0;
+            $(this).text(nome + ' (' + n + ' proposta' + (n === 1 ? '' : 's') + ')');
+        });
+
+        $('#emp-nota').text(quem > 0
+            ? 'Propostas enviadas por este comercial, por empreendimento.'
+            : 'Propostas já enviadas de cada empreendimento. Escolha um comercial para ver só as dele.');
+
+        if ($.fn.selectpicker) { $sel.selectpicker('refresh'); }
+    }
+
+    $('#comercial_id').on('change', actualizarContagensEmpreendimento);
+    actualizarContagensEmpreendimento();
+
     $('input[name="canal"], input[name="proposta_id"], #estados, #comercial_id, #empreendimento').on('change', function () {
         limparAvisos();
     });

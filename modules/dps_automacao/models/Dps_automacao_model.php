@@ -107,19 +107,39 @@ class Dps_automacao_model extends App_Model
      * errada: as etiquetas dizem de que campanha a lead veio, não o que já
      * lhe mandámos. Corrigido a 05/08/2026, por indicação do dono.
      *
-     * Conta LEADS DISTINTAS, não propostas: a mesma pessoa pode ter recebido
-     * três documentos do mesmo empreendimento e continua a ser uma lead.
+     * Conta PROPOSTAS — quantos documentos saíram, não a quantas pessoas.
+     * É a pergunta que se faz antes de um envio: quanto já se mandou daquele
+     * empreendimento. Regra do dono (05/08/2026).
+     *
+     * Devolve a matriz inteira, por COMERCIAL e por empreendimento, para o
+     * ecrã poder actualizar as contagens quando se muda de comercial sem ir
+     * outra vez ao servidor. staff_id 0 é a linha do TOTAL.
      */
     public function get_empreendimentos_propostas()
     {
-        return $this->db->query(
-            'SELECT p.empreendimento AS nome, COUNT(DISTINCT p.lead_id) AS n
+        $linhas = $this->db->query(
+            'SELECT p.empreendimento AS nome, p.staff_id, COUNT(*) AS n
                FROM ' . db_prefix() . 'dps_propostas p
               WHERE p.empreendimento IS NOT NULL AND p.empreendimento <> ""
                 AND p.lead_id > 0
-           GROUP BY p.empreendimento
-           ORDER BY n DESC, p.empreendimento ASC'
+           GROUP BY p.empreendimento, p.staff_id'
         )->result_array();
+
+        $por_comercial = [];
+        $totais        = [];
+
+        foreach ($linhas as $l) {
+            $emp = (string) $l['nome'];
+            $sid = (int) $l['staff_id'];
+            $n   = (int) $l['n'];
+
+            $por_comercial[$sid][$emp] = ($por_comercial[$sid][$emp] ?? 0) + $n;
+            $totais[$emp]              = ($totais[$emp] ?? 0) + $n;
+        }
+
+        arsort($totais);
+
+        return ['totais' => $totais, 'por_comercial' => $por_comercial];
     }
 
     /**
