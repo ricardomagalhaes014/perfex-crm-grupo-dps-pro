@@ -81,8 +81,8 @@ class Dps_automacao extends AdminController
 
         $comercial_id = $this->comercial_do_post();
 
-        $etiqueta = (int) $this->input->post('etiqueta_id');
-        $linhas   = $this->dps_automacao_model->contar_leads($estados, $comercial_id, $canal, $etiqueta);
+        $empreendimento = trim((string) $this->input->post('empreendimento'));
+        $linhas         = $this->dps_automacao_model->contar_leads($estados, $comercial_id, $canal, $empreendimento);
 
         $total        = 0;
         $com_contacto = 0;
@@ -380,8 +380,12 @@ class Dps_automacao extends AdminController
         $data['estados']         = $this->dps_automacao_model->get_estados_lead();
         $data['comerciais']      = is_admin() ? $this->dps_automacao_model->get_comerciais() : [];
         $data['automacao_ativa'] = dps_automacao_ativo();
-        // Empreendimento = etiqueta da lead. Ver get_etiquetas_leads().
-        $data['etiquetas']       = $this->dps_automacao_model->get_etiquetas_leads();
+        /*
+         * Empreendimento = o do documento já enviado à lead, lido de
+         * dps_propostas. NÃO é a etiqueta da lead — essa diz de que campanha
+         * ela veio, não o que já lhe mandámos.
+         */
+        $data['empreendimentos'] = $this->dps_automacao_model->get_empreendimentos_propostas();
         // Cada comercial vê APENAS as suas propostas; o admin vê todas.
         $data['propostas'] = $this->dps_automacao_model->get_propostas(
             is_admin() ? null : (int) get_staff_user_id()
@@ -702,13 +706,13 @@ class Dps_automacao extends AdminController
         $repetir = (int) $this->input->post('repetir') === 1;
 
         /*
-         * O empreendimento é a etiqueta, e viaja em TODOS os lotes.
+         * O empreendimento viaja em TODOS os lotes.
          *
          * O JavaScript volta a enviar o formulário inteiro a cada lote, por
          * isso basta lê-lo aqui — mas se um dia deixar de vir, o filtro cai e
          * o envio alargava-se a leads que não deviam receber. Fica dito.
          */
-        $etiqueta = (int) $this->input->post('etiqueta_id');
+        $empreendimento = trim((string) $this->input->post('empreendimento'));
 
         $leads = $this->dps_automacao_model->get_leads_para_proposta(
             $estados,
@@ -718,7 +722,7 @@ class Dps_automacao extends AdminController
             $last_id,
             self::TAMANHO_LOTE,
             $repetir,
-            $etiqueta
+            $empreendimento
         );
 
         // O PDF é lido/codificado UMA vez por pedido de lote, nunca por lead.

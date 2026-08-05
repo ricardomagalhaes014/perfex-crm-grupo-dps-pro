@@ -99,46 +99,51 @@ class Dps_automacao_model extends App_Model
      * têm o contacto exigido pelo canal. Nada é enviado aqui.
      */
     /**
-     * Etiquetas das leads, com o número de leads em cada uma.
+     * Empreendimentos a que já se enviou proposta ou informação.
      *
-     * O empreendimento não é um campo da lead — vive como ETIQUETA, que é como
-     * as campanhas o marcam desde sempre. Por isso o filtro é por etiqueta, e
-     * oferecem-se todas: quem envia sabe qual é a do empreendimento, e uma
-     * lista adivinhada deixava de fora a etiqueta nova da campanha da semana.
-     * Ordenadas pela mais usada, que é a que se procura.
+     * O empreendimento NÃO é um atributo da lead — é o do documento que lhe
+     * foi enviado, e isso vive em dps_propostas (lead_id + empreendimento).
+     * Uma primeira versão deste filtro usou as etiquetas da lead e estava
+     * errada: as etiquetas dizem de que campanha a lead veio, não o que já
+     * lhe mandámos. Corrigido a 05/08/2026, por indicação do dono.
+     *
+     * Conta LEADS DISTINTAS, não propostas: a mesma pessoa pode ter recebido
+     * três documentos do mesmo empreendimento e continua a ser uma lead.
      */
-    public function get_etiquetas_leads()
+    public function get_empreendimentos_propostas()
     {
         return $this->db->query(
-            'SELECT t.id, t.name, COUNT(tg.rel_id) AS n
-               FROM ' . db_prefix() . 'tags t
-               JOIN ' . db_prefix() . "taggables tg
-                 ON tg.tag_id = t.id AND tg.rel_type = 'lead'
-           GROUP BY t.id
-             HAVING n > 0
-           ORDER BY n DESC, t.name ASC"
+            'SELECT p.empreendimento AS nome, COUNT(DISTINCT p.lead_id) AS n
+               FROM ' . db_prefix() . 'dps_propostas p
+              WHERE p.empreendimento IS NOT NULL AND p.empreendimento <> ""
+                AND p.lead_id > 0
+           GROUP BY p.empreendimento
+           ORDER BY n DESC, p.empreendimento ASC'
         )->result_array();
     }
 
     /**
-     * Condição SQL que restringe a uma etiqueta. Vazio quando não há filtro.
+     * Condição SQL que restringe às leads que já receberam alguma coisa deste
+     * empreendimento. Vazia quando não há filtro.
+     *
      * Escrita uma vez e usada nos três sítios — contagem, teste e envio — para
-     * não haver hipótese de a contagem prometer um número e o envio fazer outro.
+     * não haver hipótese de a contagem prometer um número e o envio fazer
+     * outro.
      */
-    private function sql_etiqueta($tag_id, $alias = 'l')
+    private function sql_empreendimento($nome, $alias = 'l')
     {
-        $tag_id = (int) $tag_id;
+        $nome = trim((string) $nome);
 
-        if ($tag_id <= 0) {
+        if ($nome === '') {
             return '';
         }
 
-        return ' AND EXISTS (SELECT 1 FROM ' . db_prefix() . 'taggables tg'
-             . ' WHERE tg.rel_id = ' . $alias . ".id AND tg.rel_type = 'lead'"
-             . ' AND tg.tag_id = ' . $tag_id . ')';
+        return ' AND EXISTS (SELECT 1 FROM ' . db_prefix() . 'dps_propostas p'
+             . ' WHERE p.lead_id = ' . $alias . '.id'
+             . ' AND p.empreendimento = ' . $this->db->escape($nome) . ')';
     }
 
-    public function contar_leads($estado_ids, $staff_id, $canal, $tag_id = 0)
+    public function contar_leads($estado_ids, $staff_id, $canal, $empreendimento = '')
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
         if (empty($estado_ids)) {
@@ -155,7 +160,7 @@ class Dps_automacao_model extends App_Model
             WHERE l.status IN (' . implode(',', $estado_ids) . ')
               AND l.lost = 0 AND l.junk = 0
               AND l.date_converted IS NULL'
-            . $this->sql_etiqueta($tag_id);
+            . $this->sql_empreendimento($empreendimento);
 
         $binds = [];
         if ($staff_id !== null) {
@@ -227,7 +232,7 @@ class Dps_automacao_model extends App_Model
      *        unidades disponíveis). Desligado por omissão — reenviar sem
      *        querer é irritante para o cliente e queima a marca.
      */
-    public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false, $tag_id = 0)
+    public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false, $empreendimento = '')
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
         if (empty($estado_ids)) {
@@ -265,9 +270,11 @@ class Dps_automacao_model extends App_Model
             ->where('l.date_converted IS NULL', null, false)
             ->where('l.id >', (int) $last_id);
 
-        // Filtro por empreendimento (etiqueta da lead).
-        if ((int) $tag_id > 0) {
-            $this->db->where(ltrim($this->sql_etiqueta($tag_id), ' AND '), null, false);
+        // Filtro por empreendimento — o do documento já enviado à lead.
+        $cond_emp = $this->sql_empreendimento($empreendimento);
+
+        if ($cond_emp !== '') {
+            $this->db->where(ltrim($cond_emp, ' AND '), null, false);
         }
 
         if ($staff_id !== null) {
