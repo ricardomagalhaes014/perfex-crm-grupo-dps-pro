@@ -81,7 +81,8 @@ class Dps_automacao extends AdminController
 
         $comercial_id = $this->comercial_do_post();
 
-        $linhas = $this->dps_automacao_model->contar_leads($estados, $comercial_id, $canal);
+        $etiqueta = (int) $this->input->post('etiqueta_id');
+        $linhas   = $this->dps_automacao_model->contar_leads($estados, $comercial_id, $canal, $etiqueta);
 
         $total        = 0;
         $com_contacto = 0;
@@ -379,6 +380,8 @@ class Dps_automacao extends AdminController
         $data['estados']         = $this->dps_automacao_model->get_estados_lead();
         $data['comerciais']      = is_admin() ? $this->dps_automacao_model->get_comerciais() : [];
         $data['automacao_ativa'] = dps_automacao_ativo();
+        // Empreendimento = etiqueta da lead. Ver get_etiquetas_leads().
+        $data['etiquetas']       = $this->dps_automacao_model->get_etiquetas_leads();
         // Cada comercial vê APENAS as suas propostas; o admin vê todas.
         $data['propostas'] = $this->dps_automacao_model->get_propostas(
             is_admin() ? null : (int) get_staff_user_id()
@@ -698,6 +701,15 @@ class Dps_automacao extends AdminController
         // envio, nunca por omissão.
         $repetir = (int) $this->input->post('repetir') === 1;
 
+        /*
+         * O empreendimento é a etiqueta, e viaja em TODOS os lotes.
+         *
+         * O JavaScript volta a enviar o formulário inteiro a cada lote, por
+         * isso basta lê-lo aqui — mas se um dia deixar de vir, o filtro cai e
+         * o envio alargava-se a leads que não deviam receber. Fica dito.
+         */
+        $etiqueta = (int) $this->input->post('etiqueta_id');
+
         $leads = $this->dps_automacao_model->get_leads_para_proposta(
             $estados,
             $comercial_id,
@@ -705,7 +717,8 @@ class Dps_automacao extends AdminController
             $proposta_id,
             $last_id,
             self::TAMANHO_LOTE,
-            $repetir
+            $repetir,
+            $etiqueta
         );
 
         // O PDF é lido/codificado UMA vez por pedido de lote, nunca por lead.

@@ -98,7 +98,47 @@ class Dps_automacao_model extends App_Model
      * Contagens para o preview: por estado, o total de leads alvo e quantas
      * têm o contacto exigido pelo canal. Nada é enviado aqui.
      */
-    public function contar_leads($estado_ids, $staff_id, $canal)
+    /**
+     * Etiquetas das leads, com o número de leads em cada uma.
+     *
+     * O empreendimento não é um campo da lead — vive como ETIQUETA, que é como
+     * as campanhas o marcam desde sempre. Por isso o filtro é por etiqueta, e
+     * oferecem-se todas: quem envia sabe qual é a do empreendimento, e uma
+     * lista adivinhada deixava de fora a etiqueta nova da campanha da semana.
+     * Ordenadas pela mais usada, que é a que se procura.
+     */
+    public function get_etiquetas_leads()
+    {
+        return $this->db->query(
+            'SELECT t.id, t.name, COUNT(tg.rel_id) AS n
+               FROM ' . db_prefix() . 'tags t
+               JOIN ' . db_prefix() . "taggables tg
+                 ON tg.tag_id = t.id AND tg.rel_type = 'lead'
+           GROUP BY t.id
+             HAVING n > 0
+           ORDER BY n DESC, t.name ASC"
+        )->result_array();
+    }
+
+    /**
+     * Condição SQL que restringe a uma etiqueta. Vazio quando não há filtro.
+     * Escrita uma vez e usada nos três sítios — contagem, teste e envio — para
+     * não haver hipótese de a contagem prometer um número e o envio fazer outro.
+     */
+    private function sql_etiqueta($tag_id, $alias = 'l')
+    {
+        $tag_id = (int) $tag_id;
+
+        if ($tag_id <= 0) {
+            return '';
+        }
+
+        return ' AND EXISTS (SELECT 1 FROM ' . db_prefix() . 'taggables tg'
+             . ' WHERE tg.rel_id = ' . $alias . ".id AND tg.rel_type = 'lead'"
+             . ' AND tg.tag_id = ' . $tag_id . ')';
+    }
+
+    public function contar_leads($estado_ids, $staff_id, $canal, $tag_id = 0)
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
         if (empty($estado_ids)) {
@@ -114,7 +154,8 @@ class Dps_automacao_model extends App_Model
             LEFT JOIN `' . db_prefix() . 'leads_status` st ON st.id = l.status
             WHERE l.status IN (' . implode(',', $estado_ids) . ')
               AND l.lost = 0 AND l.junk = 0
-              AND l.date_converted IS NULL';
+              AND l.date_converted IS NULL'
+            . $this->sql_etiqueta($tag_id);
 
         $binds = [];
         if ($staff_id !== null) {
@@ -186,7 +227,7 @@ class Dps_automacao_model extends App_Model
      *        unidades disponíveis). Desligado por omissão — reenviar sem
      *        querer é irritante para o cliente e queima a marca.
      */
-    public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false)
+    public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false, $tag_id = 0)
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
         if (empty($estado_ids)) {
@@ -223,6 +264,11 @@ class Dps_automacao_model extends App_Model
             // Mesma regra do envio em massa: clientes já convertidos ficam fora.
             ->where('l.date_converted IS NULL', null, false)
             ->where('l.id >', (int) $last_id);
+
+        // Filtro por empreendimento (etiqueta da lead).
+        if ((int) $tag_id > 0) {
+            $this->db->where(ltrim($this->sql_etiqueta($tag_id), ' AND '), null, false);
+        }
 
         if ($staff_id !== null) {
             $this->db->where('l.assigned', (int) $staff_id);

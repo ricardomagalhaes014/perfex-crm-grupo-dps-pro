@@ -115,6 +115,42 @@
                             <?php } ?>
                         </div>
 
+                        <?php
+                        /*
+                         * EMPREENDIMENTO = ETIQUETA DA LEAD.
+                         *
+                         * A lead não tem campo de empreendimento; é pelas
+                         * etiquetas que as campanhas o marcam desde sempre
+                         * (Boavista Towers, Belo Horizonte, Aura...). Por isso
+                         * o filtro é por etiqueta, e oferecem-se TODAS as que
+                         * estejam em uso, com a contagem à frente — uma lista
+                         * adivinhada deixava de fora a etiqueta nova da
+                         * campanha da semana.
+                         *
+                         * Vazio = todos os empreendimentos, que é como
+                         * funcionava até aqui. Pedido do dono (05/08/2026).
+                         */
+                        ?>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="etiqueta_id">Empreendimento</label>
+                                    <select name="etiqueta_id" id="etiqueta_id" class="form-control selectpicker"
+                                            data-live-search="true">
+                                        <option value="0">Todos os empreendimentos</option>
+                                        <?php foreach (($etiquetas ?? []) as $et) { ?>
+                                            <option value="<?php echo (int) $et['id']; ?>">
+                                                <?php echo html_escape($et['name']); ?> (<?php echo (int) $et['n']; ?>)
+                                            </option>
+                                        <?php } ?>
+                                    </select>
+                                    <small class="text-muted">
+                                        Pela etiqueta da lead. Deixe em "Todos" para não filtrar por empreendimento.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -307,7 +343,7 @@ $(function () {
     // Mudar o alvo ou o canal invalida a contagem mostrada — limpa-se o que
     // está no ecrã, mas o botão de enviar continua utilizável: ele recalcula
     // sempre antes de disparar.
-    $('input[name="canal"], input[name="proposta_id"], #estados, #comercial_id').on('change', function () {
+    $('input[name="canal"], input[name="proposta_id"], #estados, #comercial_id, #etiqueta_id').on('change', function () {
         limparAvisos();
     });
 
