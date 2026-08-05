@@ -1284,17 +1284,17 @@ class Dps_automacao extends AdminController
         );
 
         /*
-         * TECTO DE 80 POR ENVIO — é o máximo que o fornecedor de email aceita.
+         * TECTO DE 100 POR ENVIO — é o máximo que o fornecedor de email aceita.
          *
          * O que passa disso não se perde nem se manda à força: fica em fila,
-         * agendado de 24 em 24 horas, 80 por dia, até acabar. Mandar tudo e ver
+         * agendado de 24 em 24 horas, 100 por dia, até acabar. Mandar tudo e ver
          * o que passa queima a reputação da caixa e faz o fornecedor recusar o
          * lote inteiro, não só o excedente.
          *
          * Quem envia é sempre o utilizador com sessão aberta: é a caixa dele
          * que sai no remetente e o WhatsApp dele que vai no botão do email.
          */
-        $por_lote = 80;
+        $por_lote = 100;
         $eu       = (int) get_staff_user_id();
 
         // Um só identificador para o envio inteiro: os que saem hoje e os que
@@ -1306,13 +1306,13 @@ class Dps_automacao extends AdminController
          * TUDO vai para a fila, incluindo o primeiro lote — que fica marcado
          * para sair já e é levado pelo cron nos minutos seguintes.
          *
-         * Antes os primeiros 80 saíam aqui dentro, um a um, com o browser à
+         * Antes os primeiros 100 saíam aqui dentro, um a um, com o browser à
          * espera. Oitenta emails levam minutos; a ligação caía antes do fim e
          * o comercial via "Erro de comunicação" num envio que tinha corrido
          * bem. Pior: não sabia se havia de repetir, e repetir escrevia duas
          * vezes às mesmas pessoas.
          *
-         * O ritmo não muda — continua a ser 80 por dia, que é o que o
+         * O ritmo não muda — continua a ser 100 por dia, que é o que o
          * fornecedor de email deixa passar.
          */
         $agendados = $this->dps_automacao_model->agendar_envio_tarefa(

@@ -9,7 +9,7 @@
                 <small class="text-muted">
                     Escreve a toda a gente que tem tarefas num determinado estado. O email sai
                     pela sua caixa de email, e leva no fim um botão para o seu WhatsApp.
-                    Máximo de <strong>80 por dia</strong>: o que passar disso fica agendado
+                    Máximo de <strong>100 por dia</strong>: o que passar disso fica agendado
                     e sai sozinho nos dias seguintes.
                 </small>
             </div>
@@ -141,7 +141,7 @@
     var CSRF = { nome: '<?php echo $this->security->get_csrf_token_name(); ?>',
                  hash: '<?php echo $this->security->get_csrf_hash(); ?>' };
     var BASE = '<?php echo admin_url('dps_automacao/'); ?>';
-    var LOTE = 80;   // tecto do fornecedor de email, por envio
+    var LOTE = 100;   // tecto do fornecedor de email, por envio
 
     function estados() {
         return Array.prototype.slice.call(document.querySelectorAll('.dps-estado:checked'))

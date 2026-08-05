@@ -418,7 +418,7 @@ function dps_automacao_cron_followups($manualmente = null)
 /**
  * Fila do Envio Massa Tarefa.
  *
- * O fornecedor de email não deixa passar mais de 80 mensagens por envio. Um
+ * O fornecedor de email não deixa passar mais de 100 mensagens por envio. Um
  * estado com 1.756 destinatários não cabe num disparo: manda-se o primeiro
  * lote e o resto fica aqui, agendado de 24 em 24 horas, até acabar.
  *
@@ -456,7 +456,7 @@ function dps_automacao_criar_fila_tarefa()
 hooks()->add_action('admin_init', 'dps_automacao_criar_fila_tarefa');
 
 /**
- * Despacha a fila do Envio Massa Tarefa: 80 por corrida, o tecto do fornecedor.
+ * Despacha a fila do Envio Massa Tarefa: 100 por corrida, o tecto do fornecedor.
  *
  * Corre no cron do Perfex. Cada linha guarda o seu próprio texto e o seu
  * próprio remetente, por isso um lote continua a sair como foi aprovado
@@ -467,7 +467,7 @@ function dps_automacao_fila_tarefa_cron()
     $CI = &get_instance();
     $CI->load->model('dps_automacao/dps_automacao_model');
 
-    $linhas = $CI->dps_automacao_model->fila_tarefa_por_enviar(80);
+    $linhas = $CI->dps_automacao_model->fila_tarefa_por_enviar(100);
     if (empty($linhas)) {
         return;
     }
@@ -531,11 +531,16 @@ hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
 /*
  * Tecto de envios por DIA e por caixa de correio.
  *
- * 90 e não 100: a Hostinger corta perto dos 100 e convém margem para os avisos
- * e emails avulsos que saem pela mesma caixa fora do módulo.
+ * 100 desde 05/08/2026: o dono subiu o limite das caixas de toda a gente e
+ * pediu o mesmo tecto em todo o lado. Era 90 — dez de margem para os avisos e
+ * emails avulsos que saem pela mesma caixa fora do módulo.
+ *
+ * Se voltarem a aparecer falhas de SMTP ao fim do dia, é aqui que se baixa:
+ * este número é o travão, e a razão de existir é não descobrir o limite do
+ * fornecedor com meia campanha por entregar.
  * Ver dps_automacao_quota_restante().
  */
-defined('DPS_AUTOMACAO_LIMITE_DIA') || define('DPS_AUTOMACAO_LIMITE_DIA', 90);
+defined('DPS_AUTOMACAO_LIMITE_DIA') || define('DPS_AUTOMACAO_LIMITE_DIA', 100);
 
 defined('DPS_AUTOMACAO_TAREFA_NAO_INICIADA') || define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
 defined('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO') || define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);

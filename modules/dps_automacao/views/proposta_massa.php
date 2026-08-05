@@ -142,15 +142,17 @@
                                             data-matriz="<?php echo html_escape(json_encode($emp_matriz, JSON_UNESCAPED_UNICODE)); ?>"
                                             data-totais="<?php echo html_escape(json_encode($emp_totais, JSON_UNESCAPED_UNICODE)); ?>">
                                         <option value="">Todos os empreendimentos</option>
-                                        <?php foreach ($emp_totais as $nome => $n) { ?>
+                                        <?php foreach ($emp_totais as $nome => $x) { ?>
                                             <option value="<?php echo html_escape($nome); ?>"
                                                     data-nome="<?php echo html_escape($nome); ?>">
-                                                <?php echo html_escape($nome); ?> (<?php echo (int) $n; ?> propostas)
+                                                <?php echo html_escape($nome); ?>
+                                                (<?php echo (int) $x['propostas']; ?> propostas a <?php echo (int) $x['leads']; ?> leads)
                                             </option>
                                         <?php } ?>
                                     </select>
                                     <small class="text-muted" id="emp-nota">
-                                        Propostas já enviadas de cada empreendimento. Escolha um comercial para ver só as dele.
+                                        Propostas já enviadas de cada empreendimento. O envio vai às LEADS —
+                                        a mesma pessoa pode ter recebido vários documentos.
                                     </small>
                                 </div>
                             </div>
@@ -371,13 +373,19 @@ $(function () {
         $sel.find('option').each(function () {
             var nome = $(this).data('nome');
             if (!nome) { return; }
-            var n = fonte[nome] || 0;
-            $(this).text(nome + ' (' + n + ' proposta' + (n === 1 ? '' : 's') + ')');
+            var x = fonte[nome] || { propostas: 0, leads: 0 };
+            $(this).text(nome + ' (' + x.propostas + ' proposta' + (x.propostas === 1 ? '' : 's')
+                       + ' a ' + x.leads + ' lead' + (x.leads === 1 ? '' : 's') + ')');
         });
 
+        /*
+         * Os dois números dizem coisas diferentes e é preciso que se veja:
+         * as propostas são documentos, as leads são pessoas. O envio vai às
+         * pessoas — é sempre o segundo número que conta.
+         */
         $('#emp-nota').text(quem > 0
-            ? 'Propostas enviadas por este comercial, por empreendimento.'
-            : 'Propostas já enviadas de cada empreendimento. Escolha um comercial para ver só as dele.');
+            ? 'Propostas enviadas por este comercial. O envio vai às LEADS — o segundo número.'
+            : 'Propostas já enviadas de cada empreendimento. O envio vai às LEADS — o segundo número.');
 
         if ($.fn.selectpicker) { $sel.selectpicker('refresh'); }
     }

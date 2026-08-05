@@ -117,8 +117,22 @@ class Dps_automacao_model extends App_Model
      */
     public function get_empreendimentos_propostas()
     {
+        /*
+         * DOIS números, não um: propostas e leads.
+         *
+         * Uma proposta não é uma pessoa — a Cátia enviou 114 propostas de
+         * Boavista Towers a 56 leads. Mostrando só as propostas, o ecrã
+         * prometia 114 e o envio chegava a 56, e isso lê-se como uma
+         * limitação do sistema quando é só a diferença entre documentos e
+         * pessoas. Mostram-se os dois. Corrigido a 05/08/2026.
+         *
+         * As leads contam-se com DISTINCT por comercial e outra vez no total:
+         * somar os distintos de cada comercial daria a mesma pessoa duas
+         * vezes se dois comerciais lhe tivessem enviado.
+         */
         $linhas = $this->db->query(
-            'SELECT p.empreendimento AS nome, p.staff_id, COUNT(*) AS n
+            'SELECT p.empreendimento AS nome, p.staff_id,
+                    COUNT(*) AS propostas, COUNT(DISTINCT p.lead_id) AS leads
                FROM ' . db_prefix() . 'dps_propostas p
               WHERE p.empreendimento IS NOT NULL AND p.empreendimento <> ""
                 AND p.lead_id > 0
@@ -126,18 +140,30 @@ class Dps_automacao_model extends App_Model
         )->result_array();
 
         $por_comercial = [];
-        $totais        = [];
 
         foreach ($linhas as $l) {
-            $emp = (string) $l['nome'];
-            $sid = (int) $l['staff_id'];
-            $n   = (int) $l['n'];
-
-            $por_comercial[$sid][$emp] = ($por_comercial[$sid][$emp] ?? 0) + $n;
-            $totais[$emp]              = ($totais[$emp] ?? 0) + $n;
+            $por_comercial[(int) $l['staff_id']][(string) $l['nome']] = [
+                'propostas' => (int) $l['propostas'],
+                'leads'     => (int) $l['leads'],
+            ];
         }
 
-        arsort($totais);
+        $totais = [];
+
+        foreach ($this->db->query(
+            'SELECT p.empreendimento AS nome,
+                    COUNT(*) AS propostas, COUNT(DISTINCT p.lead_id) AS leads
+               FROM ' . db_prefix() . 'dps_propostas p
+              WHERE p.empreendimento IS NOT NULL AND p.empreendimento <> ""
+                AND p.lead_id > 0
+           GROUP BY p.empreendimento
+           ORDER BY propostas DESC'
+        )->result_array() as $l) {
+            $totais[(string) $l['nome']] = [
+                'propostas' => (int) $l['propostas'],
+                'leads'     => (int) $l['leads'],
+            ];
+        }
 
         return ['totais' => $totais, 'por_comercial' => $por_comercial];
     }
@@ -579,7 +605,7 @@ class Dps_automacao_model extends App_Model
      * texto no ecrã amanhã, os emails que faltam devem sair como foram
      * aprovados hoje, não com outra coisa qualquer.
      */
-    public function agendar_envio_tarefa($destinos, $staff_id, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote = 80, $lote = null)
+    public function agendar_envio_tarefa($destinos, $staff_id, $assunto, $mensagem, $anexo, $anexo_nome, $por_lote = 100, $lote = null)
     {
         if (empty($destinos)) {
             return 0;
@@ -594,8 +620,8 @@ class Dps_automacao_model extends App_Model
         foreach (array_values($destinos) as $i => $d) {
             /*
              * O primeiro lote sai JÁ (fica vencido no instante), os seguintes
-             * um dia por cada 80. Antes o primeiro lote era enviado ali mesmo,
-             * dentro do pedido do browser: 80 emails levam minutos, a ligação
+             * um dia por cada 100. Antes o primeiro lote era enviado ali mesmo,
+             * dentro do pedido do browser: 100 emails levam minutos, a ligação
              * caía e o comercial via "Erro de comunicação" num envio que tinha
              * corrido bem — e ficava sem saber se devia repetir. Agora ninguém
              * espera: o cron leva-os nos minutos seguintes.
@@ -628,7 +654,7 @@ class Dps_automacao_model extends App_Model
     }
 
     /** O que já pode sair: vencido, pendente, e nunca mais de $limite. */
-    public function fila_tarefa_por_enviar($limite = 80)
+    public function fila_tarefa_por_enviar($limite = 100)
     {
         return $this->db
             ->where('estado', 'pendente')
@@ -711,7 +737,7 @@ class Dps_automacao_model extends App_Model
     /**
      * Regista um envio que já saiu (ou falhou) na hora.
      *
-     * Os adiados já ficavam na fila; os primeiros 80 saíam e não deixavam
+     * Os adiados já ficavam na fila; os primeiros 100 saíam e não deixavam
      * rasto nenhum. Sem registo não há como responder a "a quem foi?" nem
      * "porque é que aquele não recebeu?" — e num envio de centenas essa é a
      * primeira pergunta quando alguma coisa corre mal.
