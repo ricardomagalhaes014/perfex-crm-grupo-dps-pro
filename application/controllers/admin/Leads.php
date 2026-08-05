@@ -1342,6 +1342,22 @@ class Leads extends AdminController
                             if (count($update) > 0) {
                                 $this->db->where('id', $id);
                                 $this->db->update(db_prefix() . 'leads', $update);
+
+                                /*
+                                 * DPS: a atribuição em massa escreve directamente
+                                 * na tabela, sem passar pelo Leads_model — logo
+                                 * não dispara o after_lead_updated, e as tarefas
+                                 * da lead ficavam com o dono antigo. Apanhado a
+                                 * 05/08/2026: oito tarefas com o Ricardo depois
+                                 * de as leads passarem para o Breno.
+                                 *
+                                 * Dispara-se aqui o mesmo gancho, só quando o
+                                 * dono muda. A regra é a do dono: quem tem a
+                                 * lead leva a tarefa dessa lead.
+                                 */
+                                if (isset($update['assigned'])) {
+                                    hooks()->do_action('after_lead_updated', $id);
+                                }
                             }
                         }
                         if ($tags) {
