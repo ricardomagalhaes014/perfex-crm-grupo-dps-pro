@@ -116,9 +116,27 @@
                         }
                     }
 
+                    /*
+                     * DUAS CONTAS DIFERENTES, e vale a pena não as confundir.
+                     *
+                     * $topo  — a maior fase. Serve só para DESENHAR: é ela que
+                     *          define a banda mais larga, senão o funil não
+                     *          cabia na folha.
+                     * $soma  — o total de leads no funil todo. É o que vale
+                     *          100%, e é sobre ele que se calcula a
+                     *          percentagem de cada fase.
+                     *
+                     * Antes a percentagem era em relação à maior fase, e por
+                     * isso o "Em contacto" dizia sempre 100% — o que não é uma
+                     * informação, é uma tautologia. Agora 100% é o funil
+                     * inteiro e cada fase diz que fatia dele ocupa. Pedido do
+                     * dono (05/08/2026).
+                     */
                     $topo = 0;
+                    $soma = 0;
                     foreach ($corpo as $ph) {
-                        $topo = max($topo, (int) $ph['total']);
+                        $topo  = max($topo, (int) $ph['total']);
+                        $soma += (int) $ph['total'];
                     }
 
                     $LARG = 720;   // largura útil do desenho
@@ -150,7 +168,7 @@
                                 $y  = $k * $ALT;
                                 $cor = $cores[$k % count($cores)];
                                 $t   = (int) $ph['total'];
-                                $pct = $topo > 0 ? round($t * 100 / $topo) : 0;
+                                $pct = $soma > 0 ? round($t * 100 / $soma, 1) : 0;
                             ?>
                                 <polygon points="<?= $x1; ?>,<?= $y; ?> <?= $x1 + $w; ?>,<?= $y; ?> <?= $x2 + $w2; ?>,<?= $y + $ALT - 4; ?> <?= $x2; ?>,<?= $y + $ALT - 4; ?>"
                                          fill="<?= $cor; ?>" />
@@ -158,10 +176,14 @@
                                       fill="#fff" font-size="15" font-weight="600"><?= e($ph['title']); ?></text>
                                 <text x="<?= $LARG / 2; ?>" y="<?= $y + 52; ?>" text-anchor="middle"
                                       fill="rgba(255,255,255,.9)" font-size="13">
-                                    <?= number_format($t, 0, ',', '.'); ?> leads · <?= $pct; ?>%
+                                    <?= number_format($t, 0, ',', '.'); ?> leads · <?= number_format($pct, 1, ',', '.'); ?>%
                                 </text>
                             <?php } ?>
                         </svg>
+
+                        <div style="margin-top:4px;font-size:12px;color:#5a6879;">
+                            <strong><?= number_format($soma, 0, ',', '.'); ?></strong> leads no funil = 100%
+                        </div>
 
                         <?php if (!empty($fora)) { ?>
                             <div style="margin-top:6px;font-size:12px;color:#7a8798;">
