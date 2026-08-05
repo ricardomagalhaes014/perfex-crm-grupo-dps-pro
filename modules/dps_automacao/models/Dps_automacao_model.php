@@ -166,7 +166,13 @@ class Dps_automacao_model extends App_Model
     public function contar_leads($estado_ids, $staff_id, $canal, $empreendimento = '')
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
-        if (empty($estado_ids)) {
+
+        /*
+         * Sem estados E sem empreendimento não se conta nada — devolver tudo
+         * era pôr toda a base de dados no alvo de um engano. Com
+         * empreendimento, o alvo já está definido e os estados são opcionais.
+         */
+        if (empty($estado_ids) && trim((string) $empreendimento) === '') {
             return [];
         }
 
@@ -177,9 +183,9 @@ class Dps_automacao_model extends App_Model
                 SUM(CASE WHEN ' . $campo_contacto . ' IS NOT NULL AND ' . $campo_contacto . " != '' THEN 1 ELSE 0 END) AS com_contacto
             FROM `" . db_prefix() . 'leads` l
             LEFT JOIN `' . db_prefix() . 'leads_status` st ON st.id = l.status
-            WHERE l.status IN (' . implode(',', $estado_ids) . ')
-              AND l.lost = 0 AND l.junk = 0
+            WHERE l.lost = 0 AND l.junk = 0
               AND l.date_converted IS NULL'
+            . (!empty($estado_ids) ? ' AND l.status IN (' . implode(',', $estado_ids) . ')' : '')
             . $this->sql_empreendimento($empreendimento);
 
         $binds = [];
@@ -255,7 +261,9 @@ class Dps_automacao_model extends App_Model
     public function get_leads_para_proposta($estado_ids, $staff_id, $canal, $proposta_id, $last_id = 0, $limite = 50, $repetir = false, $empreendimento = '')
     {
         $estado_ids = array_values(array_filter(array_map('intval', (array) $estado_ids)));
-        if (empty($estado_ids)) {
+
+        // Mesma guarda da contagem: um dos dois tem de estar preenchido.
+        if (empty($estado_ids) && trim((string) $empreendimento) === '') {
             return [];
         }
 
@@ -283,8 +291,11 @@ class Dps_automacao_model extends App_Model
          * impedir que a MESMA lead apareça duas vezes dentro do mesmo envio.
          * O que se dispensa aqui é só a memória de envios anteriores.
          */
-        $this->db->where_in('l.status', $estado_ids)
-            ->where('l.lost', 0)
+        if (!empty($estado_ids)) {
+            $this->db->where_in('l.status', $estado_ids);
+        }
+
+        $this->db->where('l.lost', 0)
             ->where('l.junk', 0)
             // Mesma regra do envio em massa: clientes já convertidos ficam fora.
             ->where('l.date_converted IS NULL', null, false)

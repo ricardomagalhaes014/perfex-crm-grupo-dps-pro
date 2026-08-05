@@ -159,7 +159,7 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="estados">Estados das leads</label>
+                                    <label for="estados">Estados das leads <small class="text-muted">(opcional)</small></label>
                                     <select name="estados[]" id="estados" class="form-control selectpicker" multiple
                                             data-live-search="true" data-actions-box="true">
                                         <?php foreach ($estados as $estado) { ?>
@@ -168,6 +168,10 @@
                                             </option>
                                         <?php } ?>
                                     </select>
+                                    <small class="text-muted">
+                                        Deixe vazio quando escolher um empreendimento: se a proposta foi
+                                        enviada, a lead já está nesse estado.
+                                    </small>
                                 </div>
                             </div>
 

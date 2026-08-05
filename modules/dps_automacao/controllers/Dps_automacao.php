@@ -74,14 +74,27 @@ class Dps_automacao extends AdminController
             $this->responder_json(['erro' => 'Canal inválido.']);
         }
 
-        $estados = $this->estados_do_post();
-        if (empty($estados)) {
-            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads.']);
+        $estados        = $this->estados_do_post();
+        $empreendimento = trim((string) $this->input->post('empreendimento'));
+
+        /*
+         * O ESTADO deixa de ser obrigatório quando há empreendimento.
+         *
+         * Escolhido um empreendimento, o alvo já está definido: são as leads a
+         * quem foi enviada proposta desse empreendimento — e se lhes foi
+         * enviada, estão nesse estado. Pedir o estado por cima era pedir duas
+         * vezes a mesma coisa, e uma escolha a menos é uma hipótese a menos de
+         * enganar.
+         *
+         * Sem empreendimento continua a ser obrigatório: é o caso do envio de
+         * mensagens em massa, que partilha esta pré-visualização e onde "sem
+         * estado" significaria toda a gente. Regra do dono (05/08/2026).
+         */
+        if (empty($estados) && $empreendimento === '') {
+            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads, ou um empreendimento.']);
         }
 
         $comercial_id = $this->comercial_do_post();
-
-        $empreendimento = trim((string) $this->input->post('empreendimento'));
         $linhas         = $this->dps_automacao_model->contar_leads($estados, $comercial_id, $canal, $empreendimento);
 
         $total        = 0;
@@ -208,9 +221,13 @@ class Dps_automacao extends AdminController
             $this->responder_json(['erro' => 'Não há nenhuma gateway SMS ativa no CRM.']);
         }
 
-        $estados = $this->estados_do_post();
-        if (empty($estados)) {
-            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads.']);
+        $estados        = $this->estados_do_post();
+        $empreendimento = trim((string) $this->input->post('empreendimento'));
+
+        // Mesma regra da pré-visualização: o empreendimento sozinho já define
+        // o alvo. Ver o comentário em envio_massa_preview().
+        if (empty($estados) && $empreendimento === '') {
+            $this->responder_json(['erro' => 'Escolha pelo menos um estado de leads, ou um empreendimento.']);
         }
 
         $mensagem = trim((string) $this->input->post('mensagem'));
@@ -712,8 +729,6 @@ class Dps_automacao extends AdminController
          * isso basta lê-lo aqui — mas se um dia deixar de vir, o filtro cai e
          * o envio alargava-se a leads que não deviam receber. Fica dito.
          */
-        $empreendimento = trim((string) $this->input->post('empreendimento'));
-
         $leads = $this->dps_automacao_model->get_leads_para_proposta(
             $estados,
             $comercial_id,
