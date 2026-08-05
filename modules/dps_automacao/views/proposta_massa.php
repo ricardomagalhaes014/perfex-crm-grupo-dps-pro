@@ -228,7 +228,7 @@
                             <div class="checkbox checkbox-warning">
                                 <input type="checkbox" name="repetir" id="repetir" value="1">
                                 <label for="repetir">
-                                    Enviar também a quem <strong>já recebeu esta proposta</strong>
+                                    Enviar também a quem <strong>já recebeu este mesmo ficheiro</strong>
                                 </label>
                             </div>
                             <small class="text-muted">
@@ -257,8 +257,10 @@
 
                         <p class="text-muted">
                             <i class="fa fa-info-circle"></i>
-                            Leads que já receberam esta mesma proposta são saltadas
+                            Leads que já receberam <strong>este mesmo ficheiro</strong> são saltadas
                             automaticamente — repetir o envio nunca duplica o PDF na mesma lead.
+                            É por ficheiro, e não tem nada a ver com o filtro do empreendimento:
+                            esse escolhe <em>a quem</em> se envia, este evita mandar duas vezes o mesmo.
                         </p>
 
                         <hr>
@@ -383,7 +385,7 @@ $(function () {
     $('#comercial_id').on('change', actualizarContagensEmpreendimento);
     actualizarContagensEmpreendimento();
 
-    $('input[name="canal"], input[name="proposta_id"], #estados, #comercial_id, #empreendimento').on('change', function () {
+    $('input[name="canal"], input[name="proposta_id"], #estados, #comercial_id, #empreendimento, #repetir').on('change', function () {
         limparAvisos();
     });
 
@@ -409,8 +411,22 @@ $(function () {
                 return;
             }
 
+            /*
+             * DUAS COISAS DIFERENTES, e a redacção antiga misturava-as.
+             *
+             * O filtro do EMPREENDIMENTO escolhe quem já recebeu proposta
+             * daquele empreendimento — é o alvo. A desduplicação salta quem já
+             * recebeu ESTE MESMO PDF — é outra coisa, e é por ficheiro.
+             *
+             * Lidas juntas, pareciam contradizer-se: "enviar a quem já recebeu"
+             * e logo a seguir "quem já recebeu é saltado". Agora cada uma diz
+             * ao que vem. Corrigido a 05/08/2026.
+             */
+            var emp = $('#empreendimento').val() || '';
+
             var html = '<strong>' + r.com_contacto + '</strong> lead(s) receberão a proposta';
-            html += ' (' + r.total + ' no total nos estados escolhidos';
+            html += ' (' + r.total + ' no total';
+            html += emp ? ' com proposta de ' + $('<span>').text(emp).html() + ' já enviada' : ' nos estados escolhidos';
             if (r.excluidas > 0) {
                 html += ', <strong>' + r.excluidas + ' excluída(s)</strong> por não terem o contacto necessário ao canal';
             }
@@ -420,7 +436,15 @@ $(function () {
                     + ': ' + e.com_contacto + ' de ' + e.total + '</li>';
             });
             html += '</ul>';
-            html += '<small>Leads que já receberam esta proposta serão saltadas no envio.</small>';
+
+            if ($('#repetir').is(':checked')) {
+                html += '<small>Inclui quem já recebeu <strong>este mesmo ficheiro</strong>.</small>';
+            } else {
+                html += '<small>Quem já recebeu <strong>este mesmo ficheiro</strong> é saltado'
+                      + (emp ? ' — nada a ver com o filtro do empreendimento, que é quem recebeu proposta de '
+                             + $('<span>').text(emp).html() : '')
+                      + '. Para reenviar o mesmo PDF, marque a caixa em baixo.</small>';
+            }
 
             $preview.html(html).show();
             // O botão de enviar não depende disto: ele próprio conta as leads
@@ -525,7 +549,7 @@ $(function () {
             }
 
             if (!confirm('Vai enviar esta proposta a ' + r.com_contacto + ' lead(s). '
-                       + 'As que já a receberam são saltadas. Esta ação não pode ser anulada. Confirma?')) {
+                       + 'As que já receberam este mesmo ficheiro são saltadas. Esta ação não pode ser anulada. Confirma?')) {
                 return;
             }
 
