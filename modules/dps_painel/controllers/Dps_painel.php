@@ -228,6 +228,15 @@ class Dps_painel extends AdminController
         $data['filtros']  = $filtros;
         $data['opcoes']   = $this->m->opcoes_filtros();
         $data['moloni']   = $this->m->moloni_config();
+        /*
+         * Recibos entregues à espera de pagamento — o quadro novo.
+         * Só para quem paga: um comercial não tem nada a fazer com a lista
+         * do que se deve aos outros.
+         */
+        $data['recibos_pagamento'] = dps_painel_is_owner()
+            ? $this->m->recibos_a_pagamento()
+            : [];
+
         $data['so_o_que_sai'] = !dps_painel_is_owner();
         $data['title']    = 'Painel do Negócio';
 

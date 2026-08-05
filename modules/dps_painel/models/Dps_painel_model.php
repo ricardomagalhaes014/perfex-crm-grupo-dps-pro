@@ -95,6 +95,138 @@ class Dps_painel_model extends App_Model
         ];
     }
 
+    /**
+     * RECIBOS À ESPERA DE PAGAMENTO.
+     *
+     * Um comercial (ou o Cláudio, pelo override) entrega o recibo e fica a
+     * aguardar que a direção pague. Até agora esse estado só se via entrando
+     * no quadro de comissões e procurando linha a linha — e o que não se vê
+     * não se paga. Regra do dono (05/08/2026): "o comercial emite recibo, é
+     * por pagar; quando eu pago e valido como pago, é paga".
+     *
+     * Junta as duas origens numa lista só, porque a pergunta é uma: a quem é
+     * que eu devo dinheiro agora.
+     *
+     * @return array linhas prontas a mostrar, mais antigas primeiro
+     */
+    public function recibos_a_pagamento()
+    {
+        $v = db_prefix() . 'simulador_vendas';
+        $s = db_prefix() . 'staff';
+        $d = db_prefix() . 'vendas_docs';
+
+        $linhas = [];
+
+        /* 1) COMERCIAL — recibo entregue, parcela por pagar. */
+        $sql = "SELECT ve.id, ve.empreendimento, ve.unidade, ve.cliente, ve.valor,
+                       ve.comissao_total, ve.cpcv_taxa, ve.escritura_taxa,
+                       ve.cpcv_pago, ve.escritura_paga, ve.comissao_recibo_doc,
+                       ve.staff_id, CONCAT(st.firstname,' ',st.lastname) AS quem,
+                       doc.dateadded AS recibo_em
+                  FROM {$v} ve
+             LEFT JOIN {$s} st ON st.staffid = ve.staff_id
+             LEFT JOIN {$d} doc ON doc.id = ve.comissao_recibo_doc
+                 WHERE ve.estado = 'concluido'
+                   AND ve.pago = 1
+                   AND ve.comissao_recibo_doc IS NOT NULL
+                   AND ve.comissao_recibo_doc > 0";
+
+        foreach ($this->db->query($sql)->result_array() as $r) {
+            $partes = [];
+
+            // Uma linha por parcela por pagar: podem estar em estados diferentes.
+            if ((float) $r['cpcv_taxa'] > 0 && empty($r['cpcv_pago'])) {
+                $partes['cpcv'] = ['CPCV', (float) $r['comissao_total'] * (float) $r['cpcv_taxa'] / 100];
+            }
+            if ((float) $r['escritura_taxa'] > 0 && empty($r['escritura_paga'])) {
+                $partes['escritura'] = ['Escritura', (float) $r['comissao_total'] * (float) $r['escritura_taxa'] / 100];
+            }
+            // Sem repartição definida, a comissão é uma só e vive no slot do CPCV.
+            if (empty($partes) && (float) $r['cpcv_taxa'] <= 0 && (float) $r['escritura_taxa'] <= 0
+                && empty($r['cpcv_pago'])) {
+                $partes['cpcv'] = ['Comissão total', (float) $r['comissao_total']];
+            }
+
+            foreach ($partes as $chave => $parte) {
+                if ($parte[1] <= 0.004) {
+                    continue;
+                }
+
+                $linhas[] = [
+                    'venda_id'    => (int) $r['id'],
+                    'origem'      => 'comercial',
+                    'quem'        => trim((string) $r['quem']) ?: 'Sem comercial',
+                    'staff_id'    => (int) $r['staff_id'],
+                    'empreendimento' => $r['empreendimento'],
+                    'unidade'     => $r['unidade'],
+                    'cliente'     => $r['cliente'],
+                    'parcela'     => $chave,
+                    'etiqueta'    => $parte[0],
+                    'valor'       => round($parte[1], 2),
+                    'doc'         => (int) $r['comissao_recibo_doc'],
+                    'recibo_em'   => $r['recibo_em'],
+                ];
+            }
+        }
+
+        /* 2) DIREÇÃO — override com recibo entregue e por pagar. */
+        $regras = $this->regras_config();
+
+        if ((int) $regras['director_id'] > 0) {
+            $sql = "SELECT ve.id, ve.empreendimento, ve.unidade, ve.cliente, ve.valor,
+                           ve.staff_id, ve.direcao_recibo_doc, doc.dateadded AS recibo_em
+                      FROM {$v} ve
+                 LEFT JOIN {$d} doc ON doc.id = ve.direcao_recibo_doc
+                     WHERE ve.estado = 'concluido'
+                       AND ve.pago = 1
+                       AND ve.direcao_pago = 0
+                       AND ve.direcao_recibo_doc IS NOT NULL
+                       AND ve.direcao_recibo_doc > 0";
+
+            $nome_dir = $this->db->select('firstname, lastname')
+                ->where('staffid', (int) $regras['director_id'])
+                ->get(db_prefix() . 'staff')->row();
+
+            foreach ($this->db->query($sql)->result_array() as $r) {
+                $staff = (int) $r['staff_id'];
+
+                // As mesmas exclusões de sempre: 0% e 100% não geram override.
+                if (in_array($staff, $regras['comerciais_0'], true)
+                    || in_array($staff, $regras['comerciais_100'], true)) {
+                    continue;
+                }
+
+                $valor = round((float) $r['valor'] * $regras['director_pct'] / 100, 2);
+
+                if ($valor <= 0.004) {
+                    continue;
+                }
+
+                $linhas[] = [
+                    'venda_id'    => (int) $r['id'],
+                    'origem'      => 'direcao',
+                    'quem'        => $nome_dir ? trim($nome_dir->firstname . ' ' . $nome_dir->lastname) : 'Direção',
+                    'staff_id'    => (int) $regras['director_id'],
+                    'empreendimento' => $r['empreendimento'],
+                    'unidade'     => $r['unidade'],
+                    'cliente'     => $r['cliente'],
+                    'parcela'     => 'direcao',
+                    'etiqueta'    => 'Direção (' . rtrim(rtrim(number_format($regras['director_pct'], 2, ',', ''), '0'), ',') . '%)',
+                    'valor'       => $valor,
+                    'doc'         => (int) $r['direcao_recibo_doc'],
+                    'recibo_em'   => $r['recibo_em'],
+                ];
+            }
+        }
+
+        // Mais antigos primeiro: quem espera há mais tempo aparece à frente.
+        usort($linhas, function ($a, $b) {
+            return [(string) $a['recibo_em'], $a['venda_id']] <=> [(string) $b['recibo_em'], $b['venda_id']];
+        });
+
+        return $linhas;
+    }
+
     public function regras_save_config($data)
     {
         update_option('dps_painel_director_id', (string) (int) ($data['director_id'] ?? 0));

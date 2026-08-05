@@ -1376,13 +1376,22 @@ class Dps_vendas extends AdminController
             show_404();
         }
 
+        /*
+         * Volta-se ao sítio de onde se veio. O quadro "Recibos a pagamento" do
+         * Painel do Negócio usa esta mesma acção — cair nas Comissões depois de
+         * validar um pagamento fazia perder o sítio na lista.
+         */
+        $voltar = $this->input->post('voltar') === 'painel'
+            ? admin_url('dps_painel')
+            : admin_url('dps_vendas/comissoes');
+
         $parcela   = (string) $this->input->post('parcela', true);
         $data_pag  = (string) $this->input->post('data_pagamento', true);
         $resultado = $this->dps_vendas_model->marcar_parcela_paga((int) $venda_id, $parcela, $data_pag);
 
         if (empty($resultado['ok'])) {
             set_alert('warning', $resultado['erro']);
-            redirect(admin_url('dps_vendas/comissoes'));
+            redirect($voltar);
         }
 
         $etiqueta = Dps_vendas_model::$colunas_parcela[$parcela]['etiqueta'] ?? $parcela;
@@ -1404,7 +1413,7 @@ class Dps_vendas extends AdminController
         );
 
         set_alert('success', 'Parcela ' . $etiqueta . ' marcada como paga.');
-        redirect(admin_url('dps_vendas/comissoes'));
+        redirect($voltar);
     }
 
     /** Desfaz o pagamento de uma parcela — só admin, e só por POST. */

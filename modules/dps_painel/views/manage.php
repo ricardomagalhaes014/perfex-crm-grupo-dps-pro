@@ -926,6 +926,94 @@ $pct    = function ($n) {
             </div>
         </div></div>
 
+        <?php
+        /*
+         * RECIBOS A PAGAMENTO.
+         *
+         * Um comercial (ou o Cláudio, pelo override) entrega o recibo e fica à
+         * espera. Até aqui esse estado só se via entrando no quadro de
+         * comissões e procurando linha a linha — e o que não se vê não se
+         * paga. Aqui está tudo junto, com o recibo à mão e o botão de validar
+         * ao lado. Pedido do dono (05/08/2026).
+         *
+         * As duas origens numa lista só, porque a pergunta é uma: a quem devo
+         * dinheiro agora.
+         */
+        ?>
+        <?php if (!empty($recibos_pagamento)) { ?>
+        <div class="panel_s"><div class="panel-body">
+            <div class="row mbot15">
+                <div class="col-md-8">
+                    <h4 class="no-margin">
+                        <i class="fa fa-file-text-o"></i> Recibos a pagamento
+                        <small class="text-muted">— entregues, à espera que pague</small>
+                    </h4>
+                </div>
+                <div class="col-md-4 text-right">
+                    <h4 class="no-margin text-danger">
+                        <?php echo app_format_money(array_sum(array_column($recibos_pagamento, 'valor')), $moeda); ?>
+                    </h4>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+            <table class="table table-striped">
+                <thead><tr>
+                    <th>Venda</th><th>Empreendimento</th><th>Un.</th><th>Cliente</th>
+                    <th>A quem</th><th>Parcela</th><th>Recibo</th>
+                    <th class="text-right">Valor</th><th></th>
+                </tr></thead>
+                <tbody>
+                <?php foreach ($recibos_pagamento as $r) { ?>
+                    <tr>
+                        <td><a href="<?php echo admin_url('dps_vendas/view/' . (int) $r['venda_id']); ?>">#<?php echo (int) $r['venda_id']; ?></a></td>
+                        <td><?php echo html_escape($r['empreendimento']); ?></td>
+                        <td><?php echo html_escape($r['unidade']); ?></td>
+                        <td><?php echo html_escape($r['cliente']); ?></td>
+                        <td>
+                            <?php echo html_escape($r['quem']); ?>
+                            <?php if ($r['origem'] === 'direcao') { ?>
+                                <br><span class="label label-info" style="font-size:.7em;">direção</span>
+                            <?php } ?>
+                        </td>
+                        <td><?php echo html_escape($r['etiqueta']); ?></td>
+                        <td>
+                            <a href="<?php echo admin_url('dps_vendas/download_doc/' . (int) $r['doc']); ?>"
+                               class="btn btn-default btn-xs" title="Abrir o recibo">
+                                <i class="fa fa-file-pdf-o"></i> ver
+                            </a>
+                            <?php if (!empty($r['recibo_em'])) { ?>
+                                <br><small class="text-muted"><?php echo _d($r['recibo_em']); ?></small>
+                            <?php } ?>
+                        </td>
+                        <td class="text-right"><strong><?php echo app_format_money($r['valor'], $moeda); ?></strong></td>
+                        <td class="text-right" style="white-space:nowrap;">
+                            <?php
+                            /*
+                             * Valida-se AQUI, sem sair do painel. Vai ao mesmo
+                             * sítio que o quadro de comissões usa, para não
+                             * haver duas maneiras de pagar a mesma parcela.
+                             */
+                            echo form_open(admin_url('dps_vendas/marcar_parcela_paga/' . (int) $r['venda_id']),
+                                ['style' => 'margin:0;display:flex;gap:4px;align-items:center;justify-content:flex-end;']); ?>
+                                <input type="hidden" name="parcela" value="<?php echo html_escape($r['parcela']); ?>">
+                                <input type="hidden" name="voltar" value="painel">
+                                <input type="date" name="data_pagamento" value="<?php echo date('Y-m-d'); ?>"
+                                       class="form-control input-sm" style="width:135px;padding:2px 5px;height:auto;">
+                                <button type="submit" class="btn btn-success btn-xs"
+                                        onclick="return confirm('Validar como PAGA a parcela <?php echo html_escape($r['etiqueta']); ?> da venda #<?php echo (int) $r['venda_id']; ?>, a <?php echo html_escape($r['quem']); ?>?');">
+                                    Validar pago
+                                </button>
+                            <?php echo form_close(); ?>
+                        </td>
+                    </tr>
+                <?php } ?>
+                </tbody>
+            </table>
+            </div>
+        </div></div>
+        <?php } ?>
+
         <!-- Vendas -->
         <div class="panel_s"><div class="panel-body">
             <div class="row mbot15">
