@@ -59,10 +59,31 @@ class Dps_funil extends AdminController
             $comercial = get_staff_user_id(); // não-admin: só as suas
         }
 
-        // Filtro inicial por fonte da lead.
-        $fonte  = (int) $this->input->get('fonte');
+        /*
+         * Filtro por fonte da lead. Abre na IMO PORTUGAL, não em "todas".
+         *
+         * O negócio é esse; as outras fontes são residuais e, misturadas,
+         * empurravam os números do funil para cima sem que se percebesse
+         * porquê. Quem quiser tudo escolhe "Todas as fontes" — e essa escolha
+         * vale, porque o selector envia fonte=0 explicitamente. É só a
+         * AUSÊNCIA do parâmetro, ou seja a primeira visita, que cai na IMO.
+         * Pedido do dono (05/08/2026).
+         */
         $fontes = $this->db->select('id, name')->order_by('name')
             ->get(db_prefix() . 'leads_sources')->result_array();
+
+        if ($this->input->get('fonte') === null) {
+            $fonte = 0;
+
+            foreach ($fontes as $f) {
+                if (stripos($f['name'], 'imo portugal') !== false) {
+                    $fonte = (int) $f['id'];
+                    break;
+                }
+            }
+        } else {
+            $fonte = (int) $this->input->get('fonte');
+        }
 
         // Lista de comerciais (com leads atribuídas) para o dropdown.
         $comerciais = [];

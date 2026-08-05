@@ -30,13 +30,24 @@ $eq_leads = [];   // comercial => [estado => n]
 $eq_leads_estados = [];
 $eq_leads_cores   = [];
 
+/*
+ * SÓ A IMO PORTUGAL, por omissão — a mesma regra do funil e do quadro pessoal.
+ * As outras fontes são residuais e, misturadas, inflacionavam a contagem sem
+ * que se percebesse de onde vinha. Pedido do dono (05/08/2026).
+ */
+$eq_fonte_imo = (int) ($CI->db->query(
+    "SELECT id FROM {$p}leads_sources WHERE name LIKE '%Imo Portugal%' LIMIT 1"
+)->row('id') ?? 0);
+
+$eq_filtro_fonte = $eq_fonte_imo > 0 ? ' AND l.source = ' . $eq_fonte_imo : '';
+
 foreach ($CI->db->query(
     "SELECT CONCAT(s.firstname,' ',s.lastname) AS com, ls.name AS estado, ls.color,
             ls.statusorder, COUNT(*) AS n
      FROM {$p}leads l
      JOIN {$p}staff s ON s.staffid = l.assigned
      LEFT JOIN {$p}leads_status ls ON ls.id = l.status
-     WHERE l.assigned > 0
+     WHERE l.assigned > 0 {$eq_filtro_fonte}
      GROUP BY s.staffid, ls.id
      ORDER BY ls.statusorder"
 )->result_array() as $r) {
@@ -173,7 +184,7 @@ $eq_dados = [
                     </p>
                     <hr class="-tw-mx-3 tw-mt-3 tw-mb-4">
 
-                    <p class="text-muted bold mbot5">Leads por estado</p>
+                    <p class="text-muted bold mbot5">Leads por estado <small class="text-muted">— IMO Portugal</small></p>
                     <div style="height:<?php echo max(240, 40 + count($g_leads['labels']) * 34); ?>px">
                         <canvas id="dps_eq_leads"></canvas>
                     </div>

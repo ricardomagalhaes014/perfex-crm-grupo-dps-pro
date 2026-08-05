@@ -35,11 +35,26 @@ if ($CI->db->table_exists($p . 'dps_propostas')) {
 }
 
 /* 2. Leads por estado */
+
+/*
+ * SÓ A IMO PORTUGAL, por omissão.
+ *
+ * É o negócio; as outras fontes são residuais e, misturadas, inflacionavam a
+ * contagem sem que se percebesse de onde vinha. Se a fonte não existir com
+ * esse nome, conta-se tudo — mais vale um número a mais do que um gráfico
+ * vazio. Pedido do dono (05/08/2026).
+ */
+$fonte_imo = (int) ($CI->db->query(
+    "SELECT id FROM {$p}leads_sources WHERE name LIKE '%Imo Portugal%' LIMIT 1"
+)->row('id') ?? 0);
+
+$filtro_fonte = $fonte_imo > 0 ? ' AND l.source = ' . $fonte_imo : '';
+
 $leads_labels = $leads_data = $leads_cores = [];
 $rows = $CI->db->query(
     "SELECT ls.name, ls.color, COUNT(l.id) c
      FROM {$p}leads l JOIN {$p}leads_status ls ON ls.id = l.status
-     WHERE l.assigned = ? GROUP BY ls.id ORDER BY ls.statusorder",
+     WHERE l.assigned = ? {$filtro_fonte} GROUP BY ls.id ORDER BY ls.statusorder",
     [$staff_id]
 )->result_array();
 foreach ($rows as $r) {
@@ -163,7 +178,7 @@ $dps_charts = [
                     <div style="height:300px"><canvas id="dps_g_propostas"></canvas></div>
                     <hr class="tw-my-4">
 
-                    <p class="text-muted bold mbot5">Leads por estado</p>
+                    <p class="text-muted bold mbot5">Leads por estado <small class="text-muted">— IMO Portugal</small></p>
                     <div style="height:<?php echo max(300, 40 + count($leads_labels) * 32); ?>px"><canvas id="dps_g_leads"></canvas></div>
                     <hr class="tw-my-4">
 
