@@ -55,6 +55,120 @@ function dps_teams_init_menu_items()
 // controller Leads.php (add_note) e Misc.php (edit_note).
 // Este hook serve como fallback para outros módulos que possam criar notas.
 hooks()->add_action('note_created', 'dps_teams_note_as_lead_activity', 10, 2);
+
+/*
+ * A TAREFA SEGUE O DONO DA LEAD.
+ *
+ * Não pode haver a lead de um lado e a tarefa dessa lead do outro: dois
+ * comerciais a trabalhar a mesma pessoa sem saberem um do outro, e nenhum
+ * deles a ver o trabalho já feito. Manda a lead — quem a tem, leva a tarefa.
+ * Regra do dono (05/08/2026).
+ *
+ * Dois momentos, porque o desalinhamento pode nascer de qualquer um dos lados:
+ *   - tarefa criada numa lead   -> nasce já com o dono da lead;
+ *   - lead muda de dono         -> as tarefas abertas dela vão atrás.
+ */
+hooks()->add_action('after_add_task', 'dps_teams_tarefa_segue_lead');
+hooks()->add_action('after_lead_updated', 'dps_teams_tarefas_seguem_a_lead');
+
+if (!function_exists('dps_teams_dono_da_lead')) {
+    function dps_teams_dono_da_lead($lead_id)
+    {
+        $CI = &get_instance();
+
+        $lead = $CI->db->select('assigned')->where('id', (int) $lead_id)
+            ->get(db_prefix() . 'leads')->row();
+
+        return $lead ? (int) $lead->assigned : 0;
+    }
+}
+
+if (!function_exists('dps_teams_atribuir_tarefa')) {
+    /**
+     * Põe a tarefa nas mãos de quem tem a lead, e só nas dele.
+     *
+     * Substitui os atribuídos em vez de acrescentar: uma tarefa com dois donos
+     * é uma tarefa sem dono nenhum, e foi por aí que isto se desalinhou.
+     *
+     * @return bool se mudou alguma coisa
+     */
+    function dps_teams_atribuir_tarefa($task_id, $staff_id)
+    {
+        $CI = &get_instance();
+
+        $task_id  = (int) $task_id;
+        $staff_id = (int) $staff_id;
+
+        if ($task_id <= 0 || $staff_id <= 0) {
+            return false;
+        }
+
+        $actuais = $CI->db->select('staffid')->where('taskid', $task_id)
+            ->get(db_prefix() . 'task_assigned')->result_array();
+
+        $ids = array_map('intval', array_column($actuais, 'staffid'));
+
+        if ($ids === [$staff_id]) {
+            return false;   // já está como deve ser
+        }
+
+        $CI->db->where('taskid', $task_id)->delete(db_prefix() . 'task_assigned');
+        $CI->db->insert(db_prefix() . 'task_assigned', [
+            'taskid'     => $task_id,
+            'staffid'    => $staff_id,
+            'assigned_from' => $staff_id,
+        ]);
+
+        return true;
+    }
+}
+
+if (!function_exists('dps_teams_tarefa_segue_lead')) {
+    function dps_teams_tarefa_segue_lead($task_id)
+    {
+        $CI = &get_instance();
+
+        $t = $CI->db->select('rel_type, rel_id')->where('id', (int) $task_id)
+            ->get(db_prefix() . 'tasks')->row();
+
+        if (!$t || $t->rel_type !== 'lead' || (int) $t->rel_id <= 0) {
+            return;
+        }
+
+        $dono = dps_teams_dono_da_lead($t->rel_id);
+
+        if ($dono > 0) {
+            dps_teams_atribuir_tarefa($task_id, $dono);
+        }
+    }
+}
+
+if (!function_exists('dps_teams_tarefas_seguem_a_lead')) {
+    function dps_teams_tarefas_seguem_a_lead($lead_id)
+    {
+        $CI = &get_instance();
+
+        $dono = dps_teams_dono_da_lead($lead_id);
+
+        if ($dono <= 0) {
+            return;
+        }
+
+        /*
+         * Só as tarefas por fechar. Uma tarefa concluída é história de quem a
+         * fez — reescrever-lhe o dono apagava o registo de quem trabalhou.
+         */
+        $tarefas = $CI->db->select('id')
+            ->where('rel_type', 'lead')
+            ->where('rel_id', (int) $lead_id)
+            ->where('status !=', 5)
+            ->get(db_prefix() . 'tasks')->result_array();
+
+        foreach ($tarefas as $t) {
+            dps_teams_atribuir_tarefa($t['id'], $dono);
+        }
+    }
+}
 function dps_teams_note_as_lead_activity($note_id, $note_data)
 {
     // Só processar notas de leads
