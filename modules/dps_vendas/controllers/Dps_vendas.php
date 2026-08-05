@@ -1778,8 +1778,34 @@ class Dps_vendas extends AdminController
                 // pagar em parcelas um valor diferente da comissão da venda.
                 set_alert('danger', $erro_taxas);
             } else {
-                $this->dps_vendas_model->guardar_regra($post, $id);
-                set_alert('success', 'Regra guardada.');
+                $regra_id = $this->dps_vendas_model->guardar_regra($post, $id);
+
+                /*
+                 * Alterar a regra tem de alterar em todo o lado: as vendas
+                 * guardam um retrato das taxas e ficavam com a repartição
+                 * velha até alguém as editar à mão. Só se reescrevem as que
+                 * ainda não têm nada pago — ver reaplicar_regra_as_vendas().
+                 */
+                $regra  = $this->dps_vendas_model->get_regra($post['empreendimento']);
+                $efeito = $regra
+                    ? $this->dps_vendas_model->reaplicar_regra_as_vendas($regra)
+                    : ['alteradas' => [], 'ignoradas' => []];
+
+                $msg = 'Regra guardada.';
+                if (count($efeito['alteradas'])) {
+                    $msg .= ' ' . count($efeito['alteradas'])
+                        . (count($efeito['alteradas']) === 1
+                            ? ' venda actualizada com a nova taxa.'
+                            : ' vendas actualizadas com a nova taxa.');
+                }
+                if (count($efeito['ignoradas'])) {
+                    $msg .= ' ' . count($efeito['ignoradas'])
+                        . (count($efeito['ignoradas']) === 1
+                            ? ' venda ficou com a taxa antiga por já ter comissão paga.'
+                            : ' vendas ficaram com a taxa antiga por já terem comissão paga.');
+                }
+
+                set_alert(count($efeito['ignoradas']) ? 'warning' : 'success', $msg);
             }
 
             redirect(admin_url('dps_vendas/regras'));

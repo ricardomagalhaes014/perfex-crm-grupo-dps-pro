@@ -130,8 +130,10 @@ class Dps_vendas_model extends App_Model
             'created_by'       => get_staff_user_id(),
         ];
 
-        // A taxa vem da regra do empreendimento, mas fica gravada na venda como
-        // snapshot: mudar a regra amanhã não deve reescrever vendas de hoje.
+        // A taxa vem da regra do empreendimento e fica gravada na venda como
+        // snapshot, para o mapa não depender da regra a cada leitura. Quem
+        // alterar a regra mais tarde reescreve estas colunas nas vendas ainda
+        // não pagas — ver reaplicar_regra_as_vendas().
         $regra = $this->get_regra($venda['empreendimento']);
         if ($regra) {
             $venda['taxa']           = $regra['taxa'];
@@ -1629,6 +1631,103 @@ class Dps_vendas_model extends App_Model
         $this->db->where('id', $id)->delete($this->tabela_regras());
 
         return $this->db->affected_rows() > 0;
+    }
+
+    /**
+     * Reescreve nas vendas as taxas que a regra acabou de passar a ditar.
+     *
+     * Cada venda guarda um retrato das taxas (ver snapshot_taxas) para não
+     * depender da regra a cada leitura. O efeito colateral era este: a direção
+     * corrigia a regra do Aura e o mapa continuava a mostrar a repartição
+     * velha, porque a venda tinha a antiga escrita nas suas colunas. Pedido do
+     * dono (05/08/2026): "quando altero a regra tem de alterar em todo lado".
+     *
+     * O que NÃO se toca, e é de propósito:
+     *   - vendas canceladas (histórico morto);
+     *   - comissões já marcadas como recebidas;
+     *   - vendas com uma parcela já paga (ao comercial ou à direção) — mexer
+     *     na taxa depois de pagar reabria uma comissão liquidada.
+     * Essas ficam com a taxa que tinham no momento em que se pagou, e são
+     * devolvidas na lista de ignoradas para quem guarda a regra saber que
+     * existem.
+     *
+     * @return array ['alteradas' => [...], 'ignoradas' => [...]]
+     */
+    public function reaplicar_regra_as_vendas($regra)
+    {
+        $resultado = ['alteradas' => [], 'ignoradas' => []];
+
+        if (empty($regra['empreendimento'])) {
+            return $resultado;
+        }
+
+        $vendas = $this->db
+            ->where('LOWER(TRIM(empreendimento))', strtolower(trim($regra['empreendimento'])))
+            ->get($this->tabela_vendas())
+            ->result_array();
+
+        foreach ($vendas as $venda) {
+            if ($venda['estado'] === 'cancelado') {
+                continue;
+            }
+
+            $pago = $venda['comissao_estado'] === 'recebida'
+                || !empty($venda['cpcv_pago'])
+                || !empty($venda['escritura_paga'])
+                || !empty($venda['direcao_pago']);
+
+            if ($pago) {
+                $resultado['ignoradas'][] = $venda;
+                continue;
+            }
+
+            // calcular_comissao() lê as taxas da venda; damos-lhe as da regra
+            // para saber com que números é que ela vai ficar.
+            $futura = $venda;
+            $futura['taxa']           = (float) $regra['taxa'];
+            $futura['cpcv_taxa']      = $regra['cpcv_taxa'] !== null ? (float) $regra['cpcv_taxa'] : 0;
+            $futura['escritura_taxa'] = $regra['escritura_taxa'] !== null ? (float) $regra['escritura_taxa'] : 0;
+
+            $calculo = $this->calcular_comissao($futura);
+
+            $novo = [
+                'taxa'           => $calculo['taxa'],
+                'cpcv_taxa'      => $calculo['cpcv_taxa'],
+                'escritura_taxa' => $calculo['escritura_taxa'],
+                'comissao_total' => $calculo['valor'],
+            ];
+
+            $mudou = false;
+            foreach ($novo as $coluna => $valor_novo) {
+                if (abs((float) ($venda[$coluna] ?? 0) - (float) $valor_novo) > 0.0001) {
+                    $mudou = true;
+                    break;
+                }
+            }
+
+            if (!$mudou) {
+                continue;
+            }
+
+            $this->db->where('id', $venda['id']);
+            $this->db->update($this->tabela_vendas(), $novo);
+
+            $this->registar_historico(
+                $venda['id'],
+                null,
+                $venda['estado'],
+                'Regra de comissão alterada: taxa ' . rtrim(rtrim(number_format((float) $venda['taxa'], 2, ',', '.'), '0'), ',')
+                    . '% → ' . rtrim(rtrim(number_format((float) $calculo['taxa'], 2, ',', '.'), '0'), ',') . '%, '
+                    . 'comissão ' . number_format((float) $venda['comissao_total'], 2, ',', '.')
+                    . ' € → ' . number_format((float) $calculo['valor'], 2, ',', '.') . ' € '
+                    . '(CPCV ' . round($calculo['cpcv_taxa']) . '% / escritura ' . round($calculo['escritura_taxa']) . '%)'
+            );
+
+            $venda['comissao_nova'] = $calculo['valor'];
+            $resultado['alteradas'][] = $venda;
+        }
+
+        return $resultado;
     }
 
     /**
