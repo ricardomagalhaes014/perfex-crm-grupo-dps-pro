@@ -1684,4 +1684,80 @@ class Dps_automacao extends AdminController
         set_alert($falhados ? 'warning' : 'success', $msg . '.');
         redirect(admin_url('dps_automacao/envio_massa_cliente?empreendimento=' . urlencode($emp)));
     }
+
+    /**
+     * Marca na agenda do comercial um lembrete para ligar ao cliente.
+     *
+     * Chamado pelo botão "Agenda" da coluna Funções, sem abrir a lead. Grava
+     * um lembrete do Perfex (tblreminders), que é o mesmo objecto que a ficha
+     * da lead mostra e que o módulo do Google leva ao calendário do telemóvel.
+     * O aviso de 30 minutos antes é dado pelo cron — ver
+     * dps_automacao_aviso_lembretes().
+     */
+    public function agendar_lembrete()
+    {
+        if ($this->input->method(true) !== 'POST') {
+            show_404();
+        }
+
+        $lead_id = (int) $this->input->post('lead_id');
+        $quando  = trim((string) $this->input->post('quando'));   // 'YYYY-MM-DDTHH:MM'
+        $nota    = trim((string) $this->input->post('nota'));
+
+        $lead = $this->db->select('id, name, phonenumber')->where('id', $lead_id)
+                         ->get(db_prefix() . 'leads')->row();
+
+        if (!$lead || !preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/', $quando)) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Falta a lead ou a data.']);
+            return;
+        }
+
+        $data_sql = date('Y-m-d H:i:s', strtotime(str_replace('T', ' ', $quando)));
+
+        if (strtotime($data_sql) < time()) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Essa data já passou.']);
+            return;
+        }
+
+        $descricao = $nota !== '' ? $nota : ('Ligar a ' . $lead->name
+            . ($lead->phonenumber ? ' — ' . $lead->phonenumber : ''));
+
+        /*
+         * O lembrete é de quem o marca. Um comercial não agenda no dia de
+         * outro: quem carregou no botão é quem tem de se lembrar de ligar.
+         */
+        $staff = get_staff_user_id();
+
+        $this->db->insert(db_prefix() . 'reminders', [
+            'description'     => $descricao,
+            'date'            => $data_sql,
+            'isnotified'      => 0,
+            'staff'           => $staff,
+            'rel_id'          => $lead_id,
+            'rel_type'        => 'lead',
+            'creator'         => $staff,
+            'notify_by_email' => 0,
+        ]);
+
+        $reminder_id = $this->db->insert_id();
+
+        if (!$reminder_id) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Não foi possível gravar o lembrete.']);
+            return;
+        }
+
+        $this->load->model('leads_model');
+        $this->leads_model->log_lead_activity(
+            $lead_id,
+            '📅 Lembrete marcado por ' . get_staff_full_name($staff) . ' para '
+                . date('d/m/Y \à\s H:i', strtotime($data_sql)) . ': ' . $descricao
+        );
+
+        echo json_encode([
+            'sucesso'   => true,
+            'mensagem'  => 'Lembrete marcado para ' . date('d/m/Y H:i', strtotime($data_sql))
+                           . '. Recebe aviso 30 minutos antes.',
+        ]);
+    }
+
 }

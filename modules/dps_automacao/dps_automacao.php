@@ -912,3 +912,195 @@ function dps_automacao_nota_muda_estado($note_id)
         'new_status' => DPS_AUTOMACAO_ESTADO_RELIGAR,
     ]);
 }
+
+/* =====================================================================
+ * Botão "Agenda" na coluna Funções + aviso 30 minutos antes
+ *
+ * O comercial liga, não atende, e quer voltar a ligar amanhã às 10h. Antes
+ * tinha de abrir a lead, ir ao separador dos lembretes e preencher o
+ * formulário do Perfex. Agora marca-o na linha da tabela.
+ *
+ * O lembrete é um lembrete do Perfex e não uma invenção nossa: aparece na
+ * ficha da lead, na lista de lembretes, e o módulo do Google leva-o ao
+ * calendário do telemóvel de quem o marcou.
+ *
+ * Pedido do dono (06/08/2026).
+ * ================================================================== */
+
+hooks()->add_action('admin_init', 'dps_automacao_lembrete_schema');
+
+function dps_automacao_lembrete_schema()
+{
+    static $feito = false;
+    if ($feito) {
+        return;
+    }
+    $feito = true;
+
+    $CI = &get_instance();
+    if (!$CI->db->table_exists(db_prefix() . 'dps_lembrete_avisos')) {
+        /*
+         * Tabela própria em vez de uma coluna nova na tblreminders: a tabela
+         * dos lembretes é do Perfex e uma actualização dele apagaria a coluna.
+         */
+        $CI->db->query('CREATE TABLE `' . db_prefix() . 'dps_lembrete_avisos` (
+            `reminder_id` INT(11) NOT NULL,
+            `avisado_em`  DATETIME NOT NULL,
+            PRIMARY KEY (`reminder_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=' . $CI->db->char_set . ';');
+    }
+}
+
+/** Quantos minutos antes do lembrete é que o aviso aparece no CRM. */
+define('DPS_AUTOMACAO_AVISO_MINUTOS', 30);
+
+hooks()->add_action('after_cron_run', 'dps_automacao_aviso_lembretes');
+
+function dps_automacao_aviso_lembretes()
+{
+    $CI = &get_instance();
+    dps_automacao_lembrete_schema();
+
+    /*
+     * Janela: do momento actual até 30 minutos à frente.
+     *
+     * O cron corre de 10 em 10 minutos, portanto qualquer lembrete é apanhado
+     * dentro da janela. A tabela de avisos garante que cada um só avisa uma
+     * vez — sem ela, o mesmo lembrete apitava a cada passagem do cron durante
+     * meia hora.
+     */
+    $agora = date('Y-m-d H:i:s');
+    $ate   = date('Y-m-d H:i:s', time() + DPS_AUTOMACAO_AVISO_MINUTOS * 60);
+
+    $lembretes = $CI->db->query(
+        'SELECT r.id, r.description, r.date, r.staff, r.rel_id, r.rel_type
+           FROM ' . db_prefix() . 'reminders r
+           LEFT JOIN ' . db_prefix() . 'dps_lembrete_avisos a ON a.reminder_id = r.id
+          WHERE r.date >= ? AND r.date <= ?
+            AND (r.isnotified IS NULL OR r.isnotified = 0)
+            AND (r.is_complete IS NULL OR r.is_complete <> "1")
+            AND a.reminder_id IS NULL',
+        [$agora, $ate]
+    )->result_array();
+
+    foreach ($lembretes as $l) {
+        $texto = trim(strip_tags((string) $l['description']));
+        $texto = mb_substr($texto, 0, 120) ?: 'Lembrete';
+
+        $link = '';
+        if ($l['rel_type'] === 'lead' && !empty($l['rel_id'])) {
+            $link = 'leads/index/' . (int) $l['rel_id'];
+        } elseif ($l['rel_type'] === 'customer' && !empty($l['rel_id'])) {
+            $link = 'clients/client/' . (int) $l['rel_id'];
+        }
+
+        add_notification([
+            'description' => '⏰ Daqui a ' . DPS_AUTOMACAO_AVISO_MINUTOS . ' minutos ('
+                             . date('H:i', strtotime($l['date'])) . '): ' . $texto,
+            'touserid'    => (int) $l['staff'],
+            'fromcompany' => true,
+            'link'        => $link,
+        ]);
+
+        $CI->db->query(
+            'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, avisado_em)
+             VALUES (?, ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
+            [(int) $l['id'], date('Y-m-d H:i:s')]
+        );
+    }
+}
+
+hooks()->add_action('app_admin_footer', 'dps_automacao_js_agenda');
+
+function dps_automacao_js_agenda()
+{
+    // Só na listagem de leads, que é onde o botão vive.
+    if (strpos((string) uri_string(), 'leads') === false) {
+        return;
+    }
+    ?>
+    <div class="modal fade" id="dps-modal-agenda" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Agendar chamada</h4>
+          </div>
+          <div class="modal-body">
+            <p class="bold" id="dps-agenda-nome" style="margin-bottom:12px;"></p>
+            <div class="form-group">
+              <label for="dps-agenda-quando">Quando ligar</label>
+              <input type="datetime-local" class="form-control" id="dps-agenda-quando">
+            </div>
+            <div class="form-group">
+              <label for="dps-agenda-nota">Nota (opcional)</label>
+              <input type="text" class="form-control" id="dps-agenda-nota"
+                     placeholder="ex.: pediu para ligar de manhã">
+            </div>
+            <p class="text-muted" style="margin-bottom:0;font-size:12px;">
+              Recebe o aviso no CRM 30 minutos antes.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-info" id="dps-agenda-gravar">Marcar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var leadId = null;
+
+      window.dpsAgendarLembrete = function (id, nome) {
+        leadId = id;
+        document.getElementById('dps-agenda-nome').textContent = nome || ('Lead #' + id);
+        document.getElementById('dps-agenda-nota').value = '';
+
+        /*
+         * Por omissão: amanhã à mesma hora, arredondada. Poupa o caso mais
+         * comum — "não atendeu, ligo amanhã" — a mexer no seletor de datas.
+         */
+        var d = new Date(Date.now() + 86400000);
+        d.setMinutes(0, 0, 0);
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        document.getElementById('dps-agenda-quando').value =
+          d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
+          + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+
+        $('#dps-modal-agenda').modal('show');
+      };
+
+      $(document).on('click', '#dps-agenda-gravar', function () {
+        var botao  = this;
+        var quando = document.getElementById('dps-agenda-quando').value;
+        if (!leadId || !quando) {
+          alert_float('warning', 'Escolha a data e a hora.');
+          return;
+        }
+
+        var envio = {
+          lead_id: leadId,
+          quando:  quando,
+          nota:    document.getElementById('dps-agenda-nota').value
+        };
+        if (typeof csrfData !== 'undefined') { envio[csrfData.token_name] = csrfData.hash; }
+
+        $(botao).prop('disabled', true).text('A marcar...');
+
+        $.post(admin_url + 'dps_automacao/agendar_lembrete', envio)
+          .done(function (r) {
+            try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) { r = null; }
+            $('#dps-modal-agenda').modal('hide');
+            alert_float(r && r.sucesso ? 'success' : 'danger',
+                        (r && r.mensagem) || 'Não foi possível marcar o lembrete.');
+          })
+          .fail(function (xhr) {
+            alert_float('danger', 'Falha ao marcar o lembrete (erro ' + xhr.status + ').');
+          })
+          .always(function () { $(botao).prop('disabled', false).text('Marcar'); });
+      });
+    })();
+    </script>
+    <?php
+}

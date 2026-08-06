@@ -537,12 +537,26 @@ function dps_google_cron_agenda()
                 'date_updated' => date('Y-m-d H:i:s'),
             ];
 
-            if ($mapa) {
-                $CI->db->where(['tipo' => $it['tipo'], 'ref_id' => $it['ref_id'], 'staff_id' => $staff])
-                       ->update(db_prefix() . 'dps_google_sync', $linha);
-            } else {
-                $CI->db->insert(db_prefix() . 'dps_google_sync', $linha);
-            }
+            /*
+             * Gravado numa só instrução, em vez de decidir entre INSERT e
+             * UPDATE pelo que se leu antes.
+             *
+             * Duas passagens do cron a apanharem-se uma à outra liam ambas
+             * "não existe" e tentavam ambas inserir: a segunda rebentava com
+             * Duplicate entry 'reuniao-3-1' e a excepção abortava o resto da
+             * sincronização dessa volta. Aconteceu a 06/08/2026 às 11:40.
+             */
+            $CI->db->query(
+                'INSERT INTO ' . db_prefix() . 'dps_google_sync
+                    (tipo, ref_id, staff_id, google_event_id, impressao, date_updated)
+                 VALUES (?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    google_event_id = VALUES(google_event_id),
+                    impressao       = VALUES(impressao),
+                    date_updated    = VALUES(date_updated)',
+                [$linha['tipo'], $linha['ref_id'], $linha['staff_id'],
+                 $linha['google_event_id'], $linha['impressao'], $linha['date_updated']]
+            );
         }
 
         /*

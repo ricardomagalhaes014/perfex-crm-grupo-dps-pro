@@ -250,11 +250,13 @@ return App_table::find('leads')
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'disponiveis\'); return false;" title="Enviar unidades disponíveis" class="btn btn-xs" style="background:#1d6fb8;color:#fff;font-weight:600;">Disponíveis</a>'
                     . '<a href="' . admin_url('dps_reunioes/nova/lead/' . $aRow['id']) . '" title="Marcar reunião online" class="btn btn-xs" style="background:#0f8b8d;color:#fff;font-weight:600;"><i class="fa fa-video-camera"></i> Reunião</a>'
+                    . '<a href="#" onclick="dpsAgendarLembrete(' . $aRow['id'] . ', \'' . htmlspecialchars(addslashes($aRow['name']), ENT_QUOTES, 'UTF-8') . '\'); return false;" title="Agendar chamada e receber aviso 30 min antes" class="btn btn-xs" style="background:#6c4bb6;color:#fff;font-weight:600;"><i class="fa fa-calendar-plus-o"></i> Agenda</a>'
                     . '</span>';
             } else {
                 $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
                     . '<a href="' . admin_url('dps_reunioes/nova/lead/' . $aRow['id']) . '" title="Marcar reunião online" class="btn btn-xs" style="background:#0f8b8d;color:#fff;font-weight:600;"><i class="fa fa-video-camera"></i> Reunião</a>'
+                    . '<a href="#" onclick="dpsAgendarLembrete(' . $aRow['id'] . ', \'' . htmlspecialchars(addslashes($aRow['name']), ENT_QUOTES, 'UTF-8') . '\'); return false;" title="Agendar chamada e receber aviso 30 min antes" class="btn btn-xs" style="background:#6c4bb6;color:#fff;font-weight:600;"><i class="fa fa-calendar-plus-o"></i> Agenda</a>'
                     . '</span>';
             }
 
