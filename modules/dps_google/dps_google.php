@@ -226,6 +226,20 @@ function dps_google_evento_guardar($staff_id, array $ev, $event_id = null)
         'end'         => ['dateTime' => date('c', strtotime($ev['fim'])),    'timeZone' => $fuso],
     ];
 
+    /*
+     * Dia inteiro, para o que não tem hora.
+     *
+     * Uma tarefa tem prazo ("31/07"), não hora. Inventar-lhe as 9h punha no
+     * calendário um compromisso que ninguém marcou, e empurrava para baixo o
+     * que estava mesmo marcado para essa hora. No Google, dia inteiro é
+     * 'date' em vez de 'dateTime', e o fim é o dia SEGUINTE — a data final é
+     * exclusiva, e com o mesmo dia nos dois a API recusa.
+     */
+    if (!empty($ev['dia_inteiro'])) {
+        $corpo['start'] = ['date' => date('Y-m-d', strtotime($ev['inicio']))];
+        $corpo['end']   = ['date' => date('Y-m-d', strtotime($ev['inicio']) + 86400)];
+    }
+
     if (!empty($ev['local'])) {
         $corpo['location'] = $ev['local'];
     }
@@ -327,6 +341,26 @@ function dps_google_cron_agenda()
 
     $desde = date('Y-m-d H:i:s', strtotime('-7 days'));
 
+    /*
+     * Eventos de agenda que nasceram de uma reunião.
+     *
+     * O dps_reunioes escreve um evento por participante e guarda os ids na
+     * coluna 'eventos'. Como agora as reuniões entram directamente, estes
+     * eventos têm de ser saltados na passagem da agenda — senão a mesma
+     * reunião aparecia duas vezes no calendário.
+     */
+    $eventos_de_reunioes = [];
+    if ($CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
+        foreach ($CI->db->select('eventos')->get(db_prefix() . 'dps_reunioes')->result_array() as $r) {
+            foreach (explode(',', (string) $r['eventos']) as $id) {
+                $id = (int) trim($id);
+                if ($id) {
+                    $eventos_de_reunioes[$id] = true;
+                }
+            }
+        }
+    }
+
     foreach ($contas as $conta) {
         $staff = (int) $conta['staff_id'];
 
@@ -337,6 +371,12 @@ function dps_google_cron_agenda()
                         ->where('userid', $staff)
                         ->where('start >=', $desde)
                         ->get(db_prefix() . 'events')->result_array() as $e) {
+            // As reuniões entram por si (ver mais abaixo). Sem esta guarda, a
+            // mesma reunião ia ao calendário duas vezes: uma pelo evento que o
+            // dps_reunioes escreve na agenda, outra pela reunião em si.
+            if (isset($eventos_de_reunioes[(int) $e['eventid']])) {
+                continue;
+            }
             $itens[] = [
                 'tipo'   => 'evento',
                 'ref_id' => (int) $e['eventid'],
@@ -375,13 +415,102 @@ function dps_google_cron_agenda()
             ];
         }
 
+        /* ----------------------------------------------------------------
+         * Reuniões
+         *
+         * Lidas da própria tabela e não da agenda. A ponte que põe a reunião
+         * na agenda só passou a existir a 05/08/2026: as reuniões marcadas
+         * antes disso não tinham entrada nenhuma, e por isso não chegavam ao
+         * Google. Ler a origem cobre também esse passado e deixa de depender
+         * de a ponte correr bem.
+         *
+         * Entra quem lá vai estar: o anfitrião, o convidado e os
+         * participantes. Pedido do dono (06/08/2026).
+         * ------------------------------------------------------------- */
+        if ($CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
+            $reunioes = $CI->db->query(
+                'SELECT r.* FROM ' . db_prefix() . 'dps_reunioes r
+                  WHERE r.data_hora >= ?
+                    AND (COALESCE(r.estado, "") NOT IN ("cancelada", "cancelado"))
+                    AND (r.staff_id = ? OR r.convidado_id = ? OR EXISTS (
+                          SELECT 1 FROM ' . db_prefix() . 'dps_reunioes_participante p
+                           WHERE p.reuniao_id = r.id AND p.staff_id = ?))',
+                [$desde, $staff, $staff, $staff]
+            )->result_array();
+
+            foreach ($reunioes as $r) {
+                $titulo = trim((string) ($r['assunto'] ?? '')) ?: 'Reunião';
+
+                $desc = [];
+                if (!empty($r['link'])) {
+                    $desc[] = 'Sala: ' . $r['link'];
+                }
+                if (!empty($r['cliente_telefone'])) {
+                    $desc[] = 'Telefone: ' . $r['cliente_telefone'];
+                }
+                if ($r['rel_type'] === 'lead' && !empty($r['rel_id'])) {
+                    $desc[] = admin_url('leads/index/' . (int) $r['rel_id']);
+                }
+
+                $itens[] = [
+                    'tipo'   => 'reuniao',
+                    'ref_id' => (int) $r['id'],
+                    'titulo' => $titulo,
+                    'desc'   => implode("\n", $desc),
+                    'inicio' => $r['data_hora'],
+                    'fim'    => date('Y-m-d H:i:s',
+                        strtotime($r['data_hora']) + max(10, (int) ($r['duracao_min'] ?: 30)) * 60),
+                ];
+            }
+        }
+
+        /* ----------------------------------------------------------------
+         * Tarefas por fazer, com prazo
+         *
+         * A tarefa tem prazo, não hora: vai como dia inteiro. Só as que ainda
+         * estão por fazer — uma tarefa concluída no calendário é ruído, e são
+         * às centenas.
+         *
+         * DE HOJE EM DIANTE, e não os 7 dias para trás das outras fontes: o
+         * Cláudio tem 238 tarefas por fazer com prazo de 31/07, todas do
+         * mesmo dia. Empilhá-las no calendário tornava-o ilegível e não
+         * dizia nada que a lista de tarefas do CRM não diga melhor.
+         * ------------------------------------------------------------- */
+        foreach ($CI->db->query(
+            'SELECT t.id, t.name, t.description, t.startdate, t.duedate, t.rel_type, t.rel_id
+               FROM ' . db_prefix() . 'tasks t
+               JOIN ' . db_prefix() . 'task_assigned a ON a.taskid = t.id AND a.staffid = ?
+              WHERE t.status <> 5
+                AND COALESCE(t.duedate, t.startdate) >= ?',
+            [$staff, date('Y-m-d')]
+        )->result_array() as $t) {
+            $quando = $t['duedate'] ?: $t['startdate'];
+            if (empty($quando)) {
+                continue;
+            }
+
+            $link = admin_url('tasks/view/' . (int) $t['id']);
+            $texto = trim(strip_tags((string) $t['description']));
+
+            $itens[] = [
+                'tipo'        => 'tarefa',
+                'ref_id'      => (int) $t['id'],
+                'titulo'      => mb_substr(trim((string) $t['name']) ?: 'Tarefa', 0, 120),
+                'desc'        => trim($texto . "\n\n" . $link),
+                'inicio'      => $quando,
+                'fim'         => $quando,
+                'dia_inteiro' => true,
+            ];
+        }
+
         /* ---- Criar ou actualizar ---- */
         $vivos = [];
         foreach ($itens as $it) {
             $chave = $it['tipo'] . ':' . $it['ref_id'];
             $vivos[$chave] = true;
 
-            $impressao = sha1($it['titulo'] . '|' . $it['desc'] . '|' . $it['inicio'] . '|' . $it['fim']);
+            $impressao = sha1($it['titulo'] . '|' . $it['desc'] . '|' . $it['inicio'] . '|' . $it['fim']
+                . '|' . (!empty($it['dia_inteiro']) ? 'D' : 'H'));
 
             $mapa = $CI->db->where(['tipo' => $it['tipo'], 'ref_id' => $it['ref_id'], 'staff_id' => $staff])
                            ->get(db_prefix() . 'dps_google_sync')->row_array();
@@ -391,10 +520,11 @@ function dps_google_cron_agenda()
             }
 
             $ev_id = dps_google_evento_guardar($staff, [
-                'titulo'    => $it['titulo'],
-                'descricao' => $it['desc'],
-                'inicio'    => $it['inicio'],
-                'fim'       => $it['fim'],
+                'titulo'      => $it['titulo'],
+                'descricao'   => $it['desc'],
+                'inicio'      => $it['inicio'],
+                'fim'         => $it['fim'],
+                'dia_inteiro' => !empty($it['dia_inteiro']),
             ], $mapa['google_event_id'] ?? null);
 
             if (!$ev_id) {
