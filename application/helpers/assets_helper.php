@@ -130,15 +130,52 @@ function add_favicon_link_asset($group = 'admin')
             'type' => false,
         ],
         ], $group);
+        /*
+         * O rel tinha uma aspa curva colada — rel="apple-touch-icon”" — e um
+         * rel inválido é um rel que o telemóvel ignora. Era por isso que
+         * adicionar o CRM ao ecrã principal dava um quadrado cinzento com a
+         * inicial em vez do logótipo.
+         *
+         * E o ficheiro apontado é o favicon da empresa, que aqui tem
+         * 1536x1024: os ícones de aplicação têm de ser QUADRADOS, senão são
+         * descartados. Passa a apontar para um quadrado feito do logótipo.
+         */
         get_instance()->app_css->add('favicon-apple-touch-icon', [
-        'path'       => 'uploads/company/' . $favIcon,
+        'path'       => 'dps-movel/apple-touch-icon.png',
         'version'    => false,
         'attributes' => [
-            'rel'  => 'apple-touch-icon”',
-            'type' => false,
+            'rel'   => 'apple-touch-icon',
+            'sizes' => '180x180',
+            'type'  => false,
         ],
         ], $group);
     }
+
+    /*
+     * O manifesto que torna o CRM instalável, com o logótipo.
+     *
+     * Fica na raiz e não sob /admin de propósito: o âmbito tem de cobrir a
+     * página onde a pessoa carrega em "Adicionar ao ecrã principal", e um
+     * ficheiro estático não é apanhado pelo redireccionamento para o login.
+     */
+    get_instance()->app_css->add('dps-manifest', [
+        'path'       => 'manifest.webmanifest',
+        'version'    => false,
+        'attributes' => [
+            'rel'  => 'manifest',
+            'type' => false,
+        ],
+    ], $group);
+
+    get_instance()->app_css->add('dps-icone-192', [
+        'path'       => 'dps-movel/icone-192.png',
+        'version'    => false,
+        'attributes' => [
+            'rel'   => 'icon',
+            'sizes' => '192x192',
+            'type'  => 'image/png',
+        ],
+    ], $group);
 }
 
 function add_jquery_validation_js_assets($group = 'admin')

@@ -1,0 +1,17 @@
+{
+    "name": "Grupo DPS — CRM",
+    "short_name": "DPS",
+    "description": "CRM do Grupo DPS: leads, vendas, tarefas e agenda.",
+    "start_url": "/admin/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#10151c",
+    "lang": "pt-PT",
+    "dir": "ltr",
+    "icons": [
+        { "src": "/dps-movel/icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/dps-movel/icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/dps-movel/icone-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

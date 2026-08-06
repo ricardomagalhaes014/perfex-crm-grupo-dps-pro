@@ -27,3 +27,12 @@ AddDefaultCharset utf-8
     Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=DPS_SEM_CACHE
     Header always set Pragma "no-cache" env=DPS_SEM_CACHE
 </IfModule>
+
+# O manifesto da aplicação tem de sair com o tipo certo.
+#
+# Servido como text/plain, o Chrome descarta-o e "Adicionar ao ecrã principal"
+# volta ao quadrado cinzento com a inicial em vez do logótipo — que foi
+# exactamente o que aconteceu (06/08/2026).
+<IfModule mod_mime.c>
+    AddType application/manifest+json .webmanifest
+</IfModule>
