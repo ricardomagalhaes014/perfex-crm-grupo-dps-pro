@@ -525,6 +525,164 @@ function dps_automacao_fila_tarefa_cron()
 hooks()->add_action('after_cron_run', 'dps_automacao_fila_tarefa_cron');
 
 /*
+ * MATURAÇÃO DOS VIP — o interesse arrefece sozinho.
+ *
+ * Regra do dono (05/08/2026): sem contacto, a lead desce de degrau.
+ *
+ *   VIP 1  →  VIP 2   ao fim de 2 semanas
+ *   VIP 2  →  VIP 3   ao fim de 3 semanas
+ *   VIP 3  →  MORNO   ao fim de 4 semanas
+ *
+ * O RELÓGIO É O ÚLTIMO CONTACTO, não a data em que entrou no estado: basta um
+ * telefonema para a lead voltar ao princípio, que é o comportamento que se
+ * quer — o que faz a lead descer é o silêncio, não o calendário.
+ *
+ * Por isso os limiares são absolutos e contados sempre da mesma origem (14,
+ * 21, 28 dias). Uma lead nunca contactada atravessa os três degraus sozinha,
+ * um por semana, sem precisar de saber por onde passou.
+ *
+ * Nunca contactada: conta-se desde a criação. Sem isto, as leads sem
+ * lastcontact ficavam eternamente em VIP 1 — que são precisamente as mais
+ * esquecidas.
+ */
+if (!function_exists('dps_automacao_maturacao_regras')) {
+    function dps_automacao_maturacao_regras()
+    {
+        return [
+            ['de' => 17, 'para' => 14, 'dias' => 14, 'nome' => 'VIP 1 → VIP 2'],
+            ['de' => 14, 'para' => 18, 'dias' => 21, 'nome' => 'VIP 2 → VIP 3'],
+            ['de' => 18, 'para' => 2,  'dias' => 28, 'nome' => 'VIP 3 → Morno'],
+        ];
+    }
+}
+
+if (!function_exists('dps_automacao_maturar_vips')) {
+    /**
+     * @param  bool $aplicar  false devolve o que MUDARIA, sem escrever nada
+     * @return array  ['linhas' => [...], 'total' => n]
+     */
+    function dps_automacao_maturar_vips($aplicar = false)
+    {
+        $CI = &get_instance();
+        $CI->load->model('leads_model');
+
+        $regras = dps_automacao_maturacao_regras();
+        $origem = array_column($regras, 'de');
+
+        /*
+         * COALESCE: sem último contacto vale a data de criação. Sem isto, as
+         * leads que nunca foram contactadas — precisamente as mais esquecidas —
+         * ficavam eternamente em VIP 1.
+         */
+        $leads = $CI->db->query(
+            'SELECT id, name, status, assigned,
+                    DATEDIFF(NOW(), COALESCE(lastcontact, dateadded)) AS dias
+               FROM ' . db_prefix() . 'leads
+              WHERE status IN (' . implode(',', array_map('intval', $origem)) . ')
+                AND lost = 0 AND junk = 0
+                AND date_converted IS NULL
+           ORDER BY id ASC'
+        )->result_array();
+
+        $nomes = [];
+        foreach ($CI->db->select('id, name')->get(db_prefix() . 'leads_status')->result_array() as $e) {
+            $nomes[(int) $e['id']] = $e['name'];
+        }
+
+        $linhas = [];
+
+        foreach ($leads as $l) {
+            $estado = (int) $l['status'];
+            $dias   = (int) $l['dias'];
+            $inicio = $estado;
+
+            /*
+             * DESCE A ESCADA TODA DE UMA VEZ, e grava só o destino.
+             *
+             * Uma lead parada há 200 dias pertence ao Morno, não ao degrau
+             * seguinte — fazê-la esperar três semanas por cada degrau seria
+             * fingir que o tempo ainda não passou. Mas gravar cada degrau
+             * intermédio enchia o histórico de linhas que ninguém pediu e
+             * multiplicava as escritas por três. Calcula-se o fim, escreve-se
+             * uma vez.
+             */
+            $seguro = 0;
+
+            do {
+                $mudou = false;
+
+                foreach ($regras as $r) {
+                    if ($estado === (int) $r['de'] && $dias >= (int) $r['dias']) {
+                        $estado = (int) $r['para'];
+                        $mudou  = true;
+                        break;
+                    }
+                }
+            } while ($mudou && ++$seguro < 10);
+
+            if ($estado === $inicio) {
+                continue;
+            }
+
+            $linhas[] = [
+                'lead_id'  => (int) $l['id'],
+                'nome'     => $l['name'],
+                'de'       => $inicio,
+                'para'     => $estado,
+                'regra'    => ($nomes[$inicio] ?? $inicio) . ' → ' . ($nomes[$estado] ?? $estado),
+                'dias'     => $dias,
+                'assigned' => (int) $l['assigned'],
+            ];
+
+            if (!$aplicar) {
+                continue;
+            }
+
+            /*
+             * Escreve-se pelo modelo do Perfex — é o que dispara o
+             * lead_status_changed e mantém o histórico coerente. Um UPDATE à
+             * mão punha o estado certo e deixava tudo o resto por trás.
+             */
+            $CI->leads_model->update_lead_status([
+                'status' => $estado,
+                'leadid' => (int) $l['id'],
+            ]);
+
+            $CI->leads_model->log_lead_activity(
+                (int) $l['id'],
+                '⏳ Maturação automática: ' . ($nomes[$inicio] ?? $inicio) . ' → '
+                    . ($nomes[$estado] ?? $estado) . ' — ' . $dias . ' dias sem contacto.'
+            );
+        }
+
+        return ['linhas' => $linhas, 'total' => count($linhas)];
+    }
+}
+
+if (!function_exists('dps_automacao_maturacao_cron')) {
+    function dps_automacao_maturacao_cron()
+    {
+        /*
+         * Uma vez por dia chega: os limiares são semanas, e correr a cada
+         * passagem do cron só multiplicava escritas sem mudar resultado.
+         */
+        if (get_option('dps_automacao_maturacao_ultima') === date('Y-m-d')) {
+            return;
+        }
+
+        update_option('dps_automacao_maturacao_ultima', date('Y-m-d'));
+
+        $r = dps_automacao_maturar_vips(true);
+
+        if ($r['total'] > 0) {
+            log_activity('DPS Automação: maturação de VIP — ' . $r['total'] . ' lead(s) mudaram de estado.');
+        }
+    }
+}
+
+hooks()->add_action('after_cron_run', 'dps_automacao_maturacao_cron');
+
+/*
  * Estados de tarefa do Perfex. 1 = Não iniciada, 4 = Em progresso.
  * Ver Dps_automacao_model::tarefa_em_progresso().
  */
@@ -639,4 +797,118 @@ function dps_automacao_botao_converter_lead($tarefa)
     };
     </script>
     <?php
+}
+
+/* =====================================================================
+ * "Não atendeu" escrito numa nota muda o estado da lead
+ *
+ * O comercial liga, ninguém atende, e escreve-o na nota da lead. O estado
+ * ficava na mesma e a lead continuava a contar como se estivesse viva —
+ * havia 2384 notas a dizer "não atendeu" e leads em "Propostas Enviadas"
+ * por baixo delas. Pedido do dono (06/08/2026): escrever "não atendeu"
+ * passa a lead de imediato para "Nao atendeu. Religar" (estado #7, que já
+ * existia).
+ * ================================================================== */
+
+/** O estado que já existia no CRM. Não se cria nenhum novo. */
+define('DPS_AUTOMACAO_ESTADO_RELIGAR', 7);
+
+/*
+ * Estados de negócio fechado. Uma nota não despromove um negócio ganho:
+ * se alguém escrever "não atendeu" numa lead que já está em contrato ou
+ * concretizada, é de outra coisa que está a falar.
+ */
+function dps_automacao_estados_intocaveis()
+{
+    return [10, 13]; // PARA CONTRATO, CONCRETIZADO
+}
+
+/**
+ * A nota diz que não atenderam?
+ *
+ * O texto vem por nl2br() e pode trazer HTML, entidades e espaços duros
+ * colados do WhatsApp — daí limpar tudo antes de comparar. Apanha "não
+ * atendeu", "nao atende", "não atenderam" e o hífen pelo meio.
+ */
+function dps_automacao_nota_diz_nao_atendeu($texto)
+{
+    $t = html_entity_decode(strip_tags((string) $texto), ENT_QUOTES, 'UTF-8');
+    $t = str_replace(["\xC2\xA0", "\xE2\x80\x91", "\xE2\x80\x93"], ' ', $t);
+
+    return (bool) preg_match('/n[ãaáâ]o\s*[-–]?\s*atende(u|ram|)\b/iu', $t);
+}
+
+hooks()->add_action('note_created', 'dps_automacao_nota_muda_estado');
+
+/*
+ * ATENÇÃO: o do_action() do Perfex (application/third_party/action_hooks.php)
+ * só entrega UM argumento ao callback, mesmo quando quem dispara passa dois.
+ * O Misc_model chama do_action('note_created', $insert_id, $data) mas o $data
+ * fica pelo caminho — daí ir buscar a nota à base de dados em vez de a
+ * receber. Escrever a assinatura com dois parâmetros compilava e nunca
+ * funcionava.
+ */
+function dps_automacao_nota_muda_estado($note_id)
+{
+    $CI = &get_instance();
+
+    $nota = $CI->db->select('rel_type, rel_id, description')
+        ->where('id', (int) $note_id)
+        ->get(db_prefix() . 'notes')
+        ->row();
+
+    if (!$nota || $nota->rel_type !== 'lead') {
+        return;
+    }
+
+    $lead_id = (int) $nota->rel_id;
+    if (!$lead_id || !dps_automacao_nota_diz_nao_atendeu($nota->description)) {
+        return;
+    }
+
+    $lead = $CI->db->select('id, status, lastcontact')
+        ->where('id', $lead_id)
+        ->get(db_prefix() . 'leads')
+        ->row();
+
+    if (!$lead) {
+        return;
+    }
+
+    $de = (int) $lead->status;
+    if ($de === DPS_AUTOMACAO_ESTADO_RELIGAR || in_array($de, dps_automacao_estados_intocaveis(), true)) {
+        return;
+    }
+
+    $CI->db->where('id', $lead_id);
+    $CI->db->update(db_prefix() . 'leads', [
+        'status'             => DPS_AUTOMACAO_ESTADO_RELIGAR,
+        'last_status_change' => date('Y-m-d H:i:s'),
+        /*
+         * A tentativa de contacto conta como contacto: sem isto, a
+         * maturação dos VIP (que conta a partir do último contacto)
+         * continuava a envelhecer uma lead a quem se acabou de ligar.
+         */
+        'lastcontact'        => date('Y-m-d H:i:s'),
+    ]);
+
+    // Mesma escrituração que o Perfex faz quando o estado muda à mão,
+    // para a ficha da lead mostrar a alteração no histórico.
+    $CI->load->model('leads_model');
+
+    $nome_de   = $CI->db->select('name')->where('id', $de)->get(db_prefix() . 'leads_status')->row();
+    $nome_para = $CI->db->select('name')->where('id', DPS_AUTOMACAO_ESTADO_RELIGAR)
+        ->get(db_prefix() . 'leads_status')->row();
+
+    $CI->leads_model->log_lead_activity($lead_id, 'not_lead_activity_status_updated', false, serialize([
+        get_staff_full_name(),
+        $nome_de ? $nome_de->name : $de,
+        $nome_para ? $nome_para->name : DPS_AUTOMACAO_ESTADO_RELIGAR,
+    ]));
+
+    hooks()->do_action('lead_status_changed', [
+        'lead_id'    => $lead_id,
+        'old_status' => $de,
+        'new_status' => DPS_AUTOMACAO_ESTADO_RELIGAR,
+    ]);
 }
