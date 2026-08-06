@@ -362,7 +362,14 @@
         var note = $('#dps-note-text').val().trim();
         if (!note || !_dpsNoteLeadId) return;
         var $btn = $(this).prop('disabled', true).text('A guardar...');
-        var postData = { description: note };
+        /*
+         * leve=1: não peças a ficha da lead de volta.
+         *
+         * Este popup nunca usou o HTML que vinha na resposta — fazia reload da
+         * tabela e ignorava-o. O servidor montava a ficha toda à mesma, e era
+         * aí que ia o tempo de espera depois de carregar em Guardar.
+         */
+        var postData = { description: note, leve: 1 };
         postData[app.options.csrf_token_name] = app.options.csrf_hash;
         $.post(admin_url + 'leads/add_note/' + _dpsNoteLeadId, postData)
         .done(function(resp) {

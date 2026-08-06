@@ -1095,6 +1095,24 @@ class Leads extends AdminController
                 }
             }
         }
+        /*
+         * Resposta leve, pedida por quem não vai usar a ficha.
+         *
+         * _get_lead_data() monta a ficha COMPLETA da lead — todos os
+         * separadores, os blocos que quatro módulos injectam, a modal dos
+         * lembretes, a lista de toda a equipa. O popup de notas da tabela de
+         * leads recebia isso tudo e deitava-o fora: só fazia reload da tabela.
+         * Era o grosso do tempo de gravar uma nota, e não servia para nada.
+         *
+         * O caminho normal (a ficha da lead aberta, que precisa mesmo do HTML
+         * para se redesenhar) fica exactamente como estava.
+         */
+        if ($this->input->post('leve')) {
+            echo json_encode(['id' => $rel_id, 'leve' => true]);
+
+            return;
+        }
+
         echo json_encode(['leadView' => $this->_get_lead_data($rel_id), 'id' => $rel_id]);
     }
 
