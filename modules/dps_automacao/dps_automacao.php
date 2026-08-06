@@ -810,18 +810,9 @@ function dps_automacao_botao_converter_lead($tarefa)
  * existia).
  * ================================================================== */
 
-/** O estado que já existia no CRM. Não se cria nenhum novo. */
+/** Estados que já existiam no CRM. Não se cria nenhum novo. */
+define('DPS_AUTOMACAO_ESTADO_NOVOS',   4);
 define('DPS_AUTOMACAO_ESTADO_RELIGAR', 7);
-
-/*
- * Estados de negócio fechado. Uma nota não despromove um negócio ganho:
- * se alguém escrever "não atendeu" numa lead que já está em contrato ou
- * concretizada, é de outra coisa que está a falar.
- */
-function dps_automacao_estados_intocaveis()
-{
-    return [10, 13]; // PARA CONTRATO, CONCRETIZADO
-}
 
 /**
  * A nota diz que não atenderam?
@@ -875,8 +866,17 @@ function dps_automacao_nota_muda_estado($note_id)
         return;
     }
 
+    /*
+     * SÓ a partir de "Novos". Regra do dono (06/08/2026).
+     *
+     * A lead que já andou para a frente — em conversação, VIP, proposta
+     * enviada — não recua por causa de uma nota. Aí "não atendeu" é o relato
+     * de uma chamada dentro de um acompanhamento que continua, e despromovê-la
+     * apagava o trabalho feito e estragava o funil. A regra existe para a lead
+     * nova em que se tentou o primeiro contacto e ninguém atendeu.
+     */
     $de = (int) $lead->status;
-    if ($de === DPS_AUTOMACAO_ESTADO_RELIGAR || in_array($de, dps_automacao_estados_intocaveis(), true)) {
+    if ($de !== DPS_AUTOMACAO_ESTADO_NOVOS) {
         return;
     }
 
