@@ -736,6 +736,12 @@ function dps_automacao_pessoa_da_tarefa($tarefa)
  */
 function dps_automacao_quota_restante($staff_id, $limite = DPS_AUTOMACAO_LIMITE_DIA)
 {
+    // Limite a zero significa sem tecto: devolve-se um número que nenhum
+    // envio real alcança, e quem chama continua a funcionar sem saber disso.
+    if ((int) $limite <= 0) {
+        return PHP_INT_MAX;
+    }
+
     $CI = &get_instance();
 
     $saidos = (int) $CI->db

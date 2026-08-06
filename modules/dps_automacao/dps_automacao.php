@@ -698,7 +698,16 @@ hooks()->add_action('after_cron_run', 'dps_automacao_maturacao_cron');
  * fornecedor com meia campanha por entregar.
  * Ver dps_automacao_quota_restante().
  */
-defined('DPS_AUTOMACAO_LIMITE_DIA') || define('DPS_AUTOMACAO_LIMITE_DIA', 100);
+/*
+ * 0 = SEM LIMITE. Decisão do dono (06/08/2026): as caixas de todos os
+ * comerciais foram aumentadas e o tecto deixou de fazer sentido — retirado de
+ * todas as automações.
+ *
+ * Se voltarem a aparecer recusas do SMTP ao fim do dia, é aqui que se põe um
+ * número outra vez: basta trocar o 0 pelo tecto desejado e tudo volta a
+ * respeitá-lo, sem mexer em mais nada.
+ */
+defined('DPS_AUTOMACAO_LIMITE_DIA') || define('DPS_AUTOMACAO_LIMITE_DIA', 0);
 
 defined('DPS_AUTOMACAO_TAREFA_NAO_INICIADA') || define('DPS_AUTOMACAO_TAREFA_NAO_INICIADA', 1);
 defined('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO') || define('DPS_AUTOMACAO_TAREFA_EM_PROGRESSO', 4);

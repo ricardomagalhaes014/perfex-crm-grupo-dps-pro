@@ -84,10 +84,18 @@ function dps_propostas_email_disponiveis($emp, $disp, $lead_nome, $com)
     return '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#111;line-height:1.6;max-width:620px;">'
         . '<p>' . html_escape($ola) . ',</p>'
         . '<p>Envio-lhe a informação atualizada do <strong>' . html_escape($emp['nome']) . '</strong>.</p>'
-        . (!empty($emp['descricao'])
-            ? '<p style="background:#f9fafb;padding:14px 16px;border-radius:8px;border-left:4px solid #1d6fb8;">'
-                . html_escape($emp['descricao']) . '</p>'
-            : '')
+        /*
+         * O texto da direcção manda sobre a descrição genérica: quando existe,
+         * é ele que o cliente lê. A descrição fica para os empreendimentos que
+         * ainda não têm texto próprio.
+         */
+        . (dps_propostas_apresentacao_html($emp['chave'] ?? '') !== ''
+            ? '<div style="background:#f9fafb;padding:16px 18px;border-radius:8px;border-left:4px solid #c8a04a;margin:18px 0;">'
+                . dps_propostas_apresentacao_html($emp['chave'] ?? '') . '</div>'
+            : (!empty($emp['descricao'])
+                ? '<p style="background:#f9fafb;padding:14px 16px;border-radius:8px;border-left:4px solid #1d6fb8;">'
+                    . html_escape($emp['descricao']) . '</p>'
+                : ''))
         . '<p style="margin-top:22px;"><strong>' . (int) $disp['count'] . ' unidade'
         . ((int) $disp['count'] === 1 ? '' : 's') . ' disponíve'
         . ((int) $disp['count'] === 1 ? 'l' : 'is') . ' neste momento</strong>'
@@ -108,6 +116,98 @@ function dps_propostas_email_disponiveis($emp, $disp, $lead_nome, $com)
         . html_escape($com['nome'] ?: 'Equipa DPS') . '<br>Grupo DPS — DPS Imobiliário'
         . (!empty($com['email']) ? '<br>' . html_escape($com['email']) : '')
         . '</p></div>';
+}
+
+/**
+ * Texto de apresentação por empreendimento.
+ *
+ * É o que o cliente lê quando o sistema lhe manda as disponibilidades ou uma
+ * proposta. Escrito pela direcção, palavra a palavra — não é para reescrever
+ * aqui sem o pedir. Pedido do dono (06/08/2026).
+ *
+ * Texto simples, com quebras de linha: o WhatsApp usa-o tal e qual e o email
+ * converte-o em parágrafos. Sem saudação no início — a mensagem já abre com
+ * "Olá {nome}!" e duas saudações seguidas soam a robô.
+ *
+ * @return string vazio quando o empreendimento ainda não tem texto próprio
+ */
+function dps_propostas_apresentacao($key)
+{
+    $textos = [
+        'aura' => "Temos o prazer de lhe apresentar o Aura Residence, o novo lançamento da DPS Imobiliário em Paços de Ferreira.\n\n"
+            . "✔ Excelente oportunidade para investidores e habitação própria.\n"
+            . "✔ Mercado imobiliário em forte crescimento e valorização.\n"
+            . "✔ Apenas 30% de pagamento até à escritura.\n"
+            . "✔ Possibilidade de cedência de posição contratual.\n"
+            . "✔ Apartamentos com arquitetura moderna, excelentes áreas e acabamentos de elevada qualidade.\n"
+            . "✔ Localização privilegiada, próxima dos principais acessos, comércio, escolas e serviços.\n\n"
+            . "Conheça todos os detalhes, plantas, preços e disponibilidades em:\n"
+            . "http://dpsimobiliario.pt/auraresidence\n\n"
+            . "5000€ CPCV\n"
+            . "10% arquitetura aprovada início de Setembro\n"
+            . "10% dezembro\n"
+            . "10% estrutura 1 ano depois\n"
+            . "Obra a acabar no fim de 2029.",
+
+        'boavista' => "Obrigado por ter despertado interesse na oportunidade na Avenida da Boavista.\n\n"
+            . "Porque está a despertar tanto interesse? 100 unidades vendidas em menos de uma semana.\n\n"
+            . "• Até 30% abaixo do valor de mercado no lançamento\n"
+            . "• Localização premium na Avenida da Boavista\n"
+            . "• Elevado potencial de valorização\n"
+            . "• Pagamento faseado\n"
+            . "• Possibilidade de cedência da posição contratual\n"
+            . "• Rooftop mais alto do Porto, exclusivo para residentes\n"
+            . "• Terraços panorâmicos com vistas sobre a cidade\n"
+            . "• Coworking, ginásio, sala de convívio e sala de podcast\n"
+            . "• Jardins privados e estacionamento\n"
+            . "• MetroBus Bessa em frente ao empreendimento\n"
+            . "• A poucos minutos da Casa da Música, Foz, Parque da Cidade e Aeroporto\n"
+            . "• Tipologias disponíveis: T1 Smart, T2 Smart e T2\n"
+            . "• Acabamentos premium com cozinhas totalmente equipadas Bosch, ar condicionado, bomba de calor e isolamento acústico\n\n"
+            . "Pretende mais informações e condições de compra?\n"
+            . "Qual a melhor altura para ser contactado?\n\n"
+            . "http://dpsimobiliario.pt/boavistatowers",
+
+        'belohorizonte' => "Escrevo da DPS Imobiliário no seguimento do seu pedido de informações sobre o Belo Horizonte Residences, em Setúbal.\n\n"
+            . "É uma oportunidade muito interessante, num empreendimento com localização diferenciada, vista rio, proximidade a Tróia e um forte potencial de valorização 📈\n\n"
+            . "Além disso, a estrutura de pagamento faseado — 30% até à escritura, com possibilidade de cedência após o CPCV e apenas 2% para reserva — além do posicionamento das unidades, torna esta proposta especialmente apelativa para quem procura entrar bem no mercado, com margem para crescimento.\n\n"
+            . "👉 Pode ver todos os detalhes e falar com a Sofia aqui:\n"
+            . "https://www.dpsimobiliario.pt/belohorizonte\n\n"
+            . "2% reserva\n"
+            . "10% CPCV entre Setembro e Dezembro\n"
+            . "10% na conclusão do betão\n"
+            . "8% no início da colocação do parquet\n\n"
+            . "Pode ceder posição após o CPCV.",
+    ];
+
+    return $textos[$key] ?? '';
+}
+
+/**
+ * O mesmo texto em HTML, para o email: parágrafos e links clicáveis.
+ */
+function dps_propostas_apresentacao_html($key)
+{
+    $texto = dps_propostas_apresentacao($key);
+    if ($texto === '') {
+        return '';
+    }
+
+    $html = '';
+    foreach (preg_split("/\n{2,}/", $texto) as $paragrafo) {
+        $seguro = html_escape(trim($paragrafo));
+
+        // Os URLs escritos à mão têm de ficar clicáveis no email.
+        $seguro = preg_replace(
+            '~(https?://[^\s<]+)~',
+            '<a href="$1" style="color:#1d6fb8;">$1</a>',
+            $seguro
+        );
+
+        $html .= '<p style="margin:0 0 14px;line-height:1.55;">' . nl2br($seguro) . '</p>';
+    }
+
+    return $html;
 }
 
 /**

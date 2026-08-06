@@ -9,7 +9,7 @@
                 <small class="text-muted">
                     Escreve a toda a gente que tem tarefas num determinado estado. O email sai
                     pela sua caixa de email, e leva no fim um botão para o seu WhatsApp.
-                    Máximo de <strong>100 por dia</strong>: o que passar disso fica agendado
+                    <?php if ((int) DPS_AUTOMACAO_LIMITE_DIA > 0) { ?>Máximo de <strong><?= (int) DPS_AUTOMACAO_LIMITE_DIA; ?> por dia</strong>: o que passar disso fica agendado<?php } else { ?>Sem tecto diário: saem todos<?php } ?>
                     e sai sozinho nos dias seguintes.
                 </small>
             </div>
@@ -141,7 +141,9 @@
     var CSRF = { nome: '<?php echo $this->security->get_csrf_token_name(); ?>',
                  hash: '<?php echo $this->security->get_csrf_hash(); ?>' };
     var BASE = '<?php echo admin_url('dps_automacao/'); ?>';
-    var LOTE = 100;   // tecto do fornecedor de email, por envio
+    // 0 = sem tecto. Vem do módulo (DPS_AUTOMACAO_LIMITE_DIA) para o ecrã
+    // não prometer um limite que o servidor já não aplica.
+    var LOTE = <?= (int) DPS_AUTOMACAO_LIMITE_DIA; ?>;
 
     function estados() {
         return Array.prototype.slice.call(document.querySelectorAll('.dps-estado:checked'))
@@ -200,7 +202,7 @@
             }
             // O tecto do fornecedor não é detalhe: quem carrega em Enviar tem
             // de saber, ANTES, que isto vai levar dias.
-            if (r.com_contacto > LOTE) {
+            if (LOTE > 0 && r.com_contacto > LOTE) {
                 var dias = Math.ceil(r.com_contacto / LOTE);
                 h += '<hr style="margin:10px 0"><small><strong>' + LOTE + ' hoje</strong>, '
                    + 'os restantes ' + (r.com_contacto - LOTE) + ' de ' + LOTE + ' em ' + LOTE
@@ -223,8 +225,8 @@
             prontos = quantos;
             botao.disabled = (quantos <= 0);
             botao.innerHTML = quantos > 0
-                ? '<i class="fa fa-paper-plane"></i> Enviar a ' + Math.min(quantos, LOTE)
-                  + (quantos > LOTE ? ' hoje (de ' + quantos + ')' : '')
+                ? '<i class="fa fa-paper-plane"></i> Enviar a ' + (LOTE > 0 ? Math.min(quantos, LOTE) : quantos)
+                  + (LOTE > 0 && quantos > LOTE ? ' hoje (de ' + quantos + ')' : '')
                 : '<i class="fa fa-paper-plane"></i> Ninguém para enviar';
         }).fail(function () {
             caixa.innerHTML = '<div class="alert alert-danger">Erro de comunicação.</div>';
@@ -282,7 +284,7 @@
              * seguintes. Dizer "enviados" quando ainda não saíram era prometer
              * o que não se tinha feito.
              */
-            var primeiro = Math.min(r.total, LOTE);
+            var primeiro = LOTE > 0 ? Math.min(r.total, LOTE) : r.total;
             var depois   = Math.max(0, r.total - primeiro);
 
             var h = '<div class="alert alert-success">'

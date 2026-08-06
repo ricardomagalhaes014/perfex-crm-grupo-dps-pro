@@ -74,6 +74,9 @@ class Dps_propostas extends AdminController
         }
 
         $emp      = $emps[$key];
+        // A chave viaja com o empreendimento: o construtor do email
+        // precisa dela para ir buscar o texto de apresentação.
+        $emp['chave'] = $key;
         $staff_id = get_staff_user_id();
 
         /*
@@ -135,10 +138,24 @@ class Dps_propostas extends AdminController
         $primeiro = trim(explode(' ', (string) $lead->name)[0]);
         $msg  = 'Olá' . ($primeiro ? " {$primeiro}" : '') . "! 👋\n\n";
         $msg .= '🏢 *' . $emp['nome'] . "*\n\n";
+
+        /*
+         * Texto de apresentação escrito pela direcção, quando o empreendimento
+         * tem um. Substitui a linha genérica do site porque já traz o seu
+         * próprio link — repeti-la punha o mesmo endereço duas vezes na mesma
+         * mensagem. O dossier fica, que é outro documento.
+         */
+        $apresentacao = dps_propostas_apresentacao($key);
+        if ($apresentacao !== '') {
+            $msg .= $apresentacao . "\n\n";
+        }
+
         if (! empty($emp['dossier'])) {
             $msg .= "📄 Dossier comercial:\n" . $emp['dossier'] . "\n\n";
         }
-        $msg .= "🌐 Mais informação:\n" . $emp['site'] . "\n\n";
+        if ($apresentacao === '') {
+            $msg .= "🌐 Mais informação:\n" . $emp['site'] . "\n\n";
+        }
         $msg .= '🏠 *' . $disp['count'] . ' unidade' . ($disp['count'] === 1 ? '' : 's') . ' disponíve' . ($disp['count'] === 1 ? 'l' : 'is') . '*';
         if (! empty($disp['por_tipologia'])) {
             $msg .= ":\n";
