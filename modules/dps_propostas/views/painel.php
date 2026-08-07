@@ -81,6 +81,9 @@
                                 <span class="label label-success">Aceite</span> <strong><?= number_format((float) $r->valor, 0, ',', '.'); ?> €</strong>
                                 <?php } elseif (($r->outcome ?? '') === 'recusado') { ?>
                                 <span class="label label-danger">Recusada</span>
+                                <?php if (! empty($r->motivo_perda)) { ?>
+                                <br><small class="text-muted"><?= e(dps_propostas_motivo_label($r->motivo_perda)); ?></small>
+                                <?php } ?>
                                 <?php } else { ?>
                                 <span class="label label-default">Pendente</span>
                                 <?php } ?>
@@ -117,22 +120,72 @@
     var csrfHash = '<?= $this->security->get_csrf_hash(); ?>';
     var base = (typeof admin_url !== 'undefined') ? admin_url : '<?= admin_url(); ?>';
 
+    /*
+     * Motivos de perda. Vêm do servidor para haver UMA lista só — se um dia se
+     * acrescentar um motivo, acrescenta-se no módulo e este ecrã acompanha.
+     */
+    var MOTIVOS = <?= json_encode(dps_propostas_motivos_perda(), JSON_UNESCAPED_UNICODE); ?>;
+
+    function pedirMotivo(aoEscolher) {
+        var ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(8,21,40,.65);z-index:2147483000;'
+            + 'display:flex;align-items:center;justify-content:center;padding:20px;';
+
+        var opcoes = '';
+        Object.keys(MOTIVOS).forEach(function (k) {
+            opcoes += '<option value="' + k + '">' + $('<span>').text(MOTIVOS[k]).html() + '</option>';
+        });
+
+        var cx = document.createElement('div');
+        cx.style.cssText = 'background:#fff;border-radius:12px;padding:22px 24px;max-width:400px;width:100%;'
+            + 'box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit;';
+        cx.innerHTML =
+              '<div style="font-weight:700;font-size:1.05rem;margin-bottom:4px;">Proposta recusada</div>'
+            + '<div style="color:#5a6675;font-size:.86rem;margin-bottom:16px;">'
+            +   'A lead passa para "Para outras oportunidades". Porque é que se perdeu?</div>'
+            + '<select class="form-control" id="dps-motivo-perda" style="margin-bottom:16px;">'
+            +   '<option value="">— escolha o motivo —</option>' + opcoes + '</select>'
+            + '<div style="display:flex;gap:8px;">'
+            +   '<button type="button" class="btn btn-danger" id="dps-motivo-ok" style="flex:1;">Marcar como recusada</button>'
+            +   '<button type="button" class="btn btn-default" id="dps-motivo-no">Cancelar</button>'
+            + '</div>';
+
+        ov.appendChild(cx);
+        document.body.appendChild(ov);
+
+        function fechar() { if (ov.parentNode) { ov.parentNode.removeChild(ov); } }
+        cx.querySelector('#dps-motivo-no').onclick = fechar;
+        ov.addEventListener('click', function (ev) { if (ev.target === ov) { fechar(); } });
+        cx.querySelector('#dps-motivo-ok').onclick = function () {
+            var m = cx.querySelector('#dps-motivo-perda').value;
+            if (!m) {
+                if (typeof alert_float === 'function') { alert_float('warning', 'Escolha o motivo — é obrigatório.'); }
+                return;
+            }
+            fechar();
+            aoEscolher(m);
+        };
+    }
+
     window.dpsResultado = function (id, outcome) {
-        var valor = '';
-        if (outcome === 'aceite') {
-            valor = prompt('Valor da proposta aceite (€):');
-            if (valor === null || valor === '') { return; }
-        } else {
-            if (!confirm('Marcar como RECUSADA? A lead passa para "Para outras oportunidades".')) { return; }
+        if (outcome !== 'aceite') {
+            pedirMotivo(function (motivo) { dpsEnviarResultado(id, outcome, '', motivo); });
+            return;
         }
-        var d = { proposta_id: id, outcome: outcome, valor: valor };
+        var valor = prompt('Valor da proposta aceite (€):');
+        if (valor === null || valor === '') { return; }
+        dpsEnviarResultado(id, outcome, valor, '');
+    };
+
+    function dpsEnviarResultado(id, outcome, valor, motivo) {
+        var d = { proposta_id: id, outcome: outcome, valor: valor, motivo_perda: motivo };
         d[csrfName] = csrfHash;
         $.post(base + 'dps_propostas/resultado_proposta', d, function (r) {
             try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
             if (typeof alert_float === 'function') { alert_float(r && r.success ? 'success' : 'danger', (r && r.message) || 'Erro.'); }
             if (r && r.success) { setTimeout(function () { location.reload(); }, 1000); }
         }).fail(function () { if (typeof alert_float === 'function') { alert_float('danger', 'Erro de comunicação.'); } });
-    };
+    }
 
     var infoBtn = root.querySelector('#dps_info_btn');
     infoBtn.addEventListener('click', function () {

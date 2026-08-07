@@ -811,11 +811,49 @@ class Dps_propostas extends AdminController
         }
 
         if ($outcome === 'recusado') {
+            /*
+             * O motivo é obrigatório, e é validado AQUI e não só no ecrã.
+             *
+             * Uma lista obrigatória no browser é uma sugestão: o pedido pode
+             * chegar por outro caminho e a proposta ficaria perdida sem se
+             * saber porquê — que é exactamente o dado que se quer recolher.
+             */
+            $motivo  = (string) $this->input->post('motivo_perda');
+            $motivos = dps_propostas_motivos_perda();
+
+            if (! isset($motivos[$motivo])) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Escolha o motivo da perda — é obrigatório.',
+                ]);
+                return;
+            }
+
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
-                'outcome' => 'recusado', 'valor' => null, 'outcome_at' => date('Y-m-d H:i:s'),
+                'outcome'      => 'recusado',
+                'motivo_perda' => $motivo,
+                'valor'        => null,
+                'outcome_at'   => date('Y-m-d H:i:s'),
             ]);
+
+            // O motivo fica também no histórico da lead: quem a abrir daqui a
+            // três meses percebe porque é que ela parou, sem ir à tabela.
+            $sid = get_staff_user_id();
+            $this->db->insert(db_prefix() . 'lead_activity_log', [
+                'leadid'      => (int) $prop->lead_id,
+                'staffid'     => $sid,
+                'full_name'   => get_staff_full_name($sid),
+                'date'        => date('Y-m-d H:i:s'),
+                'description' => '❌ Proposta recusada — motivo: ' . $motivos[$motivo]
+                    . ($prop->empreendimento ? ' (' . $prop->empreendimento . ')' : ''),
+            ]);
+
             $this->dps_set_lead_status((int) $prop->lead_id, 3);
-            echo json_encode(['success' => true, 'message' => 'Proposta RECUSADA — lead movida para "Para outras oportunidades".']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Proposta RECUSADA (' . $motivos[$motivo]
+                    . ') — lead movida para "Para outras oportunidades".',
+            ]);
             return;
         }
 

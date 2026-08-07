@@ -26,6 +26,63 @@ $CI->load->helper(DPS_PROPOSTAS_MODULE_NAME . '/dps_propostas');
 /**
  * Injeta a aba "Propostas" (com os botões) na ficha da lead.
  */
+/**
+ * Motivos de perda. Obrigatório escolher um ao marcar uma proposta como
+ * recusada — pedido do dono (07/08/2026).
+ *
+ * A razão de ser fechada em lista e não em texto livre: só assim se consegue
+ * depois contar quantas propostas se perderam por preço e quantas por prazo.
+ * Texto livre dá "preço", "caro", "valor alto" e "$" — e não se soma nada.
+ *
+ * A chave é o que fica gravado; muda-se o rótulo sem estragar o histórico.
+ */
+function dps_propostas_motivos_perda()
+{
+    return [
+        'preco'                  => 'Preço',
+        'falta_capital'          => 'Falta de capital',
+        'localizacao'            => 'Localização',
+        'tipologia_indisponivel' => 'Tipologia indisponível',
+        'deixou_responder'       => 'Deixou de responder',
+        'comprou_concorrente'    => 'Comprou com concorrente',
+        'prazo_conclusao'        => 'Prazo de conclusão',
+        'condicoes_pagamento'    => 'Condições de pagamento',
+        'desconfianca_projeto'   => 'Desconfiança no projeto',
+    ];
+}
+
+/** O rótulo de um motivo gravado, ou o próprio valor se for de outra época. */
+function dps_propostas_motivo_label($chave)
+{
+    $m = dps_propostas_motivos_perda();
+
+    return $m[(string) $chave] ?? (string) $chave;
+}
+
+hooks()->add_action('admin_init', 'dps_propostas_coluna_motivo');
+
+/**
+ * A coluna do motivo, acrescentada em instalações que já existiam.
+ */
+function dps_propostas_coluna_motivo()
+{
+    static $feito = false;
+    if ($feito) {
+        return;
+    }
+    $feito = true;
+
+    $CI = &get_instance();
+    $t  = db_prefix() . 'dps_propostas';
+
+    if (!$CI->db->table_exists($t)) {
+        return;
+    }
+    if (!$CI->db->field_exists('motivo_perda', $t)) {
+        $CI->db->query("ALTER TABLE `{$t}` ADD `motivo_perda` VARCHAR(40) NULL DEFAULT NULL AFTER `outcome`");
+    }
+}
+
 hooks()->add_action('after_lead_tabs_content', 'dps_propostas_render_lead_tab');
 
 /**
