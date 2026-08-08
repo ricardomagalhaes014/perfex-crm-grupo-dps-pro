@@ -120,56 +120,9 @@
     var csrfHash = '<?= $this->security->get_csrf_hash(); ?>';
     var base = (typeof admin_url !== 'undefined') ? admin_url : '<?= admin_url(); ?>';
 
-    /*
-     * Motivos de perda. Vêm do servidor para haver UMA lista só — se um dia se
-     * acrescentar um motivo, acrescenta-se no módulo e este ecrã acompanha.
-     */
-    var MOTIVOS = <?= json_encode(dps_propostas_motivos_perda(), JSON_UNESCAPED_UNICODE); ?>;
-
-    function pedirMotivo(aoEscolher) {
-        var ov = document.createElement('div');
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(8,21,40,.65);z-index:2147483000;'
-            + 'display:flex;align-items:center;justify-content:center;padding:20px;';
-
-        var opcoes = '';
-        Object.keys(MOTIVOS).forEach(function (k) {
-            opcoes += '<option value="' + k + '">' + $('<span>').text(MOTIVOS[k]).html() + '</option>';
-        });
-
-        var cx = document.createElement('div');
-        cx.style.cssText = 'background:#fff;border-radius:12px;padding:22px 24px;max-width:400px;width:100%;'
-            + 'box-shadow:0 20px 60px rgba(0,0,0,.3);font-family:inherit;';
-        cx.innerHTML =
-              '<div style="font-weight:700;font-size:1.05rem;margin-bottom:4px;">Proposta recusada</div>'
-            + '<div style="color:#5a6675;font-size:.86rem;margin-bottom:16px;">'
-            +   'A lead passa para "Para outras oportunidades". Porque é que se perdeu?</div>'
-            + '<select class="form-control" id="dps-motivo-perda" style="margin-bottom:16px;">'
-            +   '<option value="">— escolha o motivo —</option>' + opcoes + '</select>'
-            + '<div style="display:flex;gap:8px;">'
-            +   '<button type="button" class="btn btn-danger" id="dps-motivo-ok" style="flex:1;">Marcar como recusada</button>'
-            +   '<button type="button" class="btn btn-default" id="dps-motivo-no">Cancelar</button>'
-            + '</div>';
-
-        ov.appendChild(cx);
-        document.body.appendChild(ov);
-
-        function fechar() { if (ov.parentNode) { ov.parentNode.removeChild(ov); } }
-        cx.querySelector('#dps-motivo-no').onclick = fechar;
-        ov.addEventListener('click', function (ev) { if (ev.target === ov) { fechar(); } });
-        cx.querySelector('#dps-motivo-ok').onclick = function () {
-            var m = cx.querySelector('#dps-motivo-perda').value;
-            if (!m) {
-                if (typeof alert_float === 'function') { alert_float('warning', 'Escolha o motivo — é obrigatório.'); }
-                return;
-            }
-            fechar();
-            aoEscolher(m);
-        };
-    }
-
     window.dpsResultado = function (id, outcome) {
         if (outcome !== 'aceite') {
-            pedirMotivo(function (motivo) { dpsEnviarResultado(id, outcome, '', motivo); });
+            window.dpsPedirMotivoPerda(function (motivo) { dpsEnviarResultado(id, outcome, '', motivo); });
             return;
         }
         var valor = prompt('Valor da proposta aceite (€):');

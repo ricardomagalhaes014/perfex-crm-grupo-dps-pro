@@ -231,9 +231,16 @@ function dpsResultado(id, outcome) {
          */
         if (!confirm('Marcar como ACEITE?\n\nA seguir abre-se a ficha da venda para escolher a unidade e o valor.')) { return; }
     } else {
-        if (!confirm('Marcar como RECUSADA? A lead passa para "Para outras oportunidades".')) { return; }
+        // O motivo é obrigatório — a caixa vem do rodapé do módulo
+        // (dpsPedirMotivoPerda), a mesma que a ficha da lead usa.
+        window.dpsPedirMotivoPerda(function (motivo) { dpsEnviarResultado(id, outcome, '', motivo); });
+        return;
     }
-    var data = { proposta_id: id, outcome: outcome, valor: valor };
+    dpsEnviarResultado(id, outcome, valor, '');
+}
+
+function dpsEnviarResultado(id, outcome, valor, motivo) {
+    var data = { proposta_id: id, outcome: outcome, valor: valor, motivo_perda: motivo };
     data[DPS_CSRF.name] = DPS_CSRF.hash;
     $.post(admin_url + 'dps_propostas/resultado_proposta', data, function (r) {
         try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
