@@ -173,7 +173,7 @@ class Dps_sofia_calls extends AdminController
         // Apenas admins
         if (!is_admin()) show_404();
 
-        $api_key = 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348';
+        $api_key = (string) get_option('sofia_calls_elevenlabs_api_key');
         $out     = [];
 
         // Chamadas em 'calling'
@@ -226,4 +226,47 @@ class Dps_sofia_calls extends AdminController
         echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+    /**
+     * Onde a chave da ElevenLabs se escreve.
+     *
+     * Existe porque a chave estava cravada no código — e código vai para o
+     * repositório. Aqui fica na base de dados, e revogá-la na ElevenLabs passa
+     * a ser suficiente: não sobra nenhuma cópia em ficheiro.
+     *
+     * O campo nunca devolve o que lá está: mostra-se só o tamanho e os últimos
+     * caracteres, o bastante para se reconhecer qual é sem a expor no ecrã.
+     */
+    public function definicoes()
+    {
+        if (!is_admin()) {
+            access_denied('dps_sofia_calls');
+        }
+
+        if ($this->input->method(true) === 'POST') {
+            $nova = trim((string) $this->input->post('api_key', false));
+
+            // Em branco = não mexer. Sem isto, gravar o formulário para mudar
+            // só o número de telefone apagava a chave.
+            if ($nova !== '') {
+                update_option('sofia_calls_elevenlabs_api_key', $nova);
+                log_activity('Sofia Calls: chave da ElevenLabs substituída');
+            }
+
+            update_option('sofia_calls_phone_number_id', trim((string) $this->input->post('phone_number_id')));
+            set_alert('success', 'Definições guardadas.');
+            redirect(admin_url('dps_sofia_calls/definicoes'));
+        }
+
+        $chave = (string) get_option('sofia_calls_elevenlabs_api_key');
+
+        $data['chave_definida']  = $chave !== '';
+        $data['chave_tamanho']   = strlen($chave);
+        $data['chave_fim']       = $chave !== '' ? substr($chave, -4) : '';
+        $data['phone_number_id'] = (string) get_option('sofia_calls_phone_number_id');
+        $data['title']           = 'Sofia Calls — Definições';
+
+        $this->load->view('definicoes', $data);
+    }
+
 }

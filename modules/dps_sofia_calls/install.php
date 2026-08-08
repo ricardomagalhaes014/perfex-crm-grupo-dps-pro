@@ -41,7 +41,14 @@ $CI->db->query("CREATE TABLE IF NOT EXISTS `" . db_prefix() . "dps_sofia_call_lo
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
 // Configurações do módulo
-add_option('sofia_calls_elevenlabs_api_key', 'e632bad54e6bf1bfb697cf7d095a6d0aa514fc4c03a77e1180b4ccd544d50348');
+/*
+ * A chave NAO e semeada aqui.
+ *
+ * Estava cravada no codigo e por isso viajava no repositorio: quem lesse
+ * o ficheiro tinha a chave da conta ElevenLabs. Agora nasce vazia e
+ * escreve-se no ecra de definicoes do modulo, que a guarda na base de dados.
+ */
+add_option('sofia_calls_elevenlabs_api_key', '');
 add_option('sofia_calls_phone_number_id', 'phnum_6701kvea8mbhe4vbdz75jf1wd1y7');
 add_option('sofia_calls_default_agent_id', 'agent_9901kv1pvewveh9s9ebs1rys274k');
 add_option('sofia_calls_delay_between_calls', '3');

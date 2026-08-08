@@ -23,6 +23,14 @@ function dps_sofia_calls_menu()
         'position' => 49,
         'badge'    => [],
     ]);
+
+    // A chave da ElevenLabs escreve-se aqui, nao no codigo.
+    $CI->app_menu->add_sidebar_children_item('dps_sofia_calls', [
+        'slug'     => 'dps_sofia_calls_definicoes',
+        'name'     => 'Definições',
+        'href'     => admin_url('dps_sofia_calls/definicoes'),
+        'position' => 5,
+    ]);
 }
 
 // Cron: processar chamadas pendentes

@@ -1061,6 +1061,15 @@ class Leads extends AdminController
             unset($data['contacted_indicator']);
             unset($data['custom_contact_date']);
 
+            /*
+             * O POST inteiro é inserido na tabela das notas: qualquer campo a
+             * mais vira uma coluna inexistente e o INSERT rebenta. Foi o que
+             * aconteceu a 06/08/2026 com o 'leve' — a nota deixou de gravar.
+             * Ler a bandeira e tirá-la daqui ANTES de chegar ao add_note().
+             */
+            $resposta_leve = ! empty($data['leve']);
+            unset($data['leve']);
+
             // Causing issues with duplicate ID or if my prefixed file for lead.php is used
             $data['description'] = isset($data['lead_note_description']) ? $data['lead_note_description'] : $data['description'];
 
@@ -1107,7 +1116,7 @@ class Leads extends AdminController
          * O caminho normal (a ficha da lead aberta, que precisa mesmo do HTML
          * para se redesenhar) fica exactamente como estava.
          */
-        if ($this->input->post('leve')) {
+        if (! empty($resposta_leve)) {
             echo json_encode(['id' => $rel_id, 'leve' => true]);
 
             return;
