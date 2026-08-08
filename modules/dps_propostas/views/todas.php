@@ -8,12 +8,15 @@
                     <div class="panel-body">
                         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
                             <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas Enviadas</h4>
-                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?></span>
+                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?><?= ($empreendimento ?? '') !== '' ? ' · ' . e($empreendimento) : ''; ?></span>
 
                             <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>"
                                   style="margin-left:auto;display:flex;align-items:center;gap:8px;">
                                 <?php if ($comercial > 0) { ?>
                                     <input type="hidden" name="comercial" value="<?= (int) $comercial; ?>">
+                                <?php } ?>
+                                <?php if (($empreendimento ?? '') !== '') { ?>
+                                    <input type="hidden" name="empreendimento" value="<?= e($empreendimento); ?>">
                                 <?php } ?>
                                 <input type="search" name="q" value="<?= e($procura ?? ''); ?>"
                                        class="form-control input-sm" style="width:230px;"
@@ -42,11 +45,41 @@
                                     <option value="<?= $cid; ?>"<?= $comercial == $cid ? ' selected' : ''; ?>><?= e(trim($c['firstname'] . ' ' . $c['lastname'])); ?> (<?= (int) $c['c']; ?>)</option>
                                     <?php } ?>
                                 </select>
-                                <?php if ($comercial > 0) { ?>
-                                <a href="<?= admin_url('dps_propostas/todas'); ?>" class="btn btn-default btn-sm">Limpar</a>
+                                <?php if (($empreendimento ?? '') !== '') { ?>
+                                    <input type="hidden" name="empreendimento" value="<?= e($empreendimento); ?>">
                                 <?php } ?>
                             </form>
                             <?php } ?>
+
+                            <?php
+                            /*
+                             * Empreendimento. A lista sai das propostas que existem
+                             * mesmo — e acompanha o comercial escolhido, para não
+                             * oferecer empreendimentos onde ele nunca enviou nada.
+                             */
+                            ?>
+                            <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>" style="display:flex;align-items:center;gap:8px;">
+                                <?php if (($procura ?? '') !== '') { ?>
+                                    <input type="hidden" name="q" value="<?= e($procura); ?>">
+                                <?php } ?>
+                                <?php if ($comercial > 0) { ?>
+                                    <input type="hidden" name="comercial" value="<?= (int) $comercial; ?>">
+                                <?php } ?>
+                                <label style="margin:0;font-size:13px;color:#5a6673;"><i class="fa fa-building-o"></i> Empreendimento:</label>
+                                <select name="empreendimento" class="selectpicker" data-width="240px" onchange="this.form.submit()">
+                                    <option value=""<?= ($empreendimento ?? '') === '' ? ' selected' : ''; ?>>Todos</option>
+                                    <?php foreach (($emps_filtro ?? []) as $ef) { ?>
+                                    <option value="<?= e($ef['empreendimento']); ?>"<?= ($empreendimento ?? '') === $ef['empreendimento'] ? ' selected' : ''; ?>>
+                                        <?= e($ef['empreendimento']); ?> (<?= (int) $ef['c']; ?>)
+                                    </option>
+                                    <?php } ?>
+                                </select>
+                                <?php if (($empreendimento ?? '') !== '') { ?>
+                                <a href="<?= admin_url('dps_propostas/todas'
+                                    . ($comercial > 0 ? '?comercial=' . (int) $comercial : '')); ?>"
+                                   class="btn btn-default btn-sm">Limpar</a>
+                                <?php } ?>
+                            </form>
                         </div>
 
 

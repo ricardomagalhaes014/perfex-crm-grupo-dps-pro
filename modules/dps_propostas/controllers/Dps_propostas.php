@@ -371,6 +371,22 @@ class Dps_propostas extends AdminController
             $comercial = get_staff_user_id();
         }
 
+        /*
+         * Filtro por empreendimento. Texto e não id: a coluna é texto livre,
+         * escrita por quem enviou a proposta. A lista do dropdown sai dos
+         * valores que existem mesmo, para não oferecer empreendimentos sem
+         * uma única proposta.
+         */
+        $empreendimento = trim((string) $this->input->get('empreendimento'));
+
+        $emps_filtro = $this->db->query(
+            'SELECT p.empreendimento, COUNT(*) AS c
+             FROM ' . db_prefix() . 'dps_propostas p
+             WHERE p.tipo = "proposta" AND p.empreendimento IS NOT NULL AND p.empreendimento <> ""'
+            . ($comercial > 0 ? ' AND p.staff_id = ' . (int) $comercial : '') .
+            ' GROUP BY p.empreendimento ORDER BY c DESC'
+        )->result_array();
+
         // Comerciais com propostas (para o dropdown).
         $comerciais = [];
         if ($can_view_all) {
@@ -418,6 +434,9 @@ class Dps_propostas extends AdminController
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
+        if ($empreendimento !== '') {
+            $this->db->where('p.empreendimento', $empreendimento);
+        }
         $this->db->order_by('p.id', 'DESC');
         $this->db->limit(1000);
         $propostas = $this->db->get()->result();
@@ -437,6 +456,9 @@ class Dps_propostas extends AdminController
         $this->db->where('p.tipo', 'proposta');
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
+        }
+        if ($empreendimento !== '') {
+            $this->db->where('p.empreendimento', $empreendimento);
         }
         /*
          * Agrupa-se pela EXPRESSÃO, não pelo alias: com ONLY_FULL_GROUP_BY
@@ -554,6 +576,8 @@ class Dps_propostas extends AdminController
         $data['comercial']    = $comercial;
         $data['comerciais']   = $comerciais;
         $data['procura']      = $procura;
+        $data['empreendimento'] = $empreendimento;
+        $data['emps_filtro']    = $emps_filtro;
         $this->load->view('todas', $data);
     }
 
