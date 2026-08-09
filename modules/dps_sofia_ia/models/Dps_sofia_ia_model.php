@@ -268,6 +268,179 @@ class Dps_sofia_ia_model extends App_Model
     }
 
     /* ------------------------------------------------------------------ */
+    /* Dados ao vivo (disponibilidade do simulador)                        */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Estado actual das fracções, do simulador.
+     *
+     * Um PDF com a tabela de preços não sabe o que se vendeu ontem — e é
+     * exactamente isso que um comercial pergunta ("o que há disponível?").
+     * Por isso a disponibilidade não vem da base de conhecimento: vem daqui,
+     * a cada pergunta.
+     *
+     * Guardado em ficheiro durante 10 minutos. Sem isso, cada pergunta de cada
+     * comercial era mais um pedido ao dpsimobiliario.pt, e a resposta ficava
+     * presa à latência desse site. Se o pedido falhar, usa-se a cópia antiga:
+     * disponibilidade de há uma hora é muito melhor do que nenhuma.
+     */
+    public function estados_do_simulador()
+    {
+        $cache = FCPATH . DPS_SOFIA_IA_UPLOAD_PATH . 'estados_cache.json';
+
+        if (is_readable($cache) && (time() - filemtime($cache)) < 600) {
+            $guardado = json_decode((string) file_get_contents($cache), true);
+            if (is_array($guardado)) {
+                return $guardado;
+            }
+        }
+
+        $ch = curl_init('https://dpsimobiliario.pt/simuladorportugal/save_states.php');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 12,
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+        $bruto = curl_exec($ch);
+        curl_close($ch);
+
+        $dados = is_string($bruto) ? json_decode($bruto, true) : null;
+
+        if (is_array($dados) && !empty($dados)) {
+            if (!is_dir(dirname($cache))) {
+                @mkdir(dirname($cache), 0755, true);
+            }
+            @file_put_contents($cache, $bruto);
+
+            return $dados;
+        }
+
+        // Falhou: melhor a cópia velha do que nada.
+        if (is_readable($cache)) {
+            $guardado = json_decode((string) file_get_contents($cache), true);
+            if (is_array($guardado)) {
+                log_activity('Sofia IA: simulador não respondeu; a usar disponibilidade em cache.');
+
+                return $guardado;
+            }
+        }
+
+        log_activity('Sofia IA: não consegui obter a disponibilidade do simulador.');
+
+        return [];
+    }
+
+    private function catalogo_unidades()
+    {
+        // O catálogo (tipologia, área, preço) é mantido no dps_propostas. Ler
+        // de lá em vez de copiar evita ficar com uma tabela de preços velha.
+        $ficheiro = FCPATH . 'modules/dps_propostas/units.json';
+
+        if (!is_readable($ficheiro)) {
+            return [];
+        }
+
+        $dados = json_decode((string) file_get_contents($ficheiro), true);
+
+        return is_array($dados) ? $dados : [];
+    }
+
+    /**
+     * Resumo do que está disponível agora, para ir com a pergunta.
+     *
+     * Vai sempre um resumo curto (contagens e preço mínimo por tipologia).
+     * A lista fracção a fracção só entra quando a pergunta nomeia um
+     * empreendimento — são 249 fracções só no Boavista, e mandá-las em todas
+     * as perguntas era pagar contexto que ninguém leu.
+     */
+    public function dados_ao_vivo($pergunta)
+    {
+        $estados  = $this->estados_do_simulador();
+        $catalogo = $this->catalogo_unidades();
+
+        if (empty($estados) || empty($catalogo)) {
+            return '';
+        }
+
+        $pergunta_norm = dps_sofia_ia_normalizar($pergunta);
+        $linhas        = ['## Disponibilidade AGORA (dados ao vivo do simulador)'];
+
+        if (!empty($estados['updated'])) {
+            $linhas[] = 'Actualizado em: ' . $estados['updated'];
+        }
+
+        foreach (dps_sofia_ia_empreendimentos() as $chave => $emp) {
+            if (empty($catalogo[$chave]) || empty($estados[$emp['states_key']])) {
+                continue;
+            }
+
+            $unidades = $catalogo[$chave];
+            $situacao = $estados[$emp['states_key']];
+
+            $por_tipologia = [];
+            $disponiveis   = [];
+
+            foreach ($unidades as $codigo => $unidade) {
+                $estado = isset($situacao[$codigo]) ? $situacao[$codigo] : null;
+                if ($estado !== 'Disponível') {
+                    continue;
+                }
+
+                $tipologia = !empty($unidade['tipologia']) ? $unidade['tipologia'] : 'n/d';
+                $preco     = isset($unidade['preco']) ? (float) $unidade['preco'] : 0;
+
+                if (!isset($por_tipologia[$tipologia])) {
+                    $por_tipologia[$tipologia] = ['total' => 0, 'min' => null];
+                }
+                $por_tipologia[$tipologia]['total']++;
+                if ($preco > 0 && ($por_tipologia[$tipologia]['min'] === null || $preco < $por_tipologia[$tipologia]['min'])) {
+                    $por_tipologia[$tipologia]['min'] = $preco;
+                }
+
+                $disponiveis[$codigo] = $unidade;
+            }
+
+            if (empty($por_tipologia)) {
+                $linhas[] = "\n### " . $emp['nome'] . "\nSem fracções disponíveis de momento.";
+                continue;
+            }
+
+            ksort($por_tipologia);
+
+            $resumo = [];
+            foreach ($por_tipologia as $tipologia => $info) {
+                $resumo[] = $tipologia . ': ' . $info['total']
+                          . ($info['min'] ? ' (desde ' . number_format($info['min'], 0, ',', ' ') . ' €)' : '');
+            }
+
+            $linhas[] = "\n### " . $emp['nome'] . ' — ' . count($disponiveis) . ' disponíveis'
+                      . "\n" . implode(' | ', $resumo);
+
+            // Detalhe só para o empreendimento que a pergunta nomeia.
+            $nome_norm = dps_sofia_ia_normalizar($emp['nome']);
+            $primeira  = explode(' ', $nome_norm)[0];
+
+            if ($primeira !== '' && strpos($pergunta_norm, $primeira) !== false) {
+                $detalhe = [];
+                foreach (array_slice($disponiveis, 0, 80, true) as $codigo => $unidade) {
+                    $detalhe[] = sprintf(
+                        '%s: %s, %s m2, %s €%s',
+                        $codigo,
+                        $unidade['tipologia'] ?? 'n/d',
+                        $unidade['area'] ?? 'n/d',
+                        isset($unidade['preco']) ? number_format((float) $unidade['preco'], 0, ',', ' ') : 'n/d',
+                        !empty($unidade['piso']) ? ', piso ' . $unidade['piso'] : ''
+                    );
+                }
+                $linhas[] = "Fracções disponíveis:\n" . implode("\n", $detalhe)
+                          . (count($disponiveis) > 80 ? "\n(mostradas as primeiras 80 de " . count($disponiveis) . ')' : '');
+            }
+        }
+
+        return count($linhas) > 1 ? implode("\n", $linhas) : '';
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Conversas                                                           */
     /* ------------------------------------------------------------------ */
 
@@ -423,7 +596,25 @@ class Dps_sofia_ia_model extends App_Model
             $prefixo .= "\n\n## Conhecimento permanente\n\n" . implode("\n\n", $base);
         }
 
-        $contexto = empty($encontrado['trechos'])
+        /*
+         * A disponibilidade ao vivo vai à frente do conhecimento estático de
+         * propósito, e com instrução explícita de prevalecer: os PDFs de preços
+         * têm meses e listam fracções já vendidas. Sem esta regra, a Sofia
+         * escolhia a tabela do dossier e mandava o comercial oferecer um T2 que
+         * já não existe — o pior erro possível, porque acontece à frente do
+         * cliente.
+         */
+        $ao_vivo = $this->dados_ao_vivo($pergunta);
+
+        $contexto = '';
+        if ($ao_vivo !== '') {
+            $contexto .= $ao_vivo
+                . "\n\nNOTA: para disponibilidade, tipologias em venda e preços, vale o que está "
+                . "acima (ao vivo). Se um documento mais abaixo disser outra coisa, o de cima é que "
+                . "está certo — os documentos podem listar fracções já vendidas.\n\n";
+        }
+
+        $contexto .= empty($encontrado['trechos'])
             ? "## Conhecimento relacionado com esta pergunta\n\n(não foi encontrado nada na base sobre este assunto)"
             : "## Conhecimento relacionado com esta pergunta\n\n" . implode("\n\n", $encontrado['trechos']);
 
@@ -492,16 +683,35 @@ class Dps_sofia_ia_model extends App_Model
         $encontrado = $this->procurar_trechos($pergunta, true);
         $itens      = array_slice($encontrado['itens'], 0, 3);
 
-        $sem_resposta = empty($itens);
+        /*
+         * Disponibilidade também aqui. Sem IA a Sofia não redige, mas mostrar a
+         * lista actualizada do simulador responde a "o que há disponível?"
+         * melhor do que qualquer PDF — e é a pergunta mais frequente.
+         */
+        $ao_vivo = '';
+        if (preg_match('/\b(disponiv|disponív|tipologia|t[0-4]\b|fracc|fraç|preco|preço|quanto custa|stock)/iu', $pergunta)) {
+            $ao_vivo = $this->dados_ao_vivo($pergunta);
+        }
+
+        $sem_resposta = empty($itens) && $ao_vivo === '';
 
         if ($sem_resposta) {
             $texto = 'Não encontrei nada sobre isso na base de conhecimento. '
                    . 'Vou pedir a resposta à administração.';
         } else {
-            $partes = ['Encontrei isto na base de conhecimento:'];
-            foreach ($itens as $item) {
-                $partes[] = '**' . $item['titulo'] . "**\n" . trim($item['texto']);
+            $partes = [];
+
+            if ($ao_vivo !== '') {
+                $partes[] = $ao_vivo;
             }
+
+            if (!empty($itens)) {
+                $partes[] = 'Encontrei isto na base de conhecimento:';
+                foreach ($itens as $item) {
+                    $partes[] = '**' . $item['titulo'] . "**\n" . trim($item['texto']);
+                }
+            }
+
             $texto = implode("\n\n", $partes);
         }
 

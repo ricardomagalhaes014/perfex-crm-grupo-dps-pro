@@ -46,6 +46,41 @@ function dps_sofia_ia_contar_pendentes()
     return (int) $CI->db->count_all_results(db_prefix() . 'dps_sofia_pendentes');
 }
 
+/**
+ * Empreendimentos, com a chave que identifica cada um no ficheiro de
+ * disponibilidade do simulador.
+ *
+ * Preferimos a lista do módulo dps_propostas: é lá que ela é mantida, e ter
+ * uma segunda cópia aqui significava que acrescentar um empreendimento passava
+ * a exigir mexer em dois sítios — e que a Sofia ficaria a ignorar o novo até
+ * alguém se lembrar do segundo. A cópia abaixo só entra em jogo se esse módulo
+ * desaparecer.
+ */
+function dps_sofia_ia_empreendimentos()
+{
+    if (function_exists('dps_propostas_empreendimentos')) {
+        $lista = [];
+        foreach (dps_propostas_empreendimentos() as $chave => $emp) {
+            if (empty($emp['states_key'])) {
+                continue;
+            }
+            $lista[$chave] = ['nome' => $emp['nome'], 'states_key' => $emp['states_key']];
+        }
+        if (!empty($lista)) {
+            return $lista;
+        }
+    }
+
+    return [
+        'boavista'      => ['nome' => 'Boavista Towers', 'states_key' => 'boavista_states'],
+        'belohorizonte' => ['nome' => 'Belo Horizonte',  'states_key' => 'bh_states'],
+        'raizes'        => ['nome' => 'Raízes Fanzeres', 'states_key' => 'raizes_states'],
+        'lake'          => ['nome' => 'Lake Towers',     'states_key' => 'lake_states'],
+        'gaiadouro'     => ['nome' => 'Gaia Douro',      'states_key' => 'gaiadouro_states'],
+        'aura'          => ['nome' => 'Aura Residence',  'states_key' => 'aura_states'],
+    ];
+}
+
 function dps_sofia_ia_categorias()
 {
     return [
