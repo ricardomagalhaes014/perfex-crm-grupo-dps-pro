@@ -348,6 +348,25 @@ function dps_sofia_ia_texto_pdf($caminho)
         return '';
     }
 
+    /*
+     * Tipos de letra embebidos em subconjunto.
+     *
+     * Os PDFs modernos não escrevem "(Olá) Tj": escrevem "<3F> Tj", onde 3F é
+     * o número do glifo dentro do tipo de letra embebido — não é a letra "?".
+     * Sem traduzir isso, a leitura devolve zero caracteres, que foi o que
+     * aconteceu com o Manual do CRM: 637 streams, texto nenhum.
+     *
+     * A tradução está no próprio PDF, na tabela ToUnicode de cada tipo de
+     * letra. Esta via lê essas tabelas e devolve o texto certo. Corre antes da
+     * leitura simples porque é a que serve os PDFs que a equipa costuma ter.
+     */
+    if (strlen($bruto) <= 25 * 1024 * 1024) {
+        $via_cmap = dps_sofia_ia_pdf_por_cmap($bruto);
+        if (dps_sofia_ia_texto_util($via_cmap)) {
+            return dps_sofia_ia_forcar_utf8($via_cmap);
+        }
+    }
+
     $partes = [];
 
     // Cada stream é um bloco de conteúdo, normalmente comprimido com Flate.
@@ -368,6 +387,207 @@ function dps_sofia_ia_texto_pdf($caminho)
     $texto = trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", array_filter($partes))));
 
     return dps_sofia_ia_forcar_utf8($texto);
+}
+
+/**
+ * Extracção de PDF traduzindo os índices de glifo pela tabela ToUnicode.
+ *
+ * Três passos: apanhar os objectos todos, construir a tradução de cada tipo de
+ * letra, e depois percorrer os conteúdos a seguir o tipo de letra activo — o
+ * mesmo código de glifo significa letras diferentes em tipos de letra
+ * diferentes, por isso traduzir sem saber qual está activo dá lixo.
+ */
+function dps_sofia_ia_pdf_por_cmap($bruto)
+{
+    if (!preg_match_all('/(\d+)\s+0\s+obj(.*?)endobj/s', $bruto, $achados, PREG_SET_ORDER)) {
+        return '';
+    }
+
+    $objectos = [];
+    foreach ($achados as $achado) {
+        $objectos[(int) $achado[1]] = $achado[2];
+    }
+
+    // Tipo de letra -> tabela de tradução
+    $tabelas = [];
+    foreach ($objectos as $id => $corpo) {
+        if (strpos($corpo, '/Font') === false || !preg_match('/\/ToUnicode\s+(\d+)\s+0\s+R/', $corpo, $m)) {
+            continue;
+        }
+        $cmap = isset($objectos[(int) $m[1]]) ? dps_sofia_ia_pdf_stream($objectos[(int) $m[1]]) : null;
+        if ($cmap === null) {
+            continue;
+        }
+        $tabela = dps_sofia_ia_pdf_ler_cmap($cmap);
+        if (!empty($tabela)) {
+            $tabelas[$id] = $tabela;
+        }
+    }
+
+    if (empty($tabelas)) {
+        return '';
+    }
+
+    // Nome do recurso (/F4) -> objecto do tipo de letra
+    $nomes = [];
+    foreach ($objectos as $corpo) {
+        if (!preg_match_all('/\/Font\s*<<(.*?)>>/s', $corpo, $blocos)) {
+            continue;
+        }
+        foreach ($blocos[1] as $bloco) {
+            if (preg_match_all('/\/([A-Za-z0-9]+)\s+(\d+)\s+0\s+R/', $bloco, $pares, PREG_SET_ORDER)) {
+                foreach ($pares as $par) {
+                    $nomes[$par[1]] = (int) $par[2];
+                }
+            }
+        }
+    }
+
+    $texto = '';
+
+    foreach ($objectos as $corpo) {
+        $conteudo = dps_sofia_ia_pdf_stream($corpo);
+        if ($conteudo === null || (strpos($conteudo, 'Tj') === false && strpos($conteudo, 'TJ') === false)) {
+            continue;
+        }
+
+        $tabela = null;
+        $padrao = '/\/([A-Za-z0-9]+)\s+[\d.]+\s+Tf'      // tipo de letra activo
+                . '|<([0-9A-Fa-f]+)>\s*Tj'                // texto em hexadecimal
+                . '|\[([^\]]*)\]\s*TJ'                    // texto em lista
+                . '|(T\*|BT|ET)'                          // mudança de linha / bloco
+                . '|(-?[\d.]+)\s+(-?[\d.]+)\s+T[dD]/s';   // deslocação
+
+        if (!preg_match_all($padrao, $conteudo, $eventos, PREG_SET_ORDER)) {
+            continue;
+        }
+
+        foreach ($eventos as $evento) {
+            if (!empty($evento[1])) {
+                $id     = isset($nomes[$evento[1]]) ? $nomes[$evento[1]] : null;
+                $tabela = ($id !== null && isset($tabelas[$id])) ? $tabelas[$id] : null;
+                continue;
+            }
+            if (!empty($evento[2])) {
+                $texto .= $tabela ? dps_sofia_ia_pdf_traduzir($evento[2], $tabela) : '';
+                continue;
+            }
+            if (!empty($evento[3])) {
+                if ($tabela && preg_match_all('/<([0-9A-Fa-f]+)>/', $evento[3], $hexes)) {
+                    foreach ($hexes[1] as $hex) {
+                        $texto .= dps_sofia_ia_pdf_traduzir($hex, $tabela);
+                    }
+                }
+                continue;
+            }
+            if (!empty($evento[4])) {
+                $texto .= "\n";
+                continue;
+            }
+            /*
+             * Um Td só muda de linha quando desloca na VERTICAL. Neste tipo de
+             * PDF cada letra é posicionada com um Td horizontal — tratar todos
+             * como mudança de linha devolvia o texto certo com uma letra por
+             * linha, ilegível e inútil para procura.
+             */
+            if (isset($evento[6]) && $evento[6] !== '' && (float) $evento[6] != 0.0) {
+                $texto .= "\n";
+            }
+        }
+
+        $texto .= "\n\n";
+    }
+
+    return trim(preg_replace("/\n{3,}/", "\n\n", $texto));
+}
+
+/**
+ * Lê uma tabela ToUnicode: pares soltos (bfchar) e intervalos (bfrange).
+ */
+function dps_sofia_ia_pdf_ler_cmap($cmap)
+{
+    $tabela = [];
+
+    if (preg_match_all('/beginbfchar(.*?)endbfchar/s', $cmap, $blocos)) {
+        foreach ($blocos[1] as $bloco) {
+            if (preg_match_all('/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/', $bloco, $pares, PREG_SET_ORDER)) {
+                foreach ($pares as $par) {
+                    $tabela[strtoupper($par[1])] = $par[2];
+                }
+            }
+        }
+    }
+
+    if (preg_match_all('/beginbfrange(.*?)endbfrange/s', $cmap, $blocos)) {
+        foreach ($blocos[1] as $bloco) {
+            if (!preg_match_all('/<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>/', $bloco, $pares, PREG_SET_ORDER)) {
+                continue;
+            }
+            foreach ($pares as $par) {
+                $inicio  = hexdec($par[1]);
+                $fim     = hexdec($par[2]);
+                $destino = hexdec($par[3]);
+                $largura = strlen($par[1]);
+
+                // Tecto para não explodir com um intervalo mal formado.
+                for ($i = $inicio; $i <= $fim && ($i - $inicio) < 65535; $i++) {
+                    $chave          = strtoupper(str_pad(dechex($i), $largura, '0', STR_PAD_LEFT));
+                    $tabela[$chave] = str_pad(dechex($destino + ($i - $inicio)), 4, '0', STR_PAD_LEFT);
+                }
+            }
+        }
+    }
+
+    return $tabela;
+}
+
+function dps_sofia_ia_pdf_traduzir($hex, $tabela)
+{
+    $hex   = strtoupper($hex);
+    $saida = '';
+
+    // Os códigos tanto podem ser de 1 byte como de 2; tenta o mais curto.
+    for ($i = 0; $i < strlen($hex);) {
+        if (isset($tabela[substr($hex, $i, 2)])) {
+            $saida .= dps_sofia_ia_pdf_unicode($tabela[substr($hex, $i, 2)]);
+            $i     += 2;
+        } elseif (isset($tabela[substr($hex, $i, 4)])) {
+            $saida .= dps_sofia_ia_pdf_unicode($tabela[substr($hex, $i, 4)]);
+            $i     += 4;
+        } else {
+            $i += 2;
+        }
+    }
+
+    return $saida;
+}
+
+function dps_sofia_ia_pdf_unicode($hex)
+{
+    $saida = '';
+
+    for ($i = 0; $i < strlen($hex); $i += 4) {
+        $ponto = hexdec(substr($hex, $i, 4));
+        if ($ponto > 0) {
+            $saida .= mb_chr($ponto, 'UTF-8');
+        }
+    }
+
+    return $saida;
+}
+
+function dps_sofia_ia_pdf_stream($corpo)
+{
+    if (!preg_match('/stream\r?\n(.*?)\r?\nendstream/s', $corpo, $m)) {
+        return null;
+    }
+
+    $conteudo = @gzuncompress($m[1]);
+    if ($conteudo === false) {
+        $conteudo = @gzinflate(substr($m[1], 2));
+    }
+
+    return $conteudo === false ? $m[1] : $conteudo;
 }
 
 /**
