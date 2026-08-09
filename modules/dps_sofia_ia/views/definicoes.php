@@ -80,6 +80,43 @@
 
               <hr>
 
+              <h5>Importação da ElevenLabs</h5>
+              <p class="text-muted" style="font-size:12px;">
+                Só serve para o botão "Trazer da Sofia das chamadas". Deixe em branco para usar a
+                chave do módulo Sofia Calls — mas se o conhecimento foi carregado noutra conta
+                ElevenLabs, é aqui que se escreve a chave dessa conta. Sem isto a importação
+                liga-se à conta errada e diz que não encontrou nada.
+              </p>
+
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="elevenlabs_key">Chave da API ElevenLabs</label>
+                    <?php if ($chave_el) { ?>
+                    <p class="text-success" style="font-size:12px;">
+                      Guardada (<?= (int) $chave_el['tamanho']; ?> caracteres, termina em <strong><?= e($chave_el['fim']); ?></strong>).
+                    </p>
+                    <?php } ?>
+                    <input type="password" name="elevenlabs_key" id="elevenlabs_key" class="form-control"
+                           autocomplete="new-password" placeholder="deixe em branco para não alterar">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label for="elevenlabs_agente">ID do agente (opcional)</label>
+                    <input type="text" name="elevenlabs_agente" id="elevenlabs_agente" class="form-control"
+                           value="<?= e(get_option('dps_sofia_ia_elevenlabs_agente')); ?>"
+                           placeholder="agent_...">
+                    <p class="text-muted" style="font-size:11px;">
+                      Só para trazer as instruções do agente. Os documentos são importados do
+                      espaço de trabalho todo, estejam ou não ligados a um agente.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <hr>
+
               <div class="form-group">
                 <label for="limite_hora">Perguntas por comercial, por hora</label>
                 <input type="number" name="limite_hora" id="limite_hora" class="form-control" min="0"

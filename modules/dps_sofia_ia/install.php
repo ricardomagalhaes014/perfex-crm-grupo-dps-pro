@@ -21,6 +21,10 @@ $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_sofia_conheci
     `categoria` varchar(100) DEFAULT NULL,
     `conteudo` longtext NOT NULL,
     `fonte` varchar(40) NOT NULL DEFAULT 'manual',
+    -- Identificador na origem (ex.: elevenlabs:<id do documento>). É por aqui
+    -- que uma reimportação sabe que ficha actualizar, em vez de casar por
+    -- título — há documentos com títulos repetidos e conteúdos diferentes.
+    `fonte_id` varchar(120) DEFAULT NULL,
     `ficheiro` varchar(255) DEFAULT NULL,
     `sempre_incluir` tinyint(1) NOT NULL DEFAULT 0,
     `ativo` tinyint(1) NOT NULL DEFAULT 1,
@@ -29,8 +33,23 @@ $CI->db->query('CREATE TABLE IF NOT EXISTS `' . db_prefix() . "dps_sofia_conheci
     `dateupdated` datetime DEFAULT NULL,
     PRIMARY KEY (`id`),
     KEY `ativo` (`ativo`),
-    KEY `sempre_incluir` (`sempre_incluir`)
+    KEY `sempre_incluir` (`sempre_incluir`),
+    KEY `fonte_id` (`fonte_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+/*
+ * O CREATE acima só corre em instalações novas. Para quem já tenha a tabela de
+ * uma versão anterior, a coluna tem de ser acrescentada à parte — sem isto a
+ * importação da ElevenLabs falharia com "coluna desconhecida".
+ */
+$tem_fonte_id = $CI->db->query(
+    "SHOW COLUMNS FROM `" . db_prefix() . "dps_sofia_conhecimento` LIKE 'fonte_id'"
+)->num_rows();
+
+if (!$tem_fonte_id) {
+    $CI->db->query('ALTER TABLE `' . db_prefix() . 'dps_sofia_conhecimento` '
+        . 'ADD COLUMN `fonte_id` varchar(120) DEFAULT NULL AFTER `fonte`, ADD KEY `fonte_id` (`fonte_id`)');
+}
 
 /*
  * Cada ficha é partida em trechos. É sobre os trechos que se procura: mandar a
@@ -127,6 +146,14 @@ add_option('dps_sofia_ia_modelo_openai', 'gpt-4o');
 add_option('dps_sofia_ia_notificar_staff', '');
 add_option('dps_sofia_ia_limite_hora', '40');
 add_option('dps_sofia_ia_persona', dps_sofia_ia_persona_por_omissao());
+
+/*
+ * Chave e agente da ElevenLabs próprios deste módulo. Vazios = usa os do
+ * módulo Sofia Calls. Existem porque a conta onde o conhecimento foi carregado
+ * pode não ser a mesma que faz as chamadas.
+ */
+add_option('dps_sofia_ia_elevenlabs_key', '');
+add_option('dps_sofia_ia_elevenlabs_agente', '');
 
 // Pasta dos PDFs/documentos originais, fora do alcance da web.
 $pasta = FCPATH . DPS_SOFIA_IA_UPLOAD_PATH;

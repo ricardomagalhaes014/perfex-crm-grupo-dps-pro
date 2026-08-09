@@ -4,14 +4,14 @@ defined('BASEPATH') or exit('No direct script access allowed');
 /*
 Module Name: DPS Sofia IA
 Description: Assistente interna (Sofia) que responde às perguntas dos comerciais a partir do conhecimento carregado no CRM. Quando não sabe, avisa a administração para responder — e a resposta passa a fazer parte do conhecimento.
-Version: 1.0.0
+Version: 1.1.0
 Requires at least: 2.3.*
 Author: Grupo DPS
 Author URI: https://grupo-dps.com
 */
 
 define('DPS_SOFIA_IA_MODULE_NAME', 'dps_sofia_ia');
-define('DPS_SOFIA_IA_VERSION', '1.0.0');
+define('DPS_SOFIA_IA_VERSION', '1.1.0');
 define('DPS_SOFIA_IA_UPLOAD_PATH', 'uploads/dps_sofia_ia/');
 
 /*

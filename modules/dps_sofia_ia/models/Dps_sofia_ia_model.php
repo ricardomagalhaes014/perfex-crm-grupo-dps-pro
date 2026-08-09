@@ -993,62 +993,104 @@ class Dps_sofia_ia_model extends App_Model
      * A chave e o agente são os que o módulo dps_sofia_calls já tem guardados,
      * para não haver duas configurações da mesma conta a divergir.
      */
+    /**
+     * A chave da ElevenLabs a usar na importação.
+     *
+     * Tem opção própria porque a conta onde o conhecimento foi carregado pode
+     * não ser a mesma que faz as chamadas. Só quando esta está vazia é que se
+     * usa a do módulo Sofia Calls — que era a única hipótese antes e levava a
+     * importação a olhar para a conta errada, sem erro nenhum: ligava-se,
+     * encontrava um espaço de trabalho vazio, e dizia que não havia nada.
+     */
+    private function chave_elevenlabs()
+    {
+        $propria = trim((string) get_option('dps_sofia_ia_elevenlabs_key'));
+
+        return $propria !== '' ? $propria : trim((string) get_option('sofia_calls_elevenlabs_api_key'));
+    }
+
     public function importar_da_elevenlabs()
     {
-        $chave = trim((string) get_option('sofia_calls_elevenlabs_api_key'));
-        $agente = trim((string) get_option('sofia_calls_default_agent_id'));
+        $chave = $this->chave_elevenlabs();
 
         if ($chave === '') {
-            return ['ok' => false, 'erro' => 'Não há chave da ElevenLabs guardada (Sofia Calls → Definições).'];
-        }
-        if ($agente === '') {
-            return ['ok' => false, 'erro' => 'Não há agente da ElevenLabs configurado.'];
-        }
-
-        $agente_dados = $this->get_json_elevenlabs('https://api.elevenlabs.io/v1/convai/agents/' . $agente, $chave);
-
-        if (!is_array($agente_dados)) {
-            return ['ok' => false, 'erro' => 'Não consegui ler o agente na ElevenLabs.'];
+            return [
+                'ok'   => false,
+                'erro' => 'Não há chave da ElevenLabs. Escreva-a em Sofia IA → Definições '
+                        . '(ou configure o módulo Sofia Calls).',
+            ];
         }
 
         $importadas = 0;
+        $falhadas   = [];
 
-        $prompt = isset($agente_dados['conversation_config']['agent']['prompt']['prompt'])
-            ? $agente_dados['conversation_config']['agent']['prompt']['prompt']
-            : '';
+        /*
+         * Importa-se a base de conhecimento do ESPAÇO DE TRABALHO inteiro, e
+         * não só os documentos ligados a um agente. Foi aí que o conhecimento
+         * foi carregado, e há documentos que não estão presos a agente nenhum —
+         * lê-los pelo agente deixava-os de fora sem dar sinal disso.
+         */
+        $pagina = 'https://api.elevenlabs.io/v1/convai/knowledge-base?page_size=100';
 
-        if (trim($prompt) !== '') {
-            $this->guardar_conhecimento_por_titulo('Instruções da Sofia (agente de chamadas)', $prompt, 'elevenlabs');
-            $importadas++;
+        while ($pagina) {
+            $lista = $this->get_json_elevenlabs($pagina, $chave);
+
+            if (!is_array($lista)) {
+                return ['ok' => false, 'erro' => 'Não consegui ler a base de conhecimento na ElevenLabs. Verifique a chave.'];
+            }
+
+            $documentos = isset($lista['documents']) ? $lista['documents'] : [];
+
+            foreach ($documentos as $documento) {
+                if (empty($documento['id'])) {
+                    continue;
+                }
+
+                $texto = $this->texto_documento_elevenlabs($documento['id'], $chave);
+                $nome  = !empty($documento['name']) ? $documento['name'] : ('Documento ' . $documento['id']);
+
+                if (trim((string) $texto) === '') {
+                    // Documentos do tipo URL/PDF externo nem sempre expõem
+                    // texto. Fica registado em vez de desaparecer em silêncio.
+                    $falhadas[] = $nome;
+                    continue;
+                }
+
+                $this->guardar_conhecimento_elevenlabs($documento['id'], $nome, $texto);
+                $importadas++;
+            }
+
+            $pagina = !empty($lista['has_more']) && !empty($lista['next_cursor'])
+                ? 'https://api.elevenlabs.io/v1/convai/knowledge-base?page_size=100&cursor=' . urlencode($lista['next_cursor'])
+                : null;
         }
 
-        $documentos = isset($agente_dados['conversation_config']['agent']['prompt']['knowledge_base'])
-            ? $agente_dados['conversation_config']['agent']['prompt']['knowledge_base']
-            : [];
+        // As instruções do agente, se houver agente configurado.
+        $agente = trim((string) get_option('dps_sofia_ia_elevenlabs_agente'))
+               ?: trim((string) get_option('sofia_calls_default_agent_id'));
 
-        foreach ($documentos as $documento) {
-            if (empty($documento['id'])) {
-                continue;
+        if ($agente !== '') {
+            $agente_dados = $this->get_json_elevenlabs('https://api.elevenlabs.io/v1/convai/agents/' . $agente, $chave);
+            $prompt = isset($agente_dados['conversation_config']['agent']['prompt']['prompt'])
+                ? $agente_dados['conversation_config']['agent']['prompt']['prompt']
+                : '';
+
+            if (trim($prompt) !== '') {
+                $this->guardar_conhecimento_elevenlabs('agente:' . $agente, 'Instruções da Sofia (agente de chamadas)', $prompt);
+                $importadas++;
             }
-
-            $texto = $this->texto_documento_elevenlabs($documento['id'], $chave);
-            if (trim((string) $texto) === '') {
-                continue;
-            }
-
-            $titulo = !empty($documento['name']) ? $documento['name'] : ('Documento ' . $documento['id']);
-            $this->guardar_conhecimento_por_titulo('ElevenLabs: ' . $titulo, $texto, 'elevenlabs');
-            $importadas++;
         }
 
         if ($importadas === 0) {
             return [
                 'ok'   => false,
-                'erro' => 'Liguei-me à ElevenLabs mas não trouxe nada: o agente não tem instruções nem documentos legíveis.',
+                'erro' => 'Liguei-me à ElevenLabs mas não trouxe nada legível. '
+                        . (empty($falhadas) ? 'A base de conhecimento está vazia nesta conta.'
+                                            : 'Documentos sem texto acessível: ' . implode(', ', $falhadas)),
             ];
         }
 
-        return ['ok' => true, 'importadas' => $importadas];
+        return ['ok' => true, 'importadas' => $importadas, 'falhadas' => $falhadas];
     }
 
     /**
@@ -1113,20 +1155,34 @@ class Dps_sofia_ia_model extends App_Model
      * Importar duas vezes tem de actualizar a ficha, não criar uma cópia — caso
      * contrário a base enche-se de versões antigas do mesmo documento e a Sofia
      * passa a ver preços contraditórios.
+     *
+     * A correspondência é pelo ID do documento na ElevenLabs, não pelo título.
+     * Pelo título não servia: naquela conta há três documentos chamados
+     * "Belo Horizonte Residences - Manual Operador Virtual" com tamanhos
+     * diferentes, e casar por nome fazia o último apagar os outros dois — uma
+     * perda de conteúdo silenciosa, que só se notaria quando a Sofia desse uma
+     * resposta incompleta.
      */
-    private function guardar_conhecimento_por_titulo($titulo, $conteudo, $fonte)
+    private function guardar_conhecimento_elevenlabs($documento_id, $titulo, $conteudo)
     {
-        $this->db->where('titulo', $titulo);
+        $referencia = 'elevenlabs:' . $documento_id;
+
+        $this->db->where('fonte_id', $referencia);
         $this->db->limit(1);
         $existente = $this->db->get(db_prefix() . 'dps_sofia_conhecimento')->row_array();
 
-        return $this->guardar_conhecimento([
+        $id = $this->guardar_conhecimento([
             'titulo'         => $titulo,
             'categoria'      => 'empresa',
             'conteudo'       => dps_sofia_ia_forcar_utf8($conteudo),
-            'fonte'          => $fonte,
+            'fonte'          => 'elevenlabs',
             'sempre_incluir' => $existente ? $existente['sempre_incluir'] : 0,
             'ativo'          => 1,
         ], $existente ? $existente['id'] : null);
+
+        $this->db->where('id', $id);
+        $this->db->update(db_prefix() . 'dps_sofia_conhecimento', ['fonte_id' => $referencia]);
+
+        return $id;
     }
 }

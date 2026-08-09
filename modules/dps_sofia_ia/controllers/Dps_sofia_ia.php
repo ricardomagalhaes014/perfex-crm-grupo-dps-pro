@@ -260,7 +260,19 @@ class Dps_sofia_ia extends AdminController
         $resultado = $this->dps_sofia_ia_model->importar_da_elevenlabs();
 
         if ($resultado['ok']) {
-            set_alert('success', 'Importadas ' . $resultado['importadas'] . ' fichas da Sofia das chamadas.');
+            $mensagem = 'Importadas ' . $resultado['importadas'] . ' fichas da ElevenLabs.';
+
+            /*
+             * Os documentos sem texto acessível (normalmente entradas do tipo
+             * URL ou PDF externo) são nomeados. Dizer só "importadas 17" quando
+             * lá estavam 19 deixava duas ausências por explicar.
+             */
+            if (!empty($resultado['falhadas'])) {
+                $mensagem .= ' Sem texto acessível, carregue-os à mão: '
+                           . implode(', ', array_map('e', $resultado['falhadas'])) . '.';
+            }
+
+            set_alert('success', $mensagem);
         } else {
             set_alert('warning', $resultado['erro']);
         }
@@ -375,6 +387,13 @@ class Dps_sofia_ia extends AdminController
                 }
             }
 
+            // Mesma regra para a chave da ElevenLabs: em branco não apaga.
+            $chave_el = trim((string) $this->input->post('elevenlabs_key'));
+            if ($chave_el !== '') {
+                update_option('dps_sofia_ia_elevenlabs_key', $chave_el);
+            }
+            update_option('dps_sofia_ia_elevenlabs_agente', trim((string) $this->input->post('elevenlabs_agente')));
+
             set_alert('success', 'Definições guardadas.');
             redirect(admin_url('dps_sofia_ia/definicoes'));
         }
@@ -386,6 +405,7 @@ class Dps_sofia_ia extends AdminController
             'staff'      => $this->staff_model->get('', ['active' => 1]),
             'chave_pt'   => $this->pista_da_chave('dps_sofia_ia_api_key_claude'),
             'chave_oai'  => $this->pista_da_chave('dps_sofia_ia_api_key_openai'),
+            'chave_el'   => $this->pista_da_chave('dps_sofia_ia_elevenlabs_key'),
         ]);
     }
 
