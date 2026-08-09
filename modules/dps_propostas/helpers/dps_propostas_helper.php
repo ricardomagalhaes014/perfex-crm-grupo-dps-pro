@@ -211,6 +211,45 @@ function dps_propostas_apresentacao_html($key)
 }
 
 /**
+ * O nome do empreendimento como ele deve ficar gravado.
+ *
+ * O simulador manda ora a chave interna ("aura", "boavista", "gaiadouro"),
+ * ora o nome de mostrar — depende do ecra de onde parte. O que ficava na
+ * tabela era o que viesse, e o resultado eram propostas REAIS arrumadas em
+ * "AuraResidence", "boavista" e "gaiadouro", fora das contas do empreendimento
+ * a que pertencem. Corrigido a 08/08/2026.
+ *
+ * Um valor desconhecido devolve-se como veio: mais vale um nome estranho do
+ * que perder a proposta por nao caber numa lista.
+ */
+function dps_propostas_nome_canonico($valor)
+{
+    $valor = trim((string) $valor);
+    if ($valor === '') {
+        return '';
+    }
+
+    $emps = dps_propostas_empreendimentos();
+
+    if (isset($emps[$valor])) {
+        return $emps[$valor]['nome'];
+    }
+
+    $simplifica = function ($t) {
+        return preg_replace('/[^a-z0-9]/u', '', mb_strtolower(trim((string) $t)));
+    };
+    $procurado = $simplifica($valor);
+
+    foreach ($emps as $chave => $e) {
+        if ($simplifica($e['nome']) === $procurado || $simplifica($chave) === $procurado) {
+            return $e['nome'];
+        }
+    }
+
+    return $valor;
+}
+
+/**
  * Configuração dos empreendimentos (dados vivem no simuladorportugal / dpsimobiliario.pt).
  */
 function dps_propostas_empreendimentos()
@@ -225,7 +264,10 @@ function dps_propostas_empreendimentos()
             'tem_proposta' => true,
         ],
         'raizes' => [
-            'nome' => 'Raizes', 'states_key' => 'raizes_states',
+            // 'Raízes Fanzeres' e nao 'Raizes': e assim que se chama na regra de
+            // comissao e nas 9 propostas ja gravadas. Dois nomes para o mesmo
+            // empreendimento era o que se esta aqui a corrigir.
+            'nome' => 'Raízes Fanzeres', 'states_key' => 'raizes_states',
             'descricao' => 'Empreendimento em Fanzeres, Gondomar, com tipologias do T0 ao T2 distribuidas por 6 pisos. Boa opcao para primeira habitacao e para investimento.',
             'site' => 'https://dpsimobiliario.pt/raizes/', 'dossier' => null, 'tem_proposta' => true,
         ],

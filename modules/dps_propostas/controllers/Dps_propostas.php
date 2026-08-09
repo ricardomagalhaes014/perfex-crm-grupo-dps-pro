@@ -982,7 +982,8 @@ class Dps_propostas extends AdminController
             ajax_access_denied();
         }
         $lead_id   = (int) $this->input->post('lead_id');
-        $emp       = trim((string) $this->input->post('empreendimento'));
+        // Normalizado a entrada: o simulador tanto manda a chave como o nome.
+        $emp       = dps_propostas_nome_canonico($this->input->post('empreendimento'));
         $unidade   = trim((string) $this->input->post('unidade'));
         $file_name = $this->input->post('file_name') ?: 'Proposta.pdf';
         $pdf       = (string) $this->input->post('pdf_base64');
