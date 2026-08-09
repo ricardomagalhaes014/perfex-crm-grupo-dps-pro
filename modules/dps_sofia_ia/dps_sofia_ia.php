@@ -108,16 +108,22 @@ function dps_sofia_ia_menu()
         'position' => 46,
     ]);
 
+    /*
+     * Para o comercial o menu não tem filhos: um submenu com uma única entrada
+     * a apontar para a mesma página do item pai é um clique a mais para chegar
+     * ao mesmo sítio. Os filhos só fazem sentido para quem também gere o
+     * conhecimento — aí há mesmo mais do que um destino.
+     */
+    if (!dps_sofia_ia_pode_gerir()) {
+        return;
+    }
+
     $CI->app_menu->add_sidebar_children_item('dps_sofia_ia', [
         'slug'     => 'dps_sofia_ia_chat',
         'name'     => 'Perguntar',
         'href'     => admin_url('dps_sofia_ia'),
         'position' => 5,
     ]);
-
-    if (!dps_sofia_ia_pode_gerir()) {
-        return;
-    }
 
     $CI->app_menu->add_sidebar_children_item('dps_sofia_ia', [
         'slug'     => 'dps_sofia_ia_conhecimento',
