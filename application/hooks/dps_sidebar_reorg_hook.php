@@ -234,26 +234,31 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
          * ---------------------------------------------------------------- */
         $ordem_por_nome = [
             'leads'                  => 1,
-            'simulador'              => 2,
-            'propostas enviadas'     => 3,
-            'vendas'                 => 4,
-            'automacoes'             => 5,
-            'tarefas'                => 6,
-            'lembrete'               => 7,
-            'funil de vendas'        => 8,
-            'funil de leads'         => 8,
-            'dps credito'            => 9,
-            'simulador de comissoes' => 10,
-            'webmail'                => 11,
-            'dps imoveis'            => 12,
-            'clientes'               => 13,
-            'outros'                 => 14,
+            // A Sofia (assistente interna) entra entre as Leads e o Simulador.
+            // TEM de constar desta lista: o passo 5 esconde dos não-admins tudo
+            // o que aqui não estiver, e a Sofia existe precisamente para os
+            // comerciais — ficaria visível só para quem não precisa dela.
+            'a sofia responde'       => 2,
+            'simulador'              => 3,
+            'propostas enviadas'     => 4,
+            'vendas'                 => 5,
+            'automacoes'             => 6,
+            'tarefas'                => 7,
+            'lembrete'               => 8,
+            'funil de vendas'        => 9,
+            'funil de leads'         => 9,
+            'dps credito'            => 10,
+            'simulador de comissoes' => 11,
+            'webmail'                => 12,
+            'dps imoveis'            => 13,
+            'clientes'               => 14,
+            'outros'                 => 15,
             // Privado do Ricardo. Tem de estar AQUI: o que não consta desta
             // lista cai na regra do passo 5 e é enterrado dentro do submenu
             // "Admin", que foi como o Painel do Negócio desapareceu do sítio
             // em 29/07/2026. O módulo já só cria o item para o staff 1, por
             // isso ninguém mais o vê.
-            'painel do negocio'      => 15,
+            'painel do negocio'      => 16,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
@@ -270,7 +275,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         // são os itens "certos" criados por este filtro ou pelos módulos.
         // Ex.: sem isto, um link personalizado antigo chamado "Vendas"
         // (a apontar para outro sítio) ganhava ao mapa de vendas real.
-        $slugs_prioritarios = ['dps_vendas_mapa', 'dps_automacoes', 'dps_outros', 'dps_vendas', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'leads', 'tasks', 'reminder', 'customers'];
+        $slugs_prioritarios = ['dps_vendas_mapa', 'dps_automacoes', 'dps_outros', 'dps_vendas', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'dps_sofia_ia', 'leads', 'tasks', 'reminder', 'customers'];
 
         $ordem_iteracao = array_merge(
             array_values(array_intersect($slugs_prioritarios, array_keys($items))),

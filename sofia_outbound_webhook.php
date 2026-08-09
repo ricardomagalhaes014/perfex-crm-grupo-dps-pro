@@ -49,11 +49,203 @@ function log_msg($msg) {
     file_put_contents($log_file, "[$ts] $msg\n", FILE_APPEND);
 }
 
+/**
+ * Segredo do webhook, para validar a assinatura da ElevenLabs.
+ *
+ * Fica FORA do docroot de propósito: o deploy por FTP sincroniza o docroot e já
+ * apagou a pasta dps_secure/ mais do que uma vez, deixando endpoints a
+ * responder 503 sem ninguém perceber porquê.
+ */
+function sofia_segredo_webhook() {
+    $ambiente = getenv('SOFIA_WEBHOOK_SECRET');
+    if (is_string($ambiente) && trim($ambiente) !== '') {
+        return trim($ambiente);
+    }
+
+    foreach ([
+        '/home/u172337921/.sofia_webhook_secret',
+        __DIR__ . '/dps_secure/sofia_webhook_secret',
+    ] as $ficheiro) {
+        if (is_readable($ficheiro)) {
+            $valor = trim((string) file_get_contents($ficheiro));
+            if ($valor !== '') {
+                return $valor;
+            }
+        }
+    }
+
+    return '';
+}
+
+/**
+ * A ElevenLabs assina o corpo com HMAC-SHA256 e envia
+ * `ElevenLabs-Signature: t=<timestamp>,v0=<hash>`, onde o hash cobre
+ * "<timestamp>.<corpo bruto>".
+ */
+function sofia_assinatura_valida($raw_body, $segredo) {
+    $cabecalho = $_SERVER['HTTP_ELEVENLABS_SIGNATURE'] ?? ($_SERVER['HTTP_X_ELEVENLABS_SIGNATURE'] ?? '');
+
+    if ($cabecalho === '') {
+        return false;
+    }
+
+    $timestamp = '';
+    $recebido  = '';
+    foreach (explode(',', $cabecalho) as $parte) {
+        $parte = trim($parte);
+        if (strpos($parte, 't=') === 0) {
+            $timestamp = substr($parte, 2);
+        } elseif (strpos($parte, 'v0=') === 0) {
+            $recebido = substr($parte, 3);
+        }
+    }
+
+    if ($timestamp === '' || $recebido === '') {
+        return false;
+    }
+
+    // Janela de 30 minutos: sem isto, quem apanhasse um pedido antigo podia
+    // reenviá-lo indefinidamente e continuar a passar na validação.
+    if (abs(time() - (int) $timestamp) > 1800) {
+        log_msg('Assinatura fora da janela de tempo (t=' . $timestamp . ')');
+
+        return false;
+    }
+
+    $esperado = hash_hmac('sha256', $timestamp . '.' . $raw_body, $segredo);
+
+    return hash_equals($esperado, $recebido);
+}
+
+/**
+ * Cria a tarefa de seguimento da chamada, atribuída ao comercial dono da lead.
+ *
+ * Só nasce tarefa quando houve conversa a sério (há transcrição). Uma chamada
+ * que caiu no voicemail não é trabalho para ninguém, e criar tarefa para todas
+ * enchia a lista de coisas para fechar sem ler — que é a forma mais rápida de a
+ * equipa deixar de olhar para a lista.
+ *
+ * As colunas da tabela de tarefas são lidas em tempo real e só se escreve nas
+ * que existirem: este script corre fora do CodeIgniter, sem os modelos do
+ * Perfex, e uma coluna a mais ou a menos entre versões daria erro de SQL em
+ * produção. Qualquer falha aqui é registada e engolida — a nota, que é o que já
+ * funcionava, nunca pode deixar de ser gravada por causa disto.
+ */
+function sofia_criar_tarefa_seguimento($conn, $db_prefix, $lead, $transcript_text, $success_label, $conversation_id, $now) {
+    if (trim($transcript_text) === '') {
+        log_msg('Sem transcrição: não foi criada tarefa.');
+
+        return null;
+    }
+
+    $colunas_existentes = [];
+    if ($res = $conn->query("SHOW COLUMNS FROM {$db_prefix}tasks")) {
+        while ($linha = $res->fetch_assoc()) {
+            $colunas_existentes[$linha['Field']] = true;
+        }
+        $res->free();
+    }
+
+    if (empty($colunas_existentes)) {
+        log_msg('ERRO: não consegui ler as colunas de ' . $db_prefix . 'tasks; tarefa não criada.');
+
+        return null;
+    }
+
+    $responsavel = (int) ($lead['assigned'] ?? 0);
+    if ($responsavel <= 0) {
+        $responsavel = 1; // sem comercial atribuído, fica para o administrador
+    }
+
+    $descricao = "Chamada automática da Sofia concluída ($success_label).\n\n"
+               . "Ouvir/ler a transcrição na ficha da lead e dar seguimento.\n\n"
+               . "ID da conversa: $conversation_id\n\n"
+               . "--- Transcrição ---\n" . $transcript_text;
+
+    $valores = [
+        'name'                  => 'Seguimento da chamada da Sofia — ' . $lead['name'],
+        'description'           => $descricao,
+        'priority'              => 2,
+        'dateadded'             => $now,
+        'startdate'             => date('Y-m-d'),
+        'duedate'               => date('Y-m-d', strtotime('+1 day')),
+        'status'                => 1,
+        'addedfrom'             => $responsavel,
+        'rel_id'                => (int) $lead['id'],
+        'rel_type'              => 'lead',
+        'is_added_from_contact' => 0,
+        'is_public'             => 1,
+        'billable'              => 0,
+        'recurring'             => 0,
+    ];
+
+    $campos = [];
+    $dados  = [];
+    foreach ($valores as $coluna => $valor) {
+        if (!isset($colunas_existentes[$coluna])) {
+            continue;
+        }
+        $campos[] = "`$coluna`";
+        $dados[]  = is_int($valor) ? (string) $valor : "'" . $conn->real_escape_string((string) $valor) . "'";
+    }
+
+    if (empty($campos)) {
+        return null;
+    }
+
+    $sql = "INSERT INTO {$db_prefix}tasks (" . implode(', ', $campos) . ') VALUES (' . implode(', ', $dados) . ')';
+
+    if (!$conn->query($sql)) {
+        log_msg('ERRO ao criar tarefa: ' . $conn->error);
+
+        return null;
+    }
+
+    $task_id = $conn->insert_id;
+
+    // A atribuição vive numa tabela à parte; sem ela a tarefa existe mas não
+    // aparece na lista de ninguém.
+    $stmt = $conn->prepare("INSERT INTO {$db_prefix}task_assigned (staffid, taskid, assigned_from) VALUES (?, ?, ?)");
+    if ($stmt) {
+        $stmt->bind_param('iii', $responsavel, $task_id, $responsavel);
+        if (!$stmt->execute()) {
+            log_msg('AVISO: tarefa ' . $task_id . ' criada mas não atribuída: ' . $stmt->error);
+        }
+        $stmt->close();
+    }
+
+    log_msg("Tarefa $task_id criada para a lead {$lead['id']}, atribuída ao staff $responsavel.");
+
+    return $task_id;
+}
+
 // Ler o payload
 $raw_body = file_get_contents('php://input');
 $payload = json_decode($raw_body, true);
 
 log_msg("Webhook recebido: " . substr($raw_body, 0, 500));
+
+/*
+ * Validação da assinatura.
+ *
+ * Enquanto não houver segredo configurado, o pedido passa — mas com aviso no
+ * log. É deliberado: recusar tudo por omissão deixaria este endpoint em baixo
+ * no momento exacto em que se está a tentar pôr as chamadas a entrar, e o
+ * primeiro sintoma seria "continua a não funcionar" sem pista nenhuma. Assim
+ * que o ficheiro do segredo existir, a validação passa a ser obrigatória.
+ *
+ * ATENÇÃO: sem segredo, qualquer pessoa que descubra este URL consegue inserir
+ * notas e tarefas em qualquer lead. Configurar isto não é opcional a prazo.
+ */
+$segredo = sofia_segredo_webhook();
+if ($segredo === '') {
+    log_msg('AVISO: sem segredo configurado — assinatura NAO verificada. Ver sofia_segredo_webhook().');
+} elseif (!sofia_assinatura_valida($raw_body, $segredo)) {
+    log_msg('REJEITADO: assinatura invalida.');
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Assinatura inválida']);
+    exit;
+}
 
 if (!$payload) {
     http_response_code(400);
@@ -169,7 +361,7 @@ $phone_clean = preg_replace('/[^0-9+]/', '', $to_number);
 $phone_digits = preg_replace('/[^0-9]/', '', $to_number);
 $phone_last9 = substr($phone_digits, -9);
 
-$sql = "SELECT id, name, email FROM {$db_prefix}leads WHERE 
+$sql = "SELECT id, name, email, assigned FROM {$db_prefix}leads WHERE
         REPLACE(REPLACE(REPLACE(phonenumber, ' ', ''), '-', ''), '(', '') LIKE ? OR
         REPLACE(REPLACE(REPLACE(phonenumber, ' ', ''), '-', ''), '(', '') LIKE ?
         LIMIT 1";
@@ -204,21 +396,24 @@ $stmt2->close();
 
 if ($success_insert) {
     log_msg("Nota adicionada com sucesso à lead $lead_id (nota ID: $note_id)");
-    
+
     // Registar actividade
     $activity = "📞 Sofia Outbound: Chamada automática concluída ($success_label)";
     $stmt3 = $conn->prepare("INSERT INTO {$db_prefix}leads_activity_log (leadid, description, additional_data, staffid, full_name, date) VALUES (?, ?, '', ?, 'Sofia Outbound', ?)");
     $stmt3->bind_param('isis', $lead_id, $activity, $addedfrom, $now);
     $stmt3->execute();
     $stmt3->close();
-    
+
+    $task_id = sofia_criar_tarefa_seguimento($conn, $db_prefix, $lead, $transcript_text, $success_label, $conversation_id, $now);
+
     $conn->close();
     echo json_encode([
         'success' => true,
         'message' => 'Nota adicionada com sucesso',
         'lead_id' => $lead_id,
         'lead_name' => $lead['name'],
-        'note_id' => $note_id
+        'note_id' => $note_id,
+        'task_id' => $task_id
     ]);
 } else {
     log_msg("ERRO ao adicionar nota: " . $conn->error);
