@@ -330,6 +330,37 @@ class Dps_sofia_ia_model extends App_Model
         return [];
     }
 
+    /**
+     * O estado de uma fracção no simulador, a partir do código do catálogo.
+     *
+     * Os dois lados nem sempre usam a mesma chave. O Lake Towers identifica as
+     * fracções por torre + código ("A1_C"), enquanto o catálogo guarda o código
+     * simples ("C") com a torre num campo à parte. Nos outros cinco
+     * empreendimentos as chaves são iguais, por isso a procura directa resolve
+     * quase sempre — mas sem a alternativa o Lake dava zero.
+     *
+     * Devolve null quando não encontra, para o chamador poder distinguir
+     * "vendido" de "não cruzou".
+     */
+    private function estado_da_unidade($situacao, $codigo, $unidade)
+    {
+        if (isset($situacao[$codigo])) {
+            return $situacao[$codigo];
+        }
+
+        $bloco = isset($unidade['bloco']) ? trim((string) $unidade['bloco']) : '';
+
+        if ($bloco !== '') {
+            foreach ([$bloco . '_' . $codigo, str_replace(' ', '', $bloco) . '_' . $codigo] as $alternativa) {
+                if (isset($situacao[$alternativa])) {
+                    return $situacao[$alternativa];
+                }
+            }
+        }
+
+        return null;
+    }
+
     private function catalogo_unidades()
     {
         // O catálogo (tipologia, área, preço) é mantido no dps_propostas. Ler
@@ -379,9 +410,15 @@ class Dps_sofia_ia_model extends App_Model
 
             $por_tipologia = [];
             $disponiveis   = [];
+            $cruzadas      = 0;
 
             foreach ($unidades as $codigo => $unidade) {
-                $estado = isset($situacao[$codigo]) ? $situacao[$codigo] : null;
+                $estado = $this->estado_da_unidade($situacao, $codigo, $unidade);
+
+                if ($estado !== null) {
+                    $cruzadas++;
+                }
+
                 if ($estado !== 'Disponível') {
                     continue;
                 }
@@ -398,6 +435,24 @@ class Dps_sofia_ia_model extends App_Model
                 }
 
                 $disponiveis[$codigo] = $unidade;
+            }
+
+            /*
+             * Nenhuma fracção cruzou: isto NÃO é "está tudo vendido", é o
+             * cruzamento a falhar — e é uma distinção que já custou caro. No
+             * Lake Towers o simulador identifica as fracções com a torre à
+             * frente ("A1_C") e o catálogo usa o código simples ("C"): zero
+             * chaves casavam, e a Sofia anunciava o empreendimento esgotado
+             * quando estava quase todo por vender. Dizer que não se sabe é
+             * sempre melhor do que dizer um zero que parece um facto.
+             */
+            if ($cruzadas === 0) {
+                $linhas[] = "\n### " . $emp['nome']
+                          . "\nNão consegui cruzar a disponibilidade deste empreendimento. "
+                          . 'NÃO digas que está esgotado nem inventes números: encaminha para o simulador.';
+                log_activity('Sofia IA: nenhuma fracção cruzou em ' . $emp['nome']
+                           . ' — códigos do catálogo não batem com os do simulador.');
+                continue;
             }
 
             if (empty($por_tipologia)) {
