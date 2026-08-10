@@ -168,6 +168,22 @@ function dps_propostas_apresentacao($key)
             . "Qual a melhor altura para ser contactado?\n\n"
             . "http://dpsimobiliario.pt/boavistatowers",
 
+        'gaiadouro' => "Quero apresentar-lhe o D'Ouro Mar Towers, um novo empreendimento em Vila Nova de Gaia, numa localização privilegiada junto à Douro Marina, entre o rio e o mar.\n\n"
+            . "🏡 Apartamentos T2 e T2 Smart\n"
+            . "🌊 Vistas sobre o Douro, mar e envolvente verde\n"
+            . "📍 A 1 minuto da Douro Marina e cerca de 5 minutos do Porto\n"
+            . "🏖️ Praias e Foz do Douro a poucos minutos\n"
+            . "☀️ Apartamentos luminosos, com terraços privativos\n"
+            . "🚗 Estacionamento e arrumos\n"
+            . "❄️ Ar condicionado, cozinha equipada e acabamentos de elevada qualidade\n"
+            . "🏢 Apenas 100 frações distribuídas por duas torres\n\n"
+            . "É um projeto muito interessante tanto para habitação própria como para investimento, numa das zonas de Gaia com maior procura e potencial de valorização.\n\n"
+            . "15% CPCV\n"
+            . "15% Outubro\n"
+            . "10% no 3.º trimestre de 2027\n"
+            . "10% no 3.º trimestre de 2028\n"
+            . "50% Escritura, no final de 2029",
+
         'belohorizonte' => "Escrevo da DPS Imobiliário no seguimento do seu pedido de informações sobre o Belo Horizonte Residences, em Setúbal.\n\n"
             . "É uma oportunidade muito interessante, num empreendimento com localização diferenciada, vista rio, proximidade a Tróia e um forte potencial de valorização 📈\n\n"
             . "Além disso, a estrutura de pagamento faseado — 30% até à escritura, com possibilidade de cedência após o CPCV e apenas 2% para reserva — além do posicionamento das unidades, torna esta proposta especialmente apelativa para quem procura entrar bem no mercado, com margem para crescimento.\n\n"
