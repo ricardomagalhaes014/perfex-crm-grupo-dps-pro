@@ -71,6 +71,13 @@ function dps_reunioes_menu()
     ]);
 
     $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
+        'slug'     => 'dps_reunioes_propostas',
+        'name'     => 'Propor em massa',
+        'href'     => admin_url('dps_reunioes/propostas'),
+        'position' => 3,
+    ]);
+
+    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
         'slug'     => 'dps_reunioes_agenda',
         'name'     => 'Agenda partilhada',
         'href'     => admin_url('dps_reunioes/agenda'),
@@ -687,4 +694,224 @@ function dps_reunioes_apagar_eventos($reuniao_id)
 
     $CI->db->where('id', (int) $reuniao_id)
            ->update(db_prefix() . 'dps_reunioes', ['eventos' => null]);
+}
+
+/* ===========================================================================
+ * PROPOSTAS DE REUNIÃO EM MASSA
+ * ======================================================================== */
+
+/**
+ * O texto que vai no convite. Fica em opção editável porque a forma de o dizer
+ * muda muito mais depressa do que se faz um deploy.
+ *
+ * Marcas disponíveis: {nome} {comercial} {quando} {link}
+ */
+function dps_reunioes_texto_convite_por_omissao()
+{
+    return "Olá {nome}, é o {comercial} da DPS Imobiliário.\n\n"
+         . "Proponho-lhe uma chamada {quando} para vermos juntos as simulações "
+         . "e percebermos se este projeto encaixa no que procura.\n\n"
+         . "Confirma-me este horário? Basta carregar aqui:\n{link}";
+}
+
+/**
+ * "terça-feira, 11 de agosto às 15:00".
+ *
+ * Não se usa a dps_reunioes_quando(), que dá "11/08/2026 às 15:00": num convite
+ * o dia da semana é o que faz a pessoa perceber logo se pode, sem ir ao
+ * calendário. A tradução é à mão porque o strftime está obsoleto e o locale do
+ * servidor não é de confiança em alojamento partilhado.
+ */
+function dps_reunioes_quando_extenso($data_hora)
+{
+    $t = strtotime($data_hora);
+
+    $dias  = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira',
+              'quinta-feira', 'sexta-feira', 'sábado'];
+    $meses = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+              'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+    return $dias[(int) date('w', $t)] . ', ' . (int) date('j', $t)
+         . ' de ' . $meses[(int) date('n', $t)] . ' às ' . date('H:i', $t);
+}
+
+/**
+ * Os horários possíveis de um dia: 09:00 às 19:30, de 30 em 30.
+ */
+function dps_reunioes_horarios_do_dia($data)
+{
+    $inicio = get_option('dps_reunioes_hora_inicio') ?: '09:00';
+    $fim    = get_option('dps_reunioes_hora_fim') ?: '19:30';
+
+    $t   = strtotime($data . ' ' . $inicio);
+    $ate = strtotime($data . ' ' . $fim);
+
+    $horarios = [];
+    while ($t <= $ate) {
+        $horarios[] = date('Y-m-d H:i:00', $t);
+        $t          = strtotime('+30 minutes', $t);
+    }
+
+    return $horarios;
+}
+
+/**
+ * Motor das propostas, pendurado no admin_init.
+ *
+ * NÃO se usa o cron do Perfex de propósito: neste servidor o cron.php é um
+ * script antigo de outro sistema e o after_cron_run não dispara — foi por isso
+ * que os follow-ups do WhatsApp nunca chegaram a funcionar. Pendurar no
+ * admin_init faz o trabalho andar sempre que alguém usa o CRM, que é quando
+ * interessa.
+ *
+ * Corre no máximo uma vez por minuto e trata poucos de cada vez: isto está no
+ * caminho de TODAS as páginas do CRM e não pode pesar.
+ */
+hooks()->add_action('admin_init', 'dps_reunioes_motor');
+function dps_reunioes_motor()
+{
+    $ultima = (int) get_option('dps_reunioes_motor_em');
+    if ($ultima && (time() - $ultima) < 60) {
+        return;
+    }
+    update_option('dps_reunioes_motor_em', time());
+
+    $CI = &get_instance();
+
+    if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes_propostas')) {
+        return;
+    }
+
+    /*
+     * O lembrete dos 30 minutos e a tarefa de follow-up vivem na
+     * dps_reunioes_cron(), que estava presa ao cron morto. Chamá-la aqui é
+     * seguro: cada trabalho tem coluna de controlo própria (lembrete_30_em,
+     * followup_task_id) e não repete. Se o cron algum dia voltar a funcionar,
+     * o que ele encontrar já estará feito.
+     */
+    dps_reunioes_cron();
+
+    dps_reunioes_expirar_propostas();
+    dps_reunioes_enviar_propostas_pendentes();
+}
+
+/**
+ * Propostas cuja hora já passou deixam de valer e libertam o horário.
+ */
+function dps_reunioes_expirar_propostas()
+{
+    $CI = &get_instance();
+
+    $CI->db->where('estado', 'pendente');
+    $CI->db->where('data_hora <=', date('Y-m-d H:i:s'));
+    $CI->db->update(db_prefix() . 'dps_reunioes_propostas', [
+        'estado'        => 'expirada',
+        'respondido_em' => date('Y-m-d H:i:s'),
+    ]);
+}
+
+/**
+ * Envia um punhado de convites por passagem.
+ *
+ * O limite diário de WhatsApp é a regra da casa (20 por dia) e existe para as
+ * contas dos comerciais não serem bloqueadas. Enviar uma campanha de 80 leads
+ * de uma vez era queimar o número de quem a lançou.
+ */
+function dps_reunioes_enviar_propostas_pendentes($quantos = 5)
+{
+    $CI = &get_instance();
+    $t  = db_prefix() . 'dps_reunioes_propostas';
+
+    $pendentes = $CI->db->select('*')->from($t)
+        ->where('estado', 'pendente')
+        ->where('enviado_em IS NULL')
+        ->order_by('id', 'asc')
+        ->limit($quantos)
+        ->get()->result_array();
+
+    if (empty($pendentes)) {
+        return;
+    }
+
+    $limite_wa = (int) (get_option('dps_reunioes_wa_por_dia') ?: 20);
+
+    foreach ($pendentes as $p) {
+        $texto = dps_reunioes_montar_convite($p);
+        $enviou = [];
+
+        $quer_wa = in_array($p['canal'], ['whatsapp', 'ambos'], true);
+
+        if ($quer_wa && !empty($p['cliente_telefone'])) {
+            $hoje_wa = (int) $CI->db->where('staff_id', (int) $p['staff_id'])
+                ->where('enviado_por LIKE', '%whatsapp%')
+                ->where('DATE(enviado_em)', date('Y-m-d'))
+                ->count_all_results($t);
+
+            if ($hoje_wa < $limite_wa) {
+                if (dps_reunioes_whatsapp($p['cliente_telefone'], $texto, (int) $p['staff_id'])) {
+                    $enviou[] = 'whatsapp';
+                }
+            } else {
+                // Fica para amanhã: não se marca como enviada.
+                continue;
+            }
+        }
+
+        if (in_array($p['canal'], ['email', 'ambos'], true) && !empty($p['cliente_email'])) {
+            if (dps_reunioes_email_convite($p, $texto)) {
+                $enviou[] = 'email';
+            }
+        }
+
+        $CI->db->where('id', (int) $p['id'])->update($t, [
+            'enviado_em' => date('Y-m-d H:i:s'),
+            'enviado_por' => implode('+', $enviou) ?: 'nenhum',
+            'erro_envio' => empty($enviou) ? 'sem canal disponível (falta telefone ou email)' : null,
+        ]);
+    }
+}
+
+function dps_reunioes_montar_convite(array $p)
+{
+    $modelo = get_option('dps_reunioes_texto_convite') ?: dps_reunioes_texto_convite_por_omissao();
+
+    return strtr($modelo, [
+        '{nome}'      => trim((string) $p['cliente_nome']) ?: 'boa tarde',
+        '{comercial}' => get_staff_full_name((int) $p['staff_id']),
+        '{quando}'    => dps_reunioes_quando_extenso($p['data_hora']),
+        '{link}'      => dps_reunioes_link_publico($p['chave']),
+    ]);
+}
+
+/**
+ * O link que o cliente carrega. Vive na raiz e não em admin/, porque quem o
+ * abre não tem conta no CRM.
+ */
+function dps_reunioes_link_publico($chave)
+{
+    return site_url('reuniao/confirmar/' . rawurlencode($chave));
+}
+
+function dps_reunioes_email_convite(array $p, $texto)
+{
+    if (empty($p['cliente_email'])) {
+        return false;
+    }
+
+    $CI = &get_instance();
+    $CI->load->library('email');
+
+    try {
+        $CI->email->clear(true);
+        $CI->email->from(get_option('smtp_email') ?: get_option('email'), get_option('companyname') ?: 'DPS Imobiliário');
+        $CI->email->to($p['cliente_email']);
+        $CI->email->subject('Proposta de reunião — ' . dps_reunioes_quando_extenso($p['data_hora']));
+        $CI->email->message(nl2br(e($texto)));
+
+        return (bool) $CI->email->send(true);
+    } catch (Exception $e) {
+        log_activity('Reuniões: falha no email da proposta ' . $p['id'] . ' — ' . $e->getMessage());
+
+        return false;
+    }
 }

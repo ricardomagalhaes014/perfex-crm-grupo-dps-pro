@@ -469,4 +469,257 @@ class Dps_reunioes_model extends App_Model
 
         return $this->db->order_by('r.data_hora')->get()->result_array();
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Propostas de reunião em massa                                       */
+    /* ------------------------------------------------------------------ */
+
+    public function tabela_campanha() { return db_prefix() . 'dps_reunioes_campanhas'; }
+    public function tabela_proposta() { return db_prefix() . 'dps_reunioes_propostas'; }
+
+    /**
+     * Horários já tomados do comercial, entre duas datas.
+     *
+     * Conta reuniões marcadas E propostas ainda por responder: um horário
+     * proposto a alguém não pode ser proposto a outra pessoa enquanto o
+     * primeiro não disser que não. Sem isto, duas pessoas aceitavam a mesma
+     * hora e alguém ficava a falar sozinho.
+     */
+    public function horarios_ocupados($staff_id, $de, $ate)
+    {
+        $ocupados = [];
+
+        $reunioes = $this->db->select('data_hora')->from($this->tabela())
+            ->where('staff_id', (int) $staff_id)
+            ->where('estado !=', 'cancelada')
+            ->where('data_hora >=', $de)
+            ->where('data_hora <=', $ate)
+            ->get()->result_array();
+
+        foreach ($reunioes as $r) {
+            $ocupados[date('Y-m-d H:i:00', strtotime($r['data_hora']))] = true;
+        }
+
+        if ($this->db->table_exists($this->tabela_proposta())) {
+            $propostas = $this->db->select('data_hora')->from($this->tabela_proposta())
+                ->where('staff_id', (int) $staff_id)
+                ->where_in('estado', ['pendente', 'aceite'])
+                ->where('data_hora >=', $de)
+                ->where('data_hora <=', $ate)
+                ->get()->result_array();
+
+            foreach ($propostas as $p) {
+                $ocupados[date('Y-m-d H:i:00', strtotime($p['data_hora']))] = true;
+            }
+        }
+
+        return $ocupados;
+    }
+
+    /**
+     * As leads de um estado que este comercial pode propor.
+     *
+     * Só as dele: propor reunião a leads de um colega seria marcar a agenda de
+     * quem não pediu nada. Administradores veem tudo, como no resto do CRM.
+     */
+    public function leads_para_propor($lead_status_id, $staff_id)
+    {
+        $this->db->select('id, name, email, phonenumber, assigned');
+        $this->db->from(db_prefix() . 'leads');
+        $this->db->where('status', (int) $lead_status_id);
+        $this->db->group_start()
+            ->where('phonenumber !=', '')
+            ->or_where('email !=', '')
+        ->group_end();
+
+        if (!is_admin()) {
+            $this->db->where('assigned', (int) $staff_id);
+        }
+
+        $this->db->order_by('id', 'asc');
+
+        return $this->db->get()->result_array();
+    }
+
+    /**
+     * Distribui as leads por horários e cria as propostas.
+     *
+     * Enche o dia escolhido (09:00–19:30, de 30 em 30) e transborda para os
+     * dias ÚTEIS seguintes até acabarem as leads. Fins-de-semana são saltados:
+     * propor uma chamada de negócios para domingo é queimar a proposta.
+     *
+     * Devolve ['campanha_id' => int, 'criadas' => int, 'ultimo_dia' => string].
+     */
+    public function criar_campanha($staff_id, $lead_status_id, $dia_inicio, $canal, $limite_dias = 30)
+    {
+        $leads = $this->leads_para_propor($lead_status_id, $staff_id);
+
+        if (empty($leads)) {
+            return ['campanha_id' => 0, 'criadas' => 0, 'ultimo_dia' => null];
+        }
+
+        $this->db->insert($this->tabela_campanha(), [
+            'staff_id'       => (int) $staff_id,
+            'lead_status_id' => (int) $lead_status_id,
+            'dia_inicio'     => $dia_inicio,
+            'canal'          => $canal,
+            'total'          => 0,
+            'date_created'   => date('Y-m-d H:i:s'),
+        ]);
+        $campanha_id = (int) $this->db->insert_id();
+
+        $ocupados = $this->horarios_ocupados(
+            $staff_id,
+            $dia_inicio . ' 00:00:00',
+            date('Y-m-d 23:59:59', strtotime($dia_inicio . ' +' . $limite_dias . ' days'))
+        );
+
+        $dia        = $dia_inicio;
+        $dias_vistos = 0;
+        $criadas    = 0;
+        $ultimo_dia = $dia_inicio;
+        $fila       = $leads;
+
+        while (!empty($fila) && $dias_vistos < $limite_dias) {
+            $dia_semana = (int) date('N', strtotime($dia));
+
+            // 6 = sábado, 7 = domingo
+            if ($dia_semana >= 6) {
+                $dia = date('Y-m-d', strtotime($dia . ' +1 day'));
+                $dias_vistos++;
+                continue;
+            }
+
+            foreach (dps_reunioes_horarios_do_dia($dia) as $horario) {
+                if (empty($fila)) {
+                    break;
+                }
+                if (isset($ocupados[$horario]) || strtotime($horario) <= time()) {
+                    continue;
+                }
+
+                $lead = array_shift($fila);
+
+                $this->db->insert($this->tabela_proposta(), [
+                    'campanha_id'      => $campanha_id,
+                    'lead_id'          => (int) $lead['id'],
+                    'staff_id'         => (int) $staff_id,
+                    'data_hora'        => $horario,
+                    'chave'            => bin2hex(random_bytes(24)),
+                    'estado'           => 'pendente',
+                    'canal'            => $canal,
+                    'cliente_nome'     => $lead['name'],
+                    'cliente_email'    => $lead['email'],
+                    'cliente_telefone' => $lead['phonenumber'],
+                    'date_created'     => date('Y-m-d H:i:s'),
+                ]);
+
+                $ocupados[$horario] = true;
+                $ultimo_dia         = $dia;
+                $criadas++;
+            }
+
+            $dia = date('Y-m-d', strtotime($dia . ' +1 day'));
+            $dias_vistos++;
+        }
+
+        $this->db->where('id', $campanha_id)->update($this->tabela_campanha(), ['total' => $criadas]);
+
+        return ['campanha_id' => $campanha_id, 'criadas' => $criadas, 'ultimo_dia' => $ultimo_dia];
+    }
+
+    public function proposta_por_chave($chave)
+    {
+        $this->db->where('chave', $chave);
+
+        return $this->db->get($this->tabela_proposta())->row_array();
+    }
+
+    /**
+     * O cliente aceitou: nasce a reunião a sério.
+     *
+     * A criação passa pelo criar() normal para herdar tudo o que já existe —
+     * sala Jitsi, entrada nas agendas, Google Calendar, lembrete dos 30
+     * minutos e tarefa de follow-up. Duplicar isso aqui era garantir que uma
+     * das peças ficava de fora.
+     */
+    public function aceitar_proposta($chave)
+    {
+        $p = $this->proposta_por_chave($chave);
+
+        if (!$p || $p['estado'] !== 'pendente') {
+            return null;
+        }
+
+        if (strtotime($p['data_hora']) <= time()) {
+            $this->db->where('id', (int) $p['id'])->update($this->tabela_proposta(), [
+                'estado'        => 'expirada',
+                'respondido_em' => date('Y-m-d H:i:s'),
+            ]);
+
+            return null;
+        }
+
+        $reuniao_id = $this->criar([
+            'rel_type'         => 'lead',
+            'rel_id'           => (int) $p['lead_id'],
+            'assunto'          => 'Reunião online',
+            'data_hora'        => $p['data_hora'],
+            'duracao_min'      => 30,
+            'staff_id'         => (int) $p['staff_id'],
+            'cliente_nome'     => $p['cliente_nome'],
+            'cliente_email'    => $p['cliente_email'],
+            'cliente_telefone' => $p['cliente_telefone'],
+        ]);
+
+        if (!$reuniao_id) {
+            return null;
+        }
+
+        $this->db->where('id', (int) $p['id'])->update($this->tabela_proposta(), [
+            'estado'        => 'aceite',
+            'respondido_em' => date('Y-m-d H:i:s'),
+            'reuniao_id'    => $reuniao_id,
+        ]);
+
+        return $this->get($reuniao_id);
+    }
+
+    public function recusar_proposta($chave)
+    {
+        $p = $this->proposta_por_chave($chave);
+
+        if (!$p || $p['estado'] !== 'pendente') {
+            return false;
+        }
+
+        $this->db->where('id', (int) $p['id'])->update($this->tabela_proposta(), [
+            'estado'        => 'recusada',
+            'respondido_em' => date('Y-m-d H:i:s'),
+        ]);
+
+        return true;
+    }
+
+    public function campanhas($staff_id)
+    {
+        $this->db->select('c.*, s.name as estado_nome, CONCAT(st.firstname," ",st.lastname) as comercial');
+        $this->db->from($this->tabela_campanha() . ' c');
+        $this->db->join(db_prefix() . 'leads_status s', 's.id = c.lead_status_id', 'left');
+        $this->db->join(db_prefix() . 'staff st', 'st.staffid = c.staff_id', 'left');
+
+        if (!is_admin()) {
+            $this->db->where('c.staff_id', (int) $staff_id);
+        }
+
+        return $this->db->order_by('c.id', 'desc')->limit(50)->get()->result_array();
+    }
+
+    public function propostas_da_campanha($campanha_id)
+    {
+        $this->db->where('campanha_id', (int) $campanha_id);
+        $this->db->order_by('data_hora', 'asc');
+
+        return $this->db->get($this->tabela_proposta())->result_array();
+    }
 }

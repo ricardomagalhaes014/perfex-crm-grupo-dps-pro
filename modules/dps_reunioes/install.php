@@ -61,3 +61,71 @@ if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
         KEY `estado` (`estado`)
     ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
 }
+
+/* ---------------------------------------------------------------------------
+ * Propostas de reunião em massa
+ *
+ * O comercial escolhe um estado de lead e um dia; o sistema dá a cada lead um
+ * horário diferente e envia o convite. A reunião só nasce quando o cliente
+ * aceita — por isso a proposta vive numa tabela própria e não na de reuniões,
+ * que só deve conter compromissos reais.
+ * ------------------------------------------------------------------------ */
+
+if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes_campanhas')) {
+    $CI->db->query('CREATE TABLE `' . db_prefix() . "dps_reunioes_campanhas` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `staff_id` INT(11) NOT NULL,
+        `lead_status_id` INT(11) NOT NULL,
+        `dia_inicio` DATE NOT NULL,
+        `canal` VARCHAR(20) NOT NULL DEFAULT 'ambos',
+        `mensagem` TEXT NULL,
+        `total` INT(11) NOT NULL DEFAULT 0,
+        `date_created` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `staff_id` (`staff_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+}
+
+if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes_propostas')) {
+    $CI->db->query('CREATE TABLE `' . db_prefix() . "dps_reunioes_propostas` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `campanha_id` INT(11) NOT NULL,
+        `lead_id` INT(11) NOT NULL,
+        `staff_id` INT(11) NOT NULL,
+
+        -- O horário reservado para esta lead. Enquanto a proposta estiver
+        -- pendente ou aceite, mais ninguém o recebe.
+        `data_hora` DATETIME NOT NULL,
+
+        -- Chave do link público. É o único segredo que protege a página de
+        -- aceitação, por isso nasce de random_bytes e nunca de algo previsível.
+        `chave` VARCHAR(64) NOT NULL,
+
+        `estado` VARCHAR(20) NOT NULL DEFAULT 'pendente',
+        `canal` VARCHAR(20) NOT NULL DEFAULT 'ambos',
+
+        `cliente_nome` VARCHAR(191) NULL,
+        `cliente_email` VARCHAR(191) NULL,
+        `cliente_telefone` VARCHAR(60) NULL,
+
+        `enviado_em` DATETIME NULL,
+        `enviado_por` VARCHAR(20) NULL,
+        `erro_envio` VARCHAR(255) NULL,
+        `respondido_em` DATETIME NULL,
+        `reuniao_id` INT(11) NULL,
+
+        `date_created` DATETIME NOT NULL,
+
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `chave` (`chave`),
+        KEY `campanha_id` (`campanha_id`),
+        KEY `lead_id` (`lead_id`),
+        KEY `estado_envio` (`estado`, `enviado_em`),
+        KEY `slot` (`staff_id`, `data_hora`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=" . $CI->db->char_set . ';');
+}
+
+add_option('dps_reunioes_hora_inicio', '09:00');
+add_option('dps_reunioes_hora_fim', '19:30');
+add_option('dps_reunioes_wa_por_dia', '20');
+add_option('dps_reunioes_texto_convite', dps_reunioes_texto_convite_por_omissao());

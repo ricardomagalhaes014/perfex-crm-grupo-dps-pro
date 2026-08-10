@@ -566,4 +566,75 @@ class Dps_reunioes extends AdminController
                         ->order_by('firstname')
                         ->get(db_prefix() . 'staff')->result_array();
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Propostas em massa                                                  */
+    /* ------------------------------------------------------------------ */
+
+    public function propostas()
+    {
+        $this->load->view('dps_reunioes/propostas', [
+            'title'     => 'Propor reuniões em massa',
+            'campanhas' => $this->dps_reunioes_model->campanhas(get_staff_user_id()),
+        ]);
+    }
+
+    public function propor()
+    {
+        $staff_id = get_staff_user_id();
+
+        if ($this->input->post()) {
+            $estado = (int) $this->input->post('lead_status_id');
+            $dia    = $this->input->post('dia_inicio');
+            $canal  = $this->input->post('canal');
+
+            if (!$estado || !$dia) {
+                set_alert('warning', 'Escolha o estado das leads e o dia.');
+                redirect(admin_url('dps_reunioes/propor'));
+            }
+
+            if (strtotime($dia) < strtotime(date('Y-m-d'))) {
+                set_alert('warning', 'O dia escolhido já passou.');
+                redirect(admin_url('dps_reunioes/propor'));
+            }
+
+            $r = $this->dps_reunioes_model->criar_campanha(
+                $staff_id,
+                $estado,
+                $dia,
+                in_array($canal, ['whatsapp', 'email', 'ambos'], true) ? $canal : 'ambos'
+            );
+
+            if (!$r['criadas']) {
+                set_alert('warning', 'Não encontrei leads nesse estado com telefone ou email.');
+                redirect(admin_url('dps_reunioes/propor'));
+            }
+
+            /*
+             * Os convites NÃO saem todos agora. O motor envia-os aos poucos,
+             * respeitando o limite diário de WhatsApp — mandar 80 mensagens de
+             * uma vez era o caminho mais rápido para bloquearem o número de
+             * quem lançou a campanha.
+             */
+            set_alert('success', 'Criadas ' . $r['criadas'] . ' propostas, até ' . _d($r['ultimo_dia'])
+                . '. Os convites vão sair aos poucos, dentro do limite diário.');
+
+            redirect(admin_url('dps_reunioes/propostas'));
+        }
+
+        $this->load->model('leads_model');
+
+        $this->load->view('dps_reunioes/propor', [
+            'title'   => 'Propor reuniões em massa',
+            'estados' => $this->leads_model->get_status(),
+        ]);
+    }
+
+    public function campanha($id)
+    {
+        $this->load->view('dps_reunioes/campanha', [
+            'title'     => 'Campanha de reuniões',
+            'propostas' => $this->dps_reunioes_model->propostas_da_campanha($id),
+        ]);
+    }
 }
