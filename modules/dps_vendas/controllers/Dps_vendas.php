@@ -144,10 +144,23 @@ class Dps_vendas extends AdminController
              * ela se fosse ao mapa de vendas. Em 09/08/2026 entraram duas
              * reservas por este caminho e ninguém foi avisado.
              */
-            dps_vendas_notificar_admins(
-                'Nova reserva: ' . $nome . ' ' . $unidade . ' — ' . $lead->name,
-                'dps_vendas/view/' . $venda_id
-            );
+            $aviso_reserva = 'Nova reserva: ' . $nome . ' ' . $unidade . ' — ' . $lead->name;
+
+            dps_vendas_notificar_admins($aviso_reserva, 'dps_vendas/view/' . $venda_id);
+
+            /*
+             * E o dono da lead, que pode não ser quem carregou no botão: um
+             * administrador a arrumar o kanban cria a reserva, e o comercial
+             * ficava sem saber que a sua lead passou a venda.
+             *
+             * Salta-se quem está a fazer a operação (já sabe) e quem é
+             * administrador (foi avisado na linha de cima).
+             */
+            $dono = (int) $lead->assigned;
+
+            if ($dono > 0 && $dono !== (int) get_staff_user_id() && !is_admin($dono)) {
+                dps_vendas_notificar($dono, $aviso_reserva, 'dps_vendas/view/' . $venda_id);
+            }
 
             log_activity('Reserva criada a partir da lead #' . $lead_id
                 . ' (' . $nome . ' ' . $unidade . ') — venda #' . $venda_id);

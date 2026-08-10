@@ -75,6 +75,77 @@ function dps_sofia_ia_ensure_schema()
     update_option('dps_sofia_ia_schema_version', DPS_SOFIA_IA_VERSION);
 }
 
+/*
+ * REPARAÇÃO PONTUAL — 09/08/2026. Pode ser apagada quando estiver feita.
+ *
+ * Ao aplicar-se a Função a todos os membros (a caixa "actualizar permissões"),
+ * o Perfex corre Staff_model::update_permissions(), que APAGA todas as
+ * permissões da pessoa antes de inserir as da Função. Tudo o que cada comercial
+ * tinha recebido individualmente e não constava da Função desapareceu — os
+ * Lembretes foram o primeiro sintoma.
+ *
+ * Isto devolve o acesso aos Lembretes a quem ficou sem nenhuma permissão desse
+ * módulo. Dá `view_own` e não `view`: o segundo deixaria cada comercial ver os
+ * lembretes de toda a gente, e não há razão para alargar o que estava.
+ *
+ * Não toca em quem já tenha alguma permissão de `reminder` — pode ter sido
+ * restringido de propósito.
+ *
+ * Vive neste módulo por ser um dos que está activo e a correr; não tem relação
+ * com a Sofia.
+ */
+hooks()->add_action('admin_init', 'dps_reparar_permissoes_reminder');
+function dps_reparar_permissoes_reminder()
+{
+    if (get_option('dps_reparacao_reminder_2026_08_09') === '1') {
+        return;
+    }
+
+    $CI = &get_instance();
+
+    // Se o módulo dos lembretes não existir aqui, não há nada a reparar.
+    if (!$CI->db->table_exists('staff_permissions')) {
+        update_option('dps_reparacao_reminder_2026_08_09', '1');
+
+        return;
+    }
+
+    $capacidades = ['view_own', 'create', 'edit', 'delete'];
+
+    $equipa = $CI->db->select('staffid')
+        ->where('active', 1)
+        ->where('admin', 0)
+        ->get(db_prefix() . 'staff')->result_array();
+
+    $repostos = 0;
+
+    foreach ($equipa as $membro) {
+        $staff_id = (int) $membro['staffid'];
+
+        $tem = (int) $CI->db->where('staff_id', $staff_id)
+            ->where('feature', 'reminder')
+            ->count_all_results('staff_permissions');
+
+        if ($tem > 0) {
+            continue;
+        }
+
+        foreach ($capacidades as $capacidade) {
+            $CI->db->insert('staff_permissions', [
+                'staff_id'   => $staff_id,
+                'feature'    => 'reminder',
+                'capability' => $capacidade,
+            ]);
+        }
+
+        $repostos++;
+    }
+
+    update_option('dps_reparacao_reminder_2026_08_09', '1');
+
+    log_activity('Reparação: permissões de Lembretes repostas a ' . $repostos . ' membros.');
+}
+
 function dps_sofia_ia_permissions()
 {
     register_staff_capabilities(DPS_SOFIA_IA_MODULE_NAME, [

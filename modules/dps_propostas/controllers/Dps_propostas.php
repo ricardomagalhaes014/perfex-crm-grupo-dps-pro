@@ -1031,11 +1031,21 @@ class Dps_propostas extends AdminController
          * não precisa de mensagem a dizer-lhe o que acabou de fazer.
          */
         if (function_exists('dps_vendas_notificar_admins')) {
-            dps_vendas_notificar_admins(
-                'Nova reserva: ' . $prop->empreendimento . ' ' . $unidade
-                    . ' — ' . ($lead ? $lead->name : 'cliente'),
-                'dps_vendas/view/' . $venda_id
-            );
+            $aviso = 'Nova reserva: ' . $prop->empreendimento . ' ' . $unidade
+                   . ' — ' . ($lead ? $lead->name : 'cliente');
+
+            dps_vendas_notificar_admins($aviso, 'dps_vendas/view/' . $venda_id);
+
+            /*
+             * E o comercial da proposta, quando não é ele a aceitar. Sem isto,
+             * um administrador que aceitasse a proposta de um colega criava-lhe
+             * uma venda sem o avisar.
+             */
+            $dono = (int) $prop->staff_id;
+
+            if ($dono > 0 && $dono !== (int) get_staff_user_id() && !is_admin($dono)) {
+                dps_vendas_notificar($dono, $aviso, 'dps_vendas/view/' . $venda_id);
+            }
         }
 
         return [
