@@ -1021,6 +1021,23 @@ class Dps_propostas extends AdminController
                 . $unidade . '" NÃO foi marcada no simulador.');
         }
 
+        /*
+         * Avisar a direcção. Aceitar uma proposta cria uma reserva, e uma
+         * reserva tem de dar sinal — era o que já acontecia quando o cliente
+         * reservava no simulador, e não acontecia por aqui.
+         *
+         * A função avisa pelo sino, por email e por WhatsApp, e salta quem
+         * estiver a fazer a operação: um administrador que aceite a proposta
+         * não precisa de mensagem a dizer-lhe o que acabou de fazer.
+         */
+        if (function_exists('dps_vendas_notificar_admins')) {
+            dps_vendas_notificar_admins(
+                'Nova reserva: ' . $prop->empreendimento . ' ' . $unidade
+                    . ' — ' . ($lead ? $lead->name : 'cliente'),
+                'dps_vendas/view/' . $venda_id
+            );
+        }
+
         return [
             'id'        => $venda_id,
             'comissao'  => $comissao,

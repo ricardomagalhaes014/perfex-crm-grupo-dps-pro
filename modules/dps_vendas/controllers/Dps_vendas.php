@@ -134,6 +134,21 @@ class Dps_vendas extends AdminController
                     . 'antes que outro comercial a venda.');
             }
 
+            /*
+             * Avisar a direcção, como já acontecia nas reservas feitas pelo
+             * cliente no simulador.
+             *
+             * O aviso por WhatsApp só existia no dps_venda_receber.php, o
+             * endpoint por onde entram as reservas do simulador. Uma reserva
+             * criada aqui dentro não avisava ninguém — a direcção só dava por
+             * ela se fosse ao mapa de vendas. Em 09/08/2026 entraram duas
+             * reservas por este caminho e ninguém foi avisado.
+             */
+            dps_vendas_notificar_admins(
+                'Nova reserva: ' . $nome . ' ' . $unidade . ' — ' . $lead->name,
+                'dps_vendas/view/' . $venda_id
+            );
+
             log_activity('Reserva criada a partir da lead #' . $lead_id
                 . ' (' . $nome . ' ' . $unidade . ') — venda #' . $venda_id);
 
