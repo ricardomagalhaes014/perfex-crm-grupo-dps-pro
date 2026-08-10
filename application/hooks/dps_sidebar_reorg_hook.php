@@ -67,7 +67,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
          * 1. Agrupar "Automações": WhatsApp + Sofia Calls + Automação
          * ---------------------------------------------------------------- */
         $automacoes_children = [];
-        foreach (['dps_whatsapp' => 1, 'dps_sofia_calls' => 2] as $slug => $pos) {
+        foreach (['dps_whatsapp' => 1, 'dps_sofia_calls' => 2, 'dps_reunioes_massa' => 3] as $slug => $pos) {
             if (isset($items[$slug])) {
                 $child                 = $items[$slug];
                 $child['parent_slug']  = 'dps_automacoes';

@@ -51,6 +51,21 @@ hooks()->add_action('admin_init', 'dps_reunioes_menu');
 function dps_reunioes_menu()
 {
     $CI = &get_instance();
+
+    /*
+     * "Em Massa Reunião Online" é registado como item de TOPO, e não como
+     * filho de "Reuniões online", porque quem decide a barra lateral é o
+     * dps_sidebar_reorg_hook — e esse só sabe mexer em itens de topo. É lá que
+     * ele é arrumado para dentro de "Automações", que é onde a equipa procura
+     * os envios em massa.
+     */
+    $CI->app_menu->add_sidebar_menu_item('dps_reunioes_massa', [
+        'slug'     => 'dps_reunioes_massa',
+        'name'     => 'Em Massa Reunião Online',
+        'href'     => admin_url('dps_reunioes/propostas'),
+        'icon'     => 'fa fa-users',
+        'position' => 92,
+    ]);
     $CI->app_menu->add_sidebar_menu_item('dps_reunioes', [
         'name'     => 'Reuniões online',
         'href'     => admin_url('dps_reunioes'),
@@ -68,13 +83,6 @@ function dps_reunioes_menu()
         'name'     => 'Todas as reuniões',
         'href'     => admin_url('dps_reunioes'),
         'position' => 1,
-    ]);
-
-    $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
-        'slug'     => 'dps_reunioes_propostas',
-        'name'     => 'Propor em massa',
-        'href'     => admin_url('dps_reunioes/propostas'),
-        'position' => 3,
     ]);
 
     $CI->app_menu->add_sidebar_children_item('dps_reunioes', [
