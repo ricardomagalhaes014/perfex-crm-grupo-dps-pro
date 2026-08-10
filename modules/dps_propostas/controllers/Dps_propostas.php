@@ -379,6 +379,15 @@ class Dps_propostas extends AdminController
          */
         $empreendimento = trim((string) $this->input->get('empreendimento'));
 
+        /*
+         * Filtro por resultado: aceites, recusadas ou ainda sem resposta.
+         * 'pendente' é o vazio e o literal — as duas formas existem na tabela.
+         */
+        $resultado = trim((string) $this->input->get('resultado'));
+        if (! in_array($resultado, ['aceite', 'recusado', 'pendente'], true)) {
+            $resultado = '';
+        }
+
         $emps_filtro = $this->db->query(
             'SELECT p.empreendimento, COUNT(*) AS c
              FROM ' . db_prefix() . 'dps_propostas p
@@ -437,6 +446,11 @@ class Dps_propostas extends AdminController
         if ($empreendimento !== '') {
             $this->db->where('p.empreendimento', $empreendimento);
         }
+        if ($resultado === 'pendente') {
+            $this->db->where('(p.outcome IS NULL OR p.outcome = "" OR p.outcome = "pendente")', null, false);
+        } elseif ($resultado !== '') {
+            $this->db->where('p.outcome', $resultado);
+        }
         $this->db->order_by('p.id', 'DESC');
         $this->db->limit(1000);
         $propostas = $this->db->get()->result();
@@ -459,6 +473,11 @@ class Dps_propostas extends AdminController
         }
         if ($empreendimento !== '') {
             $this->db->where('p.empreendimento', $empreendimento);
+        }
+        if ($resultado === 'pendente') {
+            $this->db->where('(p.outcome IS NULL OR p.outcome = "" OR p.outcome = "pendente")', null, false);
+        } elseif ($resultado !== '') {
+            $this->db->where('p.outcome', $resultado);
         }
         /*
          * Agrupa-se pela EXPRESSÃO, não pelo alias: com ONLY_FULL_GROUP_BY
@@ -485,6 +504,21 @@ class Dps_propostas extends AdminController
         uksort($r_nomes, function ($a, $b) use ($r_dados) {
             return array_sum($r_dados[$b]) <=> array_sum($r_dados[$a]);
         });
+
+        /*
+         * E os dados TÊM de seguir a mesma ordem dos nomes.
+         *
+         * A vista faz array_values() nos dois. Ordenar só os nomes deixava as
+         * barras a dizer o nome de uma pessoa com os números de outra: as 4
+         * propostas aceites do Ricardo apareciam desenhadas na barra da Catia.
+         * Um gráfico errado é pior do que não haver gráfico, porque ninguém
+         * desconfia dele.
+         */
+        $r_ordenados = [];
+        foreach ($r_nomes as $sid => $nome) {
+            $r_ordenados[$sid] = $r_dados[$sid];
+        }
+        $r_dados = $r_ordenados;
 
         $data['r_nomes'] = $r_nomes;
         $data['r_dados'] = $r_dados;
@@ -576,6 +610,7 @@ class Dps_propostas extends AdminController
         $data['comercial']    = $comercial;
         $data['comerciais']   = $comerciais;
         $data['procura']      = $procura;
+        $data['resultado']      = $resultado;
         $data['empreendimento'] = $empreendimento;
         $data['emps_filtro']    = $emps_filtro;
         $this->load->view('todas', $data);

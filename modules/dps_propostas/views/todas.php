@@ -8,7 +8,7 @@
                     <div class="panel-body">
                         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
                             <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas Enviadas</h4>
-                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?><?= ($empreendimento ?? '') !== '' ? ' · ' . e($empreendimento) : ''; ?></span>
+                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?><?= ($empreendimento ?? '') !== '' ? ' · ' . e($empreendimento) : ''; ?><?php $dps_rot = ['aceite'=>'aceites','recusado'=>'recusadas','pendente'=>'sem resposta']; ?><?= ($resultado ?? '') !== '' ? ' · ' . e($dps_rot[$resultado]) : ''; ?></span>
 
                             <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>"
                                   style="margin-left:auto;display:flex;align-items:center;gap:8px;">
@@ -17,6 +17,9 @@
                                 <?php } ?>
                                 <?php if (($empreendimento ?? '') !== '') { ?>
                                     <input type="hidden" name="empreendimento" value="<?= e($empreendimento); ?>">
+                                <?php } ?>
+                                <?php if (($resultado ?? '') !== '') { ?>
+                                    <input type="hidden" name="resultado" value="<?= e($resultado); ?>">
                                 <?php } ?>
                                 <input type="search" name="q" value="<?= e($procura ?? ''); ?>"
                                        class="form-control input-sm" style="width:230px;"
@@ -74,11 +77,33 @@
                                     </option>
                                     <?php } ?>
                                 </select>
+                                <?php if (($resultado ?? '') !== '') { ?>
+                                    <input type="hidden" name="resultado" value="<?= e($resultado); ?>">
+                                <?php } ?>
                                 <?php if (($empreendimento ?? '') !== '') { ?>
                                 <a href="<?= admin_url('dps_propostas/todas'
                                     . ($comercial > 0 ? '?comercial=' . (int) $comercial : '')); ?>"
                                    class="btn btn-default btn-sm">Limpar</a>
                                 <?php } ?>
+                            </form>
+
+                            <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>" style="display:flex;align-items:center;gap:8px;">
+                                <?php if (($procura ?? '') !== '') { ?>
+                                    <input type="hidden" name="q" value="<?= e($procura); ?>">
+                                <?php } ?>
+                                <?php if ($comercial > 0) { ?>
+                                    <input type="hidden" name="comercial" value="<?= (int) $comercial; ?>">
+                                <?php } ?>
+                                <?php if (($empreendimento ?? '') !== '') { ?>
+                                    <input type="hidden" name="empreendimento" value="<?= e($empreendimento); ?>">
+                                <?php } ?>
+                                <label style="margin:0;font-size:13px;color:#5a6673;"><i class="fa fa-check-square-o"></i> Resultado:</label>
+                                <select name="resultado" class="selectpicker" data-width="190px" onchange="this.form.submit()">
+                                    <option value=""<?= ($resultado ?? '') === '' ? ' selected' : ''; ?>>Todos</option>
+                                    <option value="aceite"<?= ($resultado ?? '') === 'aceite' ? ' selected' : ''; ?>>Aceites</option>
+                                    <option value="recusado"<?= ($resultado ?? '') === 'recusado' ? ' selected' : ''; ?>>Recusadas</option>
+                                    <option value="pendente"<?= ($resultado ?? '') === 'pendente' ? ' selected' : ''; ?>>Sem resposta</option>
+                                </select>
                             </form>
                         </div>
 
