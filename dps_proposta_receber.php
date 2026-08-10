@@ -62,7 +62,98 @@ if (!is_array($dados)) {
 $lead_id        = (int) ($dados['lead_id'] ?? 0);
 $staff_id       = (int) ($dados['staff_id'] ?? 0);
 $token          = trim((string) ($dados['token'] ?? ''));
-$empreendimento = trim((string) ($dados['empreendimento'] ?? ''));
+/**
+ * Texto de apresentação do empreendimento — a MESMA fonte que o módulo usa.
+ *
+ * Este ficheiro é autónomo (não corre dentro do CodeIgniter), mas o helper do
+ * módulo é só um conjunto de funções: define-se a constante que ele exige e
+ * inclui-se. Copiar os textos para aqui daria duas versões a divergir no dia
+ * em que a direcção mudasse uma linha — foi assim que os nomes dos
+ * empreendimentos acabaram escritos de três maneiras.
+ *
+ * Sem helper acessível devolve-se vazio: sem texto é melhor do que não enviar.
+ */
+function apresentacao_do_empreendimento(string $empreendimento): string
+{
+    $n = mb_strtolower(trim($empreendimento));
+    $n = strtr($n, ['á'=>'a','à'=>'a','ã'=>'a','â'=>'a','é'=>'e','ê'=>'e',
+                    'í'=>'i','ó'=>'o','õ'=>'o','ô'=>'o','ú'=>'u','ç'=>'c']);
+
+    $chave = null;
+    foreach ([
+        'boavista'  => 'boavista',
+        'horizonte' => 'belohorizonte', 'belo' => 'belohorizonte', 'bh' => 'belohorizonte',
+        'aura'      => 'aura',
+        'douro'     => 'gaiadouro', 'gaia' => 'gaiadouro',
+        'raiz'      => 'raizes', 'fanzeres' => 'raizes',
+        'lake'      => 'lake',
+    ] as $pedaco => $k) {
+        if (strpos($n, $pedaco) !== false) { $chave = $k; break; }
+    }
+
+    if ($chave === null) {
+        return '';
+    }
+
+    if (!function_exists('dps_propostas_apresentacao')) {
+        $helper = __DIR__ . '/modules/dps_propostas/helpers/dps_propostas_helper.php';
+        if (!is_file($helper)) {
+            return '';
+        }
+        if (!defined('BASEPATH')) {
+            define('BASEPATH', true);
+        }
+        if (!function_exists('html_escape')) {
+            function html_escape($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
+        }
+        require_once $helper;
+    }
+
+    return function_exists('dps_propostas_apresentacao')
+        ? (string) dps_propostas_apresentacao($chave)
+        : '';
+}
+
+/**
+ * O nome do empreendimento como deve ficar gravado.
+ *
+ * O simulador manda ora a chave interna ("gaiadouro", "boavista", "aura"),
+ * ora o nome de mostrar. Gravado em bruto, o mesmo empreendimento fica
+ * arrumado em dois sítios: as propostas #985 e #986, aceites a 10/08/2026,
+ * ficaram em "gaiadouro" e desapareceram dos gráficos e do filtro do
+ * "Gaia Douro". O módulo já normalizava; este ficheiro, que corre por fora
+ * do CodeIgniter, não — e é por aqui que passam as propostas do simulador.
+ *
+ * Usa-se a MESMA função do módulo, carregada como a do texto de
+ * apresentação: duas cópias da lista de nomes voltariam a divergir.
+ */
+function nome_canonico_do_empreendimento(string $valor): string
+{
+    $valor = trim($valor);
+    if ($valor === '') {
+        return '';
+    }
+
+    if (!function_exists('dps_propostas_nome_canonico')) {
+        $helper = __DIR__ . '/modules/dps_propostas/helpers/dps_propostas_helper.php';
+        if (!is_file($helper)) {
+            return $valor;
+        }
+        if (!defined('BASEPATH')) {
+            define('BASEPATH', true);
+        }
+        if (!function_exists('html_escape')) {
+            function html_escape($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
+        }
+        require_once $helper;
+    }
+
+    return function_exists('dps_propostas_nome_canonico')
+        ? (string) dps_propostas_nome_canonico($valor)
+        : $valor;
+}
+
+$empreendimento = nome_canonico_do_empreendimento((string) ($dados['empreendimento'] ?? ''));
 $unidade        = trim((string) ($dados['unidade'] ?? ''));
 $file_name      = trim((string) ($dados['file_name'] ?? 'Proposta.pdf'));
 $pdf_base64     = (string) ($dados['pdf_base64'] ?? '');
@@ -273,9 +364,15 @@ if (!preg_match('/\.pdf$/i', $file_name)) {
     $file_name .= '.pdf';
 }
 
-// Legenda sempre igual, para o cliente: nada de chaves internas
-// ("boavista") nem de nomes que possam não bater com o PDF anexado.
-$legenda = 'Proposta DPS';
+/*
+ * Legenda: o texto do empreendimento, escrito pela direcção, e a seguir a
+ * referência à proposta em anexo. Sem texto próprio fica só a referência,
+ * como antes. Nunca vai a chave interna ("boavista") para o cliente.
+ */
+$apresentacao = apresentacao_do_empreendimento($empreendimento);
+$legenda = $apresentacao !== ''
+    ? $apresentacao . "\n\n📄 Segue em anexo a proposta que preparámos para si."
+    : 'Proposta DPS';
 
 /*
  * O PDF é gravado em disco e enviado à Evolution por URL, em vez de ir
@@ -506,7 +603,8 @@ if ($canal === 'whatsapp') {
             $tel_com = '351' . $tel_com;
         }
 
-        $texto_email = "Boa tarde,\n\nSegue em anexo a proposta que preparámos para si.\n\n"
+        $texto_email = ($apresentacao !== '' ? $apresentacao . "\n\n" : '')
+            . "Segue em anexo a proposta que preparámos para si.\n\n"
             . "Qualquer questão, estamos ao dispor.\n\nCom os melhores cumprimentos,\n" . $empresa;
 
         $corpo_html = '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;'
