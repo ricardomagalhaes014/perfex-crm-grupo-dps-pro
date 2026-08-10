@@ -719,8 +719,100 @@ function dps_propostas_preco_unidade($empreendimento, $unidade)
     }
 
     $catalogo = dps_propostas_units();
+    $chave    = dps_propostas_chave_catalogo($slug, $unidade);
 
-    return isset($catalogo[$slug][$unidade]['preco'])
-        ? (float) $catalogo[$slug][$unidade]['preco']
+    return ($chave !== null && isset($catalogo[$slug][$chave]['preco']))
+        ? (float) $catalogo[$slug][$chave]['preco']
         : 0.0;
+}
+
+/**
+ * O slug do empreendimento a partir do nome escrito na proposta.
+ */
+function dps_propostas_slug($empreendimento)
+{
+    $achatar = static function ($t) {
+        $t = mb_strtolower((string) $t, 'UTF-8');
+        $t = strtr($t, ['á'=>'a','à'=>'a','ã'=>'a','â'=>'a','é'=>'e','ê'=>'e',
+                        'í'=>'i','ó'=>'o','ô'=>'o','õ'=>'o','ú'=>'u','ç'=>'c']);
+
+        return preg_replace('/[^a-z0-9]/', '', $t);
+    };
+
+    $alvo = $achatar($empreendimento);
+
+    foreach (dps_propostas_empreendimentos() as $s => $e) {
+        if ($achatar($e['nome']) === $alvo || $achatar($s) === $alvo) {
+            return $s;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * A fracção como o catálogo a conhece.
+ *
+ * O nome que chega na proposta nem sempre é o do catálogo: o Gaia Douro guarda
+ * "1_AL" (torre à frente) e a proposta trazia só "AL". Em 09/08/2026 isso fez
+ * duas vendas nascerem sem preço e sem mudança de estado no simulador —
+ * silenciosamente, porque uma procura falhada devolve zero e zero parece um
+ * número legítimo.
+ *
+ * Compara-se primeiro em exacto, depois pelo que vem a seguir ao separador.
+ * Havendo mais do que um candidato (a mesma letra em duas torres), devolve-se
+ * null: pôr o preço da fracção errada é pior do que não pôr nenhum.
+ */
+function dps_propostas_chave_catalogo($slug, $unidade)
+{
+    $unidade  = trim((string) $unidade);
+    $catalogo = dps_propostas_units();
+
+    if ($unidade === '' || empty($catalogo[$slug])) {
+        return null;
+    }
+
+    if (isset($catalogo[$slug][$unidade])) {
+        return $unidade;
+    }
+
+    $limpar = static function ($t) {
+        return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $t));
+    };
+
+    $alvo = $limpar($unidade);
+
+    // A cauda do que veio na proposta: de "1_AL" fica "AL".
+    $partes_unidade = preg_split('/[^A-Za-z0-9]+/', $unidade);
+    $cauda_unidade  = strtoupper((string) end($partes_unidade));
+
+    $candidatos = [];
+
+    foreach (array_keys($catalogo[$slug]) as $chave) {
+        if ($limpar($chave) === $alvo) {
+            return $chave;
+        }
+
+        $partes_chave = preg_split('/[^A-Za-z0-9]+/', $chave);
+        $cauda_chave  = strtoupper((string) end($partes_chave));
+
+        // "AL" encontra "1_AL"; e "1_AL" encontra "AL" (o caso do Lake).
+        if ($cauda_chave === $alvo || $limpar($chave) === $cauda_unidade) {
+            $candidatos[] = $chave;
+        }
+    }
+
+    $candidatos = array_unique($candidatos);
+
+    if (count($candidatos) === 1) {
+        return reset($candidatos);
+    }
+
+    if (count($candidatos) > 1) {
+        log_activity('Propostas: fracção "' . $unidade . '" corresponde a '
+            . count($candidatos) . ' do catálogo (' . implode(', ', $candidatos)
+            . '); preço não resolvido.');
+    }
+
+    return null;
 }

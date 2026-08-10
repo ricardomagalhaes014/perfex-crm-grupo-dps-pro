@@ -793,6 +793,7 @@ class Dps_propostas extends AdminController
             // O valor descoberto no catálogo também fica na proposta, senão a
             // lista mostrava "valor por definir" numa venda que já tem preço.
             $valor = $valor > 0 ? $valor : (float) ($venda['valor'] ?? 0);
+            $unidade_msg = (string) $prop->unidade;
 
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
                 'outcome'    => 'aceite',
@@ -824,6 +825,11 @@ class Dps_propostas extends AdminController
             echo json_encode([
                 'success'  => true,
                 'redirect' => admin_url('dps_vendas/form/' . (int) $venda['id']),
+                // Um aviso quando a montra não foi actualizada: a venda existe,
+                // mas a fracção continua a aparecer livre a quem a consultar.
+                'aviso'   => empty($venda['na_montra'])
+                    ? 'ATENÇÃO: não consegui marcar a fracção ' . $unidade_msg . ' no simulador. Confirme lá o estado.'
+                    : null,
                 'message' => $valor > 0
                     ? 'Proposta ACEITE — lead em PARA CONTRATO. Venda registada: '
                       . number_format($valor, 0, ',', '.') . ' € · comissão '
@@ -929,6 +935,26 @@ class Dps_propostas extends AdminController
             $valor = dps_propostas_preco_unidade($prop->empreendimento, $prop->unidade);
         }
 
+        /*
+         * A venda guarda a fracção com o nome do CATÁLOGO, não com o que veio
+         * na proposta.
+         *
+         * O Gaia Douro é "1_AL" no catálogo e no simulador; a proposta trazia
+         * "AL". Guardar "AL" na venda fazia falhar tudo o que viesse a seguir —
+         * o preço, e depois a mudança de estado para DPS na montra, que procura
+         * a fracção pelo nome. Foi o que aconteceu às vendas AL e V em
+         * 09/08/2026: nasceram a zero e a montra continuou a mostrá-las livres.
+         */
+        $unidade = $prop->unidade;
+        $slug    = dps_propostas_slug($prop->empreendimento);
+
+        if ($slug !== null) {
+            $canonica = dps_propostas_chave_catalogo($slug, $prop->unidade);
+            if ($canonica !== null) {
+                $unidade = $canonica;
+            }
+        }
+
         $emp  = $this->db->where('nome', $prop->empreendimento)->get(db_prefix() . 'simulador_empreendimentos')->row();
         $taxa = $emp ? (float) $emp->taxa : 0;
         $comissao = round($valor * $taxa / 100, 2);
@@ -949,7 +975,7 @@ class Dps_propostas extends AdminController
         $this->db->insert(db_prefix() . 'simulador_vendas', [
             'empreendimento'   => $prop->empreendimento,
             'taxa'             => $taxa,
-            'unidade'          => $prop->unidade,
+            'unidade'          => $unidade,
             'cliente'          => $lead ? $lead->name : '',
             'cliente_email'    => $lead ? ($lead->email ?: null) : null,
             'cliente_telefone' => $lead ? ($lead->phonenumber ?: null) : null,
@@ -962,13 +988,47 @@ class Dps_propostas extends AdminController
             'created_by'       => get_staff_user_id(),
         ]);
 
+        $venda_id = $this->db->insert_id();
+
+        /*
+         * Marcar a fracção na montra, como faz o quadro de reserva.
+         *
+         * Aceitar uma proposta É uma reserva: a unidade sai do mercado nesse
+         * instante. Mas esta função cria a venda com um INSERT directo e nunca
+         * passava pelo quadro, que é quem chamava a sincronização — resultado,
+         * a montra continuava a mostrar disponível uma fracção já vendida, e
+         * outro comercial podia prometê-la a outro cliente nos minutos
+         * seguintes. Aconteceu com as fracções AL e V do Gaia Douro em
+         * 09/08/2026.
+         */
+        $na_montra = false;
+
+        if (file_exists(FCPATH . 'modules/dps_vendas/models/Dps_vendas_model.php')) {
+            try {
+                $this->load->model('dps_vendas/dps_vendas_model');
+                $na_montra = (bool) $this->dps_vendas_model->sincronizar_unidade_simulador(
+                    $prop->empreendimento,
+                    $unidade,
+                    'reservado'
+                );
+            } catch (\Throwable $e) {
+                log_activity('Propostas: falha ao marcar ' . $unidade . ' na montra — ' . $e->getMessage());
+            }
+        }
+
+        if (!$na_montra) {
+            log_activity('Propostas: venda ' . $venda_id . ' criada, mas a fracção "'
+                . $unidade . '" NÃO foi marcada no simulador.');
+        }
+
         return [
-            'id'       => $this->db->insert_id(),
-            'comissao' => $comissao,
-            'taxa'     => $taxa,
+            'id'        => $venda_id,
+            'comissao'  => $comissao,
+            'taxa'      => $taxa,
             // O valor resolvido (do catálogo, quando não veio de fora): quem
             // chama precisa dele para gravar na proposta e para a mensagem.
-            'valor'    => $valor,
+            'valor'     => $valor,
+            'na_montra' => $na_montra,
         ];
     }
 

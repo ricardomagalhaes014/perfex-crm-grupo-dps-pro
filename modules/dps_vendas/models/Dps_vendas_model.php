@@ -1978,6 +1978,41 @@ class Dps_vendas_model extends App_Model
                     break;
                 }
             }
+
+            /*
+             * Segunda tentativa: a fracção sem a torre à frente.
+             *
+             * No Gaia Douro o simulador guarda "1_AL" e a proposta trazia só
+             * "AL" — as comparações acima não apanham isso, porque comparam a
+             * chave inteira. Em 09/08/2026 duas vendas (AL e V) ficaram sem
+             * preço e sem mudança de estado por causa disto.
+             *
+             * Compara-se pelo que vem DEPOIS do separador. E se houver mais do
+             * que um candidato — duas torres com a mesma letra — NÃO se
+             * escolhe: marcar a fracção errada como vendida é pior do que não
+             * marcar nenhuma, porque tira do mercado uma fracção que está à
+             * venda e ninguém dá por isso.
+             */
+            if ($alvo === null) {
+                $candidatos = [];
+
+                foreach (array_keys($mapa) as $existente) {
+                    $partes = preg_split('/[^A-Za-z0-9]+/', $existente);
+                    $cauda  = strtoupper((string) end($partes));
+
+                    if ($cauda === $limpo) {
+                        $candidatos[] = $existente;
+                    }
+                }
+
+                if (count($candidatos) === 1) {
+                    $alvo = $candidatos[0];
+                } elseif (count($candidatos) > 1) {
+                    log_activity('Vendas: fracção "' . $unidade . '" em ' . $empreendimento
+                        . ' corresponde a ' . count($candidatos) . ' fracções do simulador ('
+                        . implode(', ', $candidatos) . '); estado NÃO alterado.');
+                }
+            }
         }
 
         if ($alvo === null) {

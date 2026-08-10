@@ -110,7 +110,23 @@ function dps_reunioes_ensure_schema()
     $feito = true;
 
     $CI = &get_instance();
-    if (!$CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
+
+    /*
+     * Corre o install.php quando FALTAR QUALQUER uma das tabelas, e não só a
+     * principal. Com a guarda antiga, acrescentar tabelas novas ao install.php
+     * não servia de nada em instalações já existentes: a principal existia, o
+     * ficheiro nunca corria, e as novas nunca nasciam. Foi o que ia acontecer
+     * às propostas de reunião em massa.
+     */
+    $precisa = false;
+    foreach (['dps_reunioes', 'dps_reunioes_campanhas', 'dps_reunioes_propostas'] as $tabela) {
+        if (!$CI->db->table_exists(db_prefix() . $tabela)) {
+            $precisa = true;
+            break;
+        }
+    }
+
+    if ($precisa) {
         require_once __DIR__ . '/install.php';
     }
 
