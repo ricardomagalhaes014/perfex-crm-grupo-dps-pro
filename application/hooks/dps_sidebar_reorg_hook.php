@@ -244,21 +244,34 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'vendas'                 => 5,
             'automacoes'             => 6,
             'tarefas'                => 7,
-            'lembrete'               => 8,
-            'funil de vendas'        => 9,
-            'funil de leads'         => 9,
-            'dps credito'            => 10,
-            'simulador de comissoes' => 11,
-            'webmail'                => 12,
-            'dps imoveis'            => 13,
-            'clientes'               => 14,
-            'outros'                 => 15,
+            /*
+             * AGENDA, logo por baixo das Tarefas. Pedido do dono (10/08/2026).
+             *
+             * O item existe em menu_helper.php com o slug 'agenda' e sem
+             * condição nenhuma — mas o passo 5 deste ficheiro esconde dos
+             * não-administradores tudo o que não conste desta lista, e a
+             * Agenda não constava. Os comerciais marcavam lembretes na agenda
+             * e depois não tinham por onde lá voltar.
+             *
+             * Repare-se que mais acima, em $outros_slugs, se tentou apanhá-la
+             * por 'calendar' e 'appointly'. Nenhum desses é o slug real.
+             */
+            'agenda'                 => 8,
+            'lembrete'               => 9,
+            'funil de vendas'        => 10,
+            'funil de leads'         => 10,
+            'dps credito'            => 11,
+            'simulador de comissoes' => 12,
+            'webmail'                => 13,
+            'dps imoveis'            => 14,
+            'clientes'               => 15,
+            'outros'                 => 16,
             // Privado do Ricardo. Tem de estar AQUI: o que não consta desta
             // lista cai na regra do passo 5 e é enterrado dentro do submenu
             // "Admin", que foi como o Painel do Negócio desapareceu do sítio
             // em 29/07/2026. O módulo já só cria o item para o staff 1, por
             // isso ninguém mais o vê.
-            'painel do negocio'      => 16,
+            'painel do negocio'      => 17,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
