@@ -21,7 +21,19 @@ $aColumns = [
 $sIndexColumn = 'id';
 
 $sTable = db_prefix() . 'reminders';
-$where  = ['AND staff = ' . get_staff_user_id() . ' AND isnotified = 0'];
+/*
+ * Os lembretes JÁ NOTIFICADOS deixam de ser escondidos.
+ *
+ * O filtro original era 'isnotified = 0': assim que o lembrete disparava,
+ * saía da lista e o comercial não tinha por onde lhe voltar. A Catia tinha 28
+ * lembretes e via 16 — os 12 que já tinham tocado, entre 23/07 e 10/08,
+ * ficavam invisíveis para ela. Um lembrete que passou continua a ser trabalho
+ * por fazer, e é a primeira coisa que se procura no dia seguinte.
+ *
+ * Passam a aparecer todos, com os passados assinalados. A ordenação por data
+ * continua a ser do utilizador.
+ */
+$where  = ['AND staff = ' . get_staff_user_id()];
 
 $join = [
     'LEFT JOIN ' . db_prefix() . 'clients ON ' . db_prefix() . 'clients.userid = ' . db_prefix() . 'reminders.rel_id AND ' . db_prefix() . 'reminders.rel_type="customer"',
@@ -40,6 +52,7 @@ $result = data_tables_init($aColumns, $sIndexColumn, $sTable, $join, $where, [
     db_prefix() . 'reminders.creator',
     db_prefix() . 'reminders.rel_type',
     db_prefix() . 'reminders.rel_id',
+    db_prefix() . 'reminders.isnotified',
     ]);
 
 $output  = $result['output'];
@@ -55,6 +68,10 @@ foreach ($rResult as $aRow) {
 
         if ($aColumns[$i] == db_prefix() . 'reminders.date') {
             $_data = e(_dt($_data));
+            // Já tocou: dizê-lo em vez de o esconder.
+            if (!empty($aRow['isnotified'])) {
+                $_data .= ' <span class="label label-default" style="font-size:10px;">já passou</span>';
+            }
         } elseif ($i == 1) {
             $_data = process_text_content_for_display($aRow[db_prefix().'reminders.description']);
         }elseif ($i == 0) {
