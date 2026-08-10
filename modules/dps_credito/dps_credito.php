@@ -29,14 +29,37 @@ hooks()->add_action('admin_init', 'dps_credito_permissions');
 // nunca travamos um POST a meio — o que evita os "419 página expirada" e o
 // "só grava depois de refrescar" que o bloqueio no servidor provocava.
 
-// Coluna "DPS Crédito" na listagem de leads
-hooks()->add_filter('leads_table_columns', 'dps_credito_coluna_cabecalho');
-hooks()->add_filter('leads_table_additional_columns_sql', 'dps_credito_coluna_sql');
-hooks()->add_filter('leads_table_row_data', 'dps_credito_coluna_celula', 10, 2);
+/**
+ * O questionário está a perguntar?
+ *
+ * SUSPENSO a 10/08/2026, por decisão do dono: o negócio do crédito ainda não
+ * arrancou e toda a gente respondia "não", o que só gerava cliques e enchia a
+ * base de respostas sem valor nenhum para a análise.
+ *
+ * Suspende-se a PERGUNTA, não o módulo: a página do DPS Crédito, os processos
+ * já abertos e as respostas dadas até aqui ficam todos intactos. O que deixa
+ * de acontecer é a coluna na tabela de leads, o separador na ficha e — o que
+ * mais incomodava — a obrigatoriedade de responder antes de mudar o estado.
+ *
+ * Para voltar a ligar: pôr a opção 'dps_credito_questionario_ativo' a '1'.
+ */
+function dps_credito_questionario_ativo()
+{
+    // Sem opção gravada assume-se SUSPENSO: quem quiser a pergunta liga-a.
+    return get_option('dps_credito_questionario_ativo') === '1';
+}
 
-// Separador dentro da ficha da lead + modal global
-hooks()->add_action('after_lead_tabs_content', 'dps_credito_painel_lead');
-hooks()->add_action('app_admin_footer', 'dps_credito_footer');
+if (dps_credito_questionario_ativo()) {
+    // Coluna "DPS Crédito" na listagem de leads
+    hooks()->add_filter('leads_table_columns', 'dps_credito_coluna_cabecalho');
+    hooks()->add_filter('leads_table_additional_columns_sql', 'dps_credito_coluna_sql');
+    hooks()->add_filter('leads_table_row_data', 'dps_credito_coluna_celula', 10, 2);
+
+    // Separador dentro da ficha da lead + modal global (é o footer que impõe
+    // a obrigatoriedade, interceptando as funções do Perfex antes do submit).
+    hooks()->add_action('after_lead_tabs_content', 'dps_credito_painel_lead');
+    hooks()->add_action('app_admin_footer', 'dps_credito_footer');
+}
 
 function dps_credito_activate()
 {
