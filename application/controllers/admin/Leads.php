@@ -1090,6 +1090,24 @@ class Leads extends AdminController
                     );
                 }
 
+                /*
+                 * Escrever a nota conta como contacto.
+                 *
+                 * O formulário dentro da ficha da lead tem a caixa "contactado"
+                 * e uma data, e é ela que move o último contacto. O popup da
+                 * TABELA de leads não tem caixa nenhuma — não há onde dizer que
+                 * sim — e por isso as notas escritas sem abrir a lead deixavam o
+                 * último contacto onde estava. Uma lead falada hoje continuava a
+                 * envelhecer como se ninguém lhe tivesse tocado, e a maturação
+                 * dos VIP, que conta a partir do último contacto, contava mal.
+                 *
+                 * Quem escreve uma nota sobre uma lead esteve com ela. Vale como
+                 * contacto, e a hora é a de agora.
+                 */
+                if (! isset($contacted_date) && ! empty($resposta_leve)) {
+                    $contacted_date = date('Y-m-d H:i:s');
+                }
+
                 if (isset($contacted_date)) {
                     $this->db->where('id', $rel_id);
                     $this->db->update(db_prefix() . 'leads', [
