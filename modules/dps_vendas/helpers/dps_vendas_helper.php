@@ -311,14 +311,24 @@ function dps_cpcv_gerar(array $v)
         return [false, 'O modelo do contrato está corrompido.', '', ''];
     }
 
+    /*
+     * Plano de pagamento do Aura — 10% no CPCV, 10% em Junho de 2027, 10% em
+     * Julho de 2028 e os restantes 70% na escritura. Decisão da direcção
+     * (11/08/2026), a mesma que já está na ficha de proposta e no simulador.
+     *
+     * O que saiu daqui: o sinal fixo de 5.000 € e as três prestações presas a
+     * marcos de obra (aprovação do projeto, mês de dezembro, fim da estrutura).
+     * Marcos de obra escorregam e ninguém sabe dizer ao cliente quando paga; as
+     * datas fixas dizem-lho na hora em que assina. As quatro parcelas somam
+     * agora 100% do preço, sem reserva à parte.
+     *
+     * Não mexe nos contratos já gerados: cada CPCV é montado no momento em que
+     * se carrega no botão, e os que já foram descarregados são ficheiros
+     * fechados.
+     */
     $preco = (float) $v['valor'];
-    $sinal = 5000.0;                          // CPCV, dedutível na escritura
     $p10   = round($preco * 0.10, 2);
-    $rem   = round($preco - $sinal - (3 * $p10), 2);
-
-    if ($rem < 0) {
-        return [false, 'O preço da fracção é baixo demais para este plano de pagamento (' . dps_cpcv_eur($preco) . ').', '', ''];
-    }
+    $rem   = round($preco * 0.70, 2);
 
     // O IBAN do comprador deixou de ser pedido: o contrato só precisa da
     // conta para onde se paga, e obrigava a preencher à mão um dado que
@@ -430,38 +440,45 @@ function dps_cpcv_gerar(array $v)
 
     $subs['No ato da assinatura do presente contrato'] =
         'a) No ato da assinatura do presente contrato, será entregue à PROMITENTE VENDEDORA a '
-        . 'título de sinal e princípio de pagamento, o montante de ' . dps_cpcv_eur($sinal) . ' ('
-        . dps_cpcv_extenso($sinal) . ' euros), a deduzir no preço no ato da escritura, cujo pagamento '
-        . 'será efetuado por transferência bancária para a conta beneficiária IBAN ' . $iban_venda
-        . '; caso a transferência não seja '
+        . 'título de sinal e princípio de pagamento, o montante correspondente a 10% do preço, '
+        . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10) . ' euros), a deduzir no preço no ato '
+        . 'da escritura, cujo pagamento será efetuado por transferência bancária para a conta '
+        . 'beneficiária IBAN ' . $iban_venda . '; caso a transferência não seja '
         . 'recebida até 5 dias após a assinatura do presente contrato, o mesmo fica sem efeito. ----';
 
     $subs['Após a aprovação do projeto de arquitetura'] =
-        'b) Após a aprovação do projeto de arquitetura, a PROMITENTE VENDEDORA notificará pelos meios '
+        'b) No mês de Junho de 2027, a PROMITENTE VENDEDORA notificará pelos meios '
         . 'convencionados a PROMITENTE COMPRADORA para no prazo de 5 dias entregar o montante '
         . 'correspondente a 10% do preço, ' . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10)
-        . ' euros), a título de sinal, que será efetuado por transferência bancária para a conta '
-        . 'beneficiária IBAN ' . $iban_venda . '. ----';
+        . ' euros), a título de reforço de sinal, que será efetuado por transferência bancária para '
+        . 'a conta beneficiária IBAN ' . $iban_venda . '. ----';
 
     $subs['Após o início de obra'] =
-        'c) No mês de dezembro, a PROMITENTE VENDEDORA notificará a PROMITENTE COMPRADORA para no '
-        . 'prazo de 5 dias entregar o montante correspondente a 10% do preço, ' . dps_cpcv_eur($p10)
-        . ' (' . dps_cpcv_extenso($p10) . ' euros), a título de reforço de sinal, que será efetuado '
-        . 'por transferência bancária para a conta beneficiária IBAN ' . $iban_venda
-        . '. --------------------------------';
+        'c) No mês de Julho de 2028, a PROMITENTE VENDEDORA notificará pelos meios convencionados a '
+        . 'PROMITENTE COMPRADORA para no prazo de 5 dias entregar o montante correspondente a 10% do '
+        . 'preço, ' . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10) . ' euros), a título de '
+        . 'reforço de sinal, que será efetuado por transferência bancária para a conta beneficiária '
+        . 'IBAN ' . $iban_venda . '. --------------------------------';
 
+    /*
+     * As quatro parcelas do plano novo cabem nas alíneas a) a d) — o modelo
+     * tinha cinco. O remanescente sobe para a alínea d) e a alínea e) do
+     * modelo fica vazia, para as letras não saltarem do c) para o e).
+     */
     $subs['Após o termo da fase de estrutura'] =
-        'd) Após o termo da fase de estrutura, a PROMITENTE VENDEDORA notificará pelos '
-        . 'meios convencionados a PROMITENTE COMPRADORA para no prazo de 5 dias entregar o montante '
-        . 'correspondente a 10% do preço, ' . dps_cpcv_eur($p10) . ' (' . dps_cpcv_extenso($p10)
-        . ' euros), a título de sinal, que será efetuado por transferência bancária para a conta '
-        . 'beneficiária IBAN ' . $iban_venda . '. -------';
+        'd) O remanescente do preço, correspondente a 70% do mesmo, no montante de '
+        . dps_cpcv_eur($rem) . ' (' . dps_cpcv_extenso($rem) . ' euros), a liquidar no ato da '
+        . 'escritura de compra e venda, por cheque bancário, que a PROMITENTE VENDEDORA declarará '
+        . 'receber e à qual atribuirá completa e integral quitação, após boa cobrança do mesmo. ----';
 
-    $subs['O remanescente do preço'] =
-        'e) O remanescente do preço, no montante de ' . dps_cpcv_eur($rem) . ' ('
-        . dps_cpcv_extenso($rem) . ' euros), a liquidar no ato da escritura de compra e venda, por '
-        . 'cheque bancário, que a PROMITENTE VENDEDORA declarará receber e à qual atribuirá completa '
-        . 'e integral quitação, após boa cobrança do mesmo. ---------------------------------';
+    $subs['O remanescente do preço'] = '';
+
+    $subs['As partes acordam e reciprocamente aceitam'] =
+        'e) As partes acordam e reciprocamente aceitam que até à notificação de aprovação do projeto '
+        . 'de arquitetura, a PROMITENTE VENDEDORA pode resolver o presente contrato unilateralmente, '
+        . 'não acarretando qualquer responsabilidade recíproca entre os aqui contraentes, e apenas '
+        . 'determinará a restituição do que houver sido pago, sem direito a qualquer compensação a '
+        . 'título indemnizatório. ------------------------------------------------------';
 
     $subs['PROMITENTE COMPRADORA:'] = 'PROMITENTE COMPRADORA: ' . $v['cliente_email'] . '  ______________';
 
