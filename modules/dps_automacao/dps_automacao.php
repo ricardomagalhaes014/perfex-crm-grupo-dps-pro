@@ -1113,3 +1113,103 @@ function dps_automacao_js_agenda()
     </script>
     <?php
 }
+
+
+/* =====================================================================
+ * Pedido de SUPORTE à direcção, a partir da linha da lead
+ *
+ * O comercial que não consegue fechar pede ajuda sem sair da lista: escreve o
+ * contexto, e nasce uma tarefa para a direcção ligar ao cliente e forçar o
+ * fecho. Pedido do dono (11/08/2026).
+ *
+ * A tarefa fica LIGADA à lead (rel_type=lead), e é isso que faz o circuito
+ * fechar: tudo o que a direcção escrever na tarefa aparece na ficha da lead do
+ * comercial, sem ser preciso construir um sistema de respostas à parte.
+ * ================================================================== */
+
+/** A quem vão os pedidos de suporte. */
+function dps_automacao_staff_suporte()
+{
+    $id = (int) get_option('dps_automacao_staff_suporte');
+
+    return $id > 0 ? $id : 46;   // Cláudio Carvalho
+}
+
+hooks()->add_action('app_admin_footer', 'dps_automacao_js_suporte');
+
+function dps_automacao_js_suporte()
+{
+    if (strpos((string) uri_string(), 'leads') === false) {
+        return;
+    }
+    ?>
+    <div class="modal fade" id="dps-modal-suporte" tabindex="-1" role="dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title"><i class="fa fa-life-ring"></i> Pedir apoio para fechar</h4>
+          </div>
+          <div class="modal-body">
+            <p class="bold" id="dps-suporte-nome" style="margin-bottom:12px;"></p>
+            <div class="form-group">
+              <label for="dps-suporte-texto">Contexto e o que precisa</label>
+              <textarea class="form-control" id="dps-suporte-texto" rows="5"
+                        placeholder="Em que ponto está a conversa, o que já ofereceu, e onde está a travar."></textarea>
+            </div>
+            <p class="text-muted" style="margin-bottom:0;font-size:12px;">
+              A direcção recebe uma tarefa para ligar ao cliente. O que lá for escrito
+              aparece na ficha desta lead.
+            </p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn" id="dps-suporte-enviar"
+                    style="background:#8e44ad;color:#fff;">Pedir apoio</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var leadId = null;
+
+      window.dpsPedirSuporte = function (id, nome) {
+        leadId = id;
+        document.getElementById('dps-suporte-nome').textContent = nome || ('Lead #' + id);
+        document.getElementById('dps-suporte-texto').value = '';
+        $('#dps-modal-suporte').modal('show');
+        setTimeout(function () { document.getElementById('dps-suporte-texto').focus(); }, 400);
+      };
+
+      $(document).on('click', '#dps-suporte-enviar', function () {
+        var botao = this;
+        var texto = document.getElementById('dps-suporte-texto').value.trim();
+
+        // Sem contexto o pedido não serve de nada a quem o recebe.
+        if (!texto) {
+          alert_float('warning', 'Escreva o contexto — é isso que a direcção precisa de ler antes de ligar.');
+          return;
+        }
+
+        var envio = { lead_id: leadId, contexto: texto };
+        if (typeof csrfData !== 'undefined') { envio[csrfData.token_name] = csrfData.hash; }
+
+        $(botao).prop('disabled', true).text('A enviar...');
+
+        $.post(admin_url + 'dps_automacao/pedir_suporte', envio)
+          .done(function (r) {
+            try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) { r = null; }
+            $('#dps-modal-suporte').modal('hide');
+            alert_float(r && r.sucesso ? 'success' : 'danger',
+                        (r && r.mensagem) || 'Não foi possível enviar o pedido.');
+          })
+          .fail(function (xhr) {
+            alert_float('danger', 'Falha ao enviar o pedido (erro ' + xhr.status + ').');
+          })
+          .always(function () { $(botao).prop('disabled', false).text('Pedir apoio'); });
+      });
+    })();
+    </script>
+    <?php
+}

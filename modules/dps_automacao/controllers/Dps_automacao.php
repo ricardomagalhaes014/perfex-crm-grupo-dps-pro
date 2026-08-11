@@ -1760,4 +1760,107 @@ class Dps_automacao extends AdminController
         ]);
     }
 
+
+    /**
+     * Pedido de apoio à direcção para fechar um negócio.
+     *
+     * Cria uma tarefa para quem recebe os pedidos (a direcção), LIGADA à lead.
+     * É essa ligação que faz o circuito fechar: tudo o que a direcção escrever
+     * na tarefa aparece na ficha da lead do comercial, sem ser preciso montar
+     * um sistema de respostas à parte.
+     */
+    public function pedir_suporte()
+    {
+        if ($this->input->method(true) !== 'POST') {
+            show_404();
+        }
+
+        $lead_id  = (int) $this->input->post('lead_id');
+        $contexto = trim((string) $this->input->post('contexto'));
+
+        if (! $lead_id || $contexto === '') {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Falta a lead ou o contexto.']);
+            return;
+        }
+
+        $lead = $this->db->select('id, name, phonenumber, email, assigned')
+            ->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+
+        if (! $lead) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Lead não encontrada.']);
+            return;
+        }
+
+        $pedinte = get_staff_user_id();
+        $destino = dps_automacao_staff_suporte();
+
+        $titulo = '🆘 Apoio para fechar — ' . mb_substr((string) $lead->name, 0, 80);
+
+        $desc  = 'Pedido de apoio de ' . get_staff_full_name($pedinte) . '.' . "\n\n";
+        $desc .= 'Cliente: ' . $lead->name . "\n";
+        $desc .= 'Telefone: ' . ($lead->phonenumber ?: '—') . "\n";
+        $desc .= 'Email: ' . ($lead->email ?: '—') . "\n\n";
+        $desc .= "O que o comercial escreveu:\n" . $contexto . "\n\n";
+        $desc .= 'Objectivo: ligar ao cliente e ajudar a fechar o negócio.';
+
+        $agora = date('Y-m-d H:i:s');
+        $hoje  = date('Y-m-d');
+
+        $this->db->insert(db_prefix() . 'tasks', [
+            'name'                  => $titulo,
+            'description'           => $desc,
+            'priority'              => 3,
+            'dateadded'             => $agora,
+            'startdate'             => $hoje,
+            'duedate'               => $hoje,
+            'status'                => 1,
+            'addedfrom'             => $pedinte,
+            'is_added_from_contact' => 0,
+            'rel_id'                => $lead_id,
+            'rel_type'              => 'lead',
+            'is_public'             => 0,
+            'billable'              => 0,
+            'visible_to_client'     => 0,
+            'kanban_order'          => 0,
+        ]);
+
+        $tarefa = (int) $this->db->insert_id();
+
+        if (! $tarefa) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Não foi possível criar a tarefa.']);
+            return;
+        }
+
+        $this->db->insert(db_prefix() . 'task_assigned', [
+            'staffid'                  => $destino,
+            'taskid'                   => $tarefa,
+            'assigned_from'            => $pedinte,
+            'is_assigned_from_contact' => 0,
+        ]);
+
+        // Fica escrito na lead que houve pedido, e por quem — para o comercial
+        // não ter de se lembrar, e para quem abrir a ficha perceber o porquê.
+        $this->load->model('leads_model');
+        $this->leads_model->log_lead_activity(
+            $lead_id,
+            '🆘 Apoio pedido à direcção por ' . get_staff_full_name($pedinte) . ': '
+                . mb_substr($contexto, 0, 250)
+        );
+
+        // Aviso no sino de quem vai ligar. Uma tarefa que ninguém vê é uma
+        // tarefa que fica por fazer.
+        add_notification([
+            'description' => '🆘 ' . get_staff_full_name($pedinte) . ' pediu apoio para fechar — ' . $lead->name,
+            'touserid'    => $destino,
+            'fromuserid'  => $pedinte,
+            'link'        => 'tasks/view/' . $tarefa,
+        ]);
+
+        echo json_encode([
+            'sucesso'  => true,
+            'mensagem' => 'Pedido enviado a ' . get_staff_full_name($destino)
+                          . '. Fica registado na ficha da lead.',
+        ]);
+    }
+
 }

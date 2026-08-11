@@ -246,7 +246,15 @@ return App_table::find('leads')
                  */
                 $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
                     . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
-                    . '<a href="tel:' . $phone_clean . '" title="Ligar" class="btn btn-xs btn-dark"><i class="fa fa-phone"></i></a>'
+                    /*
+                     * "Suporte" no lugar do ícone de telefone solto.
+                     *
+                     * Aquele botão fazia o mesmo que o "Ligar" ao lado — abria o
+                     * marcador — e por isso não servia para nada. Passa a pedir
+                     * ajuda à direcção para fechar o negócio. Pedido do dono
+                     * (11/08/2026).
+                     */
+                    . '<a href="#" onclick="dpsPedirSuporte(' . $aRow['id'] . ', \'' . htmlspecialchars(addslashes($aRow['name']), ENT_QUOTES, 'UTF-8') . '\'); return false;" title="Pedir ajuda à direcção para fechar" class="btn btn-xs" style="background:#8e44ad;color:#fff;font-weight:600;"><i class="fa fa-life-ring"></i> Suporte</a>'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'proposta\'); return false;" title="Enviar proposta ao cliente" class="btn btn-xs" style="background:#c0392b;color:#fff;font-weight:600;">Proposta</a>'
                     . '<a href="#" onclick="dpsAbrirLead(' . $aRow['id'] . ',\'disponiveis\'); return false;" title="Enviar unidades disponíveis" class="btn btn-xs" style="background:#1d6fb8;color:#fff;font-weight:600;">Disponíveis</a>'
                     . '<a href="' . admin_url('dps_reunioes/nova/lead/' . $aRow['id']) . '" title="Marcar reunião online" class="btn btn-xs" style="background:#0f8b8d;color:#fff;font-weight:600;"><i class="fa fa-video-camera"></i> Reunião</a>'
