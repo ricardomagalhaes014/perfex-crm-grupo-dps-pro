@@ -247,6 +247,18 @@ return App_table::find('leads')
                 $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
                     . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
                     /*
+                     * Âncora tel: escondida — é a "semente" dos botões Ligar e
+                     * VoIP.
+                     *
+                     * O módulo voipstudio_dps percorre os a[href^="tel:"] e
+                     * insere-lhes ao lado o "Ligar" e o "VoIP"
+                     * (modules/voipstudio_dps/voipstudio_dps.php). Ao tirar
+                     * daqui o ícone de telefone solto levei os dois atrás, que
+                     * não era o pedido: o que devia sair era só o ícone. Fica a
+                     * âncora, invisível, e os dois botões voltam a nascer.
+                     */
+                    . '<a href="tel:' . $phone_clean . '" style="display:none;" tabindex="-1" aria-hidden="true"></a>'
+                    /*
                      * "Suporte" no lugar do ícone de telefone solto.
                      *
                      * Aquele botão fazia o mesmo que o "Ligar" ao lado — abria o
