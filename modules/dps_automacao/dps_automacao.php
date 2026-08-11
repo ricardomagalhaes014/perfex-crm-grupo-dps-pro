@@ -822,6 +822,39 @@ function dps_automacao_botao_converter_lead($tarefa)
 /** Estados que já existiam no CRM. Não se cria nenhum novo. */
 define('DPS_AUTOMACAO_ESTADO_NOVOS',   4);
 define('DPS_AUTOMACAO_ESTADO_RELIGAR', 7);
+define('DPS_AUTOMACAO_ESTADO_VIP1',   17);
+
+/**
+ * A nota diz que se enviaram as disponibilidades?
+ *
+ * Apanha "enviadas disponíveis", "enviei as disponibilidades", "enviada
+ * disponibilidade" e o que estiver pelo meio. O envio pelo botão já promove a
+ * lead sozinho; isto é para quando o comercial o faz por fora e escreve a nota
+ * à mão. Pedido do dono (11/08/2026).
+ */
+function dps_automacao_nota_diz_disponiveis($texto)
+{
+    $t = html_entity_decode(strip_tags((string) $texto), ENT_QUOTES, 'UTF-8');
+    $t = str_replace("\xC2\xA0", ' ', $t);
+
+    /*
+     * O radical é "envi", não "envia": "enviei" não tem o 'a', e era assim que
+     * "enviei as disponibilidades" escapava à regra.
+     */
+    return (bool) preg_match('/\benvi\w*\s+(?:as?\s+)?dispon/iu', $t);
+}
+
+/**
+ * Estados que já estão em VIP 1 ou à frente dele.
+ *
+ * Enviar disponibilidades é um passo em frente, mas quem já tem proposta
+ * enviada ou contrato está mais adiante — descê-lo a VIP 1 seria estragar o
+ * funil para registar um progresso.
+ */
+function dps_automacao_estados_a_frente_de_vip1()
+{
+    return [17, 14, 18, 20, 21, 10, 13];
+}
 
 /**
  * A nota diz que não atenderam?
@@ -873,6 +906,44 @@ function dps_automacao_nota_muda_estado($note_id)
 
     if (!$lead) {
         return;
+    }
+
+    /*
+     * "Enviadas disponibilidades" promove a lead a VIP 1.
+     *
+     * Vem antes da regra do "não atendeu" porque são coisas diferentes: uma
+     * puxa a lead para a frente, a outra devolve-a à fila de reconctacto.
+     */
+    if (dps_automacao_nota_diz_disponiveis($nota->description)) {
+        $actual = (int) $lead->status;
+
+        if (! in_array($actual, dps_automacao_estados_a_frente_de_vip1(), true)) {
+            $CI->db->where('id', $lead_id);
+            $CI->db->update(db_prefix() . 'leads', [
+                'status'             => DPS_AUTOMACAO_ESTADO_VIP1,
+                'last_status_change' => date('Y-m-d H:i:s'),
+                'lastcontact'        => date('Y-m-d H:i:s'),
+            ]);
+
+            $CI->load->model('leads_model');
+            $de   = $CI->db->select('name')->where('id', $actual)->get(db_prefix() . 'leads_status')->row();
+            $para = $CI->db->select('name')->where('id', DPS_AUTOMACAO_ESTADO_VIP1)
+                ->get(db_prefix() . 'leads_status')->row();
+
+            $CI->leads_model->log_lead_activity($lead_id, 'not_lead_activity_status_updated', false, serialize([
+                get_staff_full_name(),
+                $de ? $de->name : $actual,
+                $para ? $para->name : DPS_AUTOMACAO_ESTADO_VIP1,
+            ]));
+
+            hooks()->do_action('lead_status_changed', [
+                'lead_id'    => $lead_id,
+                'old_status' => $actual,
+                'new_status' => DPS_AUTOMACAO_ESTADO_VIP1,
+            ]);
+        }
+
+        return;   // uma nota não é as duas coisas ao mesmo tempo
     }
 
     /*

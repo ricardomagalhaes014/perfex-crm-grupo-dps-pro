@@ -143,10 +143,10 @@ function dps_propostas_apresentacao($key)
             . "✔ Localização privilegiada, próxima dos principais acessos, comércio, escolas e serviços.\n\n"
             . "Conheça todos os detalhes, plantas, preços e disponibilidades em:\n"
             . "http://dpsimobiliario.pt/auraresidence\n\n"
-            . "5000€ CPCV\n"
-            . "10% arquitetura aprovada início de Setembro\n"
-            . "10% dezembro\n"
-            . "10% estrutura 1 ano depois\n"
+            . "10% no CPCV\n"
+            . "10% em Junho de 2027\n"
+            . "10% em Julho de 2028\n"
+            . "70% na escritura\n"
             . "Obra a acabar no fim de 2029.",
 
         'boavista' => "Obrigado por ter despertado interesse na oportunidade na Avenida da Boavista.\n\n"

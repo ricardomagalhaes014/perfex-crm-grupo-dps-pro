@@ -224,6 +224,26 @@ class Dps_propostas extends AdminController
         // Envio conta como contacto: atualiza último contacto + interação.
         $this->dps_marcar_contacto($lead_id, $staff_id, '📤 Informação enviada — ' . $emp['nome']);
 
+        /*
+         * Nota na lead e passagem a VIP 1. Pedido do dono (11/08/2026).
+         *
+         * A nota fica escrita com o empreendimento porque, três semanas depois,
+         * "enviadas disponibilidades" sem dizer de quê não vale nada — e quem
+         * abre a ficha precisa de saber o que é que o cliente já viu.
+         *
+         * Só se escreve quando o envio SAIU. Uma nota a dizer que se enviou
+         * uma coisa que falhou é pior do que não haver nota nenhuma.
+         */
+        if ($ok) {
+            $this->misc_model->add_note(
+                ['description' => 'Enviadas disponibilidades — ' . $emp['nome']],
+                'lead',
+                $lead_id
+            );
+
+            $this->dps_promover_vip1($lead_id);
+        }
+
         echo json_encode([
             'success' => $ok,
             'message' => $ok
@@ -1186,4 +1206,37 @@ class Dps_propostas extends AdminController
             'message' => $ok ? 'Proposta enviada ao cliente e registada.' : dps_propostas_erro_wa($r, $number),
         ]);
     }
+
+    /**
+     * Passa a lead a VIP 1, sem nunca a fazer recuar.
+     *
+     * Enviar disponibilidades é um passo em frente, mas quem já está em
+     * proposta enviada, em contrato ou concretizado está mais à frente do que
+     * VIP 1 — descê-los seria estragar o funil para registar um progresso.
+     */
+    private function dps_promover_vip1($lead_id)
+    {
+        $VIP1 = 17;
+
+        // Estados que já estão em VIP 1 ou depois dele.
+        $ja_a_frente = [
+            17,  // VIP 1
+            14,  // VIP 2
+            18,  // VIP 3
+            20,  // PROPOSTAS ENVIADAS
+            21,  // Crédito
+            10,  // PARA CONTRATO
+            13,  // CONCRETIZADO
+        ];
+
+        $lead = $this->db->select('status')->where('id', (int) $lead_id)
+            ->get(db_prefix() . 'leads')->row();
+
+        if (! $lead || in_array((int) $lead->status, $ja_a_frente, true)) {
+            return;
+        }
+
+        $this->dps_set_lead_status((int) $lead_id, $VIP1);
+    }
+
 }
