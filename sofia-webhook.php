@@ -252,6 +252,70 @@ function sw_consentiu(array $campos)
     return false;       // o campo nem veio: não é um sim
 }
 
+/**
+ * O consentimento em TRÊS estados, não dois.
+ *
+ * sw_consentiu() devolve false tanto para "o cliente disse não" como para "o
+ * agente não tem o campo configurado". Confundir os dois foi o que estragou a
+ * primeira tentativa desta regra, a 31/07/2026: agentes sem Data Collection
+ * davam sempre false e 473 chamadas ficaram sem tarefa nenhuma.
+ *
+ * @return string 'sim' | 'nao' | 'sem_campo'
+ */
+function sw_consentimento(array $campos)
+{
+    $nomes = ['quer_contacto', 'aceita_contacto', 'contactar', 'quer_gestor', 'wants_contact'];
+
+    foreach ($campos as $k => $v) {
+        if (in_array(mb_strtolower((string) $k, 'UTF-8'), $nomes, true)) {
+            return sw_consentiu($campos) ? 'sim' : 'nao';
+        }
+    }
+
+    return 'sem_campo';
+}
+
+/**
+ * O cliente disse que sim, algures na conversa?
+ *
+ * Só serve de recurso, quando o agente não tem o campo de consentimento. Lê-se
+ * o que o CLIENTE disse (nunca o que o agente disse, senão a própria pergunta
+ * da Marta contava como resposta) e o resumo que o ElevenLabs escreve.
+ */
+function sw_sim_na_conversa(array $d, array $analise)
+{
+    $ditos = [];
+    foreach (($d['transcript'] ?? []) as $linha) {
+        if (!is_array($linha)) {
+            continue;
+        }
+        $papel = mb_strtolower((string) ($linha['role'] ?? ''), 'UTF-8');
+        if ($papel !== 'user') {
+            continue;
+        }
+        $ditos[] = mb_strtolower((string) ($linha['message'] ?? ''), 'UTF-8');
+    }
+
+    $texto = ' ' . implode(' | ', $ditos) . ' ';
+
+    // Um "não" explícito manda mais do que qualquer sim que venha antes.
+    if (preg_match('/\b(n[ãa]o tenho interesse|n[ãa]o obrigad|n[ãa]o quero|n[ãa]o me interessa|n[ãa]o volt)/u', $texto)) {
+        return false;
+    }
+
+    if (preg_match('/\b(sim|claro|quero|pode(m)? ligar|com certeza|est[áa] bem|aceito|por favor)\b/u', $texto)) {
+        return true;
+    }
+
+    // O resumo do ElevenLabs diz muitas vezes em claro que a pessoa aceitou.
+    $resumo = mb_strtolower((string) ($analise['transcript_summary'] ?? ''), 'UTF-8');
+    if (preg_match('/(agreed to be contacted|accepted|aceitou ser contactad|concordou em ser contactad|expressed interest)/u', $resumo)) {
+        return true;
+    }
+
+    return false;
+}
+
 /*
  * Atendedor de chamadas — a chamada foi atendida por uma maquina.
  *
@@ -396,19 +460,28 @@ if ($tel === '' && !empty($d['transcript']) && is_array($d['transcript'])) {
  * perder oportunidades enquanto a configuração não estiver feita.
  */
 /*
- * TODAS AS CHAMADAS ATENDIDAS GERAM TAREFA.
+ * SÓ HÁ TAREFA QUANDO O CLIENTE DIZ QUE SIM. Regra do dono (11/08/2026).
  *
- * Esteve o contrário durante duas horas a 31/07/2026 e foi um erro: bloquear
- * quem não dissesse um "sim" explícito travou 473 chamadas, e a equipa deu
- * conta de que os contactos que estavam a receber estavam a correr bem. Uma
- * pessoa que ouve a proposta até ao fim sem dizer sim não é um não — é uma
- * conversa por acabar, e quem a acaba é o comercial, não a Sofia.
+ * Esta regra já esteve cá a 31/07 e foi retirada no mesmo dia: travou 473
+ * chamadas. A causa não era a regra, era como se lia o "sim" — agentes sem o
+ * campo de Data Collection davam sempre não, e ninguém percebeu porquê.
  *
- * O consentimento continua a ser lido e vai escrito na tarefa, para o
- * comercial saber com o que conta antes de pegar no telefone. Deixou é de
- * decidir se a tarefa existe.
+ * Agora o consentimento tem três estados. Com o campo configurado, manda o
+ * campo. Sem campo, lê-se o que o CLIENTE disse na conversa, que é melhor do
+ * que assumir. O motivo de não haver tarefa fica sempre escrito no registo, e
+ * quando o campo falta ao agente isso é dito em claro — para se corrigir a
+ * configuração em vez de se voltar a culpar a regra.
  */
-$aceitou = sw_consentiu($campos);
+$consent = sw_consentimento($campos);
+
+if ($consent === 'sem_campo') {
+    $aceitou = sw_sim_na_conversa($d, $analise);
+    sw_log('AGENTE SEM CAMPO DE CONSENTIMENTO',
+        'conversa=' . $conversa . ' — decidido pela transcrição: ' . ($aceitou ? 'SIM' : 'nao')
+        . ' | configure "quer_contacto" no Data Collection deste agente');
+} else {
+    $aceitou = ($consent === 'sim');
+}
 
 /*
  * Atendedor: nao ha pessoa do outro lado, logo nao ha nada para o comercial
@@ -421,6 +494,15 @@ if (sw_atendedor($d)) {
     exit;
 }
 
+
+if (! $aceitou) {
+    sw_log('SEM SIM — sem tarefa',
+        'conversa=' . $conversa . ' | consentimento=' . $consent
+        . ' | tel=' . ($tel !== '' ? $tel : '(sem numero)')
+        . ' | resumo=' . mb_substr((string) ($analise['transcript_summary'] ?? ''), 0, 160));
+    echo json_encode(['ok' => true, 'task_created' => false, 'reason' => 'o cliente nao aceitou ser contactado']);
+    exit;
+}
 
 $tem_contacto = ($tel !== '' || ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)));
 

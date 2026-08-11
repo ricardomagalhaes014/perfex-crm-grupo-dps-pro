@@ -16,18 +16,19 @@ class Dps_sofia_calls extends AdminController
         $data['staff_list']    = $this->Dps_sofia_calls_model->get_staff_list();
         $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
         
-        // Lista de agentes com IDs reais da ElevenLabs
-        $data['agents_list'] = [
-            ['agent_id' => 'agent_0901kv03vzc4eqnvzt5758mms6t8', 'name' => 'Sofia - Assistente DPS Imobiliario'],
-            ['agent_id' => 'agent_9901kv1pvewveh9s9ebs1rys274k', 'name' => 'Sofia - Outbound Belo Horizonte'],
-            ['agent_id' => 'agent_4301kv1pv8g8e259bbdyfk7mrefb', 'name' => 'Sofia - Outbound Raizes'],
-            ['agent_id' => 'agent_7501kv0dj084fmbahfdafsfmgcfv', 'name' => 'Sofia - Raizes DPS'],
-            ['agent_id' => 'agent_1901kv0dj4m0fxnr5pxqdhqzjf26', 'name' => 'Sofia - Belo Horizonte DPS'],
-            ['agent_id' => 'agent_2901kv39h680esb9wtrx6yk291sw', 'name' => 'Sofia - Lake Towers DPS'],
-            ['agent_id' => 'agent_9501kv39wjr4etjre7118p0ejncp', 'name' => 'Sofia - DPS Brasil'],
-            ['agent_id' => 'agent_4301kv39h81keckrf9dkd1cb7mxk', 'name' => 'Sofia - DPS Brasil (2)'],
-            ['agent_id' => 'agent_9201kv3brmpcehrtyhahfq214bq8', 'name' => 'Sofia - Sky Marine Towers DPS']
-        ];
+        /*
+         * A lista de agentes vem da ElevenLabs, não de uma lista escrita à mão.
+         *
+         * Estava cravada aqui com nove agentes. Oito deles já não existem
+         * nesta conta (dão 404) e o "Boavista Tower", que existe, não estava na
+         * lista — por isso não havia forma de escolher o Boavista numa
+         * campanha. Uma lista escrita à mão fica desactualizada no dia em que
+         * alguém cria ou apaga um agente, e ninguém se lembra de a vir corrigir.
+         *
+         * Se a API não responder, mostra-se o que estiver guardado da última
+         * vez: melhor uma lista de ontem do que um ecrã sem opções.
+         */
+        $data['agents_list'] = $this->agentes_elevenlabs();
         
         $this->load->view('dps_sofia_calls/sofia_calls/index', $data);
     }
@@ -267,6 +268,65 @@ class Dps_sofia_calls extends AdminController
         $data['title']           = 'Sofia Calls — Definições';
 
         $this->load->view('definicoes', $data);
+    }
+
+
+    /**
+     * Agentes da conta ElevenLabs, com a chave gravada em Definições.
+     *
+     * Guardados numa opção para o ecrã não depender de uma chamada externa a
+     * cada abertura — e para continuar a funcionar se a ElevenLabs estiver em
+     * baixo.
+     */
+    private function agentes_elevenlabs()
+    {
+        $chave = (string) get_option('sofia_calls_elevenlabs_api_key');
+        $cache = json_decode((string) get_option('sofia_calls_agentes_cache'), true);
+        $cache = is_array($cache) ? $cache : [];
+
+        if ($chave === '') {
+            return $cache;
+        }
+
+        $ch = curl_init('https://api.elevenlabs.io/v1/convai/agents?page_size=100');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 12,
+            CURLOPT_HTTPHEADER     => ['xi-api-key: ' . $chave],
+        ]);
+        $raw  = curl_exec($ch);
+        $http = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($http !== 200) {
+            log_activity('Sofia Calls: nao consegui listar agentes na ElevenLabs (HTTP ' . $http . ')');
+            return $cache;
+        }
+
+        $j     = json_decode((string) $raw, true);
+        $lista = [];
+        foreach (($j['agents'] ?? []) as $a) {
+            if (empty($a['agent_id'])) {
+                continue;
+            }
+            $lista[] = [
+                'agent_id' => $a['agent_id'],
+                'name'     => (string) ($a['name'] ?? $a['agent_id']),
+            ];
+        }
+
+        if (! $lista) {
+            return $cache;
+        }
+
+        usort($lista, function ($x, $y) {
+            return strcasecmp($x['name'], $y['name']);
+        });
+
+        update_option('sofia_calls_agentes_cache', json_encode($lista, JSON_UNESCAPED_UNICODE));
+
+        return $lista;
     }
 
 }
