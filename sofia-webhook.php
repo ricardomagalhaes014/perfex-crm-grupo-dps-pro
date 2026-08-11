@@ -133,6 +133,32 @@ function sw_whatsapp_direcao($bd, $p, $texto)
         'http=' . $http . ($erro ? ' erro=' . $erro : ''));
 }
 
+/**
+ * Guarda o resultado da chamada no registo da campanha.
+ *
+ * A tabela das chamadas sabia se a chamada foi atendida, mas não sabia o que a
+ * pessoa RESPONDEU. Sem isso não havia relatório possível de sim / não / não
+ * atendida — que é o que a direção precisa de ver ao fim do dia.
+ *
+ * Liga-se pelo conversation_id, que é o mesmo dos dois lados.
+ */
+function sw_marcar_resultado($bd, $p, $conversa, $resultado, $resumo = '')
+{
+    if ($conversa === '') {
+        return;
+    }
+    $st = $bd->prepare("UPDATE {$p}dps_sofia_call_logs
+                           SET resultado = ?, resumo = ?
+                         WHERE elevenlabs_call_id = ?");
+    if (!$st) {
+        return;
+    }
+    $r = mb_substr((string) $resumo, 0, 2000);
+    $st->bind_param('sss', $resultado, $r, $conversa);
+    $st->execute();
+    $st->close();
+}
+
 $corpo = (string) file_get_contents('php://input');
 
 if ($corpo === '') {
@@ -483,29 +509,6 @@ if ($consent === 'sem_campo') {
     $aceitou = ($consent === 'sim');
 }
 
-/*
- * Atendedor: nao ha pessoa do outro lado, logo nao ha nada para o comercial
- * fazer com esta chamada. Fica no registo para se poder voltar a ligar.
- */
-if (sw_atendedor($d)) {
-    sw_log('ATENDEDOR DE CHAMADAS — sem tarefa',
-        'conversa=' . $conversa . ' tel=' . ($tel !== '' ? $tel : '(sem numero)'));
-    echo json_encode(['ok' => true, 'task_created' => false, 'reason' => 'atendedor de chamadas']);
-    exit;
-}
-
-
-if (! $aceitou) {
-    sw_log('SEM SIM — sem tarefa',
-        'conversa=' . $conversa . ' | consentimento=' . $consent
-        . ' | tel=' . ($tel !== '' ? $tel : '(sem numero)')
-        . ' | resumo=' . mb_substr((string) ($analise['transcript_summary'] ?? ''), 0, 160));
-    echo json_encode(['ok' => true, 'task_created' => false, 'reason' => 'o cliente nao aceitou ser contactado']);
-    exit;
-}
-
-$tem_contacto = ($tel !== '' || ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)));
-
 // --- base de dados ---
 $cfg = @file_get_contents(__DIR__ . '/application/config/app-config.php');
 function sw_cfg($c, $k) { return preg_match('/' . $k . "['\"]\s*,\s*['\"](.*?)['\"]/", $c, $m) ? $m[1] : null; }
@@ -519,6 +522,33 @@ if ($bd->connect_errno) {
 }
 $bd->set_charset('utf8mb4');
 $p = sw_cfg($cfg, 'APP_DB_PREFIX') ?: 'tbl';
+
+/*
+ * Atendedor: nao ha pessoa do outro lado, logo nao ha nada para o comercial
+ * fazer com esta chamada. Fica no registo para se poder voltar a ligar.
+ */
+if (sw_atendedor($d)) {
+    sw_marcar_resultado($bd, $p, $conversa, 'nao_atendida', (string) ($analise['transcript_summary'] ?? ''));
+    sw_log('ATENDEDOR DE CHAMADAS — sem tarefa',
+        'conversa=' . $conversa . ' tel=' . ($tel !== '' ? $tel : '(sem numero)'));
+    echo json_encode(['ok' => true, 'task_created' => false, 'reason' => 'atendedor de chamadas']);
+    exit;
+}
+
+
+if (! $aceitou) {
+    sw_marcar_resultado($bd, $p, $conversa, 'nao', (string) ($analise['transcript_summary'] ?? ''));
+    sw_log('SEM SIM — sem tarefa',
+        'conversa=' . $conversa . ' | consentimento=' . $consent
+        . ' | tel=' . ($tel !== '' ? $tel : '(sem numero)')
+        . ' | resumo=' . mb_substr((string) ($analise['transcript_summary'] ?? ''), 0, 160));
+    echo json_encode(['ok' => true, 'task_created' => false, 'reason' => 'o cliente nao aceitou ser contactado']);
+    exit;
+}
+
+$tem_contacto = ($tel !== '' || ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)));
+
+
 
 if (!$tem_contacto) {
     /*
@@ -705,6 +735,8 @@ sw_whatsapp_direcao($bd, $p,
     . ($notas !== '' ? "\nResumo:\n" . mb_substr($notas, 0, 700) . "\n" : '')
     . "\nTarefa: https://crm.grupo-dps.com/admin/tasks/view/" . $task
 );
+
+sw_marcar_resultado($bd, $p, $conversa, 'sim', $notas !== '' ? $notas : (string) ($analise['transcript_summary'] ?? ''));
 
 sw_log('TAREFA CRIADA', 'id=' . $task . ' conversa=' . $conversa . ' nome=' . $nome
     . ' tel=' . $tel . ' -> staff ' . $staff_destino . ' [' . $como . ']');

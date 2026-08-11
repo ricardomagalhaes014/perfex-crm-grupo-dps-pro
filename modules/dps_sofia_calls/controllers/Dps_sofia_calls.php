@@ -333,4 +333,62 @@ class Dps_sofia_calls extends AdminController
         return $lista;
     }
 
+
+    /**
+     * Relatório das chamadas: quem disse sim, quem disse não, quem não atendeu.
+     *
+     * O resultado é escrito pelo webhook de fim de chamada (sofia-webhook.php),
+     * que liga a conversa do ElevenLabs ao registo da campanha pelo
+     * conversation_id. Antes disto a tabela sabia se a chamada tinha sido
+     * atendida, mas não o que a pessoa respondeu — e sem isso não havia
+     * relatório nenhum para mostrar ao fim do dia.
+     */
+    public function relatorio()
+    {
+        if (!is_admin() && !is_staff_member()) {
+            access_denied('dps_sofia_calls');
+        }
+
+        $campanha = (int) $this->input->get('campanha');
+
+        $this->db->select('c.id, c.name');
+        $this->db->order_by('c.id', 'DESC');
+        $data['campanhas'] = $this->db->get(db_prefix() . 'dps_sofia_campaigns c')->result_array();
+
+        // Contagem por resultado. Só conta o que já foi marcado ou tentado —
+        // as pendentes ainda não são chamadas feitas.
+        $this->db->select("COALESCE(NULLIF(l.resultado, ''), '') AS r, COUNT(*) AS n", false);
+        $this->db->from(db_prefix() . 'dps_sofia_call_logs l');
+        $this->db->where_not_in('l.status', ['pending']);
+        if ($campanha > 0) {
+            $this->db->where('l.campaign_id', $campanha);
+        }
+        $this->db->group_by("COALESCE(NULLIF(l.resultado, ''), '')", false);
+
+        $contagem = [];
+        $total    = 0;
+        foreach ($this->db->get()->result_array() as $linha) {
+            $contagem[$linha['r']] = (int) $linha['n'];
+            $total += (int) $linha['n'];
+        }
+
+        $this->db->select('l.*, c.name AS campanha');
+        $this->db->from(db_prefix() . 'dps_sofia_call_logs l');
+        $this->db->join(db_prefix() . 'dps_sofia_campaigns c', 'c.id = l.campaign_id', 'left');
+        $this->db->where_not_in('l.status', ['pending']);
+        if ($campanha > 0) {
+            $this->db->where('l.campaign_id', $campanha);
+        }
+        $this->db->order_by('l.started_at', 'DESC');
+        $this->db->limit(500);
+
+        $data['linhas']   = $this->db->get()->result_array();
+        $data['contagem'] = $contagem;
+        $data['total']    = $total;
+        $data['campanha'] = $campanha;
+        $data['title']    = 'Resultados das chamadas';
+
+        $this->load->view('relatorio', $data);
+    }
+
 }

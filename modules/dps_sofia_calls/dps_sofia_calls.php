@@ -24,6 +24,13 @@ function dps_sofia_calls_menu()
         'badge'    => [],
     ]);
 
+    $CI->app_menu->add_sidebar_children_item('dps_sofia_calls', [
+        'slug'     => 'dps_sofia_calls_relatorio',
+        'name'     => 'Resultados',
+        'href'     => admin_url('dps_sofia_calls/relatorio'),
+        'position' => 3,
+    ]);
+
     // A chave da ElevenLabs escreve-se aqui, nao no codigo.
     $CI->app_menu->add_sidebar_children_item('dps_sofia_calls', [
         'slug'     => 'dps_sofia_calls_definicoes',
