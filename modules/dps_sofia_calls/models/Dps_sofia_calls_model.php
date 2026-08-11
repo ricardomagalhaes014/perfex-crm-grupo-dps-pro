@@ -268,19 +268,44 @@ class Dps_sofia_calls_model extends App_Model
         $this->db->where('status', 'active');
         $active_campaigns = $this->db->get(db_prefix() . 'dps_sofia_campaigns')->result_array();
 
+        /*
+         * QUANTAS CHAMADAS AO MESMO TEMPO.
+         *
+         * Isto disparava UMA chamada por campanha e só quando não houvesse
+         * nenhuma em curso. Como o cron do Perfex corre de 10 em 10 minutos, o
+         * tecto real era uma chamada a cada dez minutos: uma campanha de 68
+         * contactos levava onze horas, e de fora parecia que tinha encravado.
+         *
+         * Passa a haver várias em curso ao mesmo tempo, até ao número definido
+         * em Sofia Calls → Definições. Três por omissão: chega para andar
+         * depressa sem encher a linha nem gastar saldo por engano.
+         */
+        $simultaneas = (int) get_option('sofia_calls_simultaneas');
+        if ($simultaneas < 1) {
+            $simultaneas = 3;
+        }
+
         foreach ($active_campaigns as $campaign) {
             $this->db->where('campaign_id', $campaign['id']);
             $this->db->where('status', 'calling');
             $in_progress = $this->db->count_all_results(db_prefix() . 'dps_sofia_call_logs');
 
-            if ($in_progress === 0) {
-                $this->_fire_next_call($campaign);
+            for ($i = $in_progress; $i < $simultaneas; $i++) {
+                if (! $this->_fire_next_call($campaign)) {
+                    break;      // acabaram as pendentes desta campanha
+                }
             }
         }
     }
 
     /**
      * Dispara a próxima chamada pendente de uma campanha.
+     */
+    /**
+     * Dispara a proxima chamada pendente.
+     *
+     * @return bool true quando lancou uma chamada; false quando ja nao ha
+     *              pendentes — e quem chama sabe que pode parar de insistir.
      */
     private function _fire_next_call($campaign)
     {
@@ -293,7 +318,7 @@ class Dps_sofia_calls_model extends App_Model
         if (!$call) {
             // Sem mais pendentes — campanha concluída
             $this->update_campaign_status($campaign['id'], 'completed');
-            return;
+            return false;
         }
 
         $result  = $this->_make_call(
@@ -327,6 +352,8 @@ class Dps_sofia_calls_model extends App_Model
             $this->db->set('calls_failed', 'calls_failed + 1', false);
             $this->db->update(db_prefix() . 'dps_sofia_campaigns');
         }
+
+        return true;
     }
 
     /**

@@ -36,6 +36,17 @@
                        value="<?= e($phone_number_id); ?>">
               </div>
 
+              <div class="form-group">
+                <label for="simultaneas">Chamadas em simultâneo por campanha</label>
+                <input type="number" min="1" max="10" class="form-control" name="simultaneas"
+                       id="simultaneas" value="<?= (int) $simultaneas; ?>" style="max-width:120px;">
+                <p class="text-muted" style="margin-top:6px;">
+                  Quantas chamadas a Sofia tem em curso ao mesmo tempo. Com 1, uma campanha
+                  de 68 contactos leva onze horas — o cron só corre de 10 em 10 minutos.
+                  Três é um bom ponto de partida.
+                </p>
+              </div>
+
               <button type="submit" class="btn btn-primary">Guardar</button>
               <a href="<?= admin_url('dps_sofia_calls'); ?>" class="btn btn-default">Voltar</a>
             <?= form_close(); ?>

@@ -255,6 +255,9 @@ class Dps_sofia_calls extends AdminController
             }
 
             update_option('sofia_calls_phone_number_id', trim((string) $this->input->post('phone_number_id')));
+
+            $sim = (int) $this->input->post('simultaneas');
+            update_option('sofia_calls_simultaneas', (string) max(1, min(10, $sim ?: 3)));
             set_alert('success', 'Definições guardadas.');
             redirect(admin_url('dps_sofia_calls/definicoes'));
         }
@@ -265,6 +268,7 @@ class Dps_sofia_calls extends AdminController
         $data['chave_tamanho']   = strlen($chave);
         $data['chave_fim']       = $chave !== '' ? substr($chave, -4) : '';
         $data['phone_number_id'] = (string) get_option('sofia_calls_phone_number_id');
+        $data['simultaneas']     = (int) (get_option('sofia_calls_simultaneas') ?: 3);
         $data['title']           = 'Sofia Calls — Definições';
 
         $this->load->view('definicoes', $data);
