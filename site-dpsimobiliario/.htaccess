@@ -1,0 +1,9 @@
+# Esta pasta é arquivo, não é site.
+#
+# O deploy sincroniza o repositório inteiro para o docroot do CRM, por isso
+# qualquer coisa aqui fica alcançável por HTTP. E foi exactamente uma cópia
+# alcançável e desactualizada do simulador que, a 12/08/2026, andou meses a
+# mostrar preços errados a quem lá caísse.
+#
+# Fechado. Quem quiser o simulador vai a dpsimobiliario.pt/simuladorportugal/.
+Require all denied
