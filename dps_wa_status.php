@@ -140,6 +140,39 @@ if ($evento === 'connection.update') {
         . wa_esc($bd, $instancia) . ",'connection.update',NULL,"
         . wa_esc($bd, $novo) . ',NULL,'
         . wa_esc($bd, 'razao=' . $razao) . ',' . wa_esc($bd, $agora) . ')');
+
+    /*
+     * Sessão terminada pelo telemóvel (401 = o dispositivo associado foi
+     * removido). É este o estado perigoso: a Evolution continua a responder
+     * "open" e a aceitar mensagens, devolve a chave de cada uma, e só depois
+     * o WhatsApp as marca ERROR. Foi o que aconteceu à Ingride a 12/08/2026 —
+     * quatro propostas dadas por enviadas depois de a sessão ter caído às
+     * 16:15.
+     *
+     * O comercial é avisado no sino para voltar a ler o QR. Uma vez por hora,
+     * que a Evolution repete o evento enquanto tenta reconectar.
+     */
+    if ($razao === '401' || $novo === 'close') {
+        if (preg_match('/^staff-(\d+)$/', $instancia, $m)) {
+            $staff  = (int) $m[1];
+            $recente = $bd->query(
+                "SELECT id FROM tbldps_wa_eventos WHERE instancia = " . wa_esc($bd, $instancia)
+                . " AND detalhe = 'aviso-desligado' AND criado_em > DATE_SUB(NOW(), INTERVAL 1 HOUR) LIMIT 1"
+            );
+
+            if ($recente && $recente->num_rows === 0) {
+                $bd->query('INSERT INTO tbldps_wa_eventos (instancia,evento,msg_id,estado,destino,detalhe,criado_em) VALUES ('
+                    . wa_esc($bd, $instancia) . ",'aviso',NULL," . wa_esc($bd, $novo)
+                    . ",NULL,'aviso-desligado'," . wa_esc($bd, $agora) . ')');
+
+                $bd->query('INSERT INTO tblnotifications (isread,isread_inline,date,description,fromuserid,fromclientid,from_fullname,touserid,link) VALUES '
+                    . "(0,0," . wa_esc($bd, $agora)
+                    . ",'⚠️ O seu WhatsApp desligou-se do CRM. Volte a ligá-lo em Definições → WhatsApp: até lá, as propostas que enviar NÃO saem.'"
+                    . ",0,0,'CRM'," . (int) $staff . ",'dps_whatsapp')");
+            }
+        }
+    }
+
     exit;
 }
 
