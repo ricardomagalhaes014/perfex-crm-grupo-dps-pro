@@ -281,7 +281,94 @@ function dps_automacao_telefone_staff($staff)
         }
     }
 
-    return '';
+    // Terceira fonte: o WhatsApp que o próprio comercial ligou ao CRM.
+    return dps_automacao_telefone_da_instancia((int) ($staff['staffid'] ?? 0));
+}
+
+/**
+ * Número do WhatsApp que o comercial ligou ao CRM.
+ *
+ * Metade da equipa tem a ficha sem telefone nenhum, e sem número o email de
+ * follow-up saía sem botão de WhatsApp — o cliente ficava sem maneira de
+ * responder por ali. Mas o número existe: quem ligou o WhatsApp ao CRM
+ * deixou-o na instância da Evolution (`ownerJid`), que é por definição o
+ * número certo daquele comercial.
+ *
+ * Lê-se uma vez e grava-se em `landing_whatsapp`: a partir daí é um campo
+ * normal da ficha, visível e editável, e não se volta a bater à API a cada
+ * envio. Quem não tiver instância ligada continua sem número — esse tem
+ * mesmo de ser preenchido à mão.
+ *
+ * @return string vazio quando não há instância ligada ou a API não responde
+ */
+function dps_automacao_telefone_da_instancia($staff_id)
+{
+    static $vistos = [];
+
+    $staff_id = (int) $staff_id;
+    if ($staff_id <= 0) {
+        return '';
+    }
+
+    if (array_key_exists($staff_id, $vistos)) {
+        return $vistos[$staff_id];
+    }
+
+    $vistos[$staff_id] = '';
+
+    $cfg = dps_automacao_evolution_config();
+    if ($cfg === null) {
+        return '';
+    }
+
+    [$code, $corpo] = dps_automacao_evolution_request(
+        'GET', $cfg['url'] . '/instance/fetchInstances', $cfg['key'], null, 8
+    );
+
+    if ($code !== 200) {
+        return '';
+    }
+
+    $lista = json_decode($corpo, true);
+    if (!is_array($lista)) {
+        return '';
+    }
+
+    $numero = '';
+
+    foreach ($lista as $item) {
+        // A Evolution devolve ora o objecto directo, ora embrulhado em
+        // "instance" conforme a versão.
+        $i    = isset($item['instance']) && is_array($item['instance']) ? $item['instance'] : $item;
+        $nome = (string) ($i['instanceName'] ?? ($i['name'] ?? ''));
+
+        if ($nome !== 'staff-' . $staff_id) {
+            continue;
+        }
+
+        // "351923237315@s.whatsapp.net" -> "351923237315"
+        $jid = (string) ($i['ownerJid'] ?? ($i['owner'] ?? ''));
+        $jid = preg_replace('/\D/', '', explode('@', $jid)[0]);
+
+        if (strlen((string) $jid) >= 9) {
+            $numero = $jid;
+        }
+
+        break;
+    }
+
+    if ($numero === '') {
+        return '';
+    }
+
+    $CI = &get_instance();
+    $CI->db->where('staffid', $staff_id)
+        ->update(db_prefix() . 'staff', ['landing_whatsapp' => $numero]);
+
+    log_activity('dps_automacao: número de WhatsApp do staff #' . $staff_id
+        . ' preenchido a partir da instância ligada (' . $numero . ')');
+
+    return $vistos[$staff_id] = $numero;
 }
 
 /**
@@ -622,12 +709,30 @@ function dps_automacao_enviar_email_lead($para, $assunto, $corpo_html, $staff_id
         dps_automacao_mailer_limpar($mail);
         $ass = dps_automacao_mailer_assinatura($mail);
 
+        $botao = dps_automacao_botao_whatsapp($ass['nome'], $ass['tel']);
+
+        /*
+         * Sem número, o email sai sem botão de WhatsApp e ninguém dá por isso
+         * — o cliente é que fica sem maneira de responder por ali. Fica
+         * registado, uma vez por comercial, para se saber a quem falta o
+         * número em vez de se descobrir pela reclamação.
+         */
+        if ($botao === '') {
+            static $avisados = [];
+            $quem = (int) ($staff_id ?: 0);
+            if (!isset($avisados[$quem])) {
+                $avisados[$quem] = true;
+                log_activity('dps_automacao: email enviado SEM botão de WhatsApp — '
+                    . 'o comercial #' . $quem . ' não tem telefone na ficha nem WhatsApp ligado.');
+            }
+        }
+
         $mail->addAddress($para);
         $mail->Subject = $assunto;
         $mail->isHTML(true);
         $mail->Body    = '<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;'
             . 'font-size:15px;line-height:1.6;color:#1b2432;">' . $corpo_html . '</div>'
-            . dps_automacao_botao_whatsapp($ass['nome'], $ass['tel']);
+            . $botao;
         $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $corpo_html));
         $mail->send();
 
