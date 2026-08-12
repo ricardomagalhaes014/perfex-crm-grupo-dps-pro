@@ -246,30 +246,6 @@ function dps_automacao_menu()
         'position' => 1,
     ]);
 
-    /*
-     * Suporte: os pedidos de apoio para fechar negócio. Fica no topo do menu
-     * porque é trabalho de pessoas à espera de resposta, não uma listagem.
-     * O contador mostra o que ainda não foi respondido — a quem os recebe.
-     */
-    $por_responder = 0;
-    if ($CI->db->table_exists(db_prefix() . 'dps_suporte')) {
-        $CI->db->where('estado', 'novo');
-        if (! is_admin() && get_staff_user_id() != dps_automacao_staff_suporte()) {
-            $CI->db->where('pedinte', get_staff_user_id());
-        }
-        $por_responder = (int) $CI->db->count_all_results(db_prefix() . 'dps_suporte');
-    }
-
-    $CI->app_menu->add_sidebar_children_item('sms-central', [
-        'slug'     => 'dps_automacao_suporte',
-        'name'     => 'Suporte',
-        'href'     => admin_url('dps_automacao/suporte'),
-        'position' => 0,
-        'badge'    => $por_responder > 0
-            ? ['name' => $por_responder, 'class' => 'danger']
-            : [],
-    ]);
-
     $CI->app_menu->add_sidebar_children_item('sms-central', [
         'slug'     => 'dps_automacao_envio_massa',
         'name'     => 'Envio em Massa',
@@ -338,6 +314,46 @@ function dps_automacao_menu()
             'position' => 6,
         ]);
     }
+}
+
+/**
+ * Suporte no menu principal, entre o Funil e o DPS Crédito.
+ *
+ * Estava dentro das Automações e ninguém lá ia: um pedido de ajuda para
+ * fechar um negócio é gente à espera de resposta, não uma listagem que se
+ * consulta quando calha. Fica à vista, com o contador do que falta responder.
+ *
+ * Registado à parte do resto do menu do módulo porque é um item de topo e não
+ * um filho das Automações.
+ */
+hooks()->add_action('admin_init', 'dps_automacao_menu_suporte');
+function dps_automacao_menu_suporte()
+{
+    $CI = &get_instance();
+
+    $por_responder = 0;
+
+    if ($CI->db->table_exists(db_prefix() . 'dps_suporte')) {
+        $eu = (int) get_staff_user_id();
+        // O contador conta o que ESTE utilizador tem por tratar: os pedidos
+        // que lhe foram dirigidos e os que ele próprio fez e continuam sem
+        // resposta. Um número que não é meu não me diz nada.
+        $por_responder = (int) $CI->db->query(
+            'SELECT COUNT(*) AS n FROM ' . db_prefix() . 'dps_suporte'
+            . ' WHERE estado = "novo" AND (destino = ? OR pedinte = ?)',
+            [$eu, $eu]
+        )->row()->n;
+    }
+
+    $CI->app_menu->add_sidebar_menu_item('dps-suporte', [
+        'name'     => 'Suporte',
+        'href'     => admin_url('dps_automacao/suporte'),
+        'icon'     => 'fa fa-life-ring menu-icon',
+        'position' => 18,
+        'badge'    => $por_responder > 0
+            ? ['name' => $por_responder, 'class' => 'danger']
+            : [],
+    ]);
 }
 
 /**

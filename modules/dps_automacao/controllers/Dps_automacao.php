@@ -1882,10 +1882,29 @@ class Dps_automacao extends AdminController
      * SUPORTE — os pedidos de apoio para fechar negócio
      * ===================================================================== */
 
-    /** Quem manda nos pedidos: o Cláudio (ou quem estiver definido) e os admins. */
-    private function suporte_e_responsavel()
+    /**
+     * Quem pode responder a um pedido: a quem ele foi dirigido.
+     *
+     * Ser admin não chega. Os pedidos vão para uma pessoa concreta e é essa
+     * que responde — um admin que não seja o destinatário não tem nada a
+     * responder ali, e vê-los todos só encheria o ecrã com trabalho alheio.
+     */
+    private function suporte_responde_a($destino)
     {
-        return is_admin() || (int) get_staff_user_id() === (int) dps_automacao_staff_suporte();
+        return (int) get_staff_user_id() === (int) $destino;
+    }
+
+    /** Recebe pedidos de alguém? (é o destino configurado, ou já lhe chegou algum) */
+    private function suporte_e_destinatario()
+    {
+        $eu = (int) get_staff_user_id();
+
+        if ($eu === (int) dps_automacao_staff_suporte()) {
+            return true;
+        }
+
+        return (bool) $this->db->where('destino', $eu)
+            ->count_all_results(db_prefix() . 'dps_suporte');
     }
 
     private function suporte_estados()
@@ -1914,16 +1933,22 @@ class Dps_automacao extends AdminController
         }
 
         $filtro = $this->input->get('estado');
-        $manda  = $this->suporte_e_responsavel();
+        $eu     = (int) get_staff_user_id();
+        $manda  = $this->suporte_e_destinatario();
 
+        /*
+         * Cada um vê o seu lado: os pedidos que fez e os que lhe foram
+         * dirigidos. Nada mais. O comercial acompanha os seus; quem responde
+         * vê a sua fila; e ninguém tropeça no trabalho dos outros.
+         */
         $this->db->select('s.*, l.name AS lead_nome, l.phonenumber AS lead_tel, l.email AS lead_email')
             ->from($t . ' s')
             ->join(db_prefix() . 'leads l', 'l.id = s.lead_id', 'left')
+            ->group_start()
+                ->where('s.pedinte', $eu)
+                ->or_where('s.destino', $eu)
+            ->group_end()
             ->order_by("FIELD(s.estado,'novo','em_curso','sem_sucesso','resolvido'), s.id DESC");
-
-        if (! $manda) {
-            $this->db->where('s.pedinte', get_staff_user_id());
-        }
         if ($filtro !== null && $filtro !== '' && array_key_exists($filtro, $this->suporte_estados())) {
             $this->db->where('s.estado', $filtro);
         }
@@ -1935,11 +1960,10 @@ class Dps_automacao extends AdminController
         $data['contagem'] = [];
 
         foreach (array_keys($this->suporte_estados()) as $e) {
-            $this->db->where('estado', $e);
-            if (! $manda) {
-                $this->db->where('pedinte', get_staff_user_id());
-            }
-            $data['contagem'][$e] = (int) $this->db->count_all_results($t);
+            $data['contagem'][$e] = (int) $this->db->query(
+                'SELECT COUNT(*) AS n FROM ' . $t . ' WHERE estado = ? AND (pedinte = ? OR destino = ?)',
+                [$e, $eu, $eu]
+            )->row()->n;
         }
 
         $data['title'] = 'Suporte';
@@ -1953,7 +1977,7 @@ class Dps_automacao extends AdminController
      */
     public function suporte_responder()
     {
-        if ($this->input->method(true) !== 'POST' || ! $this->suporte_e_responsavel()) {
+        if ($this->input->method(true) !== 'POST') {
             ajax_access_denied();
         }
 
@@ -1971,6 +1995,9 @@ class Dps_automacao extends AdminController
         if (! $p) {
             echo json_encode(['sucesso' => false, 'mensagem' => 'Pedido não encontrado.']);
             return;
+        }
+        if (! $this->suporte_responde_a($p->destino)) {
+            ajax_access_denied();
         }
         if ($resposta === '') {
             echo json_encode(['sucesso' => false, 'mensagem' => 'Escreva a resposta.']);
@@ -2024,7 +2051,7 @@ class Dps_automacao extends AdminController
     /** Mudar só o estado, sem escrever nada. */
     public function suporte_estado()
     {
-        if ($this->input->method(true) !== 'POST' || ! $this->suporte_e_responsavel()) {
+        if ($this->input->method(true) !== 'POST') {
             ajax_access_denied();
         }
 
@@ -2034,6 +2061,11 @@ class Dps_automacao extends AdminController
         if (! array_key_exists($estado, $this->suporte_estados())) {
             echo json_encode(['sucesso' => false, 'mensagem' => 'Estado inválido.']);
             return;
+        }
+
+        $p = $this->db->where('id', $id)->get(db_prefix() . 'dps_suporte')->row();
+        if (! $p || ! $this->suporte_responde_a($p->destino)) {
+            ajax_access_denied();
         }
 
         $this->db->where('id', $id)->update(db_prefix() . 'dps_suporte', ['estado' => $estado]);

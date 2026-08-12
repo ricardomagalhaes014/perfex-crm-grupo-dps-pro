@@ -10,8 +10,8 @@
                         <h4 class="no-margin">Suporte</h4>
                         <p class="text-muted">
                             <?php if ($manda) { ?>
-                                Pedidos de apoio dos comerciais para fechar negócio. Responda aqui — a resposta
-                                aparece na ficha da lead de quem pediu e chega-lhe pelo sino.
+                                Os pedidos de apoio que lhe foram dirigidos, e os que fez. Responda aqui — a
+                                resposta aparece na ficha da lead de quem pediu e chega-lhe pelo sino.
                             <?php } else { ?>
                                 Os seus pedidos de apoio à direcção e as respostas que já receberam.
                             <?php } ?>
@@ -41,6 +41,9 @@
                         <?php foreach ($pedidos as $p) {
                             $e   = $estados[$p['estado']] ?? ['?', 'default'];
                             $qde = $p['pedinte'] ? get_staff_full_name($p['pedinte']) : '—';
+                            // Responder é por pedido, não por perfil: a mesma pessoa
+                            // pode receber uns e ter pedido outros.
+                            $meu_para_responder = ((int) $p['destino'] === (int) get_staff_user_id());
                         ?>
                         <div class="panel_s" style="border-left:4px solid <?php
                             echo $p['estado'] === 'novo' ? '#e74c3c' : ($p['estado'] === 'resolvido' ? '#27ae60' : '#f0ad4e'); ?>;">
@@ -62,7 +65,11 @@
                                         <?php } ?>
                                     </span>
                                     <span class="pull-right text-muted">
-                                        pedido por <strong><?php echo htmlspecialchars($qde, ENT_QUOTES, 'UTF-8'); ?></strong>
+                                        <?php if ($meu_para_responder) { ?>
+                                            pedido por <strong><?php echo htmlspecialchars($qde, ENT_QUOTES, 'UTF-8'); ?></strong>
+                                        <?php } else { ?>
+                                            enviado a <strong><?php echo htmlspecialchars(get_staff_full_name($p['destino']), ENT_QUOTES, 'UTF-8'); ?></strong>
+                                        <?php } ?>
                                         · <?php echo _dt($p['criado_em']); ?>
                                     </span>
                                 </div>
@@ -77,7 +84,7 @@
                                     </div>
                                 <?php } ?>
 
-                                <?php if ($manda) { ?>
+                                <?php if ($meu_para_responder) { ?>
                                     <div style="margin-top:12px;">
                                         <textarea id="resp-<?php echo (int) $p['id']; ?>" class="form-control" rows="2"
                                                   placeholder="Resposta ao comercial…"></textarea>
