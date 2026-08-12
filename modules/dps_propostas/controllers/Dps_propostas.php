@@ -373,7 +373,7 @@ class Dps_propostas extends AdminController
             $detalhe = 'Sem ficheiro para enviar.';
         }
 
-        $this->db->insert(db_prefix() . 'dps_propostas', [
+        $this->db->insert(db_prefix() . 'dps_propostas', $this->dps_wa_recibo($raw ?? '') + [
             'lead_id'          => $lead_id,
             'staff_id'         => $staff_id,
             'tipo'             => 'proposta',
@@ -386,6 +386,10 @@ class Dps_propostas extends AdminController
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
+
+        if ($ok) {
+            $this->dps_promover_proposta_enviada($lead_id, $lead->status);
+        }
 
         /*
          * Isto respondia sempre 'success' => true, mesmo com o envio falhado.
@@ -1196,8 +1200,9 @@ class Dps_propostas extends AdminController
         // 2xx só confirma que a Evolution aceitou; a entrega real traz uma "key" na resposta.
         $raw = (string) ($r['raw'] ?? '');
         $ok  = $r['ok'] && strpos($raw, '"key"') !== false;
+        $rec = $this->dps_wa_recibo($raw);
 
-        $this->db->insert(db_prefix() . 'dps_propostas', [
+        $this->db->insert(db_prefix() . 'dps_propostas', $rec + [
             'lead_id'          => $lead_id,
             'staff_id'         => $staff_id,
             'tipo'             => 'proposta',
@@ -1214,24 +1219,67 @@ class Dps_propostas extends AdminController
         // Envio conta como contacto: atualiza último contacto + interação.
         $this->dps_marcar_contacto($lead_id, $staff_id, '📄 Proposta enviada — ' . $emp . ($unidade ? ' ' . $unidade : ''));
 
-        // Boavista Tower: nota com a fração enviada + estado -> VIP 1 (17).
-        if (stripos($emp, 'boavista') !== false) {
-            $this->db->insert(db_prefix() . 'notes', [
-                'rel_id'      => $lead_id,
-                'rel_type'    => 'lead',
-                'description' => 'Proposta enviada — ' . $emp . ($unidade !== '' ? ' — Fração ' . $unidade : ''),
-                'dateadded'   => date('Y-m-d H:i:s'),
-                'addedfrom'   => $staff_id,
-            ]);
-            if ((int) $lead->status !== 13) {
-                $this->dps_set_lead_status($lead_id, 17); // VIP 1 (dispara hook -> sync WhatsApp)
-            }
+        /*
+         * Nota na ficha com a fracção enviada, para qualquer empreendimento —
+         * era só o Boavista a tê-la, e três semanas depois ninguém sabe o que
+         * foi proposto a quem.
+         */
+        $this->db->insert(db_prefix() . 'notes', [
+            'rel_id'      => $lead_id,
+            'rel_type'    => 'lead',
+            'description' => 'Proposta enviada — ' . $emp . ($unidade !== '' ? ' — Fração ' . $unidade : ''),
+            'dateadded'   => date('Y-m-d H:i:s'),
+            'addedfrom'   => $staff_id,
+        ]);
+
+        // E a lead passa a "Propostas Enviadas", venha de onde vier.
+        if ($ok) {
+            $this->dps_promover_proposta_enviada($lead_id, $lead->status);
         }
 
         echo json_encode([
             'success' => $ok,
             'message' => $ok ? 'Proposta enviada ao cliente e registada.' : dps_propostas_erro_wa($r, $number),
         ]);
+    }
+
+
+    /**
+     * Id da mensagem que o WhatsApp devolve, e o estado inicial.
+     *
+     * Sem isto os recibos de entrega chegam a dps_wa_status.php e não têm a
+     * que se agarrar: ficam no diário de eventos e a proposta continua eterna
+     * em "PENDING". É esta chave que liga uma coisa à outra.
+     */
+    private function dps_wa_recibo($raw)
+    {
+        $j = json_decode((string) $raw, true);
+
+        return [
+            'wa_msg_id' => $j['key']['id'] ?? null,
+            'wa_status' => strtoupper((string) ($j['status'] ?? 'PENDING')) ?: 'PENDING',
+        ];
+    }
+
+    /**
+     * Enviar proposta é um passo em frente no funil: a lead passa a
+     * "Propostas Enviadas".
+     *
+     * Não recua ninguém — quem já está em crédito, contrato ou concretizado
+     * está mais à frente, e descê-lo para registar um progresso seria
+     * estragar o funil. Antes disto só o Boavista mexia no estado, e mesmo
+     * esse punha a lead em VIP 1: quem enviava proposta de outro
+     * empreendimento via a lead ficar em "Novos" como se nada fosse.
+     */
+    private function dps_promover_proposta_enviada($lead_id, $estado_actual)
+    {
+        $a_frente = [20, 21, 10, 13];   // propostas enviadas, crédito, contrato, concretizado
+
+        if (in_array((int) $estado_actual, $a_frente, true)) {
+            return;
+        }
+
+        $this->dps_set_lead_status((int) $lead_id, 20);
     }
 
     /**
