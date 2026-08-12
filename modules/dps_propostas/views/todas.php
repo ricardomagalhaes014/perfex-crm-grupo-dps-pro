@@ -235,6 +235,33 @@
                                                 <span class="label" style="background:#C5A55A;">✉️ Email</span>
                                             <?php } else { ?>
                                                 <span class="label" style="background:#25D366;">WhatsApp</span>
+                                                <?php
+                                                /*
+                                                 * O recibo do próprio WhatsApp, ao lado do canal.
+                                                 *
+                                                 * O comercial não vê no telemóvel dele as mensagens que o
+                                                 * CRM envia — quem as escreve é o dispositivo associado, e
+                                                 * o telemóvel nem sempre as mostra. Sem isto ficava sem
+                                                 * maneira de saber se o cliente recebeu, e a única saída
+                                                 * era ligar a perguntar. Aqui está a prova.
+                                                 */
+                                                $recibos = [
+                                                    'READ'         => ['Lido pelo cliente', '#128, 90, 213'],
+                                                    'DELIVERY_ACK' => ['Entregue',          '#25D366'],
+                                                    'SERVER_ACK'   => ['Enviada',           '#1d6fb8'],
+                                                    'ERROR'        => ['NÃO SAIU',          '#c0392b'],
+                                                    'SEM_RECIBO'   => ['Sem confirmação',  '#c0392b'],
+                                                    'PENDING'      => ['Por confirmar',     '#95a5a6'],
+                                                ];
+                                                $wa = strtoupper((string) ($p->wa_status ?? ''));
+                                                if (isset($recibos[$wa])) {
+                                                    $cor = $wa === 'READ' ? '#8a5ad5' : $recibos[$wa][1];
+                                                    echo '<br><span class="label" style="background:' . $cor
+                                                       . ';margin-top:3px;display:inline-block;" title="'
+                                                       . ($p->wa_status_at ? 'Confirmado em ' . e($p->wa_status_at) : '')
+                                                       . '">' . $recibos[$wa][0] . '</span>';
+                                                }
+                                                ?>
                                             <?php } ?>
                                         </td>
                                         <td><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
