@@ -218,3 +218,49 @@ function dps_propostas_footer_modal()
     </script>
     <?php
 }
+
+/**
+ * Varredura das propostas que ficaram penduradas em PENDING.
+ *
+ * O WhatsApp confirma uma mensagem em segundos — no teste de 12/08/2026 foi
+ * um segundo entre o envio e o SERVER_ACK. Uma proposta que passe meia hora
+ * sem recibo nenhum não está lenta: não saiu. Antes disto ficava para sempre
+ * marcada como enviada, e o comercial só descobria pelo silêncio do cliente.
+ *
+ * Meia hora é folgado de propósito: o recibo pode atrasar se a Evolution
+ * estiver a reconectar, e é preferível marcar tarde do que marcar de errado.
+ */
+hooks()->add_action('perfex_cron', 'dps_propostas_marcar_penduradas');
+function dps_propostas_marcar_penduradas()
+{
+    $CI = &get_instance();
+    $t  = db_prefix() . 'dps_propostas';
+
+    if (! $CI->db->table_exists($t)) {
+        return;
+    }
+
+    $campos = $CI->db->list_fields($t);
+    if (! in_array('wa_status', $campos, true)) {
+        return;   // ainda sem os recibos instalados
+    }
+
+    $CI->db->where('wa_status', 'PENDING')
+        ->where('wa_ok', 1)
+        ->where('wa_msg_id IS NOT NULL', null, false)
+        ->where('created_at <', date('Y-m-d H:i:s', strtotime('-30 minutes')))
+        // Só as de depois de os recibos existirem: as antigas nunca chegaram a
+        // ter hipótese de ser confirmadas e marcá-las agora seria inventar.
+        ->where('created_at >', '2026-08-12 14:00:00')
+        ->update($t, [
+            'wa_status'    => 'SEM_RECIBO',
+            'wa_ok'        => 0,
+            'wa_status_at' => date('Y-m-d H:i:s'),
+        ]);
+
+    $n = $CI->db->affected_rows();
+
+    if ($n > 0) {
+        log_activity('dps_propostas: ' . $n . ' proposta(s) sem recibo do WhatsApp ao fim de 30 min — marcadas como não enviadas.');
+    }
+}
