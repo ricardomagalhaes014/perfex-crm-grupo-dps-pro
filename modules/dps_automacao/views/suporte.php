@@ -56,6 +56,9 @@
                             // Responder é por pedido, não por perfil: a mesma pessoa
                             // pode receber uns e ter pedido outros.
                             $meu_para_responder = ((int) $p['destino'] === (int) get_staff_user_id());
+                            // Quem pediu também escreve — só não muda o desfecho.
+                            $sou_o_pedinte      = ((int) $p['pedinte'] === (int) get_staff_user_id());
+                            $posso_escrever     = $meu_para_responder || $sou_o_pedinte;
                         ?>
                         <div class="panel_s" style="border-left:4px solid <?php
                             echo $p['estado'] === 'novo' ? '#e74c3c' : ($p['estado'] === 'resolvido' ? '#27ae60' : '#f0ad4e'); ?>;">
@@ -99,11 +102,14 @@
                                     </div>
                                 <?php } ?>
 
-                                <?php if ($meu_para_responder) { ?>
+                                <?php if ($posso_escrever) { ?>
                                     <div style="margin-top:12px;">
                                         <textarea id="resp-<?php echo (int) $p['id']; ?>" class="form-control" rows="2"
-                                                  placeholder="O que fez, e o que o comercial deve saber…"></textarea>
+                                                  placeholder="<?php echo $meu_para_responder
+                                                      ? 'O que fez, e o que o comercial deve saber…'
+                                                      : 'Responder à direcção…'; ?>"></textarea>
                                         <div style="margin-top:8px;">
+                                            <?php if ($meu_para_responder) { ?>
                                             <select id="est-<?php echo (int) $p['id']; ?>" class="form-control"
                                                     style="width:auto;display:inline-block;">
                                                 <?php foreach ($estados as $chave => $lbl) { ?>
@@ -113,14 +119,17 @@
                                                     </option>
                                                 <?php } ?>
                                             </select>
+                                            <?php } ?>
                                             <button class="btn btn-info btn-sm"
                                                     onclick="dpsSuporteResponder(<?php echo (int) $p['id']; ?>)">
-                                                Responder
+                                                <?php echo $meu_para_responder ? 'Responder' : 'Responder à direcção'; ?>
                                             </button>
+                                            <?php if ($meu_para_responder) { ?>
                                             <button class="btn btn-default btn-sm"
                                                     onclick="dpsSuporteEstado(<?php echo (int) $p['id']; ?>)">
                                                 Fechar com este desfecho
                                             </button>
+                                            <?php } ?>
                                             <?php if (! empty($p['tarefa_id'])) { ?>
                                                 <a href="<?php echo admin_url('tasks/view/' . (int) $p['tarefa_id']); ?>"
                                                    class="btn btn-default btn-sm" target="_blank">Abrir tarefa</a>
@@ -145,10 +154,13 @@ function dpsSuporteResponder(id) {
     var txt = document.getElementById('resp-' + id).value.trim();
     if (txt === '') { alert_float('warning', 'Escreva a resposta.'); return; }
 
+    // Quem pediu não tem selector de estado — o desfecho é de quem responde.
+    var sel = document.getElementById('est-' + id);
+
     $.post('<?php echo admin_url('dps_automacao/suporte_responder'); ?>', {
         id: id,
         resposta: txt,
-        estado: document.getElementById('est-' + id).value
+        estado: sel ? sel.value : ''
     }, function (r) {
         try { r = JSON.parse(r); } catch (e) { alert_float('danger', 'Resposta inesperada do servidor.'); return; }
         alert_float(r.sucesso ? 'success' : 'danger', r.mensagem);

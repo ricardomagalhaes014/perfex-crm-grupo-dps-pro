@@ -253,14 +253,28 @@
                                                     'SEM_RECIBO'   => ['Sem confirmação',  '#c0392b'],
                                                     'PENDING'      => ['Por confirmar',     '#95a5a6'],
                                                 ];
+                                                /*
+                                                 * Mostra-se SEMPRE alguma coisa. Quando não havia estado
+                                                 * nenhum não aparecia etiqueta e a coluna ficava igual à
+                                                 * de antes dos recibos existirem — quem olhasse não sabia
+                                                 * se a proposta estava por confirmar ou se a coluna não
+                                                 * estava a funcionar. "Sem registo" é uma resposta; um
+                                                 * espaço em branco não é.
+                                                 */
                                                 $wa = strtoupper((string) ($p->wa_status ?? ''));
-                                                if (isset($recibos[$wa])) {
-                                                    $cor = $wa === 'READ' ? '#8a5ad5' : $recibos[$wa][1];
-                                                    echo '<br><span class="label" style="background:' . $cor
-                                                       . ';margin-top:3px;display:inline-block;" title="'
-                                                       . ($p->wa_status_at ? 'Confirmado em ' . e($p->wa_status_at) : '')
-                                                       . '">' . $recibos[$wa][0] . '</span>';
+                                                if (! isset($recibos[$wa])) {
+                                                    $wa = 'SEM_REGISTO';
+                                                    $recibos['SEM_REGISTO'] = ['Sem registo', '#7f8c8d'];
                                                 }
+                                                $cor   = $wa === 'READ' ? '#8a5ad5' : $recibos[$wa][1];
+                                                $ajuda = $p->wa_status_at
+                                                    ? 'Confirmado em ' . $p->wa_status_at
+                                                    : ($wa === 'SEM_REGISTO'
+                                                        ? 'Enviada antes de existirem recibos de entrega — não há como confirmar.'
+                                                        : 'Ainda sem confirmação do WhatsApp.');
+                                                echo '<br><span class="label" style="background:' . $cor
+                                                   . ';margin-top:3px;display:inline-block;" title="' . e($ajuda) . '">'
+                                                   . $recibos[$wa][0] . '</span>';
                                                 ?>
                                             <?php } ?>
                                         </td>

@@ -2050,7 +2050,17 @@ class Dps_automacao extends AdminController
             echo json_encode(['sucesso' => false, 'mensagem' => 'Pedido não encontrado.']);
             return;
         }
-        if (! $this->suporte_responde_a($p->destino)) {
+        /*
+         * Escrevem os dois: quem respondeu e quem pediu.
+         *
+         * Só a direcção podia escrever, e o comercial ficava a ver a resposta
+         * sem ter como dizer "obrigado", "não resultou" ou "ele voltou a
+         * ligar". Um pedido de ajuda é uma conversa, não um recado.
+         */
+        $sou_destino = $this->suporte_responde_a($p->destino);
+        $sou_pedinte = (int) get_staff_user_id() === (int) $p->pedinte;
+
+        if (! $sou_destino && ! $sou_pedinte) {
             ajax_access_denied();
         }
         if ($resposta === '') {
@@ -2069,18 +2079,43 @@ class Dps_automacao extends AdminController
         $nova     = '[' . date('d/m/Y H:i') . ' · ' . get_staff_full_name($quem) . "]\n" . $resposta;
         $texto    = $anterior === '' ? $nova : $anterior . "\n\n" . $nova;
 
-        $this->db->where('id', $id)->update($t, [
+        // O estado é da direcção. Quem pediu escreve, mas não fecha o
+        // próprio pedido — senão o desfecho deixava de querer dizer nada.
+        $campos = [
             'resposta'       => $texto,
-            'estado'         => $estado,
             'respondido_por' => $quem,
             'respondido_em'  => $agora,
+        ];
+
+        if ($sou_destino) {
+            $campos['estado'] = $estado;
+        } elseif ($p->estado === 'novo') {
+            // O comercial acrescentou informação a um pedido ainda por pegar:
+            // deixa de ser "novo" para não ficar a contar como não lido.
+            $campos['estado'] = 'em_curso';
+        }
+
+        $this->db->where('id', $id)->update($t, $campos);
+
+        if ($sou_destino) {
+            // A resposta chega ao comercial pelo sino e pela ficha da lead —
+            // é onde ele trabalha, e é onde pediu para a ver.
+            $this->suporte_avisar_comercial($p, $estado, $resposta);
+        } else {
+            // Caminho inverso: avisar quem está a tratar do pedido.
+            add_notification([
+                'description' => '🆘 ' . get_staff_full_name($quem) . ' respondeu no pedido de suporte — '
+                                 . mb_substr($resposta, 0, 80),
+                'touserid'    => (int) $p->destino,
+                'fromuserid'  => $quem,
+                'link'        => 'dps_automacao/suporte',
+            ]);
+        }
+
+        echo json_encode([
+            'sucesso'  => true,
+            'mensagem' => 'Enviado a ' . get_staff_full_name($sou_destino ? (int) $p->pedinte : (int) $p->destino) . '.',
         ]);
-
-        // A resposta chega ao comercial pelo sino e pela ficha da lead — é
-        // onde ele trabalha, e é onde pediu para a ver.
-        $this->suporte_avisar_comercial($p, $estado, $resposta);
-
-        echo json_encode(['sucesso' => true, 'mensagem' => 'Resposta enviada a ' . get_staff_full_name((int) $p->pedinte) . '.']);
     }
 
     /** Mudar só o estado, sem escrever nada. */
