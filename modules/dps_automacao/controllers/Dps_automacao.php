@@ -1838,6 +1838,21 @@ class Dps_automacao extends AdminController
             'is_assigned_from_contact' => 0,
         ]);
 
+        /*
+         * O pedido em si, para lá da tarefa. A tarefa serve para o Cláudio
+         * não se esquecer; isto serve para o pedido ter estado e resposta, e
+         * para o comercial poder acompanhar o seu sem andar a perguntar.
+         */
+        $this->db->insert(db_prefix() . 'dps_suporte', [
+            'lead_id'   => $lead_id,
+            'pedinte'   => $pedinte,
+            'destino'   => $destino,
+            'contexto'  => $contexto,
+            'estado'    => 'novo',
+            'tarefa_id' => $tarefa,
+            'criado_em' => $agora,
+        ]);
+
         // Fica escrito na lead que houve pedido, e por quem — para o comercial
         // não ter de se lembrar, e para quem abrir a ficha perceber o porquê.
         $this->load->model('leads_model');
@@ -1863,4 +1878,166 @@ class Dps_automacao extends AdminController
         ]);
     }
 
+    /* =====================================================================
+     * SUPORTE — os pedidos de apoio para fechar negócio
+     * ===================================================================== */
+
+    /** Quem manda nos pedidos: o Cláudio (ou quem estiver definido) e os admins. */
+    private function suporte_e_responsavel()
+    {
+        return is_admin() || (int) get_staff_user_id() === (int) dps_automacao_staff_suporte();
+    }
+
+    private function suporte_estados()
+    {
+        return [
+            'novo'       => ['Por responder', 'danger'],
+            'em_curso'   => ['Em curso',      'warning'],
+            'resolvido'  => ['Resolvido',     'success'],
+            'sem_sucesso'=> ['Sem sucesso',   'default'],
+        ];
+    }
+
+    /**
+     * A lista dos pedidos. Quem responde vê todos; o comercial vê os seus —
+     * com a resposta, que é a metade que lhe faltava.
+     */
+    public function suporte()
+    {
+        if (! is_staff_member()) {
+            access_denied('Suporte');
+        }
+
+        $t = db_prefix() . 'dps_suporte';
+        if (! $this->db->table_exists($t)) {
+            dps_automacao_ensure_schema();
+        }
+
+        $filtro = $this->input->get('estado');
+        $manda  = $this->suporte_e_responsavel();
+
+        $this->db->select('s.*, l.name AS lead_nome, l.phonenumber AS lead_tel, l.email AS lead_email')
+            ->from($t . ' s')
+            ->join(db_prefix() . 'leads l', 'l.id = s.lead_id', 'left')
+            ->order_by("FIELD(s.estado,'novo','em_curso','sem_sucesso','resolvido'), s.id DESC");
+
+        if (! $manda) {
+            $this->db->where('s.pedinte', get_staff_user_id());
+        }
+        if ($filtro !== null && $filtro !== '' && array_key_exists($filtro, $this->suporte_estados())) {
+            $this->db->where('s.estado', $filtro);
+        }
+
+        $data['pedidos']  = $this->db->get()->result_array();
+        $data['manda']    = $manda;
+        $data['estados']  = $this->suporte_estados();
+        $data['filtro']   = (string) $filtro;
+        $data['contagem'] = [];
+
+        foreach (array_keys($this->suporte_estados()) as $e) {
+            $this->db->where('estado', $e);
+            if (! $manda) {
+                $this->db->where('pedinte', get_staff_user_id());
+            }
+            $data['contagem'][$e] = (int) $this->db->count_all_results($t);
+        }
+
+        $data['title'] = 'Suporte';
+        $this->load->view('suporte', $data);
+    }
+
+    /**
+     * A direcção responde. A resposta vai ao sino do comercial E à ficha da
+     * lead — foi esse o pedido: que a resposta aparecesse na lead dele, para
+     * não morrer dentro de um painel que ele pode nunca abrir.
+     */
+    public function suporte_responder()
+    {
+        if ($this->input->method(true) !== 'POST' || ! $this->suporte_e_responsavel()) {
+            ajax_access_denied();
+        }
+
+        $id       = (int) $this->input->post('id');
+        $resposta = trim((string) $this->input->post('resposta'));
+        $estado   = (string) $this->input->post('estado');
+
+        if (! array_key_exists($estado, $this->suporte_estados())) {
+            $estado = 'em_curso';
+        }
+
+        $t = db_prefix() . 'dps_suporte';
+        $p = $this->db->where('id', $id)->get($t)->row();
+
+        if (! $p) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Pedido não encontrado.']);
+            return;
+        }
+        if ($resposta === '') {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Escreva a resposta.']);
+            return;
+        }
+
+        $quem  = get_staff_user_id();
+        $agora = date('Y-m-d H:i:s');
+
+        /*
+         * As respostas acumulam-se em vez de se substituírem: um pedido pode
+         * ter várias trocas, e apagar a anterior perderia o fio da conversa.
+         */
+        $anterior = trim((string) $p->resposta);
+        $nova     = '[' . date('d/m/Y H:i') . ' · ' . get_staff_full_name($quem) . "]\n" . $resposta;
+        $texto    = $anterior === '' ? $nova : $anterior . "\n\n" . $nova;
+
+        $this->db->where('id', $id)->update($t, [
+            'resposta'       => $texto,
+            'estado'         => $estado,
+            'respondido_por' => $quem,
+            'respondido_em'  => $agora,
+        ]);
+
+        $this->load->model('leads_model');
+        $this->leads_model->log_lead_activity(
+            (int) $p->lead_id,
+            '🆘 Resposta da direcção (' . get_staff_full_name($quem) . '): ' . mb_substr($resposta, 0, 250)
+        );
+
+        // A resposta na ficha da lead do comercial, escrita como nota: é onde
+        // ele trabalha, e é onde pediu para a ver.
+        $this->db->insert(db_prefix() . 'notes', [
+            'rel_id'      => (int) $p->lead_id,
+            'rel_type'    => 'lead',
+            'description' => '🆘 Suporte — resposta de ' . get_staff_full_name($quem) . ":\n" . $resposta,
+            'dateadded'   => $agora,
+            'addedfrom'   => $quem,
+        ]);
+
+        add_notification([
+            'description' => '🆘 Resposta ao seu pedido de suporte — ' . mb_substr($resposta, 0, 90),
+            'touserid'    => (int) $p->pedinte,
+            'fromuserid'  => $quem,
+            'link'        => 'dps_automacao/suporte',
+        ]);
+
+        echo json_encode(['sucesso' => true, 'mensagem' => 'Resposta enviada a ' . get_staff_full_name((int) $p->pedinte) . '.']);
+    }
+
+    /** Mudar só o estado, sem escrever nada. */
+    public function suporte_estado()
+    {
+        if ($this->input->method(true) !== 'POST' || ! $this->suporte_e_responsavel()) {
+            ajax_access_denied();
+        }
+
+        $id     = (int) $this->input->post('id');
+        $estado = (string) $this->input->post('estado');
+
+        if (! array_key_exists($estado, $this->suporte_estados())) {
+            echo json_encode(['sucesso' => false, 'mensagem' => 'Estado inválido.']);
+            return;
+        }
+
+        $this->db->where('id', $id)->update(db_prefix() . 'dps_suporte', ['estado' => $estado]);
+
+        echo json_encode(['sucesso' => true, 'mensagem' => 'Estado actualizado.']);
+    }
 }

@@ -89,6 +89,33 @@ function dps_automacao_criar_tabelas()
     // PDFs de propostas carregados pelos comerciais para envio em massa.
     // O ficheiro físico vive em uploads/dps_automacao/propostas/<filename>;
     // original_name é o nome que a lead vê (fileName no WhatsApp / anexo no email).
+    /*
+     * Pedidos de apoio à direcção.
+     *
+     * O botão "Suporte" já criava uma tarefa para o Cláudio, mas uma tarefa
+     * não guarda a resposta nem o estado do pedido, e o comercial ficava sem
+     * saber em que pé estava o seu. Isto é o registo do pedido em si: quem
+     * pediu, o contexto, o que a direcção respondeu e onde está.
+     */
+    $suporte = db_prefix() . 'dps_suporte';
+    $CI->db->query("CREATE TABLE IF NOT EXISTS `{$suporte}` (
+        `id` INT(11) NOT NULL AUTO_INCREMENT,
+        `lead_id` INT(11) NOT NULL,
+        `pedinte` INT(11) NOT NULL,
+        `destino` INT(11) NOT NULL,
+        `contexto` TEXT NULL,
+        `estado` VARCHAR(20) NOT NULL DEFAULT 'novo',
+        `resposta` TEXT NULL,
+        `respondido_por` INT(11) NULL,
+        `respondido_em` DATETIME NULL,
+        `tarefa_id` INT(11) NULL,
+        `criado_em` DATETIME NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `dps_sup_destino` (`destino`, `estado`),
+        KEY `dps_sup_pedinte` (`pedinte`),
+        KEY `dps_sup_lead` (`lead_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $CI->db->query("CREATE TABLE IF NOT EXISTS `{$propostas}` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
         `staff_id` INT NOT NULL COMMENT 'quem carregou — cada comercial só vê as suas',
@@ -217,6 +244,30 @@ function dps_automacao_menu()
         'name'     => 'Envio',
         'href'     => admin_url('automacoes_dps'),
         'position' => 1,
+    ]);
+
+    /*
+     * Suporte: os pedidos de apoio para fechar negócio. Fica no topo do menu
+     * porque é trabalho de pessoas à espera de resposta, não uma listagem.
+     * O contador mostra o que ainda não foi respondido — a quem os recebe.
+     */
+    $por_responder = 0;
+    if ($CI->db->table_exists(db_prefix() . 'dps_suporte')) {
+        $CI->db->where('estado', 'novo');
+        if (! is_admin() && get_staff_user_id() != dps_automacao_staff_suporte()) {
+            $CI->db->where('pedinte', get_staff_user_id());
+        }
+        $por_responder = (int) $CI->db->count_all_results(db_prefix() . 'dps_suporte');
+    }
+
+    $CI->app_menu->add_sidebar_children_item('sms-central', [
+        'slug'     => 'dps_automacao_suporte',
+        'name'     => 'Suporte',
+        'href'     => admin_url('dps_automacao/suporte'),
+        'position' => 0,
+        'badge'    => $por_responder > 0
+            ? ['name' => $por_responder, 'class' => 'danger']
+            : [],
     ]);
 
     $CI->app_menu->add_sidebar_children_item('sms-central', [
