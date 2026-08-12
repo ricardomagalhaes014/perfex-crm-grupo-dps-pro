@@ -2621,6 +2621,15 @@ document.addEventListener('keydown', function(e) {
  */
 function dpsAvisoReservaManual(newStatus) {
   if (newStatus !== 'Reservado') { return true; }
+  /*
+   * Reserva acabada de registar no CRM: não há nada a avisar.
+   *
+   * O formulário de reserva termina a marcar a fracção como Reservado, e o
+   * aviso aparecia por cima do "A registar…" a dizer que aquilo não criava
+   * reserva nenhuma — logo a seguir a ela ter sido criada. Esta bandeira é
+   * levantada por quem sabe que houve formulário.
+   */
+  if (window.__dpsReservaConfirmada) { return true; }
   return confirm(
     'Atenção: marcar como Reservado aqui só muda a cor no simulador.\n\n' +
     'NÃO cria reserva no CRM nem fica associada a nenhum cliente. Para a ' +
@@ -5879,10 +5888,22 @@ document.addEventListener('DOMContentLoaded', function() {
     var table = b.getAttribute('data-t'), key = b.getAttribute('data-k');
     var u = encontrarUnidade(table, key);
     abrirReserva(table, key, u, function(){
-      // Aplicar com o changeStatus ORIGINAL: o nosso wrapper voltaria a
-      // abrir o formulário. Só chega aqui depois de tudo preenchido.
-      if (typeof _changeStatusOriginal === 'function') {
-        _changeStatusOriginal(table, key, 'Reservado');
+      /*
+       * Só se chega aqui depois de a reserva ter entrado no CRM. A bandeira
+       * cala o aviso da marcação manual, e o changeStatus ORIGINAL evita que
+       * o envolvente reabra o formulário que acabou de correr.
+       */
+      window.__dpsReservaConfirmada = true;
+      try {
+        if (typeof _changeStatusOriginal === 'function') {
+          _changeStatusOriginal(table, key, 'Reservado');
+        } else if (typeof window.changeStatus === 'function') {
+          // Rede de segurança: se o envolvente ainda não tinha sido
+          // instalado, não se perde a marcação por causa disso.
+          window.changeStatus(table, key, 'Reservado');
+        }
+      } finally {
+        window.__dpsReservaConfirmada = false;
       }
     });
   }, true);
@@ -6672,9 +6693,12 @@ document.addEventListener('DOMContentLoaded', function() {
     var u=AURA_UNITS.find(function(x){return x.fraccao===frac;}); if(!u||u.status!=='Disponível') return;
     if(typeof window.dpsAbrirReserva!=='function'){ alert('Módulo de reserva indisponível. Recarregue.'); return; }
     window.dpsAbrirReserva('aura',u.fraccao,u,function(){
-      u.status='Reservado';
-      guardarEstadosAura();
-      renderAura();
+      window.__dpsReservaConfirmada = true;
+      try {
+        u.status='Reservado';
+        guardarEstadosAura();
+        renderAura();
+      } finally { window.__dpsReservaConfirmada = false; }
     });
   };
 
