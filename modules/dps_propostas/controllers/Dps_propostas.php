@@ -350,12 +350,27 @@ class Dps_propostas extends AdminController
         }
         $number = preg_replace('/[^0-9]/', '', (string) $lead->phonenumber);
 
-        $ok = false;
+        $ok      = false;
+        $detalhe = null;
+
         if ($file_url && $number !== '') {
             $primeiro = trim(explode(' ', (string) $lead->name)[0]);
             $caption  = 'Proposta' . ($emp_nome ? ' — ' . $emp_nome : '') . ' — Unidade ' . $unidade;
-            $r  = dps_propostas_send_document($staff_id, $number, $file_url, $file_name, $caption);
-            $ok = $r['ok'];
+            $r        = dps_propostas_send_document($staff_id, $number, $file_url, $file_name, $caption);
+
+            /*
+             * 2xx só diz que a Evolution aceitou o pedido. A prova de que o
+             * WhatsApp criou mesmo a mensagem é vir uma "key" na resposta —
+             * o mesmo critério do envio pelo simulador. Sem isso, dar como
+             * enviada é mentir ao comercial.
+             */
+            $raw     = (string) ($r['raw'] ?? '');
+            $ok      = ! empty($r['ok']) && strpos($raw, '"key"') !== false;
+            $detalhe = 'HTTP ' . ($r['http'] ?? 0) . ' ' . substr($raw ?: (string) ($r['error'] ?? ''), 0, 800);
+        } elseif ($number === '') {
+            $detalhe = 'A lead não tem telefone.';
+        } else {
+            $detalhe = 'Sem ficheiro para enviar.';
         }
 
         $this->db->insert(db_prefix() . 'dps_propostas', [
@@ -367,12 +382,24 @@ class Dps_propostas extends AdminController
             'lead_status_id'   => (int) $lead->status,
             'lead_status_nome' => $this->status_name($lead->status),
             'ficheiro'         => $file_url,
-            'detalhe'          => null,
+            'detalhe'          => $detalhe,
             'wa_ok'            => $ok ? 1 : 0,
             'created_at'       => date('Y-m-d H:i:s'),
         ]);
 
-        echo json_encode(['success' => true, 'message' => $ok ? 'Proposta enviada e registada.' : 'Proposta registada (envio WhatsApp não confirmado).']);
+        /*
+         * Isto respondia sempre 'success' => true, mesmo com o envio falhado.
+         * O comercial via a confirmação verde, dava a proposta por entregue e
+         * seguia em frente — e o cliente nunca tinha recebido nada. O registo
+         * fica de qualquer maneira (é o histórico), mas quem carregou no botão
+         * passa a saber a verdade.
+         */
+        echo json_encode([
+            'success' => $ok,
+            'message' => $ok
+                ? 'Proposta enviada e registada.'
+                : 'Proposta REGISTADA mas NÃO enviada por WhatsApp — ' . dps_propostas_erro_wa($r ?? [], $number),
+        ]);
     }
 
     /**
