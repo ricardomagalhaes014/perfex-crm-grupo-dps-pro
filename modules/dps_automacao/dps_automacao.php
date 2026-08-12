@@ -350,8 +350,10 @@ function dps_automacao_menu_suporte()
         'href'     => admin_url('dps_automacao/suporte'),
         'icon'     => 'fa fa-life-ring menu-icon',
         'position' => 18,
+        // O aside lê 'value' e 'type' — com 'name'/'class' o contador nunca
+        // chegava a aparecer (application/views/admin/includes/aside.php).
         'badge'    => $por_responder > 0
-            ? ['name' => $por_responder, 'class' => 'danger']
+            ? ['value' => $por_responder, 'type' => 'danger']
             : [],
     ]);
 }

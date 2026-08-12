@@ -7,8 +7,8 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Ordem pedida:
  *   1 Leads · 2 Simulador · 3 Propostas Enviadas · 4 Automações (WhatsApp,
  *   Sofia Calls, Automação) · 5 Tarefas · 6 Lembrete · 7 Funil de Vendas ·
- *   8 DPS Crédito · 9 Simulador de Comissões · 10 Webmail · 11 DPS Imóveis ·
- *   12 Clientes · 13 Outros (Biblioteca de Vídeos, Wiki Book, Reuniões
+ *   8 Suporte · 9 DPS Crédito · 10 Simulador de Comissões · 11 Webmail ·
+ *   12 DPS Imóveis · 13 Clientes · 14 Outros (Biblioteca de Vídeos, Wiki Book, Reuniões
  *   Online, Interações, Chatbot Interno, VOIP Central, Projectos, Suporte).
  *
  * Tudo o resto: escondido para não-admins; para admins agrupado num botão
@@ -260,18 +260,29 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'lembrete'               => 9,
             'funil de vendas'        => 10,
             'funil de leads'         => 10,
-            'dps credito'            => 11,
-            'simulador de comissoes' => 12,
-            'webmail'                => 13,
-            'dps imoveis'            => 14,
-            'clientes'               => 15,
-            'outros'                 => 16,
+            /*
+             * SUPORTE, entre o Funil e o DPS Crédito. Pedido do dono
+             * (12/08/2026).
+             *
+             * Tem de constar desta lista como tudo o resto: o passo 5 esconde
+             * dos não-administradores tudo o que aqui não esteja, e o Suporte
+             * existe precisamente para os comerciais pedirem ajuda. Foi por
+             * isto que o item não apareceu quando foi criado no módulo — o
+             * módulo registava-o e este filtro deitava-o fora a seguir.
+             */
+            'suporte'                => 11,
+            'dps credito'            => 12,
+            'simulador de comissoes' => 13,
+            'webmail'                => 14,
+            'dps imoveis'            => 15,
+            'clientes'               => 16,
+            'outros'                 => 17,
             // Privado do Ricardo. Tem de estar AQUI: o que não consta desta
             // lista cai na regra do passo 5 e é enterrado dentro do submenu
             // "Admin", que foi como o Painel do Negócio desapareceu do sítio
             // em 29/07/2026. O módulo já só cria o item para o staff 1, por
             // isso ninguém mais o vê.
-            'painel do negocio'      => 17,
+            'painel do negocio'      => 18,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
@@ -288,7 +299,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
         // são os itens "certos" criados por este filtro ou pelos módulos.
         // Ex.: sem isto, um link personalizado antigo chamado "Vendas"
         // (a apontar para outro sítio) ganhava ao mapa de vendas real.
-        $slugs_prioritarios = ['dps_vendas_mapa', 'dps_automacoes', 'dps_outros', 'dps_vendas', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'dps_sofia_ia', 'leads', 'tasks', 'reminder', 'customers'];
+        $slugs_prioritarios = ['dps-suporte', 'dps_vendas_mapa', 'dps_automacoes', 'dps_outros', 'dps_vendas', 'dps_credito', 'dps_webmail', 'dps_imoveis', 'dps_sofia_ia', 'leads', 'tasks', 'reminder', 'customers'];
 
         $ordem_iteracao = array_merge(
             array_values(array_intersect($slugs_prioritarios, array_keys($items))),

@@ -1907,14 +1907,55 @@ class Dps_automacao extends AdminController
             ->count_all_results(db_prefix() . 'dps_suporte');
     }
 
+    /**
+     * O desfecho do pedido, nas palavras de quem trabalha com ele.
+     *
+     * "Resolvido" dizia que o pedido tinha sido tratado, não se o negócio
+     * andou. A direcção precisa de fechar com o resultado — e é o resultado
+     * que interessa ao comercial que pediu ajuda.
+     */
     private function suporte_estados()
     {
         return [
-            'novo'       => ['Por responder', 'danger'],
-            'em_curso'   => ['Em curso',      'warning'],
-            'resolvido'  => ['Resolvido',     'success'],
-            'sem_sucesso'=> ['Sem sucesso',   'default'],
+            'novo'          => ['Por responder',  'danger'],
+            'em_curso'      => ['Em curso',       'warning'],
+            'sucesso'       => ['Sucesso',        'success'],
+            'insucesso'     => ['Insucesso',      'danger'],
+            'nao_aplicavel' => ['Não aplicável', 'default'],
         ];
+    }
+
+    /** Avisa o comercial do desfecho: sino + nota na ficha da lead. */
+    private function suporte_avisar_comercial($p, $estado, $texto = '')
+    {
+        $rotulos = $this->suporte_estados();
+        $lbl     = $rotulos[$estado][0] ?? $estado;
+        $quem    = get_staff_user_id();
+
+        // Um estado sem explicação não diz nada a quem espera: vai sempre com
+        // o rótulo, e com a resposta quando ela existe.
+        $recado = 'Suporte — ' . $lbl . ($texto !== '' ? ': ' . $texto : '');
+
+        $this->load->model('leads_model');
+        $this->leads_model->log_lead_activity(
+            (int) $p->lead_id,
+            '🆘 ' . $recado . ' (' . get_staff_full_name($quem) . ')'
+        );
+
+        $this->db->insert(db_prefix() . 'notes', [
+            'rel_id'      => (int) $p->lead_id,
+            'rel_type'    => 'lead',
+            'description' => '🆘 ' . $recado . "\n— " . get_staff_full_name($quem),
+            'dateadded'   => date('Y-m-d H:i:s'),
+            'addedfrom'   => $quem,
+        ]);
+
+        add_notification([
+            'description' => '🆘 ' . mb_substr($recado, 0, 100),
+            'touserid'    => (int) $p->pedinte,
+            'fromuserid'  => $quem,
+            'link'        => 'dps_automacao/suporte',
+        ]);
     }
 
     /**
@@ -1937,6 +1978,12 @@ class Dps_automacao extends AdminController
         $manda  = $this->suporte_e_destinatario();
 
         /*
+         * Vista de direcção: só para admins e só quando pedida. Por omissão
+         * cada um vê o seu lado — quem precisa da vista de cima pede-a.
+         */
+        $tudo = is_admin() && $this->input->get('tudo') === '1';
+
+        /*
          * Cada um vê o seu lado: os pedidos que fez e os que lhe foram
          * dirigidos. Nada mais. O comercial acompanha os seus; quem responde
          * vê a sua fila; e ninguém tropeça no trabalho dos outros.
@@ -1944,11 +1991,14 @@ class Dps_automacao extends AdminController
         $this->db->select('s.*, l.name AS lead_nome, l.phonenumber AS lead_tel, l.email AS lead_email')
             ->from($t . ' s')
             ->join(db_prefix() . 'leads l', 'l.id = s.lead_id', 'left')
-            ->group_start()
+            ->order_by("FIELD(s.estado,'novo','em_curso','insucesso','nao_aplicavel','sucesso'), s.id DESC");
+
+        if (! $tudo) {
+            $this->db->group_start()
                 ->where('s.pedinte', $eu)
                 ->or_where('s.destino', $eu)
-            ->group_end()
-            ->order_by("FIELD(s.estado,'novo','em_curso','sem_sucesso','resolvido'), s.id DESC");
+            ->group_end();
+        }
         if ($filtro !== null && $filtro !== '' && array_key_exists($filtro, $this->suporte_estados())) {
             $this->db->where('s.estado', $filtro);
         }
@@ -1957,13 +2007,17 @@ class Dps_automacao extends AdminController
         $data['manda']    = $manda;
         $data['estados']  = $this->suporte_estados();
         $data['filtro']   = (string) $filtro;
+        $data['tudo']     = $tudo;
+        $data['e_admin']  = is_admin();
         $data['contagem'] = [];
 
         foreach (array_keys($this->suporte_estados()) as $e) {
-            $data['contagem'][$e] = (int) $this->db->query(
-                'SELECT COUNT(*) AS n FROM ' . $t . ' WHERE estado = ? AND (pedinte = ? OR destino = ?)',
-                [$e, $eu, $eu]
-            )->row()->n;
+            $data['contagem'][$e] = $tudo
+                ? (int) $this->db->query('SELECT COUNT(*) AS n FROM ' . $t . ' WHERE estado = ?', [$e])->row()->n
+                : (int) $this->db->query(
+                    'SELECT COUNT(*) AS n FROM ' . $t . ' WHERE estado = ? AND (pedinte = ? OR destino = ?)',
+                    [$e, $eu, $eu]
+                )->row()->n;
         }
 
         $data['title'] = 'Suporte';
@@ -2022,28 +2076,9 @@ class Dps_automacao extends AdminController
             'respondido_em'  => $agora,
         ]);
 
-        $this->load->model('leads_model');
-        $this->leads_model->log_lead_activity(
-            (int) $p->lead_id,
-            '🆘 Resposta da direcção (' . get_staff_full_name($quem) . '): ' . mb_substr($resposta, 0, 250)
-        );
-
-        // A resposta na ficha da lead do comercial, escrita como nota: é onde
-        // ele trabalha, e é onde pediu para a ver.
-        $this->db->insert(db_prefix() . 'notes', [
-            'rel_id'      => (int) $p->lead_id,
-            'rel_type'    => 'lead',
-            'description' => '🆘 Suporte — resposta de ' . get_staff_full_name($quem) . ":\n" . $resposta,
-            'dateadded'   => $agora,
-            'addedfrom'   => $quem,
-        ]);
-
-        add_notification([
-            'description' => '🆘 Resposta ao seu pedido de suporte — ' . mb_substr($resposta, 0, 90),
-            'touserid'    => (int) $p->pedinte,
-            'fromuserid'  => $quem,
-            'link'        => 'dps_automacao/suporte',
-        ]);
+        // A resposta chega ao comercial pelo sino e pela ficha da lead — é
+        // onde ele trabalha, e é onde pediu para a ver.
+        $this->suporte_avisar_comercial($p, $estado, $resposta);
 
         echo json_encode(['sucesso' => true, 'mensagem' => 'Resposta enviada a ' . get_staff_full_name((int) $p->pedinte) . '.']);
     }
@@ -2068,8 +2103,20 @@ class Dps_automacao extends AdminController
             ajax_access_denied();
         }
 
-        $this->db->where('id', $id)->update(db_prefix() . 'dps_suporte', ['estado' => $estado]);
+        $this->db->where('id', $id)->update(db_prefix() . 'dps_suporte', [
+            'estado'         => $estado,
+            'respondido_por' => get_staff_user_id(),
+            'respondido_em'  => date('Y-m-d H:i:s'),
+        ]);
 
-        echo json_encode(['sucesso' => true, 'mensagem' => 'Estado actualizado.']);
+        /*
+         * Fechar um pedido sem dizer nada ao comercial é deixá-lo à espera de
+         * uma coisa que já aconteceu. O desfecho segue sempre para ele.
+         */
+        if ($estado !== 'novo') {
+            $this->suporte_avisar_comercial($p, $estado);
+        }
+
+        echo json_encode(['sucesso' => true, 'mensagem' => 'Desfecho comunicado a ' . get_staff_full_name((int) $p->pedinte) . '.']);
     }
 }

@@ -9,25 +9,37 @@
 
                         <h4 class="no-margin">Suporte</h4>
                         <p class="text-muted">
-                            <?php if ($manda) { ?>
-                                Os pedidos de apoio que lhe foram dirigidos, e os que fez. Responda aqui — a
-                                resposta aparece na ficha da lead de quem pediu e chega-lhe pelo sino.
+                            <?php if ($tudo) { ?>
+                                <strong>Vista de direcção:</strong> todos os pedidos da equipa, de quem quer que
+                                sejam. Só pode responder aos que lhe foram dirigidos.
+                            <?php } elseif ($manda) { ?>
+                                Os pedidos de apoio que lhe foram dirigidos, e os que fez. Responda aqui — o
+                                desfecho aparece na ficha da lead de quem pediu e chega-lhe pelo sino.
                             <?php } else { ?>
                                 Os seus pedidos de apoio à direcção e as respostas que já receberam.
                             <?php } ?>
                         </p>
                         <hr>
 
+                        <?php $modo = $tudo ? '&tudo=1' : ''; ?>
                         <p>
-                            <a href="<?php echo admin_url('dps_automacao/suporte'); ?>"
+                            <a href="<?php echo admin_url('dps_automacao/suporte' . ($tudo ? '?tudo=1' : '')); ?>"
                                class="btn btn-<?php echo $filtro === '' ? 'info' : 'default'; ?> btn-sm">
                                 Todos
                             </a>
                             <?php foreach ($estados as $chave => $e) { ?>
-                                <a href="<?php echo admin_url('dps_automacao/suporte?estado=' . $chave); ?>"
+                                <a href="<?php echo admin_url('dps_automacao/suporte?estado=' . $chave . $modo); ?>"
                                    class="btn btn-<?php echo $filtro === $chave ? 'info' : 'default'; ?> btn-sm">
                                     <?php echo $e[0]; ?>
                                     <span class="badge"><?php echo (int) $contagem[$chave]; ?></span>
+                                </a>
+                            <?php } ?>
+
+                            <?php if ($e_admin) { ?>
+                                <a href="<?php echo admin_url('dps_automacao/suporte' . ($tudo ? '' : '?tudo=1')); ?>"
+                                   class="btn btn-<?php echo $tudo ? 'warning' : 'default'; ?> btn-sm pull-right">
+                                    <i class="fa fa-eye"></i>
+                                    <?php echo $tudo ? 'A ver tudo — voltar aos meus' : 'Vista de direcção'; ?>
                                 </a>
                             <?php } ?>
                         </p>
@@ -65,7 +77,10 @@
                                         <?php } ?>
                                     </span>
                                     <span class="pull-right text-muted">
-                                        <?php if ($meu_para_responder) { ?>
+                                        <?php if ($tudo) { ?>
+                                            <strong><?php echo htmlspecialchars($qde, ENT_QUOTES, 'UTF-8'); ?></strong>
+                                            &rarr; <strong><?php echo htmlspecialchars(get_staff_full_name($p['destino']), ENT_QUOTES, 'UTF-8'); ?></strong>
+                                        <?php } elseif ($meu_para_responder) { ?>
                                             pedido por <strong><?php echo htmlspecialchars($qde, ENT_QUOTES, 'UTF-8'); ?></strong>
                                         <?php } else { ?>
                                             enviado a <strong><?php echo htmlspecialchars(get_staff_full_name($p['destino']), ENT_QUOTES, 'UTF-8'); ?></strong>
@@ -87,7 +102,7 @@
                                 <?php if ($meu_para_responder) { ?>
                                     <div style="margin-top:12px;">
                                         <textarea id="resp-<?php echo (int) $p['id']; ?>" class="form-control" rows="2"
-                                                  placeholder="Resposta ao comercial…"></textarea>
+                                                  placeholder="O que fez, e o que o comercial deve saber…"></textarea>
                                         <div style="margin-top:8px;">
                                             <select id="est-<?php echo (int) $p['id']; ?>" class="form-control"
                                                     style="width:auto;display:inline-block;">
@@ -104,7 +119,7 @@
                                             </button>
                                             <button class="btn btn-default btn-sm"
                                                     onclick="dpsSuporteEstado(<?php echo (int) $p['id']; ?>)">
-                                                Só mudar o estado
+                                                Fechar com este desfecho
                                             </button>
                                             <?php if (! empty($p['tarefa_id'])) { ?>
                                                 <a href="<?php echo admin_url('tasks/view/' . (int) $p['tarefa_id']); ?>"
