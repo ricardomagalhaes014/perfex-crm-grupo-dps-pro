@@ -37,7 +37,15 @@ foreach ($rResult as $aRow) {
         } elseif ($aColumns[$i] == 'description') {
             $_data = process_text_content_for_display($aRow['description']);
             
-            if ($aRow['creator'] == get_staff_user_id() || is_admin()) {
+            /*
+             * Também o DONO do lembrete o pode apagar, não só quem o criou.
+             *
+             * Um comercial que recebe um lembrete marcado por outra pessoa
+             * ficava sem forma de o tirar da sua agenda: via-o todos os dias
+             * e não lhe podia tocar. Quem tem o lembrete na agenda é quem
+             * decide se ele ainda faz sentido.
+             */
+            if ($aRow['creator'] == get_staff_user_id() || $aRow['staff'] == get_staff_user_id() || is_admin()) {
                 $_data .= '<div class="row-options">';
                 if ($aRow['isnotified'] == 0) {
                     $_data .= '<a href="#" onclick="edit_reminder(' . $aRow['id'] . ',this); return false;" class="edit-reminder">' . _l('edit') . '</a> | ';

@@ -5893,14 +5893,22 @@ document.addEventListener('DOMContentLoaded', function() {
        * cala o aviso da marcação manual, e o changeStatus ORIGINAL evita que
        * o envolvente reabra o formulário que acabou de correr.
        */
+      /*
+       * Reserva registada marca a unidade como DPS, não como Reservado.
+       *
+       * "Reservado" é o estado do promotor: unidade fora do mercado que não é
+       * nossa. Quando a reserva passa pelo nosso formulário e entra no CRM, a
+       * unidade foi colocada por nós — e é isso que a estatística de DPS
+       * conta. Decisão do dono (13/08/2026).
+       */
       window.__dpsReservaConfirmada = true;
       try {
         if (typeof _changeStatusOriginal === 'function') {
-          _changeStatusOriginal(table, key, 'Reservado');
+          _changeStatusOriginal(table, key, 'DPS');
         } else if (typeof window.changeStatus === 'function') {
           // Rede de segurança: se o envolvente ainda não tinha sido
           // instalado, não se perde a marcação por causa disso.
-          window.changeStatus(table, key, 'Reservado');
+          window.changeStatus(table, key, 'DPS');
         }
       } finally {
         window.__dpsReservaConfirmada = false;
@@ -6713,9 +6721,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var u=AURA_UNITS.find(function(x){return x.fraccao===frac;}); if(!u||u.status!=='Disponível') return;
     if(typeof window.dpsAbrirReserva!=='function'){ alert('Módulo de reserva indisponível. Recarregue.'); return; }
     window.dpsAbrirReserva('aura',u.fraccao,u,function(){
+      // Como nos outros: reserva nossa entra como DPS.
       window.__dpsReservaConfirmada = true;
       try {
-        u.status='Reservado';
+        u.status='DPS';
         guardarEstadosAura();
         renderAura();
       } finally { window.__dpsReservaConfirmada = false; }
