@@ -76,7 +76,7 @@ function dps_sofia_ia_empreendimentos()
         'belohorizonte' => ['nome' => 'Belo Horizonte',  'states_key' => 'bh_states'],
         'raizes'        => ['nome' => 'Raízes Fanzeres', 'states_key' => 'raizes_states'],
         'lake'          => ['nome' => 'Lake Towers',     'states_key' => 'lake_states'],
-        'gaiadouro'     => ['nome' => 'Gaia Douro',      'states_key' => 'gaiadouro_states'],
+        'gaiadouro'     => ['nome' => 'Douro Mar',      'states_key' => 'gaiadouro_states'],
         'aura'          => ['nome' => 'Aura Residence',  'states_key' => 'aura_states'],
     ];
 }

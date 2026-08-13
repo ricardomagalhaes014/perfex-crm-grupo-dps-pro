@@ -1606,7 +1606,7 @@ class Dps_moloni_model extends App_Model
              *
              * QUAL DAS DUAS TRANCHES: só se escreve quando não há dúvida —
              * quando o empreendimento factura tudo num momento só (Boavista e
-             * Gaia Douro são 100% no CPCV), ou quando a outra tranche já está
+             * Douro Mar são 100% no CPCV), ou quando a outra tranche já está
              * facturada. Num empreendimento 50/50 com as duas por facturar,
              * escolher seria adivinhar em que momento a factura foi emitida, e
              * isso desloca dinheiro entre trimestres. Nesse caso fica dúvida.

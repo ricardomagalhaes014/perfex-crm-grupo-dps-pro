@@ -333,7 +333,7 @@ class Dps_painel_model extends App_Model
      * Chave de comparação de empreendimentos.
      *
      * O campo é texto livre no simulador e o histórico tem variações de
-     * escrita ("Gaia Douro" / "gaia douro "). Compara-se sempre normalizado,
+     * escrita ("Douro Mar" / "gaia douro "). Compara-se sempre normalizado,
      * tal como o dps_vendas faz em get_regra().
      */
     private function chave_emp($nome)
@@ -1174,7 +1174,7 @@ class Dps_painel_model extends App_Model
              * Somadas num número só, uma venda com a comissão do comercial já
              * paga aparecia na lista com o nome dele ao lado de uma dívida que
              * é da direção — e lia-se como se ainda se lhe devesse alguma
-             * coisa. Foi o caso da 1_S do Gaia Douro: comissão do Miguel paga a
+             * coisa. Foi o caso da 1_S do Douro Mar: comissão do Miguel paga a
              * 28/07, e os 1.699,50 € que sobravam eram os 0,5% do Cláudio.
              * Regra do dono (04/08/2026): o valor fica, o que faltava era dizer
              * a quem.

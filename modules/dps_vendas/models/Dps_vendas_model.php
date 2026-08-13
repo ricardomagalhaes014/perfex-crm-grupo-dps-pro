@@ -1886,7 +1886,7 @@ class Dps_vendas_model extends App_Model
 
     /**
      * Chave interna do empreendimento no simulador, a partir do nome livre
-     * gravado na venda ("Boavista Towers", "Gaia Douro", ...).
+     * gravado na venda ("Boavista Towers", "Douro Mar", ...).
      */
     public static function chave_empreendimento($empreendimento)
     {
@@ -1982,7 +1982,7 @@ class Dps_vendas_model extends App_Model
             /*
              * Segunda tentativa: a fracção sem a torre à frente.
              *
-             * No Gaia Douro o simulador guarda "1_AL" e a proposta trazia só
+             * No Douro Mar o simulador guarda "1_AL" e a proposta trazia só
              * "AL" — as comparações acima não apanham isso, porque comparam a
              * chave inteira. Em 09/08/2026 duas vendas (AL e V) ficaram sem
              * preço e sem mudança de estado por causa disto.
@@ -2255,7 +2255,7 @@ class Dps_vendas_model extends App_Model
      * Clientes de um empreendimento, com o email do contacto principal.
      *
      * A ligação é feita pelas vendas e não por um campo copiado para a ficha
-     * do cliente: assim quem compra no Gaia Douro E no Boavista aparece nos
+     * do cliente: assim quem compra no Douro Mar E no Boavista aparece nos
      * dois envios, em vez de o segundo apagar o primeiro.
      *
      * @param string $empreendimento vazio = todos

@@ -159,7 +159,7 @@ function dps_vendas_ensure_schema()
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         // Semear com os empreendimentos actuais; o admin pode criar mais.
-        foreach (['Boavista Towers', 'Raízes Fanzeres', 'Belo Horizonte', 'Gaia Douro', 'Aura Residence', 'Lake Towers'] as $nome_emp) {
+        foreach (['Boavista Towers', 'Raízes Fanzeres', 'Belo Horizonte', 'Douro Mar', 'Aura Residence', 'Lake Towers'] as $nome_emp) {
             $CI->db->insert($pastas, ['nome' => $nome_emp, 'created_at' => date('Y-m-d H:i:s')]);
         }
     }

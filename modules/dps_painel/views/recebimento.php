@@ -195,7 +195,7 @@ $pct = function ($n) {
                          *
                          * Guardam-se nas Regras de Comissão, que é onde vivem; editam-se
                          * aqui por comodidade. Um mês vazio é resposta válida e quer dizer
-                         * "na conclusão / imediato" — é o caso do Gaia Douro e do Boavista.
+                         * "na conclusão / imediato" — é o caso do Douro Mar e do Boavista.
                          */
                         ?>
                         <?php

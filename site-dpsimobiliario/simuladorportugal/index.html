@@ -444,7 +444,7 @@
     <!-- GAIA DOURO -->
     <div class="emp-card" id="card-gaiadouro" onclick="selectEmp('gaiadouro')">
       <div class="emp-card-badge" style="background:rgba(139,92,246,0.2);color:#a78bfa;">V. N. Gaia</div>
-      <div class="emp-card-name">Gaia Douro</div>
+      <div class="emp-card-name">Douro Mar</div>
       <div class="emp-card-loc">📍 Douro Marina, V. N. Gaia</div>
       <div class="emp-card-stats">
         <div class="emp-stat"><strong>100</strong> Apartamentos</div>
@@ -1244,7 +1244,7 @@
     <!-- TABLE HEADER GAIADOURO -->
     <div class="table-header">
       <div class="table-title" style="display:flex;align-items:center;gap:16px;">
-        <span>Gaia Douro — <strong id="gaiadouroCountLabel">0</strong> unidades</span>
+        <span>Douro Mar — <strong id="gaiadouroCountLabel">0</strong> unidades</span>
         <button class="edit-mode-btn" id="gaiadouroEditBtn" onclick="toggleEditMode('gaiadouro')">✏️ Modo Edição</button><button class="edit-mode-btn" id="gaiadouroExportBtn" onclick="exportGaiadouroToPDF()" style="border-color:rgba(197,165,90,0.4);color:var(--gold);">&#11015; Exportar PDF</button>
       </div>
       <input type="text" class="search-box" placeholder="🔍 Pesquisar fracção..." id="gaiadouroSearchBox" oninput="applyGaiadouroFilters()">
@@ -2374,7 +2374,7 @@ function renderGaiadouroTable(data) {
 function openGaiadouroDetail(unit) {
   selectedGaiadouroUnit = unit;
   document.getElementById('gaiadouroDetailTitle').textContent = 'Fracção ' + unit.fraccao + ' — Torre ' + unit.torre;
-  document.getElementById('gaiadouroDetailSubtitle').textContent = 'Gaia Douro · V. N. Gaia · Piso ' + unit.piso + ' · ' + unit.tipologia;
+  document.getElementById('gaiadouroDetailSubtitle').textContent = 'Douro Mar · V. N. Gaia · Piso ' + unit.piso + ' · ' + unit.tipologia;
 
   // Info grid
   document.getElementById('gaiadouroUnitInfoGrid').innerHTML = `
@@ -2392,7 +2392,7 @@ function openGaiadouroDetail(unit) {
     <div class="unit-info-box"><div class="unit-info-label">Estado</div><div class="unit-info-val">${unit.status}</div></div>
   `;
 
-  // Plano de pagamento Gaia Douro
+  // Plano de pagamento Douro Mar
   const gdP = (f) => Math.round(unit.preco_lancamento * f);
   document.getElementById('gaiadouroPagamentoGrid').innerHTML = `
     <div class="result-box">
@@ -3521,7 +3521,7 @@ async function gerarPropostaGaiadouro(unit, loadBtn, simData) {
       doc.setTextColor(...GOLD); doc.setFontSize(12); doc.setFont('helvetica', 'bold');
       doc.text("D'OURO MAR TOWERS", 15, 10);
       doc.setTextColor(...WHITE); doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-      doc.text('Gaia Douro · Vila Nova de Gaia', 15, 16);
+      doc.text('Douro Mar · Vila Nova de Gaia', 15, 16);
       doc.setTextColor(...GOLD); doc.setFontSize(9);
       doc.text('Fracção ' + unit.fraccao + ' — Torre ' + unit.torre, W - 15, 13, { align: 'right' });
       doc.setFillColor(...GOLD); doc.rect(0, 22, W, 1.2, 'F');
@@ -3545,7 +3545,7 @@ async function gerarPropostaGaiadouro(unit, loadBtn, simData) {
     doc.setTextColor(...WHITE); doc.setFontSize(27); doc.setFont('helvetica', 'bold');
     doc.text("D'OURO MAR TOWERS", W / 2, 137, { align: 'center' });
     doc.setTextColor(...GOLD); doc.setFontSize(11); doc.setFont('helvetica', 'normal');
-    doc.text('Gaia Douro · Vila Nova de Gaia · Junto à Douro Marina', W / 2, 148, { align: 'center' });
+    doc.text('Douro Mar · Vila Nova de Gaia · Junto à Douro Marina', W / 2, 148, { align: 'center' });
     doc.setTextColor(...INK); doc.setFontSize(11.5); doc.setFont('helvetica', 'italic');
     doc.text('Entre a serenidade do Douro e a imensidão do Atlântico', W / 2, 176, { align: 'center' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...GREY);
@@ -5393,7 +5393,7 @@ document.addEventListener('DOMContentLoaded', function() {
   'use strict';
   var CRM_ENDPOINT = 'https://crm.grupo-dps.com/dps_venda_receber.php';
   var CRM_TOKEN = '501dfb8e1367ad85183a6f7b11d6cbfc15e2daf66daa33f2720bb601622b7025';
-  var EMPREENDIMENTOS = { bh:'Belo Horizonte', raizes:'Raízes Fanzeres', gp:'Gaia Premium', boavista:'Boavista Towers', lake:'Lake Towers', gaiadouro:'Gaia Douro', aura:'Aura Residence' };
+  var EMPREENDIMENTOS = { bh:'Belo Horizonte', raizes:'Raízes Fanzeres', gp:'Gaia Premium', boavista:'Boavista Towers', lake:'Lake Towers', gaiadouro:'Douro Mar', aura:'Aura Residence' };
   var comerciaisCache = null;
 
   function encontrarUnidade(table, key) {
@@ -5407,7 +5407,7 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch(e){ return null; }
   }
   // Preço de LANÇAMENTO primeiro: é sobre esse que a venda e a comissão
-  // contam (Gaia Douro tem preco_lancamento, Raízes tem pre_sale). O PVP só
+  // contam (Douro Mar tem preco_lancamento, Raízes tem pre_sale). O PVP só
   // entra quando o empreendimento não tem preço de lançamento.
   function precoUnidade(u){ return u ? (u.preco_lancamento||u.pre_sale||u.preco||u.pvp||'') : ''; }
   function carregarComerciais(){
@@ -5514,7 +5514,7 @@ document.addEventListener('DOMContentLoaded', function() {
     bh:        ['Belo Horizonte',  'selectedBhUnit'],
     boavista:  ['Boavista Towers', 'selectedBoavistaUnit'],
     raizes:    ['Raízes Fanzeres', 'selectedRaizesUnit'],
-    gaiadouro: ['Gaia Douro',      'selectedGaiadouroUnit'],
+    gaiadouro: ['Douro Mar',      'selectedGaiadouroUnit'],
     gp:        ['Gaia Premium',    'selectedGpUnit'],
     lake:      ['Lake Towers',     'selectedLakeUnit']
   };
@@ -6975,16 +6975,15 @@ document.addEventListener('DOMContentLoaded', function() {
  * a usar: se ele ordenar por área, não lhe voltamos a mexer.
  */
 (function () {
-  function veioDoCrm() {
-    try {
-      var q = new URLSearchParams(location.search);
-      if (q.get('c') || q.get('staff_id')) return true;
-    } catch (e) {}
-    // Já identificado numa visita anterior (o simulador guarda-o).
-    try { return !!localStorage.getItem('dps_comercial'); } catch (e) { return false; }
-  }
-
-  if (!veioDoCrm()) return;
+  /*
+   * Vale para toda a gente, não só para quem entra pelo CRM.
+   *
+   * Ao princípio isto só corria com ?c=<id> no link, para não reordenar a
+   * tabela por baixo dos pés de quem está a conferir contra as listas do
+   * promotor. O dono decidiu que é sempre (13/08/2026): abrir nas
+   * disponíveis e do mais barato ao mais caro é o que serve para vender, e
+   * quem estiver a conferir muda a ordem com um clique no cabeçalho.
+   */
 
   // ordenar: função de ordenação e o campo do preço de cada tabela.
   // O Lake e o Gaia Premium não têm colunas ordenáveis — ficam de fora.
@@ -6992,7 +6991,7 @@ document.addEventListener('DOMContentLoaded', function() {
     { id: 'bh',        filtro: 'setFilter',           ordenar: 'sortTable',           preco: 'preco' },
     { id: 'boavista',  filtro: 'setBoavistaFilter',   ordenar: 'sortBoavistaTable',   preco: 'preco' },
     { id: 'raizes',    filtro: 'setRaizesFilter',     ordenar: 'sortRaizes',          preco: 'preco' },
-    // No Gaia Douro o que interessa é o preço de lançamento, que é o que se
+    // No Douro Mar o que interessa é o preço de lançamento, que é o que se
     // negoceia — o PVP é o valor de tabela e não é por ele que se escolhe.
     { id: 'gaiadouro', filtro: 'setGaiadouroFilter',  ordenar: 'sortGaiadouroTable',  preco: 'preco_lancamento' },
     /*
@@ -7001,8 +7000,9 @@ document.addEventListener('DOMContentLoaded', function() {
      * disponíveis, que é metade do pedido e a metade que evita mostrar ao
      * cliente uma unidade já vendida.
      */
-    { id: 'lake',      filtro: 'setLakeFilter',       ordenar: null,                  preco: null },
-    { id: 'gp',        filtro: 'setGpFilter',         ordenar: null,                  preco: null }
+    // O Gaia Premium não está no simulador; o que existe é o Douro Mar
+    // (chave interna 'gaiadouro'), já em cima.
+    { id: 'lake',      filtro: 'setLakeFilter',       ordenar: null,                  preco: null }
   ];
 
   var feitas = {};
@@ -7053,12 +7053,39 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   /*
+   * Lake Towers e Gaia Premium não têm cabeçalhos ordenáveis — não há função
+   * de ordenação para lhes chamar. Ordena-se a lista mesmo antes de ser
+   * desenhada, que é o único sítio por onde ela passa sempre.
+   */
+  function envolverRender(nome) {
+    if (typeof window[nome] !== 'function' || window[nome].__dpsOrdenado) return;
+    var original = window[nome];
+    window[nome] = function (data) {
+      if (Object.prototype.toString.call(data) === '[object Array]') {
+        data = data.slice().sort(function (a, b) {
+          function preco(u) {
+            if (u.preco_lancamento) return Number(u.preco_lancamento) || 0;
+            if (u.preco) return Number(u.preco) || 0;
+            if (u.pvp) return Number(u.pvp) || 0;
+            return 0;
+          }
+          return preco(a) - preco(b);
+        });
+      }
+      return original.call(this, data);
+    };
+    window[nome].__dpsOrdenado = true;
+  }
+
+  /*
    * As secções aparecem à medida que se escolhe o empreendimento, por isso
    * não há um momento único para fazer isto. Vigia-se durante dois minutos e
    * pára-se — não fica um temporizador vivo para sempre.
    */
   var voltas = 0;
   var iv = setInterval(function () {
+    envolverRender('renderLakeTable');
+    envolverRender('renderGpTable');
     TABELAS.forEach(aplicar);
     aplicarAura();
     if (++voltas > 240) clearInterval(iv);

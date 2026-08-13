@@ -298,7 +298,7 @@ function dps_propostas_empreendimentos()
             'site' => 'https://dpsimobiliario.pt/', 'dossier' => null, 'tem_proposta' => false,
         ],
         'gaiadouro' => [
-            'nome'         => 'Gaia Douro',
+            'nome'         => 'Douro Mar',
             'descricao'    => 'Empreendimento em Vila Nova de Gaia, junto a Douro Marina, com apartamentos de gama premium e vista sobre o rio Douro. Cem apartamentos, a poucos minutos do centro do Porto.',
             'states_key'   => 'gaiadouro_states',
             'site'         => 'https://dpsimobiliario.pt/',
@@ -769,7 +769,7 @@ function dps_propostas_slug($empreendimento)
 /**
  * A fracção como o catálogo a conhece.
  *
- * O nome que chega na proposta nem sempre é o do catálogo: o Gaia Douro guarda
+ * O nome que chega na proposta nem sempre é o do catálogo: o Douro Mar guarda
  * "1_AL" (torre à frente) e a proposta trazia só "AL". Em 09/08/2026 isso fez
  * duas vendas nascerem sem preço e sem mudança de estado no simulador —
  * silenciosamente, porque uma procura falhada devolve zero e zero parece um

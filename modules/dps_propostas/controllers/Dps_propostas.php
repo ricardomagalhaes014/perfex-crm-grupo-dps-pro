@@ -609,7 +609,7 @@ class Dps_propostas extends AdminController
             if (strpos($k, 'belo horizonte') !== false || $k === 'bh')          { return 'Belo Horizonte'; }
             if (strpos($k, 'raizes') !== false)                                { return 'Raízes Fanzeres'; }
             if (strpos($k, 'gaia douro') !== false || strpos($k, 'gaiadouro') !== false
-                || strpos($k, 'douro mar') !== false || strpos($k, 'douromar') !== false) { return 'Gaia Douro'; }
+                || strpos($k, 'douro mar') !== false || strpos($k, 'douromar') !== false) { return 'Douro Mar'; }
             if (strpos($k, 'aura') !== false)                                  { return 'Aura Residence'; }
             if (strpos($k, 'lake') !== false)                                  { return 'Lake Towers'; }
             if (strpos($k, 'gaia premium') !== false || $k === 'gp')           { return 'Gaia Premium'; }
@@ -1025,7 +1025,7 @@ class Dps_propostas extends AdminController
          * A venda guarda a fracção com o nome do CATÁLOGO, não com o que veio
          * na proposta.
          *
-         * O Gaia Douro é "1_AL" no catálogo e no simulador; a proposta trazia
+         * O Douro Mar é "1_AL" no catálogo e no simulador; a proposta trazia
          * "AL". Guardar "AL" na venda fazia falhar tudo o que viesse a seguir —
          * o preço, e depois a mudança de estado para DPS na montra, que procura
          * a fracção pelo nome. Foi o que aconteceu às vendas AL e V em
@@ -1084,7 +1084,7 @@ class Dps_propostas extends AdminController
          * passava pelo quadro, que é quem chamava a sincronização — resultado,
          * a montra continuava a mostrar disponível uma fracção já vendida, e
          * outro comercial podia prometê-la a outro cliente nos minutos
-         * seguintes. Aconteceu com as fracções AL e V do Gaia Douro em
+         * seguintes. Aconteceu com as fracções AL e V do Douro Mar em
          * 09/08/2026.
          */
         $na_montra = false;
