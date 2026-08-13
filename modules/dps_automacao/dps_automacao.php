@@ -1353,3 +1353,79 @@ function dps_automacao_js_suporte()
     </script>
     <?php
 }
+
+/**
+ * Caixa da agenda: abrir a lead ou eliminar o lembrete.
+ *
+ * Eliminar só existia na lista de lembretes. Quem trabalha a partir da
+ * agenda não tinha como limpar o que já não faz sentido — o cliente comprou,
+ * desistiu, ou o lembrete foi marcado por engano — e ficava com a agenda
+ * cheia de coisas mortas que já ninguém vai fazer.
+ *
+ * O modelo do calendário (application/models/Utilities_model.php) põe em cada
+ * lembrete de lead um onclick a chamar dpsLembreteAgenda().
+ */
+hooks()->add_action('app_admin_footer', 'dps_automacao_js_lembrete_agenda');
+function dps_automacao_js_lembrete_agenda()
+{
+    if (! is_staff_member()) {
+        return;
+    }
+    ?>
+    <div class="modal fade" id="dpsLembreteModal" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-sm" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title">Lembrete</h4>
+          </div>
+          <div class="modal-body">
+            <p id="dps-lembrete-texto" class="bold" style="margin-bottom:4px;"></p>
+            <p class="text-muted" style="font-size:12px;">O que quer fazer?</p>
+          </div>
+          <div class="modal-footer">
+            <a href="#" id="dps-lembrete-abrir" class="btn btn-info">Abrir a lead</a>
+            <button type="button" id="dps-lembrete-apagar" class="btn btn-danger">Eliminar</button>
+            <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var actual = { id: 0, lead: 0 };
+
+      window.dpsLembreteAgenda = function (id, leadId, texto) {
+        actual = { id: id, lead: leadId };
+        document.getElementById('dps-lembrete-texto').textContent = texto || 'Lembrete';
+        document.getElementById('dps-lembrete-abrir').setAttribute(
+          'href', '<?php echo admin_url('leads/index/'); ?>' + leadId
+        );
+        $('#dpsLembreteModal').modal('show');
+      };
+
+      $(document).on('click', '#dps-lembrete-apagar', function () {
+        if (!confirm('Eliminar este lembrete? Não há forma de o recuperar.')) { return; }
+        var btn = this;
+        btn.disabled = true;
+
+        // A rota do Perfex quer rel_id, id e rel_type — por esta ordem.
+        $.get('<?php echo admin_url('misc/delete_reminder/'); ?>' + actual.lead + '/' + actual.id + '/lead',
+          function (r) {
+            try { r = typeof r === 'string' ? JSON.parse(r) : r; } catch (e) { r = null; }
+            $('#dpsLembreteModal').modal('hide');
+            btn.disabled = false;
+            if (r && r.alert_type === 'success') {
+              alert_float('success', r.message || 'Lembrete eliminado.');
+              // Recarregar: o calendário guarda os eventos em memória e o
+              // lembrete apagado continuaria desenhado até se sair da página.
+              setTimeout(function () { location.reload(); }, 700);
+            } else {
+              alert_float('danger', (r && r.message) ? r.message : 'Não foi possível eliminar.');
+            }
+          });
+      });
+    })();
+    </script>
+    <?php
+}

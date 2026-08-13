@@ -347,7 +347,9 @@ class Utilities_model extends App_Model
             $hideNotifiedReminders = get_option('hide_notified_reminders_from_calendar');
             foreach ($available_reminders as $key) {
                 if (get_option('show_' . $key . '_reminders_on_calendar') == 1 && !$ff || $ff && array_key_exists($key . '_reminders', $filters)) {
-                    $this->db->select('date,description,firstname,lastname,creator,staff,rel_id')
+                    // `id` é preciso para se poder apagar o lembrete a partir
+                    // da própria agenda.
+                    $this->db->select(db_prefix() . 'reminders.id as reminder_id,date,description,firstname,lastname,creator,staff,rel_id')
                     ->from(db_prefix() . 'reminders')
                     ->where('(date BETWEEN "' . $start . '" AND "' . $end . '")')
                     ->where('rel_type', $key)
@@ -425,6 +427,24 @@ class Utilities_model extends App_Model
                                  * com os contactos e o histórico.
                                  */
                                 $url = admin_url('leads/index/' . (int) $reminder['rel_id']);
+
+                                /*
+                                 * Carregar abre uma caixa com duas saídas:
+                                 * ver a lead ou eliminar o lembrete. Eliminar
+                                 * só existia na lista de lembretes, e quem
+                                 * trabalha a partir da agenda não tinha como
+                                 * limpar o que já não faz sentido — ficava
+                                 * com a agenda cheia de coisas mortas.
+                                 *
+                                 * Se o JS não estiver carregado, o onclick
+                                 * não corre e o link normal leva à lead na
+                                 * mesma. Nunca fica um clique morto.
+                                 */
+                                $_reminder['onclick'] = 'dpsLembreteAgenda('
+                                    . (int) $reminder['reminder_id'] . ','
+                                    . (int) $reminder['rel_id'] . ','
+                                    . json_encode(mb_substr((string) $reminder['description'], 0, 90), JSON_UNESCAPED_UNICODE)
+                                    . '); return false;';
                             } elseif ($key == 'proposal') {
                                 $url = admin_url('proposals/list_proposals/' . $reminder['rel_id']);
                             } elseif ($key == 'expense') {
