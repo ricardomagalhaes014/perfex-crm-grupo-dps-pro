@@ -135,11 +135,54 @@ $aColumns = hooks()->apply_filters('reminder_table_sql_columns', $aColumns);
 if (count($custom_fields) > 4) {
     @$this->ci->db->query('SET SQL_BIG_SELECTS=1');
 }
-$result = data_tables_init($aColumns, $sIndexColumn, $sTable, $join, $where, [db_prefix() . 'reminders.id as id']);
+/*
+ * rel_id tem de vir na consulta.
+ *
+ * As colunas "Cliente" e "Contacto Principal" saem dos campos `customer` e
+ * `contact`, que só o Perfex preenche em lembretes de cliente. Nos lembretes
+ * de LEAD — que são a esmagadora maioria aqui — ficavam as duas em branco: a
+ * lista dizia "retornar contato" sem dizer a quem nem para que número, e
+ * quem a abria de manhã tinha de ir lead a lead à procura do telefone.
+ *
+ * Para as poder preencher é preciso saber a que lead pertence o lembrete.
+ */
+$result = data_tables_init($aColumns, $sIndexColumn, $sTable, $join, $where, [
+    db_prefix() . 'reminders.id as id',
+    db_prefix() . 'reminders.rel_id as rel_id',
+]);
 $output  = $result['output'];
 $rResult = $result['rResult'];
+/**
+ * Nome e telefone da lead de um lembrete.
+ *
+ * Guardado em memória: a mesma lead aparece em vários lembretes e não vale a
+ * pena voltar à base de dados por cada linha.
+ */
+function dps_reminder_lead($ci, $lead_id)
+{
+    static $cache = [];
+
+    $lead_id = (int) $lead_id;
+    if ($lead_id <= 0) {
+        return null;
+    }
+    if (array_key_exists($lead_id, $cache)) {
+        return $cache[$lead_id];
+    }
+
+    $linha = $ci->db->select('id, name, phonenumber, email')
+        ->where('id', $lead_id)
+        ->get(db_prefix() . 'leads')->row_array();
+
+    return $cache[$lead_id] = $linha ?: null;
+}
+
 foreach ($rResult as $aRow) {
     $row = [];
+    // Lembrete de lead: é dela que saem o nome e o contacto.
+    $dps_lead = (isset($aRow['rel_type']) && $aRow['rel_type'] === 'lead')
+        ? dps_reminder_lead($this->ci, $aRow['rel_id'] ?? 0)
+        : null;
     $numberOutput = '<a href="javascript:void(0);" onclick="init_reminder(' . $aRow['id'] . '); return false;">' ._dt($aRow['date']) . '</a>';
     $numberOutput .= '<div class="row-options">';
     $numberOutput .= '<a href="javascript:void(0);" onclick="getViewModal(' . $aRow['id'] . ')">' . _l('view') . '</a>';
@@ -149,8 +192,32 @@ foreach ($rResult as $aRow) {
     $numberOutput .= '</div>';
     $row[] = $numberOutput;
     $row[] = !empty(get_staff($aRow['assigned_to'])) ? get_staff($aRow['assigned_to'])->firstname.' '.get_staff($aRow['assigned_to'])->lastname : '';
-    $row[] = !empty(get_client($aRow['customer'])) ? get_client($aRow['customer'])->company : '';
-    $row[] =  get_contact_full_name($aRow['contact']);
+    // Cliente: nome da lead, com ligação para a ficha (contactos e histórico).
+    if ($dps_lead) {
+        $row[] = '<a href="' . admin_url('leads/index/' . (int) $dps_lead['id']) . '">'
+               . htmlspecialchars($dps_lead['name'], ENT_QUOTES, 'UTF-8') . '</a>';
+    } else {
+        $row[] = !empty(get_client($aRow['customer'])) ? get_client($aRow['customer'])->company : '';
+    }
+
+    // Contacto Principal: o telefone, clicável para ligar, com o WhatsApp ao
+    // lado — é para ligar que estes lembretes existem.
+    if ($dps_lead) {
+        $tel   = trim((string) $dps_lead['phonenumber']);
+        $limpo = preg_replace('/\D/', '', $tel);
+        $celula = '';
+        if ($tel !== '' && $limpo !== '') {
+            $celula = '<a href="tel:' . $limpo . '">' . htmlspecialchars($tel, ENT_QUOTES, 'UTF-8') . '</a>'
+                    . ' <a href="https://wa.me/' . $limpo . '" target="_blank" rel="noopener"'
+                    . ' title="Abrir WhatsApp" style="color:#25D366;margin-left:4px;">'
+                    . '<i class="fa fa-whatsapp"></i></a>';
+        } elseif (! empty($dps_lead['email'])) {
+            $celula = htmlspecialchars($dps_lead['email'], ENT_QUOTES, 'UTF-8');
+        }
+        $row[] = $celula;
+    } else {
+        $row[] = get_contact_full_name($aRow['contact']);
+    }
     $row[] = $aRow['description'];
     $row[] = $aRow['total_amount'];
     if($this->ci->input->post('reminder_filter_related')=='custom_reminder'){
