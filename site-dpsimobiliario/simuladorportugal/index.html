@@ -6471,11 +6471,31 @@ document.addEventListener('DOMContentLoaded', function() {
       var jsPDF=await carregarJsPDF(); var doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
       var W=297; doc.setFontSize(16); doc.setTextColor(168,135,60); doc.setFont('helvetica','bold'); doc.text('AURA RESIDENCE — Unidades',15,15);
       doc.setFontSize(9); doc.setTextColor(90,100,115); doc.setFont('helvetica','normal'); doc.text('Meixomil, Paços de Ferreira · dpsimobiliario.pt',15,21);
-      var rows=_auraOrdenadas(filtrados()); var cols=['Fração','Tipologia','Piso','Orientação','ABC','Varanda','Área hab.','Preço','Estado'];
-      var x=[15,38,68,82,140,158,178,200,235]; var y=32;
+      /*
+       * A orientação solar vai no PDF como vai na tabela.
+       *
+       * O ecrã mostrava-a e a exportação não — quem levasse a lista impressa
+       * para uma visita ficava sem a informação que o cliente pergunta
+       * sempre. As posições das colunas foram todas refeitas para caber mais
+       * uma: são coordenadas fixas em milímetros, não uma tabela que se
+       * ajusta sozinha.
+       */
+      var rows=_auraOrdenadas(filtrados());
+      var cols=['Fração','Tipologia','Piso','Orientação','Sol','ABC','Varanda','Área hab.','Preço','Estado'];
+      var x=[15,33,57,70,118,148,166,186,208,245]; var y=32;
       doc.setFontSize(8); doc.setTextColor(168,135,60); doc.setFont('helvetica','bold'); cols.forEach(function(c,i){doc.text(c,x[i],y);}); y+=2; doc.setDrawColor(200); doc.line(15,y,W-15,y); y+=5;
       doc.setFont('helvetica','normal'); doc.setTextColor(26,32,44);
-      rows.forEach(function(u){ if(y>195){doc.addPage();y=20;} var vals=[u.fraccao,u.tipologia,pisoTxt(u.piso),(u.orientacao||'').slice(0,32),String(u.abc),String(u.varanda),String(u.total),(u.status==='Disponível'?euros(u.preco):u.status),u.status]; vals.forEach(function(v,i){doc.text(String(v),x[i],y);}); y+=6; });
+      rows.forEach(function(u){
+        if(y>195){doc.addPage();y=20;}
+        // u.solar é calculado no arranque a partir da orientação; se por
+        // alguma razão faltar, calcula-se aqui em vez de sair vazio.
+        var sol = u.solar || (typeof auraSolar==='function' ? auraSolar(u.orientacao) : '') || '—';
+        var vals=[u.fraccao,u.tipologia,pisoTxt(u.piso),(u.orientacao||'').slice(0,26),sol,
+                  String(u.abc),String(u.varanda),String(u.total),
+                  (u.status==='Disponível'?euros(u.preco):u.status),u.status];
+        vals.forEach(function(v,i){doc.text(String(v),x[i],y);});
+        y+=6;
+      });
       doc.save('Aura_Residence_Unidades.pdf');
     } catch(e){ alert('Erro ao exportar: '+e.message); } finally { btn.textContent=t; btn.disabled=false; }
   };
