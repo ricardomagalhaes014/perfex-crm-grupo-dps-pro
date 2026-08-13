@@ -1,0 +1,22 @@
+# robots.txt - dpsimobiliario.pt
+# Empreendimentos: Aura Residence (Paços de Ferreira), Boavista Towers (Porto),
+# Belo Horizonte (Setúbal), Douro Mar e Lake Towers.
+
+User-agent: *
+Allow: /
+Allow: /auraresidence/
+Allow: /boavistatowers/
+Allow: /belohorizonte/
+Allow: /simuladorportugal/
+Allow: /imoveis/
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /wp-admin/
+Disallow: /cgi-bin/
+
+# Sitemap
+Sitemap: https://dpsimobiliario.pt/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1

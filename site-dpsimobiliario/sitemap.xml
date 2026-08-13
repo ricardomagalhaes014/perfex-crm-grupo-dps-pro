@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+
+  <!-- Aura Residence - Paços de Ferreira - PRIORIDADE MÁXIMA -->
+  <url>
+    <loc>https://dpsimobiliario.pt/auraresidence/</loc>
+    <lastmod>2026-08-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/auraresidence/assets/render3.jpg</image:loc>
+      <image:title>Aura Residence Paços de Ferreira - Fachada Principal</image:title>
+      <image:caption>Apartamentos novos T0 a T3 em Meixomil, Paços de Ferreira - Aura Residence</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/auraresidence/assets/render7.jpg</image:loc>
+      <image:title>Aura Residence - Vista de Esquina</image:title>
+      <image:caption>Empreendimento novo para habitação e investimento em Paços de Ferreira, a 25 minutos do Porto</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/auraresidence/assets/render4.jpg</image:loc>
+      <image:title>Aura Residence - Frente Urbana</image:title>
+      <image:caption>Varandas e loja comercial no edifício - Avenida do Marco, Meixomil</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Página Principal -->
+  <url>
+    <loc>https://dpsimobiliario.pt/</loc>
+    <lastmod>2026-04-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Edifício Belo Horizonte Setúbal - PRIORIDADE MÁXIMA -->
+  <url>
+    <loc>https://dpsimobiliario.pt/belohorizonte/</loc>
+    <lastmod>2026-04-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/belohorizonte/images/002.webp</image:loc>
+      <image:title>Edifício Belo Horizonte Setúbal - Vista Exterior</image:title>
+      <image:caption>Edifício Belo Horizonte Residences em Setúbal - Apartamentos em planta T0, T1, T2 e T3</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/belohorizonte/images/004.webp</image:loc>
+      <image:title>Fachada Edifício Belo Horizonte Setúbal</image:title>
+      <image:caption>Fachada do Condomínio Belo Horizonte em Setúbal, Portugal</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/belohorizonte/images/009.webp</image:loc>
+      <image:title>Piscina Belo Horizonte Setúbal com Vistas para o Mar</image:title>
+      <image:caption>Piscina com espreguiçadeiras e vistas para o oceano - Condomínio Belo Horizonte Setúbal</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/belohorizonte/images/006.webp</image:loc>
+      <image:title>Varandas Apartamentos Belo Horizonte Setúbal</image:title>
+      <image:caption>Varandas privativas dos apartamentos do Edifício Belo Horizonte em Setúbal</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Simulador Belo Horizonte -->
+  <url>
+    <loc>https://dpsimobiliario.pt/simuladorportugal/</loc>
+    <lastmod>2026-04-25</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Imóveis -->
+  <url>
+    <loc>https://dpsimobiliario.pt/imoveis/</loc>
+    <lastmod>2026-04-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Boavista Tower Porto - PRIORIDADE MÁXIMA -->
+  <url>
+    <loc>https://dpsimobiliario.pt/boavistatowers/</loc>
+    <lastmod>2026-07-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/boavistatowers/fotos/foto_01.jpg</image:loc>
+      <image:title>Boavista Tower - Avenida da Boavista, Porto</image:title>
+      <image:caption>Boavista Tower - 249 apartamentos T1 e T2, 21 pisos, na Avenida da Boavista, Porto</image:caption>
+    </image:image>
+  </url>
+
+</urlset>
