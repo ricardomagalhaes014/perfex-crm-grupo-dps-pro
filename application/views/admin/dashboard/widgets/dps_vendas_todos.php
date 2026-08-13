@@ -100,16 +100,21 @@ $por_comercial = function ($de, $ate, $condicao) use ($CI, $p) {
 $carteira_sql = "v.estado <> 'cancelado'";
 
 /*
- * BELO HORIZONTE conta como concluído aqui, seja qual for o estado da venda.
+ * Concluída é concluída, e mais nada.
  *
- * É uma regra só deste gráfico, decidida pelo dono (04/08/2026): o circuito do
- * Belo Horizonte não passa pelos mesmos estados dos outros empreendimentos, e
- * sem esta excepção o Cláudio e o Breno apareciam a zero num quadro em que
- * têm negócio fechado. NÃO se mexe no estado das vendas nem em mais nenhum
- * sítio — quem quiser saber o estado real continua a vê-lo no mapa de vendas.
+ * Houve aqui uma excepção (04/08/2026) que fazia o Belo Horizonte contar como
+ * fechado seja qual for o estado: na altura o circuito dele ainda não passava
+ * pelos mesmos estados dos outros, e sem isso o Cláudio e o Breno apareciam a
+ * zero num quadro onde tinham negócio feito.
+ *
+ * Deixou de fazer sentido. O Belo Horizonte tem hoje 52 vendas em "concluido"
+ * — o circuito normalizou-se — e a excepção só apanhava 5 reservas a sério,
+ * que apareciam como vendas fechadas a quem ainda não fechou nada. A 13/08 a
+ * Cátia figurava com 854.800 € de vendas concluídas sem ter nenhuma.
+ *
+ * As reservas continuam a contar no gráfico do meio, que existe para isso.
  */
-$fechadas_sql = "(v.estado = 'concluido'
-                  OR (v.empreendimento LIKE '%Belo Horizonte%' AND v.estado <> 'cancelado'))";
+$fechadas_sql = "v.estado = 'concluido'";
 
 $linhas_fechadas = $por_comercial($de, $ate, $fechadas_sql);
 $linhas_carteira = $por_comercial($de, $ate, $carteira_sql);
