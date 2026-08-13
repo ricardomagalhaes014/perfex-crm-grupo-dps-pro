@@ -1094,9 +1094,23 @@ function dps_automacao_lembrete_schema()
          */
         $CI->db->query('CREATE TABLE `' . db_prefix() . 'dps_lembrete_avisos` (
             `reminder_id` INT(11) NOT NULL,
+            `tipo`        VARCHAR(10) NOT NULL DEFAULT "30min",
             `avisado_em`  DATETIME NOT NULL,
-            PRIMARY KEY (`reminder_id`)
+            PRIMARY KEY (`reminder_id`, `tipo`)
         ) ENGINE=InnoDB DEFAULT CHARSET=' . $CI->db->char_set . ';');
+    }
+
+    /*
+     * A tabela nasceu só com o aviso dos 30 minutos. Passou a haver também o
+     * aviso do próprio dia, e os dois têm de poder existir para o mesmo
+     * lembrete — daí a coluna `tipo` fazer parte da chave.
+     */
+    $campos = $CI->db->list_fields(db_prefix() . 'dps_lembrete_avisos');
+    if (! in_array('tipo', $campos, true)) {
+        $CI->db->query('ALTER TABLE `' . db_prefix() . 'dps_lembrete_avisos`
+            ADD COLUMN `tipo` VARCHAR(10) NOT NULL DEFAULT "30min"');
+        $CI->db->query('ALTER TABLE `' . db_prefix() . 'dps_lembrete_avisos`
+            DROP PRIMARY KEY, ADD PRIMARY KEY (`reminder_id`, `tipo`)');
     }
 }
 
@@ -1124,7 +1138,7 @@ function dps_automacao_aviso_lembretes()
     $lembretes = $CI->db->query(
         'SELECT r.id, r.description, r.date, r.staff, r.rel_id, r.rel_type
            FROM ' . db_prefix() . 'reminders r
-           LEFT JOIN ' . db_prefix() . 'dps_lembrete_avisos a ON a.reminder_id = r.id
+           LEFT JOIN ' . db_prefix() . 'dps_lembrete_avisos a ON a.reminder_id = r.id AND a.tipo = "30min"
           WHERE r.date >= ? AND r.date <= ?
             AND (r.isnotified IS NULL OR r.isnotified = 0)
             AND (r.is_complete IS NULL OR r.is_complete <> "1")
@@ -1152,8 +1166,8 @@ function dps_automacao_aviso_lembretes()
         ]);
 
         $CI->db->query(
-            'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, avisado_em)
-             VALUES (?, ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
+            'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
+             VALUES (?, "30min", ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
             [(int) $l['id'], date('Y-m-d H:i:s')]
         );
     }
@@ -1495,4 +1509,78 @@ function dps_automacao_tarefas_seguem_a_lead($lead_id)
 
     log_activity('dps_automacao: lead #' . $lead_id . ' mudou de dono — '
         . count($tarefas) . ' tarefa(s) por fechar passaram para o staff #' . $dono . '.');
+}
+
+/**
+ * Aviso no próprio dia, de manhã.
+ *
+ * O aviso dos 30 minutos serve para não falhar a hora, mas chega tarde para
+ * organizar o dia: quem tem cinco chamadas marcadas quer saber disso quando
+ * se senta, não trinta minutos antes de cada uma. Pedido do dono
+ * (13/08/2026).
+ *
+ * Um aviso por lembrete e por dia, com a hora e o nome do cliente, e a
+ * ligação para a ficha da lead. Fica no sino do CRM, que é a indicação que
+ * toda a gente vê.
+ */
+hooks()->add_action('after_cron_run', 'dps_automacao_aviso_lembretes_do_dia');
+function dps_automacao_aviso_lembretes_do_dia()
+{
+    $CI = &get_instance();
+    dps_automacao_lembrete_schema();
+
+    /*
+     * Só a partir das 7h. O cron corre a toda a hora e sem isto o aviso do
+     * dia saía à meia-noite e um, quando ninguém o vê — e de manhã já estava
+     * lido e enterrado nas notificações antigas.
+     */
+    if ((int) date('G') < 7) {
+        return;
+    }
+
+    $lembretes = $CI->db->query(
+        'SELECT r.id, r.description, r.date, r.staff, r.rel_id, r.rel_type
+           FROM ' . db_prefix() . 'reminders r
+           LEFT JOIN ' . db_prefix() . 'dps_lembrete_avisos a
+                  ON a.reminder_id = r.id AND a.tipo = "dia"
+          WHERE DATE(r.date) = CURDATE()
+            AND (r.is_complete IS NULL OR r.is_complete <> "1")
+            AND a.reminder_id IS NULL'
+    )->result_array();
+
+    foreach ($lembretes as $l) {
+        $texto = trim(strip_tags((string) $l['description']));
+        $texto = mb_substr($texto, 0, 100) ?: 'Lembrete';
+
+        $link = '';
+        $quem = '';
+
+        if ($l['rel_type'] === 'lead' && ! empty($l['rel_id'])) {
+            $link = 'leads/index/' . (int) $l['rel_id'];
+            $lead = $CI->db->select('name')->where('id', (int) $l['rel_id'])
+                ->get(db_prefix() . 'leads')->row();
+            if ($lead) {
+                $quem = ' — ' . $lead->name;
+            }
+        } elseif ($l['rel_type'] === 'customer' && ! empty($l['rel_id'])) {
+            $link = 'clients/client/' . (int) $l['rel_id'];
+        }
+
+        add_notification([
+            'description' => '📅 Hoje às ' . date('H:i', strtotime($l['date'])) . $quem . ': ' . $texto,
+            'touserid'    => (int) $l['staff'],
+            'fromcompany' => true,
+            'link'        => $link,
+        ]);
+
+        $CI->db->query(
+            'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
+             VALUES (?, "dia", ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
+            [(int) $l['id'], date('Y-m-d H:i:s')]
+        );
+    }
+
+    if (count($lembretes) > 0) {
+        log_activity('dps_automacao: aviso do dia enviado para ' . count($lembretes) . ' lembrete(s).');
+    }
 }
