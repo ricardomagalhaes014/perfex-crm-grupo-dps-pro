@@ -1429,3 +1429,70 @@ function dps_automacao_js_lembrete_agenda()
     </script>
     <?php
 }
+
+/**
+ * Quando uma lead muda de dono, as tarefas dela vão atrás.
+ *
+ * Uma tarefa fica na fila de quem a recebeu, não de quem tem a lead. Passa a
+ * lead para outro comercial e as tarefas continuam na fila do anterior: ele
+ * vê trabalho que já não é dele e o novo dono não vê nada. Foi assim que a
+ * 13/08/2026 havia 32 tarefas na pessoa errada.
+ *
+ * Só as tarefas POR FECHAR: as fechadas são história e reescrevê-las não
+ * ajuda ninguém.
+ *
+ * E nunca as de SUPORTE. Essas são dirigidas de propósito a quem vai ajudar
+ * a fechar o negócio — mandá-las para o dono da lead era devolvê-las a quem
+ * pediu ajuda, e o pedido morria aí.
+ */
+hooks()->add_action('after_lead_updated', 'dps_automacao_tarefas_seguem_a_lead');
+function dps_automacao_tarefas_seguem_a_lead($lead_id)
+{
+    $CI      = &get_instance();
+    $lead_id = (int) $lead_id;
+
+    if ($lead_id <= 0) {
+        return;
+    }
+
+    $lead = $CI->db->select('assigned')->where('id', $lead_id)
+        ->get(db_prefix() . 'leads')->row();
+
+    if (! $lead || (int) $lead->assigned <= 0) {
+        return;
+    }
+
+    $dono = (int) $lead->assigned;
+
+    $tarefas = $CI->db->query(
+        'SELECT a.id, a.taskid, a.staffid
+           FROM ' . db_prefix() . 'task_assigned a
+           JOIN ' . db_prefix() . 'tasks t ON t.id = a.taskid
+          WHERE t.rel_type = "lead" AND t.rel_id = ?
+            AND t.status <> 5
+            AND a.staffid <> ?
+            AND t.name NOT LIKE "%Apoio para fechar%"
+            AND t.name NOT LIKE "%Suporte%"',
+        [$lead_id, $dono]
+    )->result_array();
+
+    if (empty($tarefas)) {
+        return;
+    }
+
+    foreach ($tarefas as $t) {
+        // Se o novo dono já lá estiver, tira-se o antigo em vez de duplicar.
+        $ja = $CI->db->where('taskid', (int) $t['taskid'])->where('staffid', $dono)
+            ->count_all_results(db_prefix() . 'task_assigned');
+
+        if ($ja > 0) {
+            $CI->db->where('id', (int) $t['id'])->delete(db_prefix() . 'task_assigned');
+        } else {
+            $CI->db->where('id', (int) $t['id'])
+                ->update(db_prefix() . 'task_assigned', ['staffid' => $dono]);
+        }
+    }
+
+    log_activity('dps_automacao: lead #' . $lead_id . ' mudou de dono — '
+        . count($tarefas) . ' tarefa(s) por fechar passaram para o staff #' . $dono . '.');
+}
