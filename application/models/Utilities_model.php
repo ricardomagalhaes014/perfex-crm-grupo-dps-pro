@@ -356,6 +356,29 @@ class Utilities_model extends App_Model
                         $this->db->where('isnotified', 0);
                     }
                     $reminders = $this->db->get()->result_array();
+
+                    /*
+                     * Nome da lead a que o lembrete pertence.
+                     *
+                     * O calendário mostrava só a descrição — "retornar
+                     * ligação" — sem dizer a quem. Quem abre a agenda de
+                     * manhã fica com uma lista de recados sem destinatário e
+                     * tem de ir à lead um por um. Uma consulta para todos os
+                     * lembretes do dia, não uma por linha.
+                     */
+                    $nomes_lead = [];
+                    if ($key === 'lead' && count($reminders) > 0) {
+                        $ids = array_filter(array_map('intval', array_column($reminders, 'rel_id')));
+                        if (count($ids) > 0) {
+                            $linhas = $this->db->select('id, name')
+                                ->where_in('id', array_unique($ids))
+                                ->get(db_prefix() . 'leads')->result_array();
+                            foreach ($linhas as $l) {
+                                $nomes_lead[(int) $l['id']] = $l['name'];
+                            }
+                        }
+                    }
+
                     foreach ($reminders as $reminder) {
                         if ((get_staff_user_id() == $reminder['creator'] || get_staff_user_id() == $reminder['staff']) || $is_admin) {
                             $_reminder['title'] = '';
@@ -365,6 +388,18 @@ class Utilities_model extends App_Model
                             }
 
                             $name = mb_substr($reminder['description'], 0, 60) . '...';
+
+                            // A lead à frente da descrição: é ela que diz a
+                            // quem se vai ligar, e é o que se procura na
+                            // agenda. A descrição sozinha não identifica
+                            // ninguém.
+                            $lead_nome = ($key === 'lead' && isset($nomes_lead[(int) $reminder['rel_id']]))
+                                ? $nomes_lead[(int) $reminder['rel_id']]
+                                : '';
+
+                            if ($lead_nome !== '') {
+                                $name = $lead_nome . ' — ' . $name;
+                            }
 
                             $_reminder['_tooltip'] = _l('calendar_' . $key . '_reminder') . ' - ' . $name;
                             $_reminder['title'] .= $name;
@@ -378,8 +413,18 @@ class Utilities_model extends App_Model
                             } elseif ($key == 'estimate') {
                                 $url = admin_url('estimates/list_estimates/' . $reminder['rel_id']);
                             } elseif ($key == 'lead') {
-                                $url                  = '#';
-                                $_reminder['onclick'] = 'init_lead(' . $reminder['rel_id'] . '); return false;';
+                                /*
+                                 * Ligação directa para a ficha da lead.
+                                 *
+                                 * Aqui estava '#' com um onclick a chamar
+                                 * init_lead() — função que só existe na
+                                 * página das leads. Na agenda não existe, e
+                                 * carregar no lembrete não fazia
+                                 * absolutamente nada. Um endereço normal
+                                 * funciona de qualquer página e abre a ficha
+                                 * com os contactos e o histórico.
+                                 */
+                                $url = admin_url('leads/index/' . (int) $reminder['rel_id']);
                             } elseif ($key == 'proposal') {
                                 $url = admin_url('proposals/list_proposals/' . $reminder['rel_id']);
                             } elseif ($key == 'expense') {
