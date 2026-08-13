@@ -6874,5 +6874,120 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <!-- /AURA_RESIDENCE_INJECT -->
 
+
+<!-- DPS_ORDEM_PRECO_INJECT -->
+<script>
+/*
+ * Quem entra pelo CRM vê primeiro o mais barato.
+ * ---------------------------------------------
+ * O comercial abre o simulador a meio de uma conversa e o que precisa é da
+ * unidade mais acessível daquela tipologia — não da fracção A1 porque é a
+ * primeira do alfabeto. As tabelas abriam ordenadas por piso ou por fracção,
+ * e havia que carregar duas vezes em cada uma para chegar ao mesmo sítio.
+ *
+ * Passa a abrir filtrado nas disponíveis e ordenado do preço mais baixo para
+ * o mais alto, em todos os empreendimentos. Pedido do dono (12/08/2026).
+ *
+ * SÓ para quem vem do CRM (o link traz ?c=<id> ou ?staff_id=). Quem abre o
+ * simulador directamente continua a mandar na ordem — muitas vezes é para
+ * conferir tabelas contra as do promotor, que vêm por fracção, e reordenar
+ * por baixo dos pés de quem está a conferir é a melhor maneira de gerar
+ * enganos.
+ *
+ * Aplica-se UMA vez por empreendimento. A partir daí a ordem é de quem está
+ * a usar: se ele ordenar por área, não lhe voltamos a mexer.
+ */
+(function () {
+  function veioDoCrm() {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (q.get('c') || q.get('staff_id')) return true;
+    } catch (e) {}
+    // Já identificado numa visita anterior (o simulador guarda-o).
+    try { return !!localStorage.getItem('dps_comercial'); } catch (e) { return false; }
+  }
+
+  if (!veioDoCrm()) return;
+
+  // ordenar: função de ordenação e o campo do preço de cada tabela.
+  // O Lake e o Gaia Premium não têm colunas ordenáveis — ficam de fora.
+  var TABELAS = [
+    { id: 'bh',        filtro: 'setFilter',           ordenar: 'sortTable',           preco: 'preco' },
+    { id: 'boavista',  filtro: 'setBoavistaFilter',   ordenar: 'sortBoavistaTable',   preco: 'preco' },
+    { id: 'raizes',    filtro: 'setRaizesFilter',     ordenar: 'sortRaizes',          preco: 'preco' },
+    // No Gaia Douro o que interessa é o preço de lançamento, que é o que se
+    // negoceia — o PVP é o valor de tabela e não é por ele que se escolhe.
+    { id: 'gaiadouro', filtro: 'setGaiadouroFilter',  ordenar: 'sortGaiadouroTable',  preco: 'preco_lancamento' },
+    /*
+     * O Lake e o Gaia Premium não têm cabeçalhos ordenáveis — não há função
+     * de ordenação para lhes chamar. Ficam ao menos filtrados nas
+     * disponíveis, que é metade do pedido e a metade que evita mostrar ao
+     * cliente uma unidade já vendida.
+     */
+    { id: 'lake',      filtro: 'setLakeFilter',       ordenar: null,                  preco: null },
+    { id: 'gp',        filtro: 'setGpFilter',         ordenar: null,                  preco: null }
+  ];
+
+  var feitas = {};
+
+  function botaoDisponiveis(nomeFiltro) {
+    var alvo = 'onclick*="' + nomeFiltro + "('status','Disponível'" + '"';
+    try { return document.querySelector('[' + alvo + ']'); } catch (e) { return null; }
+  }
+
+  function aplicar(t) {
+    if (feitas[t.id]) return true;
+    if (t.ordenar && typeof window[t.ordenar] !== 'function') return false;
+    if (typeof window[t.filtro] !== 'function') return false;
+
+    var btn = botaoDisponiveis(t.filtro);
+    // A tabela ainda não está no DOM: tenta-se outra vez no próximo ciclo.
+    if (!btn || !btn.offsetParent) return false;
+
+    feitas[t.id] = true;
+
+    // 1) só as disponíveis
+    if (typeof window[t.filtro] === 'function') {
+      try { window[t.filtro]('status', 'Disponível', btn); } catch (e) {}
+    }
+    /*
+     * 2) do mais barato para o mais caro.
+     *
+     * Estas funções alternam ascendente/descendente quando se lhes chama com
+     * o campo que já está activo. Nenhuma tabela abre ordenada por preço, por
+     * isso uma chamada deixa-a ascendente — que é o que queremos. Chamar duas
+     * vezes punha-a ao contrário.
+     */
+    if (t.ordenar) { try { window[t.ordenar](t.preco); } catch (e) {} }
+    return true;
+  }
+
+  function aplicarAura() {
+    if (feitas.aura) return true;
+    if (typeof window.renderAura !== 'function' && !document.getElementById('aura-section')) return false;
+    // O Aura já abre nas disponíveis; falta-lhe a ordem.
+    if (typeof window._auraOrdem === 'undefined') return false;
+    feitas.aura = true;
+    window._auraOrdem = { campo: 'preco', desc: false };
+    if (typeof window._auraOrdenar === 'function') {
+      try { window._auraOrdenar('preco'); window._auraOrdem = { campo: 'preco', desc: false }; } catch (e) {}
+    }
+    return true;
+  }
+
+  /*
+   * As secções aparecem à medida que se escolhe o empreendimento, por isso
+   * não há um momento único para fazer isto. Vigia-se durante dois minutos e
+   * pára-se — não fica um temporizador vivo para sempre.
+   */
+  var voltas = 0;
+  var iv = setInterval(function () {
+    TABELAS.forEach(aplicar);
+    aplicarAura();
+    if (++voltas > 240) clearInterval(iv);
+  }, 500);
+})();
+</script>
+<!-- /DPS_ORDEM_PRECO_INJECT -->
 </body>
 </html>
