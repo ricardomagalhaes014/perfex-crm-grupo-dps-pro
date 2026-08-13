@@ -1549,38 +1549,151 @@ function dps_automacao_aviso_lembretes_do_dia()
     )->result_array();
 
     foreach ($lembretes as $l) {
-        $texto = trim(strip_tags((string) $l['description']));
-        $texto = mb_substr($texto, 0, 100) ?: 'Lembrete';
-
-        $link = '';
-        $quem = '';
-
-        if ($l['rel_type'] === 'lead' && ! empty($l['rel_id'])) {
-            $link = 'leads/index/' . (int) $l['rel_id'];
-            $lead = $CI->db->select('name')->where('id', (int) $l['rel_id'])
-                ->get(db_prefix() . 'leads')->row();
-            if ($lead) {
-                $quem = ' — ' . $lead->name;
-            }
-        } elseif ($l['rel_type'] === 'customer' && ! empty($l['rel_id'])) {
-            $link = 'clients/client/' . (int) $l['rel_id'];
-        }
-
-        add_notification([
-            'description' => '📅 Hoje às ' . date('H:i', strtotime($l['date'])) . $quem . ': ' . $texto,
-            'touserid'    => (int) $l['staff'],
-            'fromcompany' => true,
-            'link'        => $link,
-        ]);
-
-        $CI->db->query(
-            'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
-             VALUES (?, "dia", ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
-            [(int) $l['id'], date('Y-m-d H:i:s')]
-        );
+        dps_automacao_avisar_lembrete_do_dia($l);
     }
 
     if (count($lembretes) > 0) {
         log_activity('dps_automacao: aviso do dia enviado para ' . count($lembretes) . ' lembrete(s).');
     }
+}
+
+/**
+ * Tudo o que entra na agenda passa a ter lembrete.
+ *
+ * Um evento do calendário desenha-se e mais nada: não entra na lista de
+ * lembretes e não avisa ninguém. Quem marcava uma reunião na agenda contava
+ * com um aviso que nunca existiu.
+ *
+ * Cria-se um lembrete espelho, para o dono do evento e à hora dele. A partir
+ * daí segue as regras dos outros: aviso de manhã e aviso 30 minutos antes.
+ * Pedido do dono (13/08/2026).
+ */
+hooks()->add_action('dps_evento_criado', 'dps_automacao_lembrete_do_evento');
+function dps_automacao_lembrete_do_evento($event_id)
+{
+    $CI       = &get_instance();
+    $event_id = (int) $event_id;
+
+    if ($event_id <= 0) {
+        return;
+    }
+
+    $evento = $CI->db->where('eventid', $event_id)
+        ->get(db_prefix() . 'events')->row();
+
+    if (! $evento || empty($evento->start)) {
+        return;
+    }
+
+    // Compromisso que já passou não tem aviso a dar.
+    if (strtotime($evento->start) < time()) {
+        return;
+    }
+
+    $texto = trim(strip_tags((string) $evento->title));
+    if ($texto === '') {
+        $texto = 'Compromisso na agenda';
+    }
+
+    $CI->db->insert(db_prefix() . 'reminders', [
+        'description'     => $texto,
+        'date'            => $evento->start,
+        'isnotified'      => 0,
+        // Sem isto nasce concluído — ver a armadilha do enum em
+        // dps_automacao/controllers/Dps_automacao.php.
+        'is_complete'     => '0',
+        'staff'           => (int) $evento->userid,
+        'rel_id'          => $event_id,
+        'rel_type'        => 'event',
+        'creator'         => (int) $evento->userid,
+        'notify_by_email' => 0,
+    ]);
+}
+
+/**
+ * O aviso do dia também corre quando o comercial abre o CRM.
+ *
+ * O cron trata do caso geral, mas depende de ele ter corrido — e quem chega
+ * às 8h de um dia em que o cron falhou não vê aviso nenhum. Isto garante que
+ * o aviso está lá mal se abre o computador: corre no primeiro carregamento
+ * de página do dia, só para o próprio, e é barato porque a tabela de
+ * controlo diz logo que já foi avisado.
+ */
+hooks()->add_action('admin_init', 'dps_automacao_aviso_dia_ao_entrar');
+function dps_automacao_aviso_dia_ao_entrar()
+{
+    static $feito = false;
+
+    if ($feito || ! is_staff_member()) {
+        return;
+    }
+    $feito = true;
+
+    $CI  = &get_instance();
+    $eu  = (int) get_staff_user_id();
+
+    if ($eu <= 0) {
+        return;
+    }
+
+    dps_automacao_lembrete_schema();
+
+    $lembretes = $CI->db->query(
+        'SELECT r.id, r.description, r.date, r.staff, r.rel_id, r.rel_type
+           FROM ' . db_prefix() . 'reminders r
+           LEFT JOIN ' . db_prefix() . 'dps_lembrete_avisos a
+                  ON a.reminder_id = r.id AND a.tipo = "dia"
+          WHERE DATE(r.date) = CURDATE()
+            AND r.staff = ?
+            AND (r.is_complete IS NULL OR r.is_complete <> "1")
+            AND a.reminder_id IS NULL',
+        [$eu]
+    )->result_array();
+
+    foreach ($lembretes as $l) {
+        dps_automacao_avisar_lembrete_do_dia($l);
+    }
+}
+
+/**
+ * Manda o aviso do dia de um lembrete e marca-o como avisado.
+ *
+ * Partilhada pelo cron e pelo aviso de entrada no CRM: dois caminhos para o
+ * mesmo aviso, e a tabela de controlo garante que só sai uma vez.
+ */
+function dps_automacao_avisar_lembrete_do_dia(array $l)
+{
+    $CI = &get_instance();
+
+    $texto = trim(strip_tags((string) $l['description']));
+    $texto = mb_substr($texto, 0, 100) ?: 'Lembrete';
+
+    $link = '';
+    $quem = '';
+
+    if ($l['rel_type'] === 'lead' && ! empty($l['rel_id'])) {
+        $link = 'leads/index/' . (int) $l['rel_id'];
+        $lead = $CI->db->select('name')->where('id', (int) $l['rel_id'])
+            ->get(db_prefix() . 'leads')->row();
+        if ($lead) {
+            $quem = ' — ' . $lead->name;
+        }
+    } elseif ($l['rel_type'] === 'customer' && ! empty($l['rel_id'])) {
+        $link = 'clients/client/' . (int) $l['rel_id'];
+    } elseif ($l['rel_type'] === 'event') {
+        $link = 'utilities/calendar';
+    }
+
+    add_notification([
+        'description' => '📅 Hoje às ' . date('H:i', strtotime($l['date'])) . $quem . ': ' . $texto,
+        'touserid'    => (int) $l['staff'],
+        'fromcompany' => true,
+        'link'        => $link,
+    ]);
+
+    $CI->db->query(
+        'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
+         VALUES (?, "dia", ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
+        [(int) $l['id'], date('Y-m-d H:i:s')]
+    );
 }

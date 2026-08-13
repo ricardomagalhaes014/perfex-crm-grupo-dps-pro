@@ -58,6 +58,15 @@ class Utilities_model extends App_Model
         $insert_id = $this->db->insert_id();
 
         if ($insert_id) {
+            /*
+             * Não havia aviso nenhum depois de se criar um evento — só o
+             * filtro `event_create_data`, que corre ANTES da gravação e não
+             * conhece o id. Quem quisesse reagir a um evento novo não tinha
+             * por onde pegar. Daqui sai o lembrete que faz o compromisso
+             * aparecer também na lista de lembretes e avisar o comercial.
+             */
+            hooks()->do_action('dps_evento_criado', $insert_id);
+
             return true;
         }
 
