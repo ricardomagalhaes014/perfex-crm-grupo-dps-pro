@@ -6500,7 +6500,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var sol = u.solar || (typeof auraSolar==='function' ? auraSolar(u.orientacao) : '') || '—';
         var vals=[u.fraccao,u.tipologia,pisoTxt(u.piso),(u.orientacao||'').slice(0,26),sol,
                   String(u.abc),String(u.varanda),String(u.total),
-                  (u.status==='Disponível'?euros(u.preco):u.status),u.status];
+                  ((u.status==='Disponível'||u.status==='Reservado')?euros(u.preco):u.status),u.status];
         vals.forEach(function(v,i){doc.text(String(v),x[i],y);});
         y+=6;
       });
@@ -6535,6 +6535,24 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!isNaN(na) && !isNaN(nb)) { return na - nb; }
 
     return String(va || '').localeCompare(String(vb || ''), 'pt', { numeric: true });
+  }
+
+  /*
+   * O que se mostra na coluna do preço.
+   *
+   * Uma unidade reservada continua a valer o que valia: a reserva pode cair,
+   * e quem está a comparar preços precisa de ver o dela. Só nas vendidas e
+   * nas DPS é que o preço deixa de interessar — aí mostra-se o estado.
+   * Pedido do dono (13/08/2026).
+   */
+  function _auraPrecoCelula(u){
+    if (u.status === 'Disponível' || u.status === 'Reservado') {
+      var txt = euros(u.preco);
+      return u.status === 'Reservado'
+        ? txt + ' <span style="color:#fbbf24;font-weight:400;font-size:.8em;">(reservado)</span>'
+        : txt;
+    }
+    return u.status;
   }
 
   function _auraOrdenadas(lista){
@@ -6583,11 +6601,38 @@ document.addEventListener('DOMContentLoaded', function() {
     h+='</div>';
     // stats
     function stat(n,l,c){ return '<div style="flex:1;min-width:110px;background:#0d1b2e;border:1px solid rgba(197,165,90,.25);border-radius:10px;padding:14px;"><div style="font-size:1.8rem;font-weight:800;color:'+c+';">'+n+'</div><div style="font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:#9fb0c3;">'+l+'</div></div>'; }
-    h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'+stat(AURA_UNITS.length,'Total unidades','#C5A55A')+stat(disp,'Disponíveis','#4ade80')+stat(resv,'Reservados','#fbbf24')+stat(vend,'Vendidos','#f87171')+stat(dps,'DPS (vendidos pela DPS)','#C5A55A')+'</div>';
+    /*
+     * Absorção: quanto do empreendimento já saiu do mercado.
+     *
+     * Mesma conta dos outros empreendimentos — tudo o que não está
+     * disponível sobre o total. É o número que se diz ao cliente para
+     * explicar a pressa, e o Aura era o único que não o mostrava.
+     */
+    var absorcao = AURA_UNITS.length > 0
+        ? Math.round(((AURA_UNITS.length - disp) / AURA_UNITS.length) * 100)
+        : 0;
+    h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">'
+      +stat(AURA_UNITS.length,'Total unidades','#C5A55A')
+      +stat(disp,'Disponíveis','#4ade80')
+      +stat(resv,'Reservados','#fbbf24')
+      +stat(vend,'Vendidos','#f87171')
+      +stat(absorcao+'%','Absorção','#F5F2ED')
+      +stat(dps,'DPS (vendidos pela DPS)','#C5A55A')+'</div>';
     // tabela
     h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.9rem;color:#F5F2ED;">';
     h+='<thead><tr style="border-bottom:2px solid rgba(197,165,90,.4);color:#C5A55A;text-align:left;">'+_auraTh('Fração','fraccao','padding:8px;')+_auraTh('Tipologia','tipologia')+_auraTh('Piso','piso')+_auraTh('Orientação','orientacao')+_auraTh('Sol','solar')+_auraTh('ABC (m²)','abc')+_auraTh('Varanda','varanda')+_auraTh('Área hab.','total')+_auraTh('Preço','preco')+'<th></th></tr></thead><tbody>';
-    rows.forEach(function(u){ var vend=u.status!=='Disponível';
+    rows.forEach(function(u){
+      /*
+       * Reservada não é o mesmo que fechada.
+       *
+       * Uma reserva pode cair, e até lá o comercial precisa de a poder
+       * simular e mandar proposta — é assim nos outros empreendimentos
+       * (canSim aceita Disponível e Reservado) e o Aura era a excepção.
+       * Só Vendido e DPS é que fecham a unidade. Pedido do dono (13/08/2026).
+       */
+      var fechada  = (u.status === 'Vendido' || u.status === 'DPS');
+      var reservavel = (u.status === 'Disponível');
+      var vend = fechada;
       // Coluna de acções: em Modo de Edição mostra o selector completo
       // (é assim que se marca Vendido/DPS, tal como nos outros
       // empreendimentos); sem modo de edição, só "Reservar" nas disponíveis.
@@ -6599,13 +6644,16 @@ document.addEventListener('DOMContentLoaded', function() {
                   return '<option value="'+s+'"'+(u.status===s?' selected':'')+'>'+s+'</option>';
                 }).join('')
               + '</select>';
-      } else if (!vend) {
-        acoes = '<button onclick="window._auraReservar(\''+u.fraccao+'\')" style="padding:5px 10px;border-radius:6px;border:none;background:#4ade80;color:#081528;font-weight:600;cursor:pointer;margin-right:4px;">Reservar</button>'
+      } else if (!fechada) {
+        // Reservar só nas livres; simular e propor também nas reservadas.
+        acoes = (reservavel
+              ? '<button onclick="window._auraReservar(\''+u.fraccao+'\')" style="padding:5px 10px;border-radius:6px;border:none;background:#4ade80;color:#081528;font-weight:600;cursor:pointer;margin-right:4px;">Reservar</button>'
+              : '')
               + '<button onclick="window._auraSelecionar(\''+u.fraccao+'\')" style="padding:5px 10px;border-radius:6px;border:none;background:#C5A55A;color:#081528;font-weight:600;cursor:pointer;">Proposta</button>';
       } else {
         acoes = '';
       }
-      h+='<tr style="border-bottom:1px solid rgba(255,255,255,.08);'+(vend?'opacity:.55;':'')+'"><td style="padding:8px;font-weight:600;">'+u.fraccao+'</td><td>'+u.tipologia+'</td><td>'+pisoTxt(u.piso)+'</td><td>'+(u.orientacao||'')+'</td><td style="white-space:nowrap;color:#C5A55A;">'+(u.solar||'—')+'</td><td>'+u.abc+'</td><td>'+u.varanda+'</td><td>'+u.total+'</td><td style="font-weight:600;color:#C5A55A;">'+(vend?u.status:euros(u.preco))+'</td><td>'+acoes+'</td></tr>';
+      h+='<tr style="border-bottom:1px solid rgba(255,255,255,.08);'+(vend?'opacity:.55;':'')+'"><td style="padding:8px;font-weight:600;">'+u.fraccao+'</td><td>'+u.tipologia+'</td><td>'+pisoTxt(u.piso)+'</td><td>'+(u.orientacao||'')+'</td><td style="white-space:nowrap;color:#C5A55A;">'+(u.solar||'—')+'</td><td>'+u.abc+'</td><td>'+u.varanda+'</td><td>'+u.total+'</td><td style="font-weight:600;color:#C5A55A;">'+_auraPrecoCelula(u)+'</td><td>'+acoes+'</td></tr>';
     });
     h+='</tbody></table></div><div id="aura-panel" style="margin-top:16px;"></div>';
     sec.innerHTML=h;
