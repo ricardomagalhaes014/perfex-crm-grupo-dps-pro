@@ -81,13 +81,28 @@
   <!-- Boavista Tower Porto - PRIORIDADE MÁXIMA -->
   <url>
     <loc>https://dpsimobiliario.pt/boavistatowers/</loc>
-    <lastmod>2026-07-09</lastmod>
+    <lastmod>2026-08-13</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://dpsimobiliario.pt/boavistatowers/fotos/foto_01.jpg</image:loc>
       <image:title>Boavista Tower - Avenida da Boavista, Porto</image:title>
-      <image:caption>Boavista Tower - 249 apartamentos T1 e T2, 21 pisos, na Avenida da Boavista, Porto</image:caption>
+      <image:caption>Boavista Tower - 249 apartamentos T1+1, T2 e T2 Smart, 21 pisos, na Avenida da Boavista, Porto</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/boavistatowers/fotos/foto_02.jpg</image:loc>
+      <image:title>Boavista Tower - Vista Panoramica do Porto</image:title>
+      <image:caption>A vista mais alta do Porto - apartamentos novos na Avenida da Boavista</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/boavistatowers/fotos/nova_01.jpg</image:loc>
+      <image:title>Boavista Tower - Rooftop e Areas Comuns</image:title>
+      <image:caption>Rooftop, ginasio, coworking e jardins privados - Boavista Tower Porto</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://dpsimobiliario.pt/boavistatowers/fotos/nova_03.jpg</image:loc>
+      <image:title>Boavista Tower - Interiores</image:title>
+      <image:caption>Apartamentos T1+1 e T2 com acabamentos de gama alta no Porto</image:caption>
     </image:image>
   </url>
 
