@@ -1728,10 +1728,23 @@ class Dps_automacao extends AdminController
          */
         $staff = get_staff_user_id();
 
+        /*
+         * is_complete tem de ir explícito.
+         *
+         * A coluna é um enum('1','0') SEM valor por omissão — e o MySQL, nesse
+         * caso, usa o primeiro da lista, que aqui é '1'. Todo o lembrete
+         * inserido sem mencionar a coluna nascia CONCLUÍDO: não aparecia na
+         * agenda (o calendário esconde os concluídos) e o aviso dos 30 minutos
+         * também o saltava, porque filtra os concluídos. Os 89 lembretes que
+         * existiam no CRM a 13/08/2026 estavam TODOS assim, desde 2025 — o
+         * problema não era deste botão, era de qualquer coisa que escrevesse
+         * na tabela sem saber deste pormenor.
+         */
         $this->db->insert(db_prefix() . 'reminders', [
             'description'     => $descricao,
             'date'            => $data_sql,
             'isnotified'      => 0,
+            'is_complete'     => '0',
             'staff'           => $staff,
             'rel_id'          => $lead_id,
             'rel_type'        => 'lead',
