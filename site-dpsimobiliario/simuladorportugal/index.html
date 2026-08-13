@@ -6429,7 +6429,91 @@ document.addEventListener('DOMContentLoaded', function() {
       pag.forEach(function(p){ doc.setTextColor.apply(doc,INKSOFT); doc.setFont('helvetica','normal'); doc.text(p[0],16,y2); if(p[1]){doc.setTextColor.apply(doc,GOLD); doc.setFont('helvetica','bold'); doc.text(p[1],150,y2,{align:'right'});} doc.setFont('helvetica','normal'); doc.setTextColor.apply(doc,INK); doc.text(Math.round(p[2]).toLocaleString('pt-PT')+' €',W-16,y2,{align:'right'}); y2+=8; });
       rodape();
 
-      // PAGINA 3 - PLANTA DO PISO
+      /* PAGINA 3 - O QUE ESTA A VOLTA
+       *
+       * Texto da direcção (13/08/2026). Vai numa página só dele porque é
+       * argumento de venda, não rodapé: quem compra para habitação decide
+       * pela escola e pelo centro de saúde, e quem compra para investir sabe
+       * que é isso que garante inquilino.
+       *
+       * Sem emojis: o jsPDF com as fontes padrão não os desenha e sairiam
+       * quadrados pretos. Os títulos aguentam-se sozinhos.
+       */
+      doc.addPage(); fundo();
+      doc.setTextColor.apply(doc,GOLD); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('02 · A ENVOLVENTE',14,18);
+      doc.setTextColor.apply(doc,INK); doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.text('O que está à volta',14,28);
+      doc.setDrawColor.apply(doc,GOLD); doc.setLineWidth(0.5); doc.line(14,31,60,31);
+
+      doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(9.5); doc.setFont('helvetica','normal');
+      var envIntro = doc.splitTextToSize(
+        'Não estamos apenas a vender apartamentos novos. Para habitação própria e para '
+        + 'investimento, ter escolas, saúde, supermercados, ginásios e serviços a poucos '
+        + 'minutos aumenta muito a atratividade do imóvel.', W-28);
+      doc.text(envIntro,14,40);
+
+      var ENVOLVENTE = [
+        ['Educação', [
+          ['Escola Básica de Paços de Ferreira','cerca de 1 min'],
+          ['Escola Secundária de Paços de Ferreira','cerca de 3 min'],
+          ['Centro Escolar de Meixomil','cerca de 4 min'],
+          ['Creche Municipal de Meixomil','cerca de 4 min']
+        ]],
+        ['Saúde', [
+          ['Centro de Saúde de Paços de Ferreira','cerca de 3 min'],
+          ['Hospital Lusíadas Paços de Ferreira','cerca de 5 min'],
+          ['Hospital Particular de Paredes','cerca de 15 min'],
+          ['Hospital Padre Américo, Penafiel','cerca de 15/18 min']
+        ]],
+        ['Supermercados', [
+          ['Auchan Paços de Ferreira','a 1 minuto'],
+          ['Lidl Paços de Ferreira','cerca de 4/5 min'],
+          ['Pingo Doce Paços de Ferreira','cerca de 6/7 min'],
+          ['Mercadona Paços de Ferreira','cerca de 7/8 min']
+        ]],
+        ['Ginásios', [
+          ['Fitness UP Paços de Ferreira','1 minuto — é atravessar a rua'],
+          ['Paços Health Club','cerca de 5/7 min'],
+          ['Physical Paços de Ferreira','cerca de 7/8 min']
+        ]],
+        ['Ensino superior', [
+          ['CESPU Gandra','cerca de 17 min'],
+          ['CESPU Penafiel','cerca de 18 min'],
+          ['ISCE Douro','cerca de 18/20 min']
+        ]]
+      ];
+
+      /*
+       * Duas colunas: em coluna única isto passava para uma segunda página e
+       * partia a lista a meio de uma categoria.
+       */
+      var envY0 = 40 + envIntro.length*5 + 10;
+      var colX  = [14, 110], colY = [envY0, envY0], colLargura = 86;
+
+      ENVOLVENTE.forEach(function(bloco, i){
+        var col = (i < 3) ? 0 : 1;   // três categorias à esquerda, duas à direita
+        var x = colX[col], y = colY[col];
+
+        doc.setTextColor.apply(doc,GOLD); doc.setFontSize(11); doc.setFont('helvetica','bold');
+        doc.text(bloco[0], x, y);
+        doc.setDrawColor.apply(doc,LINE); doc.setLineWidth(0.3); doc.line(x, y+2, x+colLargura, y+2);
+        y += 8;
+
+        bloco[1].forEach(function(item){
+          doc.setTextColor.apply(doc,INK); doc.setFontSize(8.5); doc.setFont('helvetica','bold');
+          var nome = doc.splitTextToSize(item[0], colLargura);
+          doc.text(nome, x, y);
+          y += nome.length * 4;
+          doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(8); doc.setFont('helvetica','normal');
+          doc.text(item[1], x, y);
+          y += 6.5;
+        });
+
+        colY[col] = y + 4;
+      });
+
+      rodape();
+
+      // PAGINA 4 - PLANTA DO PISO
       if(imgPl){
         doc.addPage(); fundo();
         doc.setTextColor.apply(doc,GOLD); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('ANEXO · PLANTA DE ARQUITETURA',14,18);
@@ -6441,7 +6525,7 @@ document.addEventListener('DOMContentLoaded', function() {
         rodape();
       }
 
-      // PAGINA 4 - SIMULACAO (sem fiscalidade)
+      // PAGINA 5 - SIMULACAO (sem fiscalidade)
       doc.addPage(); fundo();
       doc.setTextColor.apply(doc,GOLD); doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.text('SIMULAÇÃO DE INVESTIMENTO',W/2,25,{align:'center'});
       doc.setDrawColor.apply(doc,GOLD); doc.line(20,29,W-20,29);
