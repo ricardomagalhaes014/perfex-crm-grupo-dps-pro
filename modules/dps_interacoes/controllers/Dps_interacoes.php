@@ -17,7 +17,12 @@ class Dps_interacoes extends AdminController
         $p = db_prefix();
 
         // Parâmetros GET
-        $periodo   = $this->input->get('periodo') ?: 'last_7';
+        /*
+         * Por omissão, últimos 15 dias. Uma semana é pouco para se ver um
+         * padrão de trabalho — um par de dias maus ou um feriado chegavam
+         * para distorcer a leitura. Pedido do dono (13/08/2026).
+         */
+        $periodo   = $this->input->get('periodo') ?: 'last_15';
         $status_id = (int)$this->input->get('status_id');
 
         /*
@@ -115,9 +120,33 @@ class Dps_interacoes extends AdminController
                                    OR al.description LIKE '%Proposta enviada%')
                                   AND al.description NOT LIKE '%Nota gravada por%'";
 
+            /*
+             * TERCEIRA ARMADILHA: a mesma frase repetida em dezenas de leads.
+             *
+             * A 13/08/2026 a Cátia aparecia com 96 interacções num dia. Eram
+             * reais no sentido de existirem — 102 notas em 96 leads entre as
+             * 7h e as 10h — mas 95 delas eram duas frases copiadas:
+             * "Encaminhei SMS e Email" (50 vezes) e "Enviei email e SMS" (45).
+             * Percorrer uma lista a colar a mesma frase não é falar com 96
+             * clientes, e o quadro dizia que era.
+             *
+             * Passa a contar-se DIA + TEXTO em vez de DIA + LEAD: a mesma
+             * frase no mesmo dia conta uma vez, escreva-se em duas leads ou em
+             * cinquenta. Quem escreve uma nota diferente por cliente continua
+             * a contar uma por cliente — que é exactamente a diferença que
+             * este quadro deve mostrar. Decisão do dono (13/08/2026).
+             *
+             * O texto é normalizado antes de comparar: tira-se o prefixo
+             * "? Nota:" que o registo acrescenta, e ignoram-se maiúsculas e
+             * espaços a mais. Sem isso, "Enviei email" e "enviei  email"
+             * contariam como duas coisas.
+             */
+            $texto_normalizado = "LOWER(TRIM(REPLACE(REPLACE(REPLACE("
+                . "SUBSTRING_INDEX(al.description, ': ', -1), '\r', ' '), '\n', ' '), '  ', ' ')))";
+
             $count_sql = "
                 SELECT COUNT(*) AS total FROM (
-                    SELECT DISTINCT al.leadid, DATE(al.date) AS dia
+                    SELECT DISTINCT DATE(al.date) AS dia, {$texto_normalizado} AS texto
                       FROM {$p}lead_activity_log al
                 INNER JOIN {$p}leads l ON l.id = al.leadid
                      WHERE al.staffid = {$sid}
