@@ -979,6 +979,25 @@ function dps_propostas_cancelar_indisponiveis($empreendimento = null, $unidade =
         $CI->db->where('p.unidade', $unidade);
     }
 
+    /*
+     * SÓ AS PROPOSTAS ENVIADAS A PARTIR DO ARRANQUE.
+     *
+     * No dia em que isto entrou havia 218 propostas por responder cujas
+     * fracções já tinham saído do mercado, de 150 clientes, algumas de 10 de
+     * Julho. Escrever a essa gente hoje a dizer que "a fracção foi vendida"
+     * faria mais estranheza do que serviço, e cancelá-las em bloco reescrevia
+     * um mês de histórico de uma assentada. Decisão do dono (14/08/2026):
+     * vale só daqui para a frente.
+     *
+     * A data está gravada e não é calculada — assim o corte não anda para a
+     * frente sozinho, e as propostas de hoje continuam abrangidas amanhã.
+     */
+    $desde = (string) get_option('dps_propostas_cancelar_desde');
+
+    if ($desde !== '') {
+        $CI->db->where('p.created_at >=', $desde);
+    }
+
     $pendentes = $CI->db->get()->result();
 
     $fora       = dps_propostas_estados_fora_do_mercado();
