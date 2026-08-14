@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DPS Imobiliário | Imóveis Porto, Itapema, Porto Belo, Santa Catarina e Dubai</title>
+    <meta name="description" content="DPS Imobiliário - Especialistas em imóveis de investimento em Portugal, Brasil e Dubai. Lançamentos exclusivos, venda em planta e gestão de patrimônio imobiliário." />
+    <link rel="stylesheet" crossorigin href="/assets/index-DPS-colors-1776278565.css">
+  
+<style id="dps-fix">
+/* DPS FIX v4: Forcar contraste nos badges azuis + textos hero em dourado */
+</style>
+<script id="dps-fix-js">
+(function() {
+  var GOLD = '#C5A55A';
+
+  function applyFix() {
+    // Fix 1: Forcar cor clara nos containers azuis (badges, etc.)
+    var els = document.querySelectorAll('[class*="bg-[#0D1F3C]"]');
+    els.forEach(function(el) {
+      el.style.color = 'rgba(245, 242, 237, 0.9)';
+      var children = el.querySelectorAll('*');
+      children.forEach(function(child) {
+        if (!child.className || !child.className.includes('text-[#C5A55A]')) {
+          child.style.color = 'rgba(245, 242, 237, 0.9)';
+        }
+      });
+    });
+
+    // Fix 2: Forcar textos do hero em dourado
+    var heroSection = document.getElementById('hero');
+    if (heroSection) {
+      // "INVESTIMENTOS IMOBILIÁRIOS PREMIUM" - já tem text-[#C5A55A] mas pode ser sobrescrito
+      var premiumEl = heroSection.querySelector('p[class*="tracking-"]');
+      if (premiumEl) premiumEl.style.color = GOLD;
+
+      // Título principal h1 - "Estruturamos investimento, não vendemos casas"
+      var h1 = heroSection.querySelector('h1');
+      if (h1) {
+        h1.style.color = GOLD;
+        // Garantir que todos os filhos também ficam dourados
+        var h1children = h1.querySelectorAll('*');
+        h1children.forEach(function(c) { c.style.color = GOLD; });
+      }
+
+      // Subtítulo p após h1
+      var paras = heroSection.querySelectorAll('p');
+      paras.forEach(function(p) {
+        // Só o subtítulo (não o "INVESTIMENTOS...")
+        if (p.className && p.className.includes('text-lg')) {
+          p.style.color = 'rgba(197, 165, 90, 0.85)';
+        }
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', applyFix);
+  setTimeout(applyFix, 300);
+  setTimeout(applyFix, 800);
+  setTimeout(applyFix, 1500);
+  var observer = new MutationObserver(function() { setTimeout(applyFix, 100); });
+  document.addEventListener('DOMContentLoaded', function() {
+    observer.observe(document.body, {childList: true, subtree: true});
+  });
+})();
+</script>
+<script id="dps-bh-inject">
+(function() {
+  function injectBH() {
+    // 1. Adicionar card Belo Horizonte ao lado do Lake Towers
+    var allLinks = Array.from(document.querySelectorAll('a'));
+    var lakeLink = allLinks.find(function(a) { return a.textContent.includes('Lake Towers'); });
+    if (lakeLink && !document.getElementById('bh-card-injected')) {
+      var container = lakeLink.parentElement;
+      var bhCard = document.createElement('a');
+      bhCard.id = 'bh-card-injected';
+      bhCard.href = 'https://dpsimobiliario.pt/belohorizonte';
+      bhCard.target = '_blank';
+      bhCard.rel = 'noopener noreferrer';
+      bhCard.className = lakeLink.className;
+      bhCard.style.textDecoration = 'none';
+      bhCard.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="Belo Horizonte Residences" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">Belo Horizonte Residences</h4><p class="text-[#666] text-xs mb-2">Setubal, Portugal</p><p class="text-[#C5A55A] font-semibold text-sm">Desde 179.900 \u20ac</p></div></div>';
+      container.appendChild(bhCard);
+    }
+
+        // 1b. Adicionar card Aura Residence ao lado do Lake Towers
+    var lakeLink3 = allLinks.find(function(a) { return a.textContent.includes('Lake Towers'); });
+    if (lakeLink3 && !document.getElementById('aura-card-injected')) {
+      var container3 = lakeLink3.parentElement;
+      var auraCard = document.createElement('a');
+      auraCard.id = 'aura-card-injected';
+      auraCard.href = 'https://dpsimobiliario.pt/auraresidence';
+      auraCard.target = '_blank';
+      auraCard.rel = 'noopener noreferrer';
+      auraCard.className = lakeLink3.className;
+      auraCard.style.textDecoration = 'none';
+      auraCard.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="Aura Residence" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="https://dpsimobiliario.pt/auraresidence/assets/render7.jpg" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">Aura Residence</h4><p class="text-[#666] text-xs mb-2">Meixomil, Paços de Ferreira · Portugal</p><p class="text-[#C5A55A] font-semibold text-sm">Novo - T0 a T3 com varandas</p></div></div>';
+      container3.appendChild(auraCard);
+    }
+    // 2. Tornar o banner Portugal clicável para portugal.php
+    var ptHeadings = Array.from(document.querySelectorAll('h2, h3, h4'));
+    var ptH = ptHeadings.find(function(h) { return h.textContent.includes('\uD83C\uDDF5\uD83C\uDDF9'); });
+    if (ptH) {
+      var banner = ptH.closest('.relative.h-64, .relative.h-80, [class*="relative h-64"], [class*="relative h-80"]');
+      if (!banner) banner = ptH.closest('[class*="relative"][class*="overflow-hidden"]');
+      if (banner && !banner.dataset.bhLinked) {
+        banner.dataset.bhLinked = '1';
+        banner.style.cursor = 'pointer';
+        banner.addEventListener('click', function() {
+          window.open('https://dpsimobiliario.pt/portugal.php', '_blank');
+        });
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(injectBH, 800);
+    setTimeout(injectBH, 1500);
+    setTimeout(injectBH, 3000);
+  });
+  setTimeout(injectBH, 1000);
+  setTimeout(injectBH, 2000);
+  setTimeout(injectBH, 4000);
+})();
+</script>
+<!-- DPS FIX: Menu dourado inline -->
+<style>
+/* Todos os links do menu de navegação em dourado */
+nav[class*="fixed"] a[class*="text-gray-900"],
+nav[class*="fixed"] a[class*="text-[#F5F2ED]"] {
+  color: #c5a55a !important;
+}
+nav[class*="fixed"] a[class*="text-gray-900"]:hover,
+nav[class*="fixed"] a[class*="text-[#F5F2ED]"]:hover {
+  color: #e8d5a0 !important;
+}
+</style>
+<!-- FIM DPS FIX: Menu dourado inline -->
+<!-- DPS FIX: Remover formulario de contacto -->
+<style>
+/* Esconder o formulario de contacto */
+#contacto form { display: none !important; }
+#contacto .lg\:col-span-3 { display: none !important; }
+</style>
+<script id="dps-remove-form">
+(function() {
+  function removeContactForm() {
+    var section = document.getElementById('contacto');
+    if (!section) return;
+    // Esconder o form
+    var forms = section.querySelectorAll('form');
+    forms.forEach(function(f) { f.style.display = 'none'; f.closest('[class]') && (f.closest('[class]').style.display = 'none'); });
+    // Encontrar a coluna com o form (normalmente a primeira coluna do grid)
+    var grid = section.querySelector('.grid');
+    if (grid) {
+      var cols = grid.children;
+      if (cols.length >= 2) {
+        // Esconder a coluna do formulario (col-span-3)
+        for (var i = 0; i < cols.length; i++) {
+          if (cols[i].querySelector('form')) {
+            cols[i].style.display = 'none';
+          }
+        }
+        // Expandir a coluna de contactos diretos
+        grid.style.display = 'block';
+      }
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(removeContactForm, 400);
+    setTimeout(removeContactForm, 900);
+    setTimeout(removeContactForm, 1800);
+    setTimeout(removeContactForm, 3000);
+  });
+  var obs = new MutationObserver(function() { removeContactForm(); });
+  document.addEventListener('DOMContentLoaded', function() {
+    obs.observe(document.body, {childList: true, subtree: true});
+  });
+})();
+</script>
+<!-- FIM DPS FIX: Remover formulario de contacto -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" crossorigin src="/assets/index-DPS-v5-1776373017.js"></script>
+<!-- POPUP SOFIA DPS -->
+<div id="sofia-popup" style="display:none;position:fixed;bottom:90px;right:24px;z-index:999;width:310px;background:linear-gradient(135deg,#050810 0%,#0a0f1e 100%);border:1px solid rgba(201,168,76,0.35);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 40px rgba(201,168,76,0.1);overflow:hidden;font-family:'Inter',sans-serif;">
+<style>
+@keyframes sofia-slide-in{from{opacity:0;transform:translateY(30px) scale(0.92)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes sp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.4)}70%{box-shadow:0 0 0 8px rgba(0,255,136,0)}}
+/* ---------------------------------------------------------------
+   TELEMÓVEL — o popup estava a tapar a Sofia.
+   ---------------------------------------------------------------
+   O cartão tem 310px de largura e ficava a 90px do fundo, fixo, com
+   z-index 99999. Num ecrã de 375px isso ocupa quase toda a largura e
+   assenta em cima do botão redondo da Sofia (bottom 32px, z-index 1000):
+   quem carregava na Sofia acertava no cartão, e quem fechava o cartão já
+   tinha desistido. A página não tinha uma única media query.
+
+   Agora: o cartão passa a caber no ecrã, sobe o suficiente para não
+   encostar ao botão, e o z-index desce para 999 — o widget da Sofia fica
+   sempre por cima, que é o que tem de acontecer quando ele abre.
+   --------------------------------------------------------------- */
+@media (max-width: 520px){
+  #sofia-popup{
+    width:calc(100vw - 28px)!important;
+    max-width:310px!important;
+    right:14px!important;
+    left:auto!important;
+    bottom:170px!important;
+  }
+  #sofia-popup .sp-img-wrap{height:120px}
+  #sofia-popup .sp-msg{font-size:12.5px;margin-bottom:11px}
+}
+/* Ecrãs muito baixos: o cartão daria com o botão fora do ecrã. */
+@media (max-height: 640px){
+  #sofia-popup .sp-img-wrap{height:96px}
+}
+#sofia-popup.sp-show{display:block!important;animation:sofia-slide-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards}
+#sofia-popup .sp-close{position:absolute;top:10px;right:12px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;z-index:10;line-height:1}
+#sofia-popup .sp-close:hover{background:rgba(255,255,255,0.18);color:#fff}
+#sofia-popup .sp-img-wrap{position:relative;height:170px;overflow:hidden;background:linear-gradient(180deg,#0a0f1e 0%,#1a2a4a 100%)}
+#sofia-popup .sp-img{width:100%;height:100%;object-fit:cover;object-position:center top;-webkit-mask-image:linear-gradient(to bottom,black 55%,transparent 100%);mask-image:linear-gradient(to bottom,black 55%,transparent 100%)}
+#sofia-popup .sp-badge{position:absolute;top:10px;left:10px;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.4);border-radius:100px;padding:4px 10px;font-size:10px;font-weight:600;color:#00ff88;letter-spacing:0.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
+#sofia-popup .sp-dot{width:6px;height:6px;background:#00ff88;border-radius:50%;animation:sp-pulse 1.5s infinite}
+#sofia-popup .sp-body{padding:14px 16px 16px}
+#sofia-popup .sp-name{font-size:11px;font-weight:700;color:rgba(201,168,76,0.9);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
+#sofia-popup .sp-msg{font-size:13px;color:rgba(255,255,255,0.82);line-height:1.55;margin-bottom:13px}
+#sofia-popup .sp-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:linear-gradient(135deg,#c9a84c,#9a7a2e);color:#050810;font-weight:700;font-size:13px;padding:12px 18px;border-radius:12px;border:none;cursor:pointer;text-decoration:none;transition:all 0.3s;letter-spacing:0.02em}
+#sofia-popup .sp-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,168,76,0.4)}
+</style>
+<button class="sp-close" onclick="document.getElementById('sofia-popup').style.display='none';sessionStorage.setItem('sofia-closed','1')" aria-label="Fechar">&times;</button>
+<div class="sp-img-wrap">
+  <img class="sp-img" src="https://raw.githubusercontent.com/ricardomagalhaes014/sofiadps/master/sofia.png" alt="Sofia DPS" />
+  <div class="sp-badge"><span class="sp-dot"></span>Online Agora</div>
+</div>
+<div class="sp-body">
+  <div class="sp-name">Sofia &mdash; DPS Imobili&aacute;rio</div>
+  <div class="sp-msg">Ol&aacute;! Estou dispon&iacute;vel <strong>24 horas</strong> para responder a todas as suas quest&otilde;es sobre im&oacute;veis. Pressione para falarmos!</div>
+  <a href="https://dpsimobiliario.pt/sofiadps/" target="_blank" class="sp-btn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+    Falamos Consigo &mdash; 24 Horas
+  </a>
+</div>
+</div>
+<script>
+(function(){
+  if(sessionStorage.getItem('sofia-closed')) return;
+  setTimeout(function(){
+    var p=document.getElementById('sofia-popup');
+    if(p){p.style.display='block';p.classList.add('sp-show');}
+  },3000);
+})();
+</script>
+<!-- FIM POPUP SOFIA DPS -->
+<!-- Assistente Virtual Sofia -->
+<elevenlabs-convai agent-id="agent_0901kv03vzc4eqnvzt5758mms6t8"></elevenlabs-convai>
+<script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
+
+<script>
+(function(){
+function injBoa(){
+ var hs=document.querySelectorAll("h4"),lt=null,i;
+ for(i=0;i<hs.length;i++){ if(hs[i].textContent.trim()==="Lake Towers Porto"){lt=hs[i];break;} }
+ if(!lt) return false;
+ var body=lt.parentElement; if(!body) return false;
+ var card=body.parentElement; if(!card) return false;
+ var grid=card.parentElement; if(!grid) return false;
+ if(grid.querySelector("[data-boavista]")) return true;
+ var cl=card.cloneNode(true);
+ cl.setAttribute("data-boavista","1");
+ var im=cl.querySelector("img"); if(im){ im.removeAttribute("srcset"); im.src="https://dpsimobiliario.pt/boavistatowers/fotos/foto_01.jpg"; im.alt="Boavista Tower - Porto"; }
+ var h=cl.querySelector("h4"); if(h) h.textContent="Boavista Tower";
+ var ps=cl.querySelectorAll("p");
+ if(ps[0]) ps[0].textContent="Porto, Portugal";
+ if(ps[1]) ps[1].textContent="Novo - T1 e T2 - Avenida da Boavista";
+ cl.style.cursor="pointer";
+ cl.addEventListener("click",function(){ window.location.href="/boavistatowers"; });
+ grid.insertBefore(cl,card);
+ return true;
+}
+var n=0,iv=setInterval(function(){ n++; if(injBoa()||n>80) clearInterval(iv); },400);
+try{ new MutationObserver(function(){ injBoa(); }).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+})();
+</script>
+</body>
+<!-- ts:1782125500 -->
+</html>
