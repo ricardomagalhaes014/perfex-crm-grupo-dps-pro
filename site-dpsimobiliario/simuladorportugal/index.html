@@ -6348,6 +6348,10 @@ document.addEventListener('DOMContentLoaded', function() {
   async function gerarPropostaAura(unit, loadBtn, simData){
     var origText = loadBtn.textContent; loadBtn.textContent='⏳ A gerar...'; loadBtn.disabled=true;
     function loadImg(url){ return fetch(url,{cache:'force-cache'}).then(function(r){if(!r.ok)throw 0;return r.blob();}).then(function(b){return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(fr.result);};fr.onerror=rej;fr.readAsDataURL(b);});}).catch(function(){return null;}); }
+    /* As plantas individuais não têm todas a mesma forma — umas são altas,
+     * outras largas. Sem saber as dimensões reais, o jsPDF esticava-as para a
+     * caixa e a planta saía deformada. */
+    function dimensoes(dataUrl){ return new Promise(function(res){ var im=new Image(); im.onload=function(){ res({w:im.naturalWidth||1, h:im.naturalHeight||1}); }; im.onerror=function(){ res(null); }; im.src=dataUrl; }); }
     try {
       var jsPDF = await carregarJsPDF();
       var base = location.origin + location.pathname.replace(/[^\/]*$/,'') + 'aura_img/';
@@ -6355,6 +6359,10 @@ document.addEventListener('DOMContentLoaded', function() {
       var imgHero = await loadImg(base+'aura_hero.jpg');
       var imgR2   = await loadImg(base+'aura_render2.jpg');
       var imgPl   = (pisoN>=1&&pisoN<=5) ? await loadImg(base+'aura_p'+pisoN+'.jpg') : null;
+      // A planta individual da fracção. O nome do ficheiro é a letra da
+      // fracção tal como está na tabela — 'A', 'AB', 'BP'.
+      var imgFrac = await loadImg(base+'plantas/aura_frac_'+unit.fraccao+'.jpg');
+      var dimFrac = imgFrac ? await dimensoes(imgFrac) : null;
       var doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
       var W=210,H=297;
       var CREAM=[247,245,240],INK=[26,32,44],INKSOFT=[90,100,115],GOLD=[168,135,60],GOLDBR=[197,165,90],LINE=[214,205,185],CARD=[255,255,255];
@@ -6513,19 +6521,55 @@ document.addEventListener('DOMContentLoaded', function() {
 
       rodape();
 
-      // PAGINA 4 - PLANTA DO PISO
+      /* PAGINA 4 - PLANTA DA FRACÇÃO
+       *
+       * A planta da fracção que o cliente está a comprar, não a do piso.
+       *
+       * A proposta levava só a planta do piso inteiro: quem a recebia ficava
+       * com uma folha de catorze apartamentos e tinha de descobrir qual era o
+       * seu. Estas vêm do promotor, uma por fracção, com a fracção assinalada
+       * a vermelho e a área de cada divisão escrita.
+       * Pedido do dono (14/08/2026).
+       *
+       * As quatro do piso 5 — BL, BM, BN e BO — não têm planta individual: o
+       * promotor não as mandou e estão todas vendidas. Sem planta, a página
+       * não sai de todo; a do piso continua a sair a seguir, como sempre.
+       */
+      if(imgFrac && dimFrac){
+        doc.addPage(); fundo();
+        doc.setTextColor.apply(doc,GOLD); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('03 · A SUA FRACÇÃO',14,18);
+        doc.setTextColor.apply(doc,INK); doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.text('Planta da Fracção '+unit.fraccao,14,28);
+        doc.setDrawColor.apply(doc,GOLD); doc.setLineWidth(0.5); doc.line(14,31,60,31);
+        doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(9.5); doc.setFont('helvetica','normal');
+        doc.text(unit.tipologia+'  ·  Piso '+pisoTxt(unit.piso)+'  ·  ABC '+unit.abc+' m²  ·  Varanda '+unit.varanda+' m²  ·  Área hab. '+unit.total+' m²',14,38);
+
+        /* A imagem entra inteira dentro da caixa, com a proporção original:
+         * calcula-se qual dos dois lados encosta primeiro. */
+        var cx=12, cy2=44, cW=W-24, cH=H-cy2-16;
+        var esc=Math.min(cW/dimFrac.w, cH/dimFrac.h);
+        var iw=dimFrac.w*esc, ih=dimFrac.h*esc;
+        var ix=(W-iw)/2, iy=cy2+(cH-ih)/2;
+        doc.setFillColor(255,255,255); doc.rect(ix,iy,iw,ih,'F');
+        doc.addImage(imgFrac,'JPEG',ix,iy,iw,ih);
+        doc.setDrawColor.apply(doc,GOLDBR); doc.setLineWidth(0.4); doc.rect(ix,iy,iw,ih);
+        doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(7.5); doc.setFont('helvetica','italic');
+        doc.text('Planta de arquitectura · escala original 1/100 · áreas em metros quadrados',W/2,H-11,{align:'center'});
+        rodape();
+      }
+
+      // PAGINA 5 - PLANTA DO PISO
       if(imgPl){
         doc.addPage(); fundo();
-        doc.setTextColor.apply(doc,GOLD); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('ANEXO · PLANTA DE ARQUITETURA',14,18);
+        doc.setTextColor.apply(doc,GOLD); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('ANEXO · O PISO COMPLETO',14,18);
         doc.setTextColor.apply(doc,INK); doc.setFontSize(18); doc.setFont('helvetica','bold'); doc.text('Planta · Piso '+pisoN,14,28);
         doc.setDrawColor.apply(doc,GOLD); doc.line(14,31,60,31);
-        doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(9.5); doc.setFont('helvetica','normal'); doc.text('Fracção '+unit.fraccao+' ('+unit.tipologia+') no piso '+pisoN+'. Escala original 1/100.',14,38);
+        doc.setTextColor.apply(doc,INKSOFT); doc.setFontSize(9.5); doc.setFont('helvetica','normal'); doc.text('Onde fica a fracção '+unit.fraccao+' ('+unit.tipologia+') dentro do piso '+pisoN+'. Escala original 1/100.',14,38);
         var pw=W-28, ph=pw*(827/1169); if(46+ph>H-14){ ph=H-14-46; pw=ph*(1169/827); }
         doc.addImage(imgPl,'JPEG',(W-pw)/2,46,pw,ph); doc.setDrawColor.apply(doc,GOLDBR); doc.rect((W-pw)/2,46,pw,ph);
         rodape();
       }
 
-      // PAGINA 5 - SIMULACAO (sem fiscalidade)
+      // PAGINA 6 - SIMULACAO (sem fiscalidade)
       doc.addPage(); fundo();
       doc.setTextColor.apply(doc,GOLD); doc.setFontSize(14); doc.setFont('helvetica','bold'); doc.text('SIMULAÇÃO DE INVESTIMENTO',W/2,25,{align:'center'});
       doc.setDrawColor.apply(doc,GOLD); doc.line(20,29,W-20,29);
