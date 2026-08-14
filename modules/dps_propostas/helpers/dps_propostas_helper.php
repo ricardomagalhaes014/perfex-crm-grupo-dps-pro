@@ -1032,6 +1032,17 @@ function dps_propostas_cancelar_indisponiveis($empreendimento = null, $unidade =
                 . ' (' . $prop->empreendimento . ') passou a "' . $estado . '".',
         ]);
 
+        /*
+         * A lead volta a VIP 1.
+         *
+         * Não vai para "Para outras oportunidades": esse estado é para quem
+         * disse que não. Aqui ninguém disse nada — o cliente continua
+         * interessado e foi a casa que ficou sem a fracção. É precisamente
+         * quem tem de ser contactado já com outra proposta, e volta a
+         * PROPOSTAS ENVIADAS assim que ela sair. Regra do dono (14/08/2026).
+         */
+        dps_propostas_mover_lead_vip1((int) $prop->lead_id, (int) $prop->staff_id);
+
         $canceladas++;
 
         if (! $avisar) {
@@ -1058,6 +1069,43 @@ function dps_propostas_cancelar_indisponiveis($empreendimento = null, $unidade =
     }
 
     return ['canceladas' => $canceladas, 'emails' => $emails, 'comerciais' => $por_com];
+}
+
+/**
+ * Põe a lead em VIP 1, deixando o mesmo rasto que uma mudança feita à mão:
+ * linha no histórico e o hook que o resto do CRM escuta.
+ */
+function dps_propostas_mover_lead_vip1($lead_id, $staff_id)
+{
+    $CI   = &get_instance();
+    $vip1 = 17;
+
+    $lead = $CI->db->select('status')->where('id', $lead_id)->get(db_prefix() . 'leads')->row();
+
+    if (! $lead || (int) $lead->status === $vip1) {
+        return;
+    }
+
+    $agora = date('Y-m-d H:i:s');
+
+    $CI->db->where('id', $lead_id)->update(db_prefix() . 'leads', [
+        'status'             => $vip1,
+        'last_status_change' => $agora,
+    ]);
+
+    $CI->db->insert(db_prefix() . 'lead_activity_log', [
+        'leadid'      => $lead_id,
+        'staffid'     => $staff_id,
+        'full_name'   => get_staff_full_name($staff_id),
+        'date'        => $agora,
+        'description' => 'Estado alterado (proposta cancelada — a fracção saiu do mercado) para VIP 1',
+    ]);
+
+    hooks()->do_action('lead_status_changed', [
+        'lead_id'    => $lead_id,
+        'old_status' => (int) $lead->status,
+        'new_status' => $vip1,
+    ]);
 }
 
 /**
@@ -1089,8 +1137,8 @@ function dps_propostas_avisar_cliente_unidade_saiu($prop, $estado)
         . html_escape($prop->empreendimento) . '</strong>, sobre a qual lhe enviámos proposta, '
         . $saiu . ' e já não se encontra disponível.</p>'
         . '<p>Lamentamos o incómodo. ' . html_escape($gestor)
-        . ', o seu gestor, entrará em contacto consigo com outras opções no mesmo empreendimento '
-        . 'ou em empreendimentos equivalentes, ajustadas ao que procura.</p>'
+        . ', o seu gestor, entrará em contacto consigo em breve com uma nova proposta — no mesmo '
+        . 'empreendimento ou em empreendimentos equivalentes, ajustada ao que procura.</p>'
         . '<p>Com os melhores cumprimentos,<br>' . html_escape($empresa) . '</p>';
 
     $CI->email->clear(true);
@@ -1121,7 +1169,7 @@ function dps_propostas_avisar_comercial_canceladas($staff_id, array $clientes)
     add_notification([
         'description' => '🚫 ' . count($clientes) . ' proposta' . (count($clientes) === 1 ? '' : 's')
             . ' cancelada' . (count($clientes) === 1 ? '' : 's') . ' — a fracção deixou de estar disponível: '
-            . $lista . '. Volte a contactar com novas opções.',
+            . $lista . '. Estão em VIP 1 — envie nova proposta.',
         'touserid'    => (int) $staff_id,
         'fromcompany' => true,
         'link'        => 'dps_propostas/todas?resultado=cancelado',

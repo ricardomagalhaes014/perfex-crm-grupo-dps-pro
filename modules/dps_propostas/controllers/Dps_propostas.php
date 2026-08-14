@@ -9,6 +9,7 @@ defined('BASEPATH') or exit('No direct script access allowed');
  */
 defined('DPS_PROPOSTAS_ESTADO_CONTRATO') || define('DPS_PROPOSTAS_ESTADO_CONTRATO', 10);      // PARA CONTRATO
 defined('DPS_PROPOSTAS_ESTADO_CONCRETIZADO') || define('DPS_PROPOSTAS_ESTADO_CONCRETIZADO', 13);  // CONCRETIZADO
+defined('DPS_PROPOSTAS_ESTADO_VIP1') || define('DPS_PROPOSTAS_ESTADO_VIP1', 17);                // VIP 1
 
 class Dps_propostas extends AdminController
 {
@@ -1069,15 +1070,27 @@ class Dps_propostas extends AdminController
                 dps_propostas_estado_montra($prop->empreendimento, $prop->unidade) ?: 'Vendido'
             );
 
-            $this->dps_set_lead_status((int) $prop->lead_id, 3);
+            /*
+             * VIP 1, e NÃO "Para outras oportunidades".
+             *
+             * Aquele estado é para quem disse que não. Aqui ninguém disse
+             * nada: o cliente continua interessado e foi a casa que ficou sem
+             * a fracção. Mandá-lo para "outras oportunidades" arrumava-o com
+             * os perdidos e tirava-o da frente do comercial, quando é
+             * precisamente quem tem de ser contactado já com outra proposta —
+             * e volta a PROPOSTAS ENVIADAS assim que ela sair.
+             * Regra do dono (14/08/2026).
+             */
+            $this->dps_set_lead_status((int) $prop->lead_id, DPS_PROPOSTAS_ESTADO_VIP1);
 
             echo json_encode([
                 'success'     => true,
-                'message'     => 'Proposta CANCELADA — a fracção já não está disponível.'
+                'message'     => 'Proposta CANCELADA — a fracção já não está disponível. '
+                    . 'A lead voltou a VIP 1 para lhe enviar nova proposta.'
                     . ($avisado ? ' O cliente foi avisado por email.' : ' (sem email do cliente para avisar)'),
                 'outcome_at'  => $cancelada_em,
                 'lead_id'     => (int) $prop->lead_id,
-                'lead_estado' => $this->status_name(3) ?: 'PARA OUTRAS OPORTUNIDADES',
+                'lead_estado' => $this->status_name(DPS_PROPOSTAS_ESTADO_VIP1) ?: 'VIP 1',
                 'rotulo'      => 'Cancelada',
                 'cor'         => 'warning',
             ]);
