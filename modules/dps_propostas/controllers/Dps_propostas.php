@@ -971,9 +971,17 @@ class Dps_propostas extends AdminController
                 'success' => true,
                 'message' => 'Proposta RECUSADA (' . $motivos[$motivo]
                     . ') — lead movida para "Para outras oportunidades".',
-                // A hora vai para o ecrã acertar a linha sem recarregar a
-                // página — recarregar mandava o comercial de volta ao topo.
-                'outcome_at' => $recusada_em,
+                /*
+                 * O ecrã acerta a linha sem recarregar a página — recarregar
+                 * mandava o comercial de volta ao topo da lista. Por isso o
+                 * servidor tem de dizer TUDO o que mudou: a hora, e o estado
+                 * novo da lead. Sem o estado, a coluna "Estado da lead" ficava
+                 * a dizer "PROPOSTAS ENVIADAS" até alguém recarregar à mão,
+                 * quando a lead já tinha mudado na base de dados.
+                 */
+                'outcome_at'  => $recusada_em,
+                'lead_id'     => (int) $prop->lead_id,
+                'lead_estado' => $this->status_name(3) ?: 'PARA OUTRAS OPORTUNIDADES',
             ]);
             return;
         }

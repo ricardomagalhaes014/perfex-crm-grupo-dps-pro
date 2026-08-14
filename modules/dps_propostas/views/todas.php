@@ -198,7 +198,7 @@
                                     </td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
-                                    <tr data-proposta="<?= (int) $p->id; ?>">
+                                    <tr data-proposta="<?= (int) $p->id; ?>" data-lead="<?= (int) $p->lead_id; ?>">
                                         <td><a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a></td>
                                         <td style="white-space:nowrap;">
                                             <?php
@@ -279,7 +279,7 @@
                                                 ?>
                                             <?php } ?>
                                         </td>
-                                        <td><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
+                                        <td class="dps-estado-lead"><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
                                         <td class="dps-resultado">
                                             <?php if ($p->outcome === 'aceite') { ?>
                                             <span class="label label-success">Aceite</span>
@@ -363,16 +363,31 @@ function dpsEnviarResultado(id, outcome, valor, motivo) {
              * as propostas uma a uma tinha de fazer scroll até onde ia, de cada
              * vez. A linha passa a ser acertada onde está.
              */
-            dpsMarcarRecusada(id, r.outcome_at);
+            dpsMarcarRecusada(id, r.outcome_at, r.lead_id, r.lead_estado);
         }
     }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
 }
 
 /* Acerta a linha recusada — e os contadores do topo com ela, senão ficavam a
  * dizer o que era verdade antes de se carregar no botão. */
-function dpsMarcarRecusada(id, quando) {
+function dpsMarcarRecusada(id, quando, leadId, estadoNovo) {
     var tr = document.querySelector('tr[data-proposta="' + id + '"]');
     if (!tr) { return; }
+
+    /*
+     * A lead muda de estado do lado do servidor — e a coluna "Estado da lead"
+     * mostra o estado ACTUAL, não o que a lead tinha quando a proposta saiu.
+     * Tem de mudar em TODAS as linhas dessa lead, não só nesta: o mesmo
+     * cliente aparece na lista uma vez por cada proposta que recebeu, e ficaria
+     * a dizer coisas diferentes de si próprio na mesma página.
+     */
+    if (leadId && estadoNovo) {
+        var linhas = document.querySelectorAll('tr[data-lead="' + leadId + '"]');
+        Array.prototype.forEach.call(linhas, function (linha) {
+            var cel = linha.querySelector('.dps-estado-lead');
+            if (cel) { cel.textContent = estadoNovo; }
+        });
+    }
 
     var res = tr.querySelector('.dps-resultado');
     if (res) { res.innerHTML = '<span class="label label-danger">Recusada</span>'; }
