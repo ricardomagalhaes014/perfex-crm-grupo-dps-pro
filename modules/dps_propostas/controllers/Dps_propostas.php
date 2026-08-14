@@ -637,14 +637,41 @@ class Dps_propostas extends AdminController
          * Totais de resultado. Vão a toda a base (não à lista limitada a
          * 1000) para os números serem os reais. "Sem resultado" = enviadas
          * que ainda não foram marcadas como aceites nem recusadas.
+         *
+         * SEGUEM O FILTRO — comercial, empreendimento e pesquisa.
+         *
+         * Não seguiam: escolhia-se um comercial, o título passava a dizer
+         * "152 propostas · Ricardo Magalhaes" e por baixo continuavam os 637
+         * da empresa toda. Lidos em conjunto davam a percentagem errada da
+         * pessoa que se estava a ver. Pior: um comercial sem permissão de ver
+         * tudo via aqui os números da equipa inteira, que a lista lhe esconde.
+         *
+         * O filtro do RESULTADO fica de fora de propósito: é um mergulho
+         * dentro destes quatro números, e aplicá-lo punha três deles a zero.
          */
-        $res = $this->db->query(
-            'SELECT COUNT(*) AS enviadas,
-                    SUM(CASE WHEN outcome = "aceite"   THEN 1 ELSE 0 END) AS aceites,
-                    SUM(CASE WHEN outcome = "recusado" THEN 1 ELSE 0 END) AS recusadas
-             FROM ' . db_prefix() . 'dps_propostas
-             WHERE tipo = "proposta"'
-        )->row_array();
+        $this->db->select('COUNT(*) AS enviadas,
+            SUM(CASE WHEN p.outcome = "aceite"   THEN 1 ELSE 0 END) AS aceites,
+            SUM(CASE WHEN p.outcome = "recusado" THEN 1 ELSE 0 END) AS recusadas', false);
+        $this->db->from(db_prefix() . 'dps_propostas p');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
+        $this->db->where('p.tipo', 'proposta');
+        if ($comercial > 0) {
+            $this->db->where('p.staff_id', $comercial);
+        }
+        if ($empreendimento !== '') {
+            $this->db->where('p.empreendimento', $empreendimento);
+        }
+        if ($procura !== '') {
+            if ($so_digitos !== '') {
+                $agulha = strlen($so_digitos) > 9 ? substr($so_digitos, -9) : $so_digitos;
+                $limpo  = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE("
+                        . "l.phonenumber,' ',''),'-',''),'.',''),'(',''),')',''),'+','')";
+                $this->db->where($limpo . " LIKE " . $this->db->escape('%' . $agulha . '%'), null, false);
+            } else {
+                $this->db->like('l.name', $procura);
+            }
+        }
+        $res = $this->db->get()->row_array();
 
         $data['t_enviadas']  = (int) ($res['enviadas'] ?? 0);
         $data['t_aceites']   = (int) ($res['aceites'] ?? 0);
