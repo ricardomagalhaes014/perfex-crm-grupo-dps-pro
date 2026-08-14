@@ -97,7 +97,7 @@
                         </div>
                         <div class="form-group">
                             <button type="submit" class="ic-btn-filter btn-filter">Filtrar</button>
-                            <?php if ((int) ($comercial_id ?? 0) > 0 || $periodo !== 'last_7' || $status_id > 0): ?>
+                            <?php if ((int) ($comercial_id ?? 0) > 0 || $periodo !== ($periodo_omissao ?? 'today_yesterday') || $status_id > 0): ?>
                                 <a href="<?php echo admin_url('dps_interacoes'); ?>"
                                    style="margin-left:8px;font-size:13px;color:#888;">Limpar</a>
                             <?php endif; ?>

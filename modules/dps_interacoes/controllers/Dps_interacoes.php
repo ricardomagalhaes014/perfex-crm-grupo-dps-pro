@@ -7,6 +7,10 @@ class Dps_interacoes extends AdminController
     const OBJ_SEMANA = 200;  // 200 interacções por semana (7 dias)
     const OBJ_MES    = 800;  // 800 interacções por mês (30 dias)
 
+    // O período com que a página abre. Escrito num sítio só: a vista precisa
+    // dele para saber se há filtros a limpar.
+    const PERIODO_OMISSAO = 'today_yesterday';
+
     public function __construct()
     {
         parent::__construct();
@@ -18,11 +22,19 @@ class Dps_interacoes extends AdminController
 
         // Parâmetros GET
         /*
-         * Por omissão, últimos 15 dias. Uma semana é pouco para se ver um
-         * padrão de trabalho — um par de dias maus ou um feriado chegavam
-         * para distorcer a leitura. Pedido do dono (13/08/2026).
+         * Por omissão, hoje e ontem.
+         *
+         * Esteve nos últimos 15 dias, para se ver um padrão de trabalho. Na
+         * prática esta página abre-se para saber o que está a acontecer agora,
+         * e um número de quinze dias não responde a isso: quem trabalhou hoje
+         * e quem não trabalhou desaparecia dentro da média. Os quinze dias
+         * continuam a um clique, no filtro. Pedido do dono (14/08/2026).
+         *
+         * A constante existe para o botão "Limpar" saber qual é a omissão —
+         * ficou a apontar para 'last_7' quando a omissão passou a ser outra, e
+         * o botão aparecia numa página onde não havia nada para limpar.
          */
-        $periodo   = $this->input->get('periodo') ?: 'last_15';
+        $periodo   = $this->input->get('periodo') ?: self::PERIODO_OMISSAO;
         $status_id = (int)$this->input->get('status_id');
 
         /*
@@ -267,6 +279,7 @@ class Dps_interacoes extends AdminController
         $data['comerciais'] = $comerciais;
         $data['statuses']   = $statuses;
         $data['periodo']    = $periodo;
+        $data['periodo_omissao'] = self::PERIODO_OMISSAO;
         $data['status_id']  = $status_id;
         $data['label']      = $label;
         $data['date_from']  = $date_from;
