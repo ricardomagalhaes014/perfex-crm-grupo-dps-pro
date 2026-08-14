@@ -90,6 +90,56 @@ class Dps_interacoes extends AdminController
         $staff_result = $this->db->query("SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome FROM {$p}staff WHERE active = 1{$filtro_staff} ORDER BY firstname ASC");
         $staff_list   = $staff_result ? $staff_result->result_array() : [];
 
+        $filtro_interaccao = "(al.description LIKE '? Nota%'
+                               OR al.description LIKE '%Proposta enviada%')
+                              AND al.description NOT LIKE '%Nota gravada por%'";
+
+        /*
+         * TERCEIRA ARMADILHA: a mesma frase repetida em dezenas de leads.
+         *
+         * A 13/08/2026 a Cátia aparecia com 96 interacções num dia. Eram
+         * reais no sentido de existirem — 102 notas em 96 leads entre as
+         * 7h e as 10h — mas 95 delas eram duas frases copiadas:
+         * "Encaminhei SMS e Email" (50 vezes) e "Enviei email e SMS" (45).
+         * Percorrer uma lista a colar a mesma frase não é falar com 96
+         * clientes, e o quadro dizia que era.
+         *
+         * Passa a contar-se DIA + TEXTO em vez de DIA + LEAD: a mesma
+         * frase no mesmo dia conta uma vez, escreva-se em duas leads ou em
+         * cinquenta. Quem escreve uma nota diferente por cliente continua
+         * a contar uma por cliente — que é exactamente a diferença que
+         * este quadro deve mostrar. Decisão do dono (13/08/2026).
+         *
+         * O texto é normalizado antes de comparar: tira-se o prefixo
+         * "? Nota:" que o registo acrescenta, e ignoram-se maiúsculas e
+         * espaços a mais. Sem isso, "Enviei email" e "enviei  email"
+         * contariam como duas coisas.
+         */
+        $texto_normalizado = "LOWER(TRIM(REPLACE(REPLACE(REPLACE("
+            . "SUBSTRING_INDEX(al.description, ': ', -1), '\r', ' '), '\n', ' '), '  ', ' ')))";
+
+        /*
+         * AS RECUSAS TAMBÉM CONTAM — e contam TODAS.
+         *
+         * Marcar uma proposta como recusada em "Propostas Enviadas" é trabalho
+         * feito: alguém foi atrás da resposta, ouviu-a e fechou o assunto. Não
+         * estava a entrar em lado nenhum porque o registo da recusa não começa
+         * por "Nota" nem diz "Proposta enviada".
+         *
+         * Ao contrário das notas, estas NÃO se juntam por texto igual: dez
+         * recusas com o mesmo motivo no mesmo dia são dez respostas arrancadas
+         * a dez clientes, não uma frase colada dez vezes.
+         * Regra do dono (14/08/2026).
+         *
+         * Vale a partir das 00h de 14/08/2026. A data está escrita e não é
+         * "hoje": assim os números de trás não mudam quando se olhar para eles
+         * amanhã. Fica definida antes do ciclo porque o gráfico, mais abaixo,
+         * também a usa — e o ciclo pode não chegar a correr.
+         */
+        $recusa_desde  = '2026-08-14 00:00:00';
+        $filtro_recusa = "al.description LIKE '%Proposta recusada%'
+                          AND al.date >= '{$recusa_desde}'";
+
         // PASSO 2: Para cada staff, contar interacções no período
         $comerciais = [];
         foreach ($staff_list as $s) {
@@ -116,33 +166,8 @@ class Dps_interacoes extends AdminController
              *     por Fulano: X", no mesmo segundo). Sem excluir a segunda,
              *     tudo vinha a dobrar.
              */
-            $filtro_interaccao = "(al.description LIKE '? Nota%'
-                                   OR al.description LIKE '%Proposta enviada%')
-                                  AND al.description NOT LIKE '%Nota gravada por%'";
 
-            /*
-             * TERCEIRA ARMADILHA: a mesma frase repetida em dezenas de leads.
-             *
-             * A 13/08/2026 a Cátia aparecia com 96 interacções num dia. Eram
-             * reais no sentido de existirem — 102 notas em 96 leads entre as
-             * 7h e as 10h — mas 95 delas eram duas frases copiadas:
-             * "Encaminhei SMS e Email" (50 vezes) e "Enviei email e SMS" (45).
-             * Percorrer uma lista a colar a mesma frase não é falar com 96
-             * clientes, e o quadro dizia que era.
-             *
-             * Passa a contar-se DIA + TEXTO em vez de DIA + LEAD: a mesma
-             * frase no mesmo dia conta uma vez, escreva-se em duas leads ou em
-             * cinquenta. Quem escreve uma nota diferente por cliente continua
-             * a contar uma por cliente — que é exactamente a diferença que
-             * este quadro deve mostrar. Decisão do dono (13/08/2026).
-             *
-             * O texto é normalizado antes de comparar: tira-se o prefixo
-             * "? Nota:" que o registo acrescenta, e ignoram-se maiúsculas e
-             * espaços a mais. Sem isso, "Enviei email" e "enviei  email"
-             * contariam como duas coisas.
-             */
-            $texto_normalizado = "LOWER(TRIM(REPLACE(REPLACE(REPLACE("
-                . "SUBSTRING_INDEX(al.description, ': ', -1), '\r', ' '), '\n', ' '), '  ', ' ')))";
+
 
             $count_sql = "
                 SELECT COUNT(*) AS total FROM (
@@ -163,6 +188,22 @@ class Dps_interacoes extends AdminController
                 $total = (int)($row['total'] ?? 0);
             }
 
+            // As recusas somam-se por fora: contam uma a uma, sem passar pela
+            // junção de textos iguais que se aplica às notas.
+            $recusas_res = $this->db->query("
+                SELECT COUNT(*) AS total
+                  FROM {$p}lead_activity_log al
+            INNER JOIN {$p}leads l ON l.id = al.leadid
+                 WHERE al.staffid = {$sid}
+                   {$status_clause_leads}
+                   AND {$filtro_recusa}
+                   AND al.date >= '{$date_from}'
+                   AND al.date <= '{$date_to}'
+            ");
+            if ($recusas_res) {
+                $total += (int) ($recusas_res->row_array()['total'] ?? 0);
+            }
+
             // Calcular percentagem do objectivo
             $pct = ($objectivo > 0) ? round(($total / $objectivo) * 100, 1) : 0;
 
@@ -176,7 +217,12 @@ class Dps_interacoes extends AdminController
                         l.email,
                         l.phonenumber,
                         ls.name AS status_name,
-                        COUNT(DISTINCT DATE(al.date)) AS num_interacoes
+                        -- Duas contas somadas, como no total: as notas valem
+                        -- uma por dia, as recusas valem todas.
+                        COUNT(DISTINCT CASE WHEN al.description LIKE '%Proposta recusada%'
+                                            THEN NULL ELSE DATE(al.date) END)
+                        + SUM(CASE WHEN al.description LIKE '%Proposta recusada%'
+                                   THEN 1 ELSE 0 END) AS num_interacoes
                     FROM {$p}leads l
                     LEFT JOIN {$p}leads_status ls ON ls.id = l.status
                     INNER JOIN {$p}lead_activity_log al ON al.leadid = l.id
@@ -185,9 +231,12 @@ class Dps_interacoes extends AdminController
                         -- nao soma o cabecalho: ha notas de proposta que nao
                         -- comecam por Nota e ficavam de fora daqui mas
                         -- contadas la em cima (11 de diferenca na Catia).
-                        AND (al.description LIKE '? Nota%'
-                             OR al.description LIKE '%Proposta enviada%')
-                        AND al.description NOT LIKE '%Nota gravada por%'
+                        AND (
+                              ((al.description LIKE '? Nota%'
+                                OR al.description LIKE '%Proposta enviada%')
+                               AND al.description NOT LIKE '%Nota gravada por%')
+                              OR ({$filtro_recusa})
+                            )
                         AND al.date >= '{$date_from}'
                         AND al.date <= '{$date_to}'
                     WHERE 1 = 1
@@ -237,20 +286,35 @@ class Dps_interacoes extends AdminController
         if ($comercial_id > 0) {
             $por_dia = [];
             /*
-             * Mesma regra do total, dia a dia: as notas contam uma vez por
-             * cliente (COUNT DISTINCT leadid), as propostas contam todas.
-             * As duas metades somam-se por dia.
+             * Exactamente a mesma regra do número do cabeçalho, dia a dia.
+             *
+             * Não era: o cabeçalho juntava as notas por texto igual e o
+             * gráfico juntava-as por cliente, o que dava duas respostas
+             * diferentes para o mesmo dia no mesmo ecrã — a 14/08/2026, 19 em
+             * cima e 31 na barra. As notas contam uma vez por texto e por dia,
+             * as recusas contam todas; as duas metades somam-se.
              */
             $q = $this->db->query("
-                SELECT DATE(al.date) AS dia, COUNT(DISTINCT al.leadid) AS n
-                  FROM {$p}lead_activity_log al
-            INNER JOIN {$p}leads l ON l.id = al.leadid
-                 WHERE al.staffid = {$comercial_id}
-                   AND (al.description LIKE '? Nota%'
-                        OR al.description LIKE '%Proposta enviada%')
-                   AND al.description NOT LIKE '%Nota gravada por%'
-                   AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
-              GROUP BY DATE(al.date)
+                SELECT dia, SUM(n) AS n FROM (
+                        SELECT dia, COUNT(*) AS n FROM (
+                            SELECT DISTINCT DATE(al.date) AS dia, {$texto_normalizado} AS texto
+                              FROM {$p}lead_activity_log al
+                        INNER JOIN {$p}leads l ON l.id = al.leadid
+                             WHERE al.staffid = {$comercial_id}
+                               AND {$filtro_interaccao}
+                               AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+                        ) AS toques
+                      GROUP BY dia
+                        UNION ALL
+                        SELECT DATE(al.date) AS dia, COUNT(*) AS n
+                          FROM {$p}lead_activity_log al
+                    INNER JOIN {$p}leads l ON l.id = al.leadid
+                         WHERE al.staffid = {$comercial_id}
+                           AND {$filtro_recusa}
+                           AND al.date >= '{$date_from}' AND al.date <= '{$date_to}'
+                      GROUP BY DATE(al.date)
+                ) AS tudo
+              GROUP BY dia
             ");
             foreach (($q ? $q->result_array() : []) as $linha) {
                 $por_dia[$linha['dia']] = (int) $linha['n'];
