@@ -832,3 +832,279 @@ function dps_propostas_chave_catalogo($slug, $unidade)
 
     return null;
 }
+
+/* =====================================================================
+ * PROPOSTAS DE UNIDADES QUE JÁ SAÍRAM DO MERCADO
+ *
+ * Uma proposta por responder de uma fracção entretanto reservada, vendida ou
+ * marcada DPS é uma proposta morta: o cliente está à espera de resposta sobre
+ * uma casa que já não existe para ele, e o comercial não sabe. Passa a ser
+ * cancelada sozinha — o cliente é avisado por email e o comercial recebe a
+ * lista de quem tem de voltar a contactar. Pedido do dono (14/08/2026).
+ * ================================================================== */
+
+/** Os estados que tiram uma fracção do mercado. */
+function dps_propostas_estados_fora_do_mercado()
+{
+    return ['Reservado', 'Vendido', 'DPS'];
+}
+
+/**
+ * A chave de $chaves que corresponde a $unidade.
+ *
+ * O mesmo problema de sempre: a proposta traz "AL" e o mapa tem "1_AL", ou a
+ * proposta traz "T1-W" e o mapa tem "1_W". Compara-se em exacto, depois sem
+ * símbolos (com e sem o "T" da torre à frente), e por fim pelo que vem a
+ * seguir ao separador. Havendo mais do que um candidato devolve-se null:
+ * cancelar a proposta da fracção errada é pior do que não cancelar nenhuma.
+ */
+function dps_propostas_chave_no_mapa(array $chaves, $unidade)
+{
+    $unidade = trim((string) $unidade);
+
+    if ($unidade === '' || empty($chaves)) {
+        return null;
+    }
+
+    if (in_array($unidade, $chaves, true)) {
+        return $unidade;
+    }
+
+    $limpar = static function ($t) {
+        return strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $t));
+    };
+
+    $alvo  = $limpar($unidade);
+    $sem_t = preg_match('/^T\d/i', $unidade) ? $limpar(substr($unidade, 1)) : null;
+
+    foreach ($chaves as $chave) {
+        $k = $limpar($chave);
+
+        if ($k === $alvo || $k === 'A' . $alvo || ($sem_t !== null && $k === $sem_t)) {
+            return $chave;
+        }
+    }
+
+    $cauda = static function ($t) {
+        $partes = preg_split('/[^A-Za-z0-9]+/', (string) $t);
+
+        return strtoupper((string) end($partes));
+    };
+
+    $candidatos = [];
+
+    foreach ($chaves as $chave) {
+        if ($cauda($chave) === $cauda($unidade)) {
+            $candidatos[] = $chave;
+        }
+    }
+
+    $candidatos = array_unique($candidatos);
+
+    return count($candidatos) === 1 ? reset($candidatos) : null;
+}
+
+/**
+ * O mapa de estados que o simulador mostra, por empreendimento.
+ *
+ * É a montra que manda: é lá que o administrador marca à mão e é lá que o CRM
+ * escreve quando uma venda avança. Lê-se uma vez por pedido — a mesma execução
+ * do cron pode ter centenas de propostas para avaliar.
+ */
+function dps_propostas_montra($forcar = false)
+{
+    static $cache = null;
+
+    if ($cache !== null && ! $forcar) {
+        return $cache;
+    }
+
+    $ch = curl_init('https://dpsimobiliario.pt/simuladorportugal/save_states.php');
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15]);
+    $bruto = curl_exec($ch);
+    curl_close($ch);
+
+    $dados = json_decode((string) $bruto, true);
+    $cache = is_array($dados) ? $dados : [];
+
+    return $cache;
+}
+
+/** O estado da fracção na montra, ou null se não se conseguir determinar. */
+function dps_propostas_estado_montra($empreendimento, $unidade)
+{
+    $CI = &get_instance();
+
+    if (! class_exists('Dps_vendas_model')) {
+        $CI->load->model('dps_vendas/dps_vendas_model');
+    }
+
+    $chave = Dps_vendas_model::chave_empreendimento($empreendimento);
+    $mapa  = dps_propostas_montra();
+
+    if ($chave === null || empty($mapa[$chave . '_states']) || ! is_array($mapa[$chave . '_states'])) {
+        return null;
+    }
+
+    $estados = $mapa[$chave . '_states'];
+    $k       = dps_propostas_chave_no_mapa(array_keys($estados), $unidade);
+
+    return $k === null ? null : (string) $estados[$k];
+}
+
+/**
+ * Cancela as propostas por responder cuja fracção já saiu do mercado.
+ *
+ * @param string|null $empreendimento  limitar a um empreendimento
+ * @param string|null $unidade         limitar a uma fracção
+ * @param bool        $avisar          enviar email ao cliente e aviso ao comercial
+ * @return array  ['canceladas' => n, 'emails' => n, 'comerciais' => [id => [nomes]]]
+ */
+function dps_propostas_cancelar_indisponiveis($empreendimento = null, $unidade = null, $avisar = true)
+{
+    $CI = &get_instance();
+
+    $CI->db->select('p.id, p.lead_id, p.staff_id, p.empreendimento, p.unidade,
+                     l.name AS lead_nome, l.email AS lead_email');
+    $CI->db->from(db_prefix() . 'dps_propostas p');
+    $CI->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
+    $CI->db->where('p.tipo', 'proposta');
+    $CI->db->where('(p.outcome IS NULL OR p.outcome = "" OR p.outcome = "pendente")', null, false);
+    $CI->db->where('p.unidade !=', '');
+
+    if ($empreendimento !== null && $empreendimento !== '') {
+        $CI->db->where('p.empreendimento', $empreendimento);
+    }
+    if ($unidade !== null && $unidade !== '') {
+        $CI->db->where('p.unidade', $unidade);
+    }
+
+    $pendentes = $CI->db->get()->result();
+
+    $fora       = dps_propostas_estados_fora_do_mercado();
+    $canceladas = 0;
+    $emails     = 0;
+    $por_com    = [];
+    $agora      = date('Y-m-d H:i:s');
+
+    foreach ($pendentes as $prop) {
+        $estado = dps_propostas_estado_montra($prop->empreendimento, $prop->unidade);
+
+        if ($estado === null || ! in_array($estado, $fora, true)) {
+            continue;
+        }
+
+        $CI->db->where('id', (int) $prop->id)->update(db_prefix() . 'dps_propostas', [
+            'outcome'      => 'cancelado',
+            'motivo_perda' => 'unidade_indisponivel',
+            'outcome_at'   => $agora,
+        ]);
+
+        /*
+         * Fica no histórico da lead. Quem a abrir daqui a três meses percebe
+         * porque é que a proposta parou sem ninguém ter dito que não.
+         */
+        $CI->db->insert(db_prefix() . 'lead_activity_log', [
+            'leadid'      => (int) $prop->lead_id,
+            'staffid'     => (int) $prop->staff_id,
+            'full_name'   => get_staff_full_name((int) $prop->staff_id),
+            'date'        => $agora,
+            'description' => '🚫 Proposta cancelada — a fracção ' . $prop->unidade
+                . ' (' . $prop->empreendimento . ') passou a "' . $estado . '".',
+        ]);
+
+        $canceladas++;
+
+        if (! $avisar) {
+            continue;
+        }
+
+        if (dps_propostas_avisar_cliente_unidade_saiu($prop, $estado)) {
+            $emails++;
+        }
+
+        $sid = (int) $prop->staff_id;
+        $por_com[$sid] = $por_com[$sid] ?? [];
+        $nome = trim((string) $prop->lead_nome) ?: ('lead #' . (int) $prop->lead_id);
+
+        if (! in_array($nome, $por_com[$sid], true)) {
+            $por_com[$sid][] = $nome;
+        }
+    }
+
+    if ($avisar) {
+        foreach ($por_com as $sid => $clientes) {
+            dps_propostas_avisar_comercial_canceladas($sid, $clientes);
+        }
+    }
+
+    return ['canceladas' => $canceladas, 'emails' => $emails, 'comerciais' => $por_com];
+}
+
+/**
+ * Email ao cliente: a unidade saiu do mercado, o gestor volta a contactar.
+ *
+ * O texto não diz "a que reservou" — a esmagadora maioria destas propostas
+ * nunca chegou a reserva, e dizer a alguém que perdeu uma coisa que nunca
+ * teve é pior do que não dizer nada.
+ */
+function dps_propostas_avisar_cliente_unidade_saiu($prop, $estado)
+{
+    $para = trim((string) ($prop->lead_email ?? ''));
+
+    if ($para === '' || ! filter_var($para, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $CI = &get_instance();
+    $CI->load->library('email');
+
+    $nome     = trim((string) ($prop->lead_nome ?? '')) ?: 'Estimado(a) Cliente';
+    $primeiro = explode(' ', $nome)[0];
+    $gestor   = get_staff_full_name((int) $prop->staff_id) ?: 'o seu gestor';
+    $empresa  = get_option('companyname') ?: 'DPS Imobiliário';
+    $saiu     = ($estado === 'Reservado') ? 'foi entretanto reservada' : 'foi entretanto vendida';
+
+    $corpo = '<p>Caro(a) ' . html_escape($primeiro) . ',</p>'
+        . '<p>A fracção <strong>' . html_escape($prop->unidade) . '</strong> do empreendimento <strong>'
+        . html_escape($prop->empreendimento) . '</strong>, sobre a qual lhe enviámos proposta, '
+        . $saiu . ' e já não se encontra disponível.</p>'
+        . '<p>Lamentamos o incómodo. ' . html_escape($gestor)
+        . ', o seu gestor, entrará em contacto consigo com outras opções no mesmo empreendimento '
+        . 'ou em empreendimentos equivalentes, ajustadas ao que procura.</p>'
+        . '<p>Com os melhores cumprimentos,<br>' . html_escape($empresa) . '</p>';
+
+    $CI->email->clear(true);
+    $CI->email->from(get_option('smtp_email') ?: get_option('email'), $empresa);
+    $CI->email->to($para);
+    $CI->email->subject('A fracção ' . $prop->unidade . ' — ' . $prop->empreendimento . ' — já não está disponível');
+    $CI->email->message($corpo);
+    $CI->email->set_mailtype('html');
+
+    return (bool) $CI->email->send(false);
+}
+
+/** Aviso ao comercial, com os clientes que tem de voltar a contactar. */
+function dps_propostas_avisar_comercial_canceladas($staff_id, array $clientes)
+{
+    if (empty($clientes)) {
+        return;
+    }
+
+    /*
+     * Um aviso com a lista toda, e não um por proposta: dez avisos seguidos
+     * são dez avisos que ninguém lê.
+     */
+    $lista = count($clientes) > 6
+        ? implode(', ', array_slice($clientes, 0, 6)) . ' e mais ' . (count($clientes) - 6)
+        : implode(', ', $clientes);
+
+    add_notification([
+        'description' => '🚫 ' . count($clientes) . ' proposta' . (count($clientes) === 1 ? '' : 's')
+            . ' cancelada' . (count($clientes) === 1 ? '' : 's') . ' — a fracção deixou de estar disponível: '
+            . $lista . '. Volte a contactar com novas opções.',
+        'touserid'    => (int) $staff_id,
+        'fromcompany' => true,
+        'link'        => 'dps_propostas/todas?resultado=cancelado',
+    ]);
+}

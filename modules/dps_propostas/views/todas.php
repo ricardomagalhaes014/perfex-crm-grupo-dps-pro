@@ -8,7 +8,7 @@
                     <div class="panel-body">
                         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:15px;">
                             <h4 class="no-margin"><i class="fa fa-file-pdf-o text-danger"></i> Propostas Enviadas</h4>
-                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?><?= ($empreendimento ?? '') !== '' ? ' · ' . e($empreendimento) : ''; ?><?php $dps_rot = ['aceite'=>'aceites','recusado'=>'recusadas','pendente'=>'sem resposta']; ?><?= ($resultado ?? '') !== '' ? ' · ' . e($dps_rot[$resultado]) : ''; ?></span>
+                            <span class="text-muted"><?= count($propostas); ?> proposta<?= count($propostas) === 1 ? '' : 's'; ?><?= $comercial > 0 ? ' · ' . e(get_staff_full_name($comercial)) : ''; ?><?= ($empreendimento ?? '') !== '' ? ' · ' . e($empreendimento) : ''; ?><?php $dps_rot = ['aceite'=>'aceites','recusado'=>'recusadas','cancelado'=>'canceladas','pendente'=>'sem resposta']; ?><?= ($resultado ?? '') !== '' ? ' · ' . e($dps_rot[$resultado]) : ''; ?></span>
 
                             <form method="get" action="<?= admin_url('dps_propostas/todas'); ?>"
                                   style="margin-left:auto;display:flex;align-items:center;gap:8px;">
@@ -102,6 +102,7 @@
                                     <option value=""<?= ($resultado ?? '') === '' ? ' selected' : ''; ?>>Todos</option>
                                     <option value="aceite"<?= ($resultado ?? '') === 'aceite' ? ' selected' : ''; ?>>Aceites</option>
                                     <option value="recusado"<?= ($resultado ?? '') === 'recusado' ? ' selected' : ''; ?>>Recusadas</option>
+                                    <option value="cancelado"<?= ($resultado ?? '') === 'cancelado' ? ' selected' : ''; ?>>Canceladas</option>
                                     <option value="pendente"<?= ($resultado ?? '') === 'pendente' ? ' selected' : ''; ?>>Sem resposta</option>
                                 </select>
                             </form>
@@ -111,10 +112,20 @@
                         <?php if (isset($t_enviadas)) {
                             $pcAc = $t_enviadas > 0 ? round($t_aceites   / $t_enviadas * 100, 1) : 0;
                             $pcRe = $t_enviadas > 0 ? round($t_recusadas / $t_enviadas * 100, 1) : 0;
+                            $t_can = (int) ($t_canceladas ?? 0);
+                            $pcCa = $t_enviadas > 0 ? round($t_can / $t_enviadas * 100, 1) : 0;
+                            /*
+                             * Canceladas ao lado das recusadas, e não somadas
+                             * com elas: uma é o cliente a dizer que não, a
+                             * outra é a fracção a sair do mercado antes de ele
+                             * responder. Juntá-las inflaciona a taxa de recusa
+                             * com negócios que ninguém chegou a perder.
+                             */
                             $kpis = [
                                 [$t_enviadas,  'Enviadas',      '#2b3440', ''],
                                 [$t_aceites,   'Aceites',       '#2f7d55', $pcAc . '%'],
                                 [$t_recusadas, 'Recusadas',     '#c0392b', $pcRe . '%'],
+                                [$t_can,       'Canceladas',    '#a06a1b', $pcCa . '%'],
                                 [$t_abertas,   'Sem resultado', '#b07d19', ''],
                             ];
                         ?>
@@ -291,6 +302,9 @@
                                             <?php } ?>
                                             <?php } elseif ($p->outcome === 'recusado') { ?>
                                             <span class="label label-danger">Recusada</span>
+                                            <?php } elseif ($p->outcome === 'cancelado') { ?>
+                                            <span class="label label-warning">Cancelada</span>
+                                            <br><small class="text-muted">unidade já não disponível</small>
                                             <?php } else { ?>
                                             <span class="label label-default">Pendente</span>
                                             <?php } ?>
@@ -300,6 +314,7 @@
                                             <?php if ($p->outcome === 'pendente') { ?>
                                             <button class="btn btn-success btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
                                             <button class="btn btn-danger btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
+                                            <button class="btn btn-warning btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'cancelado')"><i class="fa fa-ban"></i> Cancelada</button>
                                             <?php } else { ?>
                                             <span class="text-muted" style="font-size:11px;"><?= e($p->outcome_at); ?></span>
                                             <?php } ?>
@@ -330,6 +345,14 @@ function dpsResultado(id, outcome) {
          * preço real da unidade.
          */
         if (!confirm('Marcar como ACEITE?\n\nA seguir abre-se a ficha da venda para escolher a unidade e o valor.')) { return; }
+    } else if (outcome === 'cancelado') {
+        /*
+         * Cancelar envia um email ao cliente a dizer que a fracção saiu do
+         * mercado. É uma mensagem que sai para fora — pergunta-se antes.
+         */
+        if (!confirm('Marcar como CANCELADA?\n\nA fracção deixou de estar disponível. O cliente recebe um email a dizê-lo e a lead passa a "Para outras oportunidades".')) { return; }
+        dpsEnviarResultado(id, outcome, '', '');
+        return;
     } else {
         // O motivo é obrigatório — a caixa vem do rodapé do módulo
         // (dpsPedirMotivoPerda), a mesma que a ficha da lead usa.
@@ -363,14 +386,14 @@ function dpsEnviarResultado(id, outcome, valor, motivo) {
              * as propostas uma a uma tinha de fazer scroll até onde ia, de cada
              * vez. A linha passa a ser acertada onde está.
              */
-            dpsMarcarRecusada(id, r.outcome_at, r.lead_id, r.lead_estado);
+            dpsMarcarFechada(id, r.outcome_at, r.lead_id, r.lead_estado, r.rotulo, r.cor);
         }
     }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
 }
 
 /* Acerta a linha recusada — e os contadores do topo com ela, senão ficavam a
  * dizer o que era verdade antes de se carregar no botão. */
-function dpsMarcarRecusada(id, quando, leadId, estadoNovo) {
+function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
     var tr = document.querySelector('tr[data-proposta="' + id + '"]');
     if (!tr) { return; }
 
@@ -390,7 +413,10 @@ function dpsMarcarRecusada(id, quando, leadId, estadoNovo) {
     }
 
     var res = tr.querySelector('.dps-resultado');
-    if (res) { res.innerHTML = '<span class="label label-danger">Recusada</span>'; }
+    if (res) {
+        res.innerHTML = '<span class="label label-' + (cor || 'danger') + '"></span>';
+        res.firstChild.textContent = rotulo || 'Recusada';
+    }
 
     var acc = tr.querySelector('.dps-accoes');
     if (acc) {
@@ -401,10 +427,10 @@ function dpsMarcarRecusada(id, quando, leadId, estadoNovo) {
     // Um sinal curto de que foi aquela linha que mudou, para não se perder de
     // vista numa tabela com dezenas.
     tr.style.transition = 'background-color 1.6s';
-    tr.style.backgroundColor = '#fdecea';
+    tr.style.backgroundColor = (cor === 'warning') ? '#fdf3e2' : '#fdecea';
     setTimeout(function () { tr.style.backgroundColor = ''; }, 1600);
 
-    dpsAcertarKpi('Recusadas', 1);
+    dpsAcertarKpi((cor === 'warning') ? 'Canceladas' : 'Recusadas', 1);
     dpsAcertarKpi('Sem resultado', -1);
 }
 
@@ -483,9 +509,10 @@ function dpsAcertarKpi(rotulo, delta) {
         data: {
             labels: nomes,
             datasets: [
-                { label: 'Aceites',   data: coluna('aceite'),   backgroundColor: '#2f9e44' },
-                { label: 'Recusadas', data: coluna('recusado'), backgroundColor: '#c0392b' },
-                { label: 'Pendentes', data: coluna('pendente'), backgroundColor: '#9aa3ab' }
+                { label: 'Aceites',    data: coluna('aceite'),    backgroundColor: '#2f9e44' },
+                { label: 'Recusadas',  data: coluna('recusado'),  backgroundColor: '#c0392b' },
+                { label: 'Canceladas', data: coluna('cancelado'), backgroundColor: '#a06a1b' },
+                { label: 'Pendentes',  data: coluna('pendente'),  backgroundColor: '#9aa3ab' }
             ]
         },
         options: {

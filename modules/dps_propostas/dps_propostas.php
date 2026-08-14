@@ -56,7 +56,98 @@ function dps_propostas_motivo_label($chave)
 {
     $m = dps_propostas_motivos_perda();
 
+    /*
+     * Este não entra na lista de cima de propósito: não é um motivo que
+     * alguém escolha, é o que o sistema escreve quando cancela sozinho uma
+     * proposta cuja fracção saiu do mercado. Ter rótulo é o que o faz
+     * aparecer legível nos relatórios.
+     */
+    $m['unidade_indisponivel'] = 'Unidade já não disponível';
+
     return $m[(string) $chave] ?? (string) $chave;
+}
+
+/* ---------------------------------------------------------------------
+ * CANCELAMENTO AUTOMÁTICO DE PROPOSTAS
+ *
+ * Uma proposta por responder de uma fracção entretanto reservada, vendida ou
+ * marcada DPS não tem para onde ir. Cancela-se, avisa-se o cliente por email e
+ * dá-se ao comercial a lista de quem tem de voltar a contactar.
+ *
+ * Dois gatilhos, porque há dois caminhos para uma fracção sair do mercado:
+ *   1. o CRM — uma venda que avança de estado;
+ *   2. o simulador — o administrador a marcar à mão no Modo de Edição, que o
+ *      CRM não chega a saber. É para esse que serve a passagem do cron.
+ * ------------------------------------------------------------------ */
+
+hooks()->add_action('dps_venda_estado_alterado', 'dps_propostas_cancelar_ao_mudar_venda');
+hooks()->add_action('after_cron_run', 'dps_propostas_cron_cancelar_indisponiveis');
+
+/**
+ * A venda mudou de estado — se a fracção saiu do mercado, as propostas por
+ * responder dessa fracção caem com ela. Imediato, sem esperar pelo cron: quem
+ * acabou de reservar quer ver a lista limpa já.
+ */
+function dps_propostas_cancelar_ao_mudar_venda($dados)
+{
+    $venda_id = (int) ($dados['venda_id'] ?? 0);
+
+    if ($venda_id <= 0) {
+        return;
+    }
+
+    $CI = &get_instance();
+    $v  = $CI->db->select('empreendimento, unidade')
+                 ->where('id', $venda_id)
+                 ->get(db_prefix() . 'dps_vendas')
+                 ->row();
+
+    if (! $v || trim((string) $v->unidade) === '') {
+        return;
+    }
+
+    /*
+     * Sem empreendimento nem unidade filtrados na consulta ficaria a varrer a
+     * tabela toda a cada mudança de estado de qualquer venda.
+     */
+    $r = dps_propostas_cancelar_indisponiveis($v->empreendimento, null, true);
+
+    if ($r['canceladas'] > 0) {
+        log_activity('Propostas: ' . $r['canceladas'] . ' cancelada(s) por a fracção ter saído do mercado ('
+            . $v->empreendimento . ' ' . $v->unidade . '); ' . $r['emails'] . ' cliente(s) avisado(s).');
+    }
+}
+
+/**
+ * A rede de segurança: apanha o que o CRM não viu.
+ *
+ * Corre uma vez por dia. O interruptor existe porque no dia em que isto
+ * arrancou havia 218 propostas antigas nesta situação, de 150 clientes — um
+ * envio desses tem de ser uma decisão, não um efeito secundário de instalar
+ * uma funcionalidade.
+ */
+function dps_propostas_cron_cancelar_indisponiveis()
+{
+    if ((int) get_option('dps_propostas_cancelar_auto') !== 1) {
+        return;
+    }
+
+    $hoje    = date('Y-m-d');
+    $ultimo  = (string) get_option('dps_propostas_cancelar_ultimo');
+
+    if ($ultimo === $hoje) {
+        return;
+    }
+
+    update_option('dps_propostas_cancelar_ultimo', $hoje);
+
+    $r = dps_propostas_cancelar_indisponiveis(null, null, true);
+
+    if ($r['canceladas'] > 0) {
+        log_activity('Propostas (cron): ' . $r['canceladas'] . ' cancelada(s) por a fracção já não estar '
+            . 'disponível; ' . $r['emails'] . ' cliente(s) avisado(s); '
+            . count($r['comerciais']) . ' comercial(is) avisado(s).');
+    }
 }
 
 hooks()->add_action('admin_init', 'dps_propostas_coluna_motivo');

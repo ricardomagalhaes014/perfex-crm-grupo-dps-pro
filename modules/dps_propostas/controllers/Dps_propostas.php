@@ -435,7 +435,7 @@ class Dps_propostas extends AdminController
          * 'pendente' é o vazio e o literal — as duas formas existem na tabela.
          */
         $resultado = trim((string) $this->input->get('resultado'));
-        if (! in_array($resultado, ['aceite', 'recusado', 'pendente'], true)) {
+        if (! in_array($resultado, ['aceite', 'recusado', 'cancelado', 'pendente'], true)) {
             $resultado = '';
         }
 
@@ -545,9 +545,11 @@ class Dps_propostas extends AdminController
             $sid = (int) $l['staff_id'];
             $r_nomes[$sid] = trim((string) $l['nome']) ?: ('Staff #' . $sid);
             if (!isset($r_dados[$sid])) {
-                $r_dados[$sid] = ['aceite' => 0, 'recusado' => 0, 'pendente' => 0];
+                $r_dados[$sid] = ['aceite' => 0, 'recusado' => 0, 'cancelado' => 0, 'pendente' => 0];
             }
-            $chave = in_array($l['resultado'], ['aceite', 'recusado'], true) ? $l['resultado'] : 'pendente';
+            $chave = in_array($l['resultado'], ['aceite', 'recusado', 'cancelado'], true)
+                ? $l['resultado']
+                : 'pendente';
             $r_dados[$sid][$chave] += (int) $l['n'];
         }
 
@@ -650,8 +652,9 @@ class Dps_propostas extends AdminController
          * dentro destes quatro números, e aplicá-lo punha três deles a zero.
          */
         $this->db->select('COUNT(*) AS enviadas,
-            SUM(CASE WHEN p.outcome = "aceite"   THEN 1 ELSE 0 END) AS aceites,
-            SUM(CASE WHEN p.outcome = "recusado" THEN 1 ELSE 0 END) AS recusadas', false);
+            SUM(CASE WHEN p.outcome = "aceite"    THEN 1 ELSE 0 END) AS aceites,
+            SUM(CASE WHEN p.outcome = "recusado"  THEN 1 ELSE 0 END) AS recusadas,
+            SUM(CASE WHEN p.outcome = "cancelado" THEN 1 ELSE 0 END) AS canceladas', false);
         $this->db->from(db_prefix() . 'dps_propostas p');
         $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
         $this->db->where('p.tipo', 'proposta');
@@ -673,10 +676,12 @@ class Dps_propostas extends AdminController
         }
         $res = $this->db->get()->row_array();
 
-        $data['t_enviadas']  = (int) ($res['enviadas'] ?? 0);
-        $data['t_aceites']   = (int) ($res['aceites'] ?? 0);
-        $data['t_recusadas'] = (int) ($res['recusadas'] ?? 0);
-        $data['t_abertas']   = $data['t_enviadas'] - $data['t_aceites'] - $data['t_recusadas'];
+        $data['t_enviadas']   = (int) ($res['enviadas'] ?? 0);
+        $data['t_aceites']    = (int) ($res['aceites'] ?? 0);
+        $data['t_recusadas']  = (int) ($res['recusadas'] ?? 0);
+        $data['t_canceladas'] = (int) ($res['canceladas'] ?? 0);
+        $data['t_abertas']    = $data['t_enviadas'] - $data['t_aceites']
+                              - $data['t_recusadas'] - $data['t_canceladas'];
 
         $data['g_comerciais'] = $g_comerciais;
         $data['g_emps']       = $g_emps;
@@ -1009,6 +1014,72 @@ class Dps_propostas extends AdminController
                 'outcome_at'  => $recusada_em,
                 'lead_id'     => (int) $prop->lead_id,
                 'lead_estado' => $this->status_name(3) ?: 'PARA OUTRAS OPORTUNIDADES',
+                'rotulo'      => 'Recusada',
+                'cor'         => 'danger',
+            ]);
+            return;
+        }
+
+        if ($outcome === 'cancelado') {
+            /*
+             * Cancelar é diferente de recusar, e por isso tem estado próprio.
+             *
+             * Recusada é o cliente a dizer que não. Cancelada é a casa a ficar
+             * sem o que vender: a fracção saiu do mercado e a proposta morreu
+             * sem ninguém ter respondido. Somá-las dava uma taxa de recusa
+             * inflacionada por coisas que não foram perdidas a vender.
+             *
+             * A lead vai na mesma para "Para outras oportunidades" — continua
+             * a ser alguém a quem há que apresentar outra coisa.
+             */
+            $cancelada_em = date('Y-m-d H:i:s');
+
+            $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
+                'outcome'      => 'cancelado',
+                'motivo_perda' => 'unidade_indisponivel',
+                'valor'        => null,
+                'outcome_at'   => $cancelada_em,
+            ]);
+
+            $sid = get_staff_user_id();
+            $this->db->insert(db_prefix() . 'lead_activity_log', [
+                'leadid'      => (int) $prop->lead_id,
+                'staffid'     => $sid,
+                'full_name'   => get_staff_full_name($sid),
+                'date'        => $cancelada_em,
+                'description' => '🚫 Proposta cancelada — a fracção ' . $prop->unidade
+                    . ($prop->empreendimento ? ' (' . $prop->empreendimento . ')' : '')
+                    . ' já não está disponível.',
+            ]);
+
+            // O cliente é avisado, como no cancelamento automático.
+            $lead = $this->db->select('name, email')
+                             ->where('id', (int) $prop->lead_id)
+                             ->get(db_prefix() . 'leads')
+                             ->row();
+
+            $avisado = dps_propostas_avisar_cliente_unidade_saiu(
+                (object) [
+                    'lead_email'     => $lead->email ?? '',
+                    'lead_nome'      => $lead->name ?? '',
+                    'staff_id'       => (int) $prop->staff_id,
+                    'unidade'        => $prop->unidade,
+                    'empreendimento' => $prop->empreendimento,
+                ],
+                dps_propostas_estado_montra($prop->empreendimento, $prop->unidade) ?: 'Vendido'
+            );
+
+            $this->dps_set_lead_status((int) $prop->lead_id, 3);
+
+            echo json_encode([
+                'success'     => true,
+                'message'     => 'Proposta CANCELADA — a fracção já não está disponível.'
+                    . ($avisado ? ' O cliente foi avisado por email.' : ' (sem email do cliente para avisar)'),
+                'outcome_at'  => $cancelada_em,
+                'lead_id'     => (int) $prop->lead_id,
+                'lead_estado' => $this->status_name(3) ?: 'PARA OUTRAS OPORTUNIDADES',
+                'rotulo'      => 'Cancelada',
+                'cor'         => 'warning',
             ]);
             return;
         }
