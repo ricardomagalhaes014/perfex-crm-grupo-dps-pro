@@ -361,17 +361,18 @@ class Dps_vendas extends AdminController
         }
 
         /*
-         * O comercial da venda também envia ao promotor.
+         * SÓ a direcção envia ao promotor.
          *
-         * Estava reservado à direção, para o envio não curto-circuitar a
-         * validação interna. Na prática atrasava o circuito: depois do CPCV
-         * assinado e do comprovativo carregados, quem tem o processo na mão é
-         * quem o deve mandar seguir. Regra do dono (01/08/2026).
+         * Esteve aberto ao comercial da venda entre 01/08 e 13/08/2026, para
+         * não atrasar o circuito. Voltou a fechar por decisão do dono: o que
+         * sai daqui vai com os dados do cliente e o Cartão de Cidadão em
+         * anexo, para fora da empresa, e essa porta tem de ter uma pessoa à
+         * frente.
          *
-         * O email leva SEMPRE todos os documentos da venda em anexo — o CPCV
-         * assinado e o comprovativo entram sozinhos assim que existam.
+         * A verificação é AQUI e não só no ecrã: esconder o formulário não
+         * impede ninguém de chamar o endereço à mão.
          */
-        if (!is_admin() && (int) $venda['staff_id'] !== (int) get_staff_user_id()) {
+        if (! is_admin()) {
             access_denied('dps_vendas');
         }
 

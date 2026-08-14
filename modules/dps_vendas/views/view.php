@@ -595,12 +595,14 @@ $pode_gerir_cpcv = is_admin() || staff_can('edit', 'dps_vendas');
 
                 <?php
                 /*
-                 * O comercial da venda também envia ao promotor. Depois do CPCV
-                 * assinado e do comprovativo carregados, quem tem o processo na
-                 * mão é quem o deve mandar seguir — esperar pela direcção só
-                 * atrasava. O email leva todos os documentos da venda em anexo.
+                 * Enviar ao promotor é da direcção, e mais ninguém.
+                 *
+                 * O email sai com os dados do cliente e o Cartão de Cidadão em
+                 * anexo, para fora da empresa. Esteve aberto ao comercial da
+                 * venda durante duas semanas; fechou a 13/08/2026 por decisão
+                 * do dono.
                  */
-                if (is_admin() || (int) $venda['staff_id'] === (int) get_staff_user_id()) { ?>
+                if (is_admin()) { ?>
                 <div class="panel_s">
                     <div class="panel-body">
                         <h5 class="no-margin">Enviar ao promotor</h5>
