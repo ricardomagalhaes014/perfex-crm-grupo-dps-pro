@@ -422,6 +422,25 @@ function dps_vendas_js_abrir_lead()
         cx.querySelector('#dps-canal-mail').onclick = function () { fechar(); aoEscolher('email'); };
       }
 
+      /**
+       * Recarrega a tabela das leads sem sair do sítio.
+       *
+       * O Perfex desenha-a com DataTables; o id muda conforme a página, por
+       * isso procura-se qualquer tabela que a biblioteca conheça em vez de o
+       * adivinhar. Se não houver nenhuma — a acção também corre a partir da
+       * ficha da lead — não se faz nada e ninguém dá por isso.
+       */
+      function dpsRecarregarTabelaLeads() {
+        try {
+          if (!window.jQuery || !$.fn.DataTable) { return; }
+          $('table').each(function () {
+            if ($.fn.DataTable.isDataTable(this)) {
+              $(this).DataTable().ajax.reload(null, false);
+            }
+          });
+        } catch (e) {}
+      }
+
       /* ---------- Disponíveis: envia sem sair da tabela ---------- */
       function enviarDisponiveis(ctx, emp, canal) {
         aviso('info', 'A enviar as unidades disponíveis por ' + (canal === 'email' ? 'email' : 'WhatsApp') + '…');
@@ -433,6 +452,17 @@ function dps_vendas_js_abrir_lead()
           try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) {}
           aviso(r && r.success ? 'success' : 'danger',
                 (r && r.message) ? r.message : 'Não foi possível enviar.');
+
+          /*
+           * A lead passa a VIP 1 do lado do servidor, mas a tabela é uma
+           * DataTable já desenhada: o estado só mudava no ecrã com F5, e
+           * quem enviava ficava a olhar para o estado antigo sem saber se a
+           * regra tinha corrido. Recarrega-se a tabela no sítio onde está —
+           * o segundo argumento a false mantém a página e os filtros.
+           */
+          if (r && r.success) {
+            setTimeout(function () { dpsRecarregarTabelaLeads(); }, 400);
+          }
         }).fail(function () { aviso('danger', 'Erro de comunicação com o CRM.'); });
       }
 

@@ -892,6 +892,8 @@ function dps_automacao_botao_converter_lead($tarefa)
 define('DPS_AUTOMACAO_ESTADO_NOVOS',   4);
 define('DPS_AUTOMACAO_ESTADO_RELIGAR', 7);
 define('DPS_AUTOMACAO_ESTADO_VIP1',   17);
+defined('DPS_AUTOMACAO_ESTADO_SEM_INTERESSE') || define('DPS_AUTOMACAO_ESTADO_SEM_INTERESSE', 5);
+defined('DPS_AUTOMACAO_ESTADO_CONCRETIZADO')  || define('DPS_AUTOMACAO_ESTADO_CONCRETIZADO', 13);
 
 /**
  * A nota diz que se enviaram as disponibilidades?
@@ -920,6 +922,34 @@ function dps_automacao_nota_diz_disponiveis($texto)
  * enviada ou contrato está mais adiante — descê-lo a VIP 1 seria estragar o
  * funil para registar um progresso.
  */
+/**
+ * A nota diz que o cliente não tem interesse?
+ *
+ * Apanha as formas como isto aparece escrito de verdade nas notas —
+ * "sem interesse", "não tem interesse", "nao tem interesse", "sem qualquer
+ * interesse", "não está interessado". Não apanha "sem interesse no Boavista,
+ * sugeri Gaia": aí há uma alternativa em cima da mesa e a lead está viva.
+ */
+function dps_automacao_nota_diz_sem_interesse($texto)
+{
+    $t = html_entity_decode(strip_tags((string) $texto), ENT_QUOTES, 'UTF-8');
+    $t = str_replace("\xC2\xA0", ' ', $t);
+    $t = mb_strtolower($t, 'UTF-8');
+
+    // "sem interesse no X, sugeri Y" — mudou de produto, não desistiu.
+    if (preg_match('/interesse\s+(?:n[oa]s?|em|pelo|pela)\s+\S+.*\b(sugeri|suger|alternativ|propus|mostrei|indiquei)/iu', $t)) {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/\b(?:sem\s+(?:qualquer\s+)?interesse'
+        . '|n[ãa]o\s+(?:tem|tinha|ten[hd]o|demonstrou)\s+interesse'
+        . '|n[ãa]o\s+(?:est[áa]|estava|se\s+mostrou)\s+interessad[oa]?'
+        . '|desistiu|n[ãa]o\s+quer\s+(?:avan[çc]ar|nada|saber))\b/iu',
+        $t
+    );
+}
+
 function dps_automacao_estados_a_frente_de_vip1()
 {
     return [17, 14, 18, 20, 21, 10, 13];
@@ -964,7 +994,21 @@ function dps_automacao_nota_muda_estado($note_id)
     }
 
     $lead_id = (int) $nota->rel_id;
-    if (!$lead_id || !dps_automacao_nota_diz_nao_atendeu($nota->description)) {
+    if (! $lead_id) {
+        return;
+    }
+
+    /*
+     * Este teste estava aqui a exigir "não atendeu" ANTES de se olhar para as
+     * outras regras — e por isso a nota "enviadas disponibilidades" saía por
+     * esta porta e nunca chegava à regra do VIP 1. Só funcionava pelo botão,
+     * que promove por outro caminho. Cada regra decide por si.
+     */
+    $diz_nao_atendeu  = dps_automacao_nota_diz_nao_atendeu($nota->description);
+    $diz_disponiveis  = dps_automacao_nota_diz_disponiveis($nota->description);
+    $diz_sem_interesse = dps_automacao_nota_diz_sem_interesse($nota->description);
+
+    if (! $diz_nao_atendeu && ! $diz_disponiveis && ! $diz_sem_interesse) {
         return;
     }
 
@@ -983,7 +1027,7 @@ function dps_automacao_nota_muda_estado($note_id)
      * Vem antes da regra do "não atendeu" porque são coisas diferentes: uma
      * puxa a lead para a frente, a outra devolve-a à fila de reconctacto.
      */
-    if (dps_automacao_nota_diz_disponiveis($nota->description)) {
+    if ($diz_disponiveis) {
         $actual = (int) $lead->status;
 
         if (! in_array($actual, dps_automacao_estados_a_frente_de_vip1(), true)) {
@@ -1013,6 +1057,50 @@ function dps_automacao_nota_muda_estado($note_id)
         }
 
         return;   // uma nota não é as duas coisas ao mesmo tempo
+    }
+
+    /*
+     * "Sem interesse" escrito na nota fecha a lead.
+     *
+     * Ao contrário do "não atendeu", esta vale a partir de QUALQUER estado: um
+     * cliente que diz que não quer, não quer — venha ele de Novos ou de
+     * proposta enviada. Pedido do dono (13/08/2026).
+     *
+     * Só não mexe em quem já concretizou: essa lead já é venda e o "sem
+     * interesse" só pode ser de outra coisa.
+     */
+    if ($diz_sem_interesse) {
+        $actual = (int) $lead->status;
+
+        if ($actual !== DPS_AUTOMACAO_ESTADO_SEM_INTERESSE
+            && $actual !== DPS_AUTOMACAO_ESTADO_CONCRETIZADO) {
+
+            $CI->db->where('id', $lead_id);
+            $CI->db->update(db_prefix() . 'leads', [
+                'status'             => DPS_AUTOMACAO_ESTADO_SEM_INTERESSE,
+                'last_status_change' => date('Y-m-d H:i:s'),
+                'lastcontact'        => date('Y-m-d H:i:s'),
+            ]);
+
+            $CI->load->model('leads_model');
+            $de   = $CI->db->select('name')->where('id', $actual)->get(db_prefix() . 'leads_status')->row();
+            $para = $CI->db->select('name')->where('id', DPS_AUTOMACAO_ESTADO_SEM_INTERESSE)
+                ->get(db_prefix() . 'leads_status')->row();
+
+            $CI->leads_model->log_lead_activity($lead_id, 'not_lead_activity_status_updated', false, serialize([
+                get_staff_full_name(),
+                $de ? $de->name : $actual,
+                $para ? $para->name : DPS_AUTOMACAO_ESTADO_SEM_INTERESSE,
+            ]));
+
+            hooks()->do_action('lead_status_changed', [
+                'lead_id'    => $lead_id,
+                'old_status' => $actual,
+                'new_status' => DPS_AUTOMACAO_ESTADO_SEM_INTERESSE,
+            ]);
+        }
+
+        return;
     }
 
     /*
