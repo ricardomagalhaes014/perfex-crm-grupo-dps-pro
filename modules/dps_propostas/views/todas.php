@@ -121,9 +121,10 @@
                         <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
                             <?php foreach ($kpis as $k) { ?>
                             <div style="flex:1;min-width:130px;background:#fff;border:1px solid #e6eaef;border-radius:10px;padding:13px 15px;">
-                                <div style="font-size:1.7rem;font-weight:700;line-height:1.1;color:<?= $k[2]; ?>;font-variant-numeric:tabular-nums;">
-                                    <?= number_format((int) $k[0], 0, ',', '.'); ?>
-                                    <?php if ($k[3] !== '') { ?><span style="font-size:.85rem;font-weight:600;opacity:.75;"><?= $k[3]; ?></span><?php } ?>
+                                <div style="font-size:1.7rem;font-weight:700;line-height:1.1;color:<?= $k[2]; ?>;font-variant-numeric:tabular-nums;"
+                                     data-kpi="<?= e($k[1]); ?>">
+                                    <span class="dps-kpi-n"><?= number_format((int) $k[0], 0, ',', '.'); ?></span>
+                                    <?php if ($k[3] !== '') { ?><span class="dps-kpi-pc" style="font-size:.85rem;font-weight:600;opacity:.75;"><?= $k[3]; ?></span><?php } ?>
                                 </div>
                                 <div style="font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:#8a97a6;margin-top:3px;"><?= $k[1]; ?></div>
                             </div>
@@ -197,7 +198,7 @@
                                     </td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
-                                    <tr>
+                                    <tr data-proposta="<?= (int) $p->id; ?>">
                                         <td><a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a></td>
                                         <td style="white-space:nowrap;">
                                             <?php
@@ -279,7 +280,7 @@
                                             <?php } ?>
                                         </td>
                                         <td><?= e($p->estado_atual ?: ($p->lead_status_nome ?: '—')); ?></td>
-                                        <td>
+                                        <td class="dps-resultado">
                                             <?php if ($p->outcome === 'aceite') { ?>
                                             <span class="label label-success">Aceite</span>
                                             <?php if ((float) $p->valor > 0) { ?>
@@ -295,7 +296,7 @@
                                             <?php } ?>
                                         </td>
                                         <td class="text-muted" style="font-size:12px;"><?= e($p->created_at); ?></td>
-                                        <td>
+                                        <td class="dps-accoes">
                                             <?php if ($p->outcome === 'pendente') { ?>
                                             <button class="btn btn-success btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
                                             <button class="btn btn-danger btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
@@ -351,11 +352,65 @@ function dpsEnviarResultado(id, outcome, valor, motivo) {
              * e os documentos. Sem este salto, a venda ficava a metade até
              * alguém se lembrar dela.
              */
-            setTimeout(function () {
-                window.location = (r.redirect) ? r.redirect : window.location.href;
-            }, 1200);
+            if (r.redirect) {
+                setTimeout(function () { window.location = r.redirect; }, 1200);
+                return;
+            }
+            /*
+             * Recusar não leva a lado nenhum — por isso não se recarrega nada.
+             *
+             * Recarregava, e a página voltava ao topo: quem estava a despachar
+             * as propostas uma a uma tinha de fazer scroll até onde ia, de cada
+             * vez. A linha passa a ser acertada onde está.
+             */
+            dpsMarcarRecusada(id, r.outcome_at);
         }
     }).fail(function () { alert_float('danger', 'Erro de comunicação.'); });
+}
+
+/* Acerta a linha recusada — e os contadores do topo com ela, senão ficavam a
+ * dizer o que era verdade antes de se carregar no botão. */
+function dpsMarcarRecusada(id, quando) {
+    var tr = document.querySelector('tr[data-proposta="' + id + '"]');
+    if (!tr) { return; }
+
+    var res = tr.querySelector('.dps-resultado');
+    if (res) { res.innerHTML = '<span class="label label-danger">Recusada</span>'; }
+
+    var acc = tr.querySelector('.dps-accoes');
+    if (acc) {
+        acc.innerHTML = '<span class="text-muted" style="font-size:11px;"></span>';
+        acc.firstChild.textContent = quando || '';
+    }
+
+    // Um sinal curto de que foi aquela linha que mudou, para não se perder de
+    // vista numa tabela com dezenas.
+    tr.style.transition = 'background-color 1.6s';
+    tr.style.backgroundColor = '#fdecea';
+    setTimeout(function () { tr.style.backgroundColor = ''; }, 1600);
+
+    dpsAcertarKpi('Recusadas', 1);
+    dpsAcertarKpi('Sem resultado', -1);
+}
+
+function dpsAcertarKpi(rotulo, delta) {
+    var cx = document.querySelector('[data-kpi="' + rotulo + '"]');
+    if (!cx) { return; }
+    var alvo = cx.querySelector('.dps-kpi-n');
+    if (!alvo) { return; }
+
+    var n = parseInt(String(alvo.textContent).replace(/\D+/g, ''), 10);
+    if (isNaN(n)) { return; }
+    n = Math.max(0, n + delta);
+    alvo.textContent = n.toLocaleString('pt-PT');
+
+    // A percentagem é sobre o total enviado, que não muda ao recusar.
+    var pc = cx.querySelector('.dps-kpi-pc');
+    var envCx = document.querySelector('[data-kpi="Enviadas"] .dps-kpi-n');
+    if (pc && envCx) {
+        var env = parseInt(String(envCx.textContent).replace(/\D+/g, ''), 10);
+        if (env > 0) { pc.textContent = (Math.round(n / env * 1000) / 10).toString().replace('.', ',') + '%'; }
+    }
 }
 </script>
 

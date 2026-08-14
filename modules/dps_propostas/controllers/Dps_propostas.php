@@ -945,11 +945,13 @@ class Dps_propostas extends AdminController
                 return;
             }
 
+            $recusada_em = date('Y-m-d H:i:s');
+
             $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
                 'outcome'      => 'recusado',
                 'motivo_perda' => $motivo,
                 'valor'        => null,
-                'outcome_at'   => date('Y-m-d H:i:s'),
+                'outcome_at'   => $recusada_em,
             ]);
 
             // O motivo fica também no histórico da lead: quem a abrir daqui a
@@ -969,6 +971,9 @@ class Dps_propostas extends AdminController
                 'success' => true,
                 'message' => 'Proposta RECUSADA (' . $motivos[$motivo]
                     . ') — lead movida para "Para outras oportunidades".',
+                // A hora vai para o ecrã acertar a linha sem recarregar a
+                // página — recarregar mandava o comercial de volta ao topo.
+                'outcome_at' => $recusada_em,
             ]);
             return;
         }

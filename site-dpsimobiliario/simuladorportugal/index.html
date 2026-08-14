@@ -3738,7 +3738,16 @@ async function gerarPropostaGaiadouro(unit, loadBtn, simData) {
     doc.text('Imagens 3D não contratuais. Valores e condições sujeitos a alteração sem aviso prévio.', W / 2, 270, { align: 'center' });
     doc.setFillColor(...GOLD); doc.rect(0, H - 3, W, 3, 'F');
 
-    doc.save('Proposta_DOuroMar_Torre' + unit.torre + '_' + unit.fraccao + '.pdf');
+    /*
+     * O nome do ficheiro é o que o CRM lê para saber a unidade.
+     *
+     * Chamava-se 'Proposta_DOuroMar_Torre1_A.pdf' e não batia com o molde dos
+     * outros empreendimentos (Proposta_<emp>_Fraccao_<unidade>_<tipologia>).
+     * Resultado: em "Propostas Enviadas" o Douro Mar aparecia sempre com um
+     * traço na coluna Unidade. Aproveitou-se para corrigir o 'DOuro', que ia
+     * no nome do ficheiro que o cliente recebe.
+     */
+    doc.save('Proposta_DouroMar_Fraccao_T' + unit.torre + '-' + unit.fraccao + '_' + unit.tipologia + '.pdf');
   } catch (e) {
     console.error(e);
     alert('Erro ao gerar a proposta: ' + e.message);
@@ -5214,7 +5223,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var hasCtx = !!(ctx.lead_id && ctx.staff_id && ctx.token);
   function beacon(m){} // diagnóstico desativado
   if (!hasCtx) { return; } // fora do CRM: comportamento normal (download)
-  var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers' };
+  var NICE = { BH: 'Belo Horizonte', Raizes: 'Raízes', Boavista: 'Boavista Towers', DouroMar: 'Douro Mar', AuraResidence: 'Aura Residence' };
   var embedded = !!(window.parent && window.parent !== window);
   var last = null, sending = false;
   function log(){ try{ console.log.apply(console, arguments); }catch(e){} }
