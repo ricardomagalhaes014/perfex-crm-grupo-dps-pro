@@ -1868,16 +1868,16 @@ class Dps_vendas_model extends App_Model
         $alvo = $mapa[$estado_venda] ?? null;
 
         /*
-         * BELO HORIZONTE: uma reserva conta como DPS na montra.
+         * UMA RESERVA NOSSA MARCA DPS, EM TODOS OS EMPREENDIMENTOS.
          *
-         * Ali a DPS não anda a reservar unidades à espera — o que reserva,
-         * vende. Mostrá-las como "Reservado" dava a ideia de que ainda podiam
-         * voltar ao mercado, e o promotor conta-as como colocadas. Pedido do
-         * dono (02/08/2026).
-         *
-         * Só no Belo Horizonte: nos outros, reservado é mesmo reservado.
+         * Começou por ser só no Belo Horizonte (02/08/2026), onde a DPS não
+         * anda a reservar unidades à espera — o que reserva, vende. Passou a
+         * valer para todos: na montra, "Reservado" é uma unidade que ainda
+         * pode voltar ao mercado, e "DPS" é uma que saiu porque fomos nós a
+         * colocá-la. Uma proposta aceite é o segundo caso, seja onde for.
+         * Regra do dono (13/08 e 16/08/2026).
          */
-        if ($alvo === 'Reservado' && stripos((string) $empreendimento, 'belo') !== false) {
+        if ($alvo === 'Reservado') {
             return 'DPS';
         }
 
@@ -1973,7 +1973,20 @@ class Dps_vendas_model extends App_Model
             foreach (array_keys($mapa) as $existente) {
                 $k = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $existente));
 
-                if ($k === $limpo || $k === 'A' . $limpo) {
+                /*
+                 * "T1-W" é a mesma coisa que "1_W".
+                 *
+                 * As propostas do Douro Mar passaram a nomear a fracção com a
+                 * torre à frente e um T — "T1-W" — e o simulador guarda
+                 * "1_W". Sem tirar o T, três vendas (129, 130 e 131) ficaram
+                 * com a fracção por marcar na montra e a unidade continuou a
+                 * aparecer disponível a toda a gente.
+                 */
+                $semT = preg_match('/^T\d+[-_]/i', $unidade)
+                    ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', substr($unidade, 1)))
+                    : null;
+
+                if ($k === $limpo || $k === 'A' . $limpo || ($semT !== null && $k === $semT)) {
                     $alvo = $existente;
                     break;
                 }

@@ -115,6 +115,53 @@ function apresentacao_do_empreendimento(string $empreendimento): string
 }
 
 /**
+ * A fracção com o nome que o catálogo usa.
+ *
+ * O simulador nomeia a fracção do Douro Mar como "T1-W"; o catálogo, a montra
+ * e as vendas usam "1_W". Gravada em bruto, a proposta ficava numa língua que
+ * mais nada percebia: a 16/08/2026 três propostas aceites criaram vendas cuja
+ * fracção NÃO foi marcada no simulador, e a unidade continuou a aparecer
+ * disponível a toda a gente depois de vendida.
+ *
+ * Reaproveita-se o resolvedor do módulo — o mesmo que dá o preço — para não
+ * haver duas ideias diferentes de qual é a fracção.
+ */
+function unidade_do_catalogo(string $empreendimento, string $unidade): string
+{
+    if ($unidade === '' || $empreendimento === '') {
+        return $unidade;
+    }
+
+    if (!function_exists('dps_propostas_chave_catalogo')) {
+        $helper = __DIR__ . '/modules/dps_propostas/helpers/dps_propostas_helper.php';
+        if (!is_file($helper)) {
+            return $unidade;
+        }
+        if (!defined('BASEPATH')) {
+            define('BASEPATH', true);
+        }
+        if (!function_exists('html_escape')) {
+            function html_escape($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
+        }
+        require_once $helper;
+    }
+
+    if (!function_exists('dps_propostas_slug') || !function_exists('dps_propostas_chave_catalogo')) {
+        return $unidade;
+    }
+
+    $slug = dps_propostas_slug($empreendimento);
+
+    if ($slug === null) {
+        return $unidade;
+    }
+
+    $chave = dps_propostas_chave_catalogo($slug, $unidade);
+
+    return ($chave === null || $chave === '') ? $unidade : (string) $chave;
+}
+
+/**
  * O nome do empreendimento como deve ficar gravado.
  *
  * O simulador manda ora a chave interna ("gaiadouro", "boavista", "aura"),
@@ -154,7 +201,7 @@ function nome_canonico_do_empreendimento(string $valor): string
 }
 
 $empreendimento = nome_canonico_do_empreendimento((string) ($dados['empreendimento'] ?? ''));
-$unidade        = trim((string) ($dados['unidade'] ?? ''));
+$unidade        = unidade_do_catalogo($empreendimento, trim((string) ($dados['unidade'] ?? '')));
 $file_name      = trim((string) ($dados['file_name'] ?? 'Proposta.pdf'));
 $pdf_base64     = (string) ($dados['pdf_base64'] ?? '');
 

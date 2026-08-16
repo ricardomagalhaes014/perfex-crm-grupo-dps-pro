@@ -798,6 +798,20 @@ function dps_propostas_chave_catalogo($slug, $unidade)
 
     $alvo = $limpar($unidade);
 
+    /*
+     * "T1-W" é a mesma fracção que "1_W".
+     *
+     * As propostas do Douro Mar passaram a nomear a fracção com a torre à
+     * frente e um T. Sem tirar o T, a fracção não se encontrava no catálogo:
+     * a venda nascia sem preço e a unidade não era marcada na montra —
+     * continuava a aparecer disponível depois de a proposta ser aceite.
+     */
+    if (preg_match('/^T\d+[-_]/i', $unidade) && isset($catalogo[$slug][substr($unidade, 1)])) {
+        return substr($unidade, 1);
+    }
+
+    $sem_t = preg_match('/^T\d+[-_]/i', $unidade) ? $limpar(substr($unidade, 1)) : null;
+
     // A cauda do que veio na proposta: de "1_AL" fica "AL".
     $partes_unidade = preg_split('/[^A-Za-z0-9]+/', $unidade);
     $cauda_unidade  = strtoupper((string) end($partes_unidade));
@@ -805,7 +819,7 @@ function dps_propostas_chave_catalogo($slug, $unidade)
     $candidatos = [];
 
     foreach (array_keys($catalogo[$slug]) as $chave) {
-        if ($limpar($chave) === $alvo) {
+        if ($limpar($chave) === $alvo || ($sem_t !== null && $limpar($chave) === $sem_t)) {
             return $chave;
         }
 
@@ -875,7 +889,7 @@ function dps_propostas_chave_no_mapa(array $chaves, $unidade)
     };
 
     $alvo  = $limpar($unidade);
-    $sem_t = preg_match('/^T\d/i', $unidade) ? $limpar(substr($unidade, 1)) : null;
+    $sem_t = preg_match('/^T\d+[-_]/i', $unidade) ? $limpar(substr($unidade, 1)) : null;
 
     foreach ($chaves as $chave) {
         $k = $limpar($chave);

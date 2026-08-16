@@ -96,10 +96,14 @@ function dps_propostas_cancelar_ao_mudar_venda($dados)
         return;
     }
 
+    /*
+     * A tabela chama-se simulador_vendas, não dps_vendas — o módulo mudou de
+     * nome e a tabela ficou com o antigo.
+     */
     $CI = &get_instance();
     $v  = $CI->db->select('empreendimento, unidade')
                  ->where('id', $venda_id)
-                 ->get(db_prefix() . 'dps_vendas')
+                 ->get(db_prefix() . 'simulador_vendas')
                  ->row();
 
     if (! $v || trim((string) $v->unidade) === '') {
