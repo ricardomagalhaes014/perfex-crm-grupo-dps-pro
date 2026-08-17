@@ -683,6 +683,17 @@ function dps_reunioes_criar_eventos(array $r)
         $novo = (int) $CI->db->insert_id();
         if ($novo) {
             $ids[] = $novo;
+
+            /*
+             * Avisar o CRM de que nasceu um compromisso na agenda.
+             *
+             * Este módulo escreve na tabela dos eventos com um INSERT directo,
+             * e não pelo Utilities_model — que é onde este aviso é dado. Sem
+             * ele, a reunião entrava na agenda mas não criava lembrete nenhum:
+             * não aparecia na lista de Lembretes e não dava o aviso dos 30
+             * minutos. Quem marcava uma reunião não tinha nada a avisá-lo dela.
+             */
+            hooks()->do_action('dps_evento_criado', $novo);
         }
     }
 
@@ -714,6 +725,17 @@ function dps_reunioes_apagar_eventos($reuniao_id)
 
     if ($ids) {
         $CI->db->where_in('eventid', $ids)->delete(db_prefix() . 'events');
+
+        /*
+         * E os lembretes que nasceram desses eventos vão com eles.
+         *
+         * Ficavam para trás: a reunião era cancelada, o compromisso saía da
+         * agenda, e o comercial continuava a ser avisado de uma reunião que já
+         * não existia. Havia sete assim quando isto foi escrito.
+         */
+        $CI->db->where('rel_type', 'event')
+               ->where_in('rel_id', $ids)
+               ->delete(db_prefix() . 'reminders');
     }
 
     $CI->db->where('id', (int) $reuniao_id)
