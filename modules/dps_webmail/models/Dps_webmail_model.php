@@ -417,6 +417,126 @@ class Dps_webmail_model extends CI_Model
         return true;
     }
 
+    /**
+     * A mesma acção sobre várias mensagens, numa só ligação.
+     *
+     * Chamar mark_read() vinte vezes abria e fechava vinte ligações IMAP — o
+     * servidor demora mais a atender a ligação do que a fazer o trabalho, e
+     * marcar uma página inteira levava mais de meio minuto. Aqui abre-se uma
+     * vez, faz-se tudo, e só ao fim é que se expurga.
+     *
+     * @return array ['ok' => n, 'falhou' => n]
+     */
+    public function bulk_action($config, array $uids, $folder, $accao)
+    {
+        $uids = array_values(array_unique(array_filter(array_map('intval', $uids))));
+
+        if (empty($uids)) {
+            return ['ok' => 0, 'falhou' => 0];
+        }
+
+        $conn = $this->get_imap_connection($config, $this->_encode_folder($folder));
+
+        if (!$conn) {
+            return ['ok' => 0, 'falhou' => count($uids)];
+        }
+
+        $mailbox = '{' . $config['imap_host'] . ':' . $config['imap_port'] . '/imap/ssl/novalidate-cert}';
+        $destino = null;
+
+        if ($accao === 'delete') {
+            $destino = 'Trash';
+        } elseif ($accao === 'archive') {
+            /*
+             * A pasta de arquivo não se chama o mesmo em todos os servidores.
+             * A lista real vem do servidor; só se cai no 'Archive' por omissão
+             * quando nenhuma das conhecidas existe.
+             */
+            $conhecidas = ['Archive', 'Arquivados', 'INBOX.Archive', 'Archives'];
+            $existentes = $this->get_folders($config);
+            $destino    = 'Archive';
+
+            foreach ($conhecidas as $af) {
+                if (in_array($af, $existentes)) {
+                    $destino = $af;
+                    break;
+                }
+            }
+        }
+
+        $ok = 0;
+        $falhou = 0;
+        $mexeu = false;
+
+        foreach ($uids as $uid) {
+            $msgno = @imap_msgno($conn, $uid);
+
+            if (!$msgno) {
+                $falhou++;
+                continue;
+            }
+
+            $feito = false;
+
+            switch ($accao) {
+                case 'mark_read':
+                    $feito = @imap_setflag_full($conn, (string) $msgno, '\\Seen');
+                    break;
+                case 'mark_unread':
+                    $feito = @imap_clearflag_full($conn, (string) $msgno, '\\Seen');
+                    break;
+                case 'delete':
+                case 'archive':
+                    $feito = @imap_mail_move($conn, (string) $msgno, $mailbox . $this->_encode_folder($destino));
+                    $mexeu = $mexeu || $feito;
+                    break;
+                case 'delete_permanent':
+                    $feito = @imap_delete($conn, (string) $msgno);
+                    $mexeu = $mexeu || $feito;
+                    break;
+            }
+
+            $feito ? $ok++ : $falhou++;
+        }
+
+        // Só depois de tudo: um expurgo no fim em vez de um por mensagem.
+        if ($mexeu) {
+            @imap_expunge($conn);
+        }
+
+        imap_close($conn);
+
+        return ['ok' => $ok, 'falhou' => $falhou];
+    }
+
+    /**
+     * Os uid da pasta, na mesma ordem em que a lista os mostra (mais recentes
+     * primeiro). Serve para saber qual é a mensagem seguinte sem ter de ler o
+     * cabeçalho de todas — que é o que torna get_messages() pesado.
+     */
+    public function get_uids($config, $folder = 'INBOX')
+    {
+        $conn = $this->get_imap_connection($config, $this->_encode_folder($folder));
+
+        if (!$conn) {
+            return [];
+        }
+
+        $total = imap_num_msg($conn);
+        $uids  = [];
+
+        for ($i = $total; $i >= 1; $i--) {
+            $uid = @imap_uid($conn, $i);
+            if ($uid) {
+                $uids[] = (int) $uid;
+            }
+        }
+
+        imap_close($conn);
+
+        return $uids;
+    }
+
     public function get_unread_count($config, $folder = 'INBOX')
     {
         $conn = $this->get_imap_connection($config, $this->_encode_folder($folder));

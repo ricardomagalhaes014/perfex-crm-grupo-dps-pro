@@ -69,10 +69,36 @@ class Dps_webmail extends AdminController
             redirect(admin_url('dps_webmail/index/' . $folder));
         }
 
+        /*
+         * Qual é a mensagem antes e depois desta.
+         *
+         * Serve para se poder despachar a caixa de entrada sem voltar à lista
+         * a cada mensagem: apagar ou arquivar salta para a seguinte, e há
+         * setas para andar para a frente e para trás. Lê-se só a lista de uid
+         * (barata), e não os cabeçalhos todos.
+         */
+        $anterior = null;
+        $seguinte = null;
+
+        try {
+            $uids = $this->dps_webmail_model->get_uids($config, $folder);
+            $pos  = array_search((int) $uid, $uids, true);
+
+            if ($pos !== false) {
+                // A lista mostra as recentes primeiro: "seguinte" é a de baixo.
+                $anterior = $uids[$pos - 1] ?? null;
+                $seguinte = $uids[$pos + 1] ?? null;
+            }
+        } catch (Exception $e) {
+            // Sem vizinhos a página continua a servir — só perde as setas.
+        }
+
         $data['config']    = $config;
         $data['message']   = $message;
         $data['folder']    = $folder;
         $data['folders']   = $this->folders;
+        $data['uid_anterior'] = $anterior;
+        $data['uid_seguinte'] = $seguinte;
         $data['title']     = htmlspecialchars($message['subject']);
         $data['bodyclass'] = 'dps-webmail-page';
         $data['unread_inbox'] = 0;
@@ -277,6 +303,82 @@ class Dps_webmail extends AdminController
             default:
                 echo json_encode(['success' => false, 'message' => 'Acção desconhecida']);
         }
+    }
+
+    /**
+     * A mesma acção sobre as mensagens escolhidas na lista.
+     *
+     * Existe porque despachar a caixa uma a uma não é trabalho de ninguém: a
+     * Samara tinha 143 por ler e 172 na pasta. As acções são as mesmas de
+     * sempre — é o número de mensagens que muda.
+     */
+    public function bulk()
+    {
+        if (!$this->input->is_ajax_request()) {
+            ajax_access_denied();
+        }
+
+        header('Content-Type: application/json');
+
+        $config = $this->dps_webmail_model->get_config();
+
+        if (!$config) {
+            echo json_encode(['success' => false, 'message' => 'Conta de email não configurada.']);
+            return;
+        }
+
+        $accao  = (string) $this->input->post('action');
+        $folder = $this->input->post('folder') ?: 'INBOX';
+        $uids   = $this->input->post('uids');
+
+        $permitidas = ['mark_read', 'mark_unread', 'delete', 'archive', 'delete_permanent'];
+
+        if (!in_array($accao, $permitidas, true)) {
+            echo json_encode(['success' => false, 'message' => 'Acção desconhecida.']);
+            return;
+        }
+
+        if (!is_array($uids) || empty($uids)) {
+            echo json_encode(['success' => false, 'message' => 'Nenhuma mensagem escolhida.']);
+            return;
+        }
+
+        /*
+         * Um tecto de 200. Não é uma limitação de gosto: cada mensagem é uma
+         * ida ao servidor IMAP dentro da mesma ligação, e uma seleção de mil
+         * batia no tempo máximo de execução a meio do trabalho — deixando
+         * metade feito e o utilizador sem saber quais.
+         */
+        if (count($uids) > 200) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Escolheu ' . count($uids) . ' mensagens. Faça no máximo 200 de cada vez.',
+            ]);
+            return;
+        }
+
+        try {
+            $r = $this->dps_webmail_model->bulk_action($config, $uids, $folder, $accao);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erro no servidor de email: ' . $e->getMessage()]);
+            return;
+        }
+
+        $nomes = [
+            'mark_read'        => 'marcada(s) como lida(s)',
+            'mark_unread'      => 'marcada(s) como não lida(s)',
+            'delete'           => 'movida(s) para o Lixo',
+            'archive'          => 'arquivada(s)',
+            'delete_permanent' => 'apagada(s) definitivamente',
+        ];
+
+        echo json_encode([
+            'success' => $r['ok'] > 0,
+            'ok'      => $r['ok'],
+            'falhou'  => $r['falhou'],
+            'message' => $r['ok'] . ' mensagem(ns) ' . $nomes[$accao]
+                . ($r['falhou'] > 0 ? ' — ' . $r['falhou'] . ' falhou/falharam.' : '.'),
+        ]);
     }
 
     // ---------------------------------------------------------------

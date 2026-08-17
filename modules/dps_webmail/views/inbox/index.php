@@ -96,6 +96,39 @@
               </div>
             </div>
 
+            <?php if (empty($error) && !empty($messages)): ?>
+            <!--
+              Barra das acções em lote. Só aparece com alguma coisa escolhida:
+              uma barra de botões sempre visível e quase sempre inútil só rouba
+              espaço à lista.
+            -->
+            <div id="wm-barra" style="display:none; padding:10px 16px; border-bottom:1px solid #eee; background:#f7fbff; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong id="wm-conta" style="margin-right:4px;"></strong>
+              <button class="btn btn-default btn-xs wm-lote" data-accao="mark_read">
+                <i class="fa fa-envelope-open-o"></i> Marcar como lido
+              </button>
+              <button class="btn btn-default btn-xs wm-lote" data-accao="mark_unread">
+                <i class="fa fa-envelope"></i> Marcar como não lido
+              </button>
+              <?php if ($folder === 'INBOX'): ?>
+              <button class="btn btn-default btn-xs wm-lote" data-accao="archive">
+                <i class="fa fa-archive"></i> Arquivar
+              </button>
+              <?php endif; ?>
+              <?php if ($folder !== 'Trash'): ?>
+              <button class="btn btn-danger btn-xs wm-lote" data-accao="delete">
+                <i class="fa fa-trash"></i> Apagar
+              </button>
+              <?php else: ?>
+              <button class="btn btn-danger btn-xs wm-lote" data-accao="delete_permanent">
+                <i class="fa fa-times"></i> Apagar definitivamente
+              </button>
+              <?php endif; ?>
+              <div style="flex:1;"></div>
+              <a href="#" id="wm-limpar" style="font-size:12px; color:#888;">Limpar seleção</a>
+            </div>
+            <?php endif; ?>
+
             <?php if (!empty($error)): ?>
             <div class="alert alert-danger" style="margin:15px;">
               <i class="fa fa-exclamation-triangle"></i>
@@ -111,12 +144,25 @@
 
             <!-- Tabela de mensagens -->
             <table class="table table-hover" style="margin:0;" id="webmail-list">
+              <thead>
+                <tr>
+                  <th style="width:34px; padding:8px 4px 8px 16px;">
+                    <input type="checkbox" id="wm-todos" title="Escolher todas as mensagens desta página">
+                  </th>
+                  <th colspan="6" style="padding:8px; font-weight:normal; font-size:12px; color:#999;">
+                    Escolher para marcar como lido, arquivar ou apagar em conjunto
+                  </th>
+                </tr>
+              </thead>
               <tbody>
                 <?php foreach ($messages as $msg): ?>
                 <?php $unread_style = $msg['seen'] ? '' : 'background:#f0f7ff; font-weight:bold;'; ?>
-                <tr style="cursor:pointer; <?php echo $unread_style; ?>"
+                <tr style="cursor:pointer; <?php echo $unread_style; ?>" data-uid="<?php echo (int) $msg['uid']; ?>"
                     onclick="window.location='<?php echo admin_url('dps_webmail/view_message/' . urlencode($folder) . '/' . $msg['uid']); ?>'">
-                  <td style="width:20px; padding:10px 8px 10px 16px;">
+                  <td style="width:34px; padding:10px 4px 10px 16px;" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="wm-caixa" value="<?php echo (int) $msg['uid']; ?>">
+                  </td>
+                  <td style="width:20px; padding:10px 8px 10px 4px;">
                     <?php if (!$msg['seen']): ?>
                       <span style="display:inline-block; width:8px; height:8px; background:#3498db; border-radius:50%;"></span>
                     <?php endif; ?>
@@ -232,5 +278,99 @@ $(document).ready(function() {
             alert('Erro de comunicação com o servidor.');
         });
     });
+
+    /* ---------------------------------------------------------------
+     * SELEÇÃO E ACÇÕES EM LOTE
+     * ------------------------------------------------------------ */
+
+    function wmEscolhidos() {
+        return $('.wm-caixa:checked').map(function () { return this.value; }).get();
+    }
+
+    function wmActualizarBarra() {
+        var n = wmEscolhidos().length;
+        $('#wm-barra').css('display', n > 0 ? 'flex' : 'none');
+        $('#wm-conta').text(n + (n === 1 ? ' mensagem escolhida' : ' mensagens escolhidas'));
+
+        // O "escolher todos" fica a meio quando só algumas estão marcadas —
+        // senão diz "todas" com três de vinte escolhidas.
+        var total = $('.wm-caixa').length;
+        $('#wm-todos').prop('checked', n > 0 && n === total)
+                      .prop('indeterminate', n > 0 && n < total);
+    }
+
+    $(document).on('change', '.wm-caixa', wmActualizarBarra);
+
+    $('#wm-todos').on('change', function () {
+        $('.wm-caixa').prop('checked', $(this).is(':checked'));
+        wmActualizarBarra();
+    });
+
+    $('#wm-limpar').on('click', function (e) {
+        e.preventDefault();
+        $('.wm-caixa, #wm-todos').prop('checked', false);
+        wmActualizarBarra();
+    });
+
+    // Clicar na caixa não deve abrir a mensagem (a linha inteira é um link).
+    $(document).on('click', '.wm-caixa', function (e) { e.stopPropagation(); });
+
+    $('.wm-lote').on('click', function () {
+        var accao = $(this).data('accao');
+        var uids  = wmEscolhidos();
+        if (!uids.length) { return; }
+
+        var perguntas = {
+            'delete':           'Mover ' + uids.length + ' mensagem(ns) para o Lixo?',
+            'delete_permanent': 'Apagar DEFINITIVAMENTE ' + uids.length + ' mensagem(ns)? Não há como recuperar.',
+            'archive':          'Arquivar ' + uids.length + ' mensagem(ns)?'
+        };
+
+        // Marcar como lido não pergunta: desfaz-se com um clique no botão ao lado.
+        if (perguntas[accao] && !confirm(perguntas[accao])) { return; }
+
+        var botoes = $('.wm-lote').prop('disabled', true);
+        $('#wm-conta').text('A tratar ' + uids.length + '…');
+
+        $.post('<?php echo admin_url('dps_webmail/bulk'); ?>', {
+            action: accao,
+            folder: '<?php echo htmlspecialchars($folder, ENT_QUOTES); ?>',
+            uids:   uids
+        }, function (r) {
+            botoes.prop('disabled', false);
+
+            if (!r || !r.success) {
+                alert((r && r.message) ? r.message : 'Não foi possível executar a acção.');
+                wmActualizarBarra();
+                return;
+            }
+
+            if (accao === 'mark_read' || accao === 'mark_unread') {
+                /*
+                 * Marcar não tira a mensagem da pasta — recarrega-se para o
+                 * estilo de "não lida" e o contador do lado ficarem certos.
+                 */
+                location.reload();
+                return;
+            }
+
+            // Apagar e arquivar tiram-nas da pasta: saem da lista à vista.
+            uids.forEach(function (uid) {
+                $('tr[data-uid="' + uid + '"]').fadeOut(250, function () { $(this).remove(); });
+            });
+
+            setTimeout(function () {
+                $('.wm-caixa, #wm-todos').prop('checked', false);
+                wmActualizarBarra();
+                if (!$('.wm-caixa').length) { location.reload(); }
+            }, 300);
+        }, 'json').fail(function () {
+            botoes.prop('disabled', false);
+            wmActualizarBarra();
+            alert('Erro de comunicação com o servidor.');
+        });
+    });
+
+    wmActualizarBarra();
 });
 </script>

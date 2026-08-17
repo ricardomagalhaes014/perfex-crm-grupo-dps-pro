@@ -74,26 +74,71 @@
                 <i class="fa fa-share"></i> Reencaminhar
               </a>
               <div style="flex:1;"></div>
+
+              <?php
+              /*
+               * Depois de apagar ou arquivar vai-se para a mensagem SEGUINTE,
+               * não de volta à lista.
+               *
+               * É a diferença entre despachar a caixa de entrada e andar a
+               * saltar de e para uma lista a cada mensagem: quem tem 143 por
+               * ler fazia esse caminho 143 vezes. Quando não há seguinte
+               * (última da pasta), volta-se à lista, que é o único destino que
+               * resta. Pedido do dono (17/08/2026).
+               */
+              $depois = $uid_seguinte
+                  ? admin_url('dps_webmail/view_message/' . urlencode($folder) . '/' . (int) $uid_seguinte)
+                  : admin_url('dps_webmail/index/' . urlencode($folder));
+              ?>
+
               <?php if ($folder !== 'Trash'): ?>
-              <button class="btn btn-default btn-sm webmail-msg-action" title="Mover para Lixo"
+              <button class="btn btn-default btn-sm webmail-msg-action" title="Mover para Lixo e ir para a seguinte"
                       data-action="delete" data-uid="<?php echo $message['uid']; ?>" data-folder="<?php echo htmlspecialchars($folder); ?>"
-                      data-redirect="<?php echo admin_url('dps_webmail/index/' . urlencode($folder)); ?>">
+                      data-redirect="<?php echo $depois; ?>">
                 <i class="fa fa-trash"></i> Apagar
               </button>
               <?php else: ?>
               <button class="btn btn-danger btn-sm webmail-msg-action" title="Apagar permanentemente"
                       data-action="delete_permanent" data-uid="<?php echo $message['uid']; ?>" data-folder="<?php echo htmlspecialchars($folder); ?>"
-                      data-redirect="<?php echo admin_url('dps_webmail/index/Trash'); ?>">
+                      data-redirect="<?php echo $depois; ?>">
                 <i class="fa fa-times"></i> Apagar Permanentemente
               </button>
               <?php endif; ?>
+
               <?php if ($folder === 'INBOX'): ?>
-              <button class="btn btn-default btn-sm webmail-msg-action" title="Arquivar"
+              <button class="btn btn-default btn-sm webmail-msg-action" title="Arquivar e ir para a seguinte"
                       data-action="archive" data-uid="<?php echo $message['uid']; ?>" data-folder="<?php echo htmlspecialchars($folder); ?>"
-                      data-redirect="<?php echo admin_url('dps_webmail/index/INBOX'); ?>">
+                      data-redirect="<?php echo $depois; ?>">
                 <i class="fa fa-archive"></i> Arquivar
               </button>
               <?php endif; ?>
+
+              <!-- Andar na pasta sem passar pela lista. Desactivadas nos
+                   extremos em vez de escondidas: um botão que aparece e
+                   desaparece muda os outros de sítio a cada mensagem. -->
+              <div class="btn-group btn-group-sm" style="margin-left:4px;">
+                <?php if ($uid_anterior): ?>
+                <a href="<?php echo admin_url('dps_webmail/view_message/' . urlencode($folder) . '/' . (int) $uid_anterior); ?>"
+                   class="btn btn-default btn-sm" title="Mensagem anterior (mais recente)">
+                  <i class="fa fa-chevron-up"></i>
+                </a>
+                <?php else: ?>
+                <button class="btn btn-default btn-sm" disabled title="Já é a mais recente">
+                  <i class="fa fa-chevron-up"></i>
+                </button>
+                <?php endif; ?>
+
+                <?php if ($uid_seguinte): ?>
+                <a href="<?php echo admin_url('dps_webmail/view_message/' . urlencode($folder) . '/' . (int) $uid_seguinte); ?>"
+                   class="btn btn-primary btn-sm" title="Mensagem seguinte">
+                  Seguinte <i class="fa fa-chevron-down"></i>
+                </a>
+                <?php else: ?>
+                <button class="btn btn-default btn-sm" disabled title="Já é a última desta pasta">
+                  Seguinte <i class="fa fa-chevron-down"></i>
+                </button>
+                <?php endif; ?>
+              </div>
             </div>
 
             <!-- Cabeçalho da mensagem -->
