@@ -132,6 +132,14 @@ function unidade_do_catalogo(string $empreendimento, string $unidade): string
         return $unidade;
     }
 
+    /*
+     * Este ficheiro corre FORA do CodeIgniter, e o resolvedor do módulo conta
+     * com ele: `dps_propostas_units()` chama `module_dir_path()` e um erro
+     * dentro do catálogo chama `log_activity()`. Sem estes dois substitutos, a
+     * chamada rebentava e o tratador de excepções lá em cima devolvia "Erro
+     * interno ao processar a proposta" — nenhuma proposta saía, nem por
+     * WhatsApp nem por email. Foi o que aconteceu a 17/08/2026.
+     */
     if (!function_exists('dps_propostas_chave_catalogo')) {
         $helper = __DIR__ . '/modules/dps_propostas/helpers/dps_propostas_helper.php';
         if (!is_file($helper)) {
@@ -140,8 +148,19 @@ function unidade_do_catalogo(string $empreendimento, string $unidade): string
         if (!defined('BASEPATH')) {
             define('BASEPATH', true);
         }
+        if (!defined('DPS_PROPOSTAS_MODULE_NAME')) {
+            define('DPS_PROPOSTAS_MODULE_NAME', 'dps_propostas');
+        }
         if (!function_exists('html_escape')) {
             function html_escape($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); }
+        }
+        if (!function_exists('module_dir_path')) {
+            function module_dir_path($modulo, $ficheiro = '') {
+                return __DIR__ . '/modules/' . $modulo . ($ficheiro !== '' ? '/' . $ficheiro : '');
+            }
+        }
+        if (!function_exists('log_activity')) {
+            function log_activity($m, $i = null) { error_log('dps_proposta_receber: ' . $m); }
         }
         require_once $helper;
     }
@@ -201,7 +220,18 @@ function nome_canonico_do_empreendimento(string $valor): string
 }
 
 $empreendimento = nome_canonico_do_empreendimento((string) ($dados['empreendimento'] ?? ''));
-$unidade        = unidade_do_catalogo($empreendimento, trim((string) ($dados['unidade'] ?? '')));
+/*
+ * A fracção é uma etiqueta; o envio é o trabalho. Se o resolvedor falhar por
+ * qualquer razão, grava-se o nome como veio e a proposta segue — nunca ao
+ * contrário.
+ */
+$unidade = trim((string) ($dados['unidade'] ?? ''));
+
+try {
+    $unidade = unidade_do_catalogo($empreendimento, $unidade);
+} catch (Throwable $e) {
+    error_log('dps_proposta_receber: fracção não normalizada (' . $e->getMessage() . ')');
+}
 $file_name      = trim((string) ($dados['file_name'] ?? 'Proposta.pdf'));
 $pdf_base64     = (string) ($dados['pdf_base64'] ?? '');
 
