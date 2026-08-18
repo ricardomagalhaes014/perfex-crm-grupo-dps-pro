@@ -1253,12 +1253,94 @@ function dps_automacao_aviso_lembretes()
             'link'        => $link,
         ]);
 
+        dps_automacao_aviso_whatsapp((int) $l['staff'], $texto, $l['date'], $link);
+
         $CI->db->query(
             'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
              VALUES (?, "30min", ?) ON DUPLICATE KEY UPDATE avisado_em = VALUES(avisado_em)',
             [(int) $l['id'], date('Y-m-d H:i:s')]
         );
     }
+}
+
+/**
+ * O mesmo aviso dos 30 minutos, mas por WhatsApp e no telemóvel do próprio.
+ *
+ * O sino só serve quem está com o CRM aberto. Quem anda na rua entre visitas —
+ * que é onde os comerciais passam o dia — não via nada e chegava atrasado à
+ * chamada que ele próprio marcou. Pedido do dono (18/08/2026).
+ *
+ * A mensagem sai da instância do próprio comercial para o número dele: é o
+ * WhatsApp dele a falar consigo, sem passar por um número da empresa que ele
+ * não reconheça.
+ *
+ * Nunca deixa cair o aviso do sino: o que aqui falhar — sem telemóvel, sessão
+ * caída, Evolution em baixo — fica no registo e o comercial continua avisado
+ * pelo caminho de sempre.
+ */
+function dps_automacao_aviso_whatsapp($staff_id, $texto, $quando, $link = '')
+{
+    if ($staff_id <= 0) {
+        return false;
+    }
+
+    $CI = &get_instance();
+
+    if (! function_exists('dps_propostas_send_text')) {
+        $helper = APPPATH . '../modules/dps_propostas/helpers/dps_propostas_helper.php';
+
+        if (! is_file($helper)) {
+            return false;
+        }
+
+        $CI->load->helper('dps_propostas/dps_propostas');
+    }
+
+    if (! function_exists('dps_propostas_send_text') || ! function_exists('dps_propostas_telefone_staff')) {
+        return false;
+    }
+
+    $numero = dps_propostas_telefone_staff($staff_id);
+
+    if ($numero === '') {
+        // Sem telemóvel na ficha não há para onde enviar. Fica dito uma vez.
+        log_activity('Lembretes: ' . get_staff_full_name($staff_id)
+            . ' não tem telemóvel na ficha — aviso dos 30 minutos só pelo sino.');
+
+        return false;
+    }
+
+    $msg = '⏰ Daqui a ' . DPS_AUTOMACAO_AVISO_MINUTOS . ' minutos, às '
+         . date('H:i', strtotime((string) $quando)) . "\n\n" . $texto;
+
+    if ($link !== '') {
+        $msg .= "\n\n" . admin_url($link);
+    }
+
+    try {
+        $r = dps_propostas_send_text($staff_id, $numero, $msg);
+    } catch (Exception $e) {
+        log_activity('Lembretes: WhatsApp para ' . get_staff_full_name($staff_id)
+            . ' falhou — ' . $e->getMessage());
+
+        return false;
+    }
+
+    /*
+     * A Evolution aceita a mensagem e devolve a chave dela. Sem "key" não
+     * saiu nada — tipicamente a sessão do comercial caiu e é preciso voltar a
+     * ler o QR. Fica registado com nome, para se saber a quem dizer.
+     */
+    $bruto = is_string($r) ? $r : json_encode($r);
+
+    if (strpos((string) $bruto, '"key"') === false) {
+        log_activity('Lembretes: WhatsApp para ' . get_staff_full_name($staff_id)
+            . ' não saiu (sessão caída?) — ' . mb_substr((string) $bruto, 0, 160));
+
+        return false;
+    }
+
+    return true;
 }
 
 hooks()->add_action('app_admin_footer', 'dps_automacao_js_agenda');
