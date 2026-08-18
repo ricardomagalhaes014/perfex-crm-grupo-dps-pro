@@ -468,6 +468,53 @@ function dps_reunioes_cron()
             log_activity('Reunião #' . $r['id'] . ' — tarefa de follow-up #' . $task_id . ' criada');
         }
     }
+
+    /* ---- Fechar as que passaram e ninguém classificou ---- */
+
+    /*
+     * Uma reunião de ontem não pode continuar a dizer "Agendada".
+     *
+     * A tarefa de follow-up pede o desfecho ao comercial, mas quem não a fecha
+     * deixa a reunião presa nesse estado para sempre — e a lista deixa de
+     * servir para nada, porque metade do que lá está já aconteceu. Pedido do
+     * dono (18/08/2026).
+     *
+     * Dá-se um dia inteiro depois de a reunião acabar: quem a quiser marcar
+     * como cancelada ou como não compareceu tem tempo de o fazer, e só depois
+     * é que o sistema assume o desfecho normal — realizada. Fica escrito no
+     * registo que foi o sistema a fechá-la, e o comercial recebe um aviso com
+     * o caminho para a corrigir num clique. Uma reunião fechada assim continua
+     * a poder mudar de estado à mão.
+     */
+    $por_classificar = $CI->db->select('id, staff_id, cliente_nome, data_hora')
+        ->from($t)
+        ->where('estado', 'agendada')
+        /*
+         * COALESCE na duração: se alguma vier a zero ou nula, o DATE_ADD dá
+         * NULL, a comparação nunca é verdadeira e a reunião ficava presa em
+         * "agendada" para sempre — sem erro nenhum a dizê-lo. Hoje não há
+         * nenhuma assim; isto é para não haver.
+         */
+        ->where('DATE_ADD(data_hora, INTERVAL COALESCE(NULLIF(duracao_min,0),30) MINUTE) <=',
+                date('Y-m-d H:i:s', strtotime('-1 day')))
+        ->get()->result_array();
+
+    foreach ($por_classificar as $v) {
+        $CI->db->where('id', (int) $v['id'])->update($t, ['estado' => 'realizada']);
+
+        log_activity('Reunião #' . $v['id'] . ' (' . $v['cliente_nome'] . ', '
+            . dps_reunioes_quando($v['data_hora']) . ') fechada automaticamente como realizada — '
+            . 'passou mais de um dia sem ninguém registar o desfecho.');
+
+        add_notification([
+            'description' => 'A reunião com ' . $v['cliente_nome'] . ' de '
+                . dps_reunioes_quando($v['data_hora'])
+                . ' ficou como REALIZADA por falta de registo. Se não se realizou, corrija na ficha.',
+            'touserid'    => (int) $v['staff_id'],
+            'link'        => 'dps_reunioes/ver/' . (int) $v['id'],
+            'fromcompany' => true,
+        ]);
+    }
 }
 
 /* =========================================================================
