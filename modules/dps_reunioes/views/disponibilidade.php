@@ -3,17 +3,29 @@
 $dias_nome = [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta',
               5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
 
-// As linhas que o formulário mostra: as que existem, mais uma vazia por dia
-// útil sem nada — assim abre-se a página e escreve-se logo, sem carregar
-// primeiro num "adicionar".
+/*
+ * As linhas que o formulário mostra: as que existem, mais uma vazia nos dias
+ * que ainda não têm nada — assim abre-se a página e escreve-se logo, sem
+ * carregar primeiro num "adicionar".
+ *
+ * A linha vazia era acrescentada a TODOS os dias, tivessem eles horário ou
+ * não. Quem tinha segunda e terça preenchidas via segunda e terça duas vezes
+ * na tabela, uma com horas e outra em branco, e ficava sem saber qual valia.
+ * Só os dias vazios é que precisam da linha para escrever.
+ *
+ * Para acrescentar um segundo período a um dia que já tem um — a manhã e a
+ * tarde, por exemplo — há o botão por baixo da tabela.
+ */
 $linhas = [];
 foreach ($dias_nome as $d => $nome) {
-    if (!empty($horario[$d])) {
-        foreach ($horario[$d] as $b) {
-            $linhas[] = [$d, substr($b['hora_inicio'], 0, 5), substr($b['hora_fim'], 0, 5)];
-        }
+    if (empty($horario[$d])) {
+        $linhas[] = [$d, '', ''];
+        continue;
     }
-    $linhas[] = [$d, '', ''];
+
+    foreach ($horario[$d] as $b) {
+        $linhas[] = [$d, substr($b['hora_inicio'], 0, 5), substr($b['hora_fim'], 0, 5)];
+    }
 }
 ?>
 <?php init_head(); ?>
@@ -69,6 +81,20 @@ foreach ($dias_nome as $d => $nome) {
             <?php } ?>
           </tbody>
         </table>
+
+        <div style="margin-top:-6px;">
+          <select id="dps-dia-novo" class="form-control input-sm" style="width:auto;display:inline-block;">
+            <?php foreach ($dias_nome as $d => $nome) { ?>
+              <option value="<?php echo (int) $d; ?>"><?php echo $nome; ?></option>
+            <?php } ?>
+          </select>
+          <button type="button" class="btn btn-default btn-sm" id="dps-mais-periodo">
+            <i class="fa fa-plus"></i> Acrescentar período
+          </button>
+          <span class="text-muted" style="font-size:12px;margin-left:6px;">
+            para partir o dia em manhã e tarde
+          </span>
+        </div>
       </div></div>
     </div>
 
@@ -240,4 +266,41 @@ foreach ($dias_nome as $d => $nome) {
 
 </div></div>
 <?php init_tail(); ?>
+<script>
+(function () {
+    /*
+     * Acrescentar um segundo período a um dia — a manhã e a tarde.
+     *
+     * A linha em branco deixou de vir em todos os dias (duplicava os dias que
+     * já tinham horário), por isso passa a haver esta forma explícita de pedir
+     * mais uma. A linha nova entra a seguir à última desse dia, para a tabela
+     * continuar por ordem.
+     */
+    var botao = document.getElementById('dps-mais-periodo');
+    if (!botao) { return; }
+
+    botao.addEventListener('click', function () {
+        var dia   = document.getElementById('dps-dia-novo').value;
+        var corpo = document.getElementById('dps-horario');
+        var nome  = document.querySelector('#dps-dia-novo option[value="' + dia + '"]').textContent;
+
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+            '<td><input type="hidden" name="dia_semana[]" value="' + dia + '">' +
+            '<strong></strong></td>' +
+            '<td><input type="time" name="hora_inicio[]" class="form-control input-sm"></td>' +
+            '<td><input type="time" name="hora_fim[]" class="form-control input-sm"></td>';
+        tr.querySelector('strong').textContent = nome;
+
+        // A seguir à última linha do mesmo dia; no fim se o dia ainda não lá estiver.
+        var ultima = null;
+        corpo.querySelectorAll('input[name="dia_semana[]"]').forEach(function (i) {
+            if (i.value === dia) { ultima = i.closest('tr'); }
+        });
+
+        ultima ? ultima.parentNode.insertBefore(tr, ultima.nextSibling) : corpo.appendChild(tr);
+        tr.querySelector('input[type="time"]').focus();
+    });
+})();
+</script>
 </body></html>
