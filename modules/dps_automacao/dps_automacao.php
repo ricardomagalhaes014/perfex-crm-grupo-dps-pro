@@ -1253,7 +1253,19 @@ function dps_automacao_aviso_lembretes()
             'link'        => $link,
         ]);
 
-        dps_automacao_aviso_whatsapp((int) $l['staff'], $texto, $l['date'], $link);
+        /*
+         * O WhatsApp sai UMA vez por pessoa e por compromisso.
+         *
+         * As reuniões online têm aviso próprio: o cron do módulo das reuniões
+         * já manda uma mensagem ao anfitrião 30 minutos antes, e manda-a
+         * também ao cliente. Como a reunião passou a criar lembrete, o
+         * anfitrião estava a receber duas mensagens quase iguais para a mesma
+         * reunião. Aqui salta-se a dele — e os convidados, que o módulo das
+         * reuniões não avisa, continuam a ser avisados por este caminho.
+         */
+        if (! dps_automacao_reuniao_ja_avisa($l, (int) $l['staff'])) {
+            dps_automacao_aviso_whatsapp((int) $l['staff'], $texto, $l['date'], $link);
+        }
 
         $CI->db->query(
             'INSERT INTO ' . db_prefix() . 'dps_lembrete_avisos (reminder_id, tipo, avisado_em)
@@ -1261,6 +1273,37 @@ function dps_automacao_aviso_lembretes()
             [(int) $l['id'], date('Y-m-d H:i:s')]
         );
     }
+}
+
+/**
+ * O lembrete é de uma reunião online cujo anfitrião é esta pessoa?
+ *
+ * Se for, o módulo das reuniões já lhe manda a mensagem dos 30 minutos e não
+ * se manda outra. Devolve falso para tudo o resto — lembretes normais, e os
+ * convidados da mesma reunião, que não recebem nada por esse lado.
+ */
+function dps_automacao_reuniao_ja_avisa(array $lembrete, $staff_id)
+{
+    if (($lembrete['rel_type'] ?? '') !== 'event' || empty($lembrete['rel_id'])) {
+        return false;
+    }
+
+    $CI = &get_instance();
+
+    if (! $CI->db->table_exists(db_prefix() . 'dps_reunioes')) {
+        return false;
+    }
+
+    $r = $CI->db->query(
+        'SELECT id FROM ' . db_prefix() . 'dps_reunioes
+          WHERE staff_id = ?
+            AND eventos IS NOT NULL AND eventos <> ""
+            AND FIND_IN_SET(?, eventos)
+          LIMIT 1',
+        [(int) $staff_id, (int) $lembrete['rel_id']]
+    )->row();
+
+    return (bool) $r;
 }
 
 /**
