@@ -65,9 +65,33 @@ if (isset($_GET['fixsrc'])) {
     exit;
 }
 
-// Detectar se é lead AURA (via parâmetro source=aura no URL)
+/*
+ * A ETIQUETA DA CAMPANHA.
+ *
+ * Havia duas campanhas e a etiqueta era escolhida por um "if": source=aura
+ * dava AURA, tudo o resto dava MV. Cada campanha nova obrigava a mexer aqui,
+ * e o `tags=` que o Make já mandava no endereço não era lido por ninguém —
+ * quem o pusesse ficava convencido de que estava a escolher a etiqueta.
+ *
+ * Passa a ler-se `?tag=` (ou `?tags=`, que é o que os cenários antigos
+ * escrevem). Sem nenhum deles, mantém-se o comportamento de sempre, para os
+ * cenários que já existem continuarem a etiquetar como etiquetavam.
+ *
+ * O nome é limpo antes de ser usado: entra numa tabela de etiquetas que é
+ * depois mostrada e pesquisada, e não há razão para aceitar aspas ou sinais
+ * de pontuação vindos de um endereço.
+ */
+$tag_pedida = trim((string) ($_GET['tag'] ?? $_GET['tags'] ?? ''));
+$tag_pedida = preg_replace('/[^A-Za-zÀ-ÿ0-9 _\-]/u', '', $tag_pedida);
+$tag_pedida = trim(preg_replace('/\s+/', ' ', $tag_pedida));
+
 $is_aura = (isset($_GET['source']) && strtolower($_GET['source']) === 'aura');
-$tag_name = $is_aura ? 'AURA' : 'MV';
+
+if ($tag_pedida !== '') {
+    $tag_name = mb_substr($tag_pedida, 0, 50);
+} else {
+    $tag_name = $is_aura ? 'AURA' : 'MV';
+}
 
 // Receber dados do Make
 $name       = isset($_POST['name'])        ? trim($_POST['name'])        : '';
