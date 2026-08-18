@@ -306,14 +306,30 @@ if ($accao === 'importar') {
      * Campos de texto primeiro: é mais barato do que validar ficheiros e a
      * mensagem que o utilizador recebe é a que interessa.
      */
-    foreach ([
+    $obrigatorios = [
         'cliente'       => 'nome',
         'morada'        => 'morada',
         'codigo_postal' => 'código postal',
         'telefone'      => 'telefone',
         'email'         => 'email',
-        'estado_civil'  => 'estado civil',
-    ] as $campo => $etiqueta) {
+    ];
+
+    /*
+     * O ESTADO CIVIL SÓ SE EXIGE A PESSOAS.
+     *
+     * Era exigido sempre. Uma sociedade não tem estado civil, e o simulador —
+     * com razão — esconde o campo quando o comprador é uma empresa: ficava a
+     * pedir uma coisa que não estava no ecrã e não havia como reservar. Deu-se
+     * com a fracção P8 do Boavista, para a "Pouso da Águia", em 18/08/2026.
+     *
+     * Quem assina pela empresa é identificado pelo representante legal e pelo
+     * CRC, que são os campos que o contrato usa nesse caso.
+     */
+    if (strcasecmp(trim((string) ($_POST['tipo'] ?? '')), 'empresa') !== 0) {
+        $obrigatorios['estado_civil'] = 'estado civil';
+    }
+
+    foreach ($obrigatorios as $campo => $etiqueta) {
         if (trim((string) ($_POST[$campo] ?? '')) === '') {
             responder(['success' => false, 'error' => 'Falta preencher: ' . $etiqueta . '.'], 400);
         }
