@@ -310,14 +310,33 @@
                                             <?php } ?>
                                         </td>
                                         <td class="text-muted" style="font-size:12px;"><?= e($p->created_at); ?></td>
-                                        <td class="dps-accoes">
+                                        <td class="dps-accoes" style="white-space:nowrap;">
                                             <?php if ($p->outcome === 'pendente') { ?>
-                                            <button class="btn btn-success btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
-                                            <button class="btn btn-danger btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
-                                            <button class="btn btn-warning btn-xs" onclick="dpsResultado(<?= (int) $p->id; ?>,'cancelado')"><i class="fa fa-ban"></i> Cancelada</button>
+                                            <button class="btn btn-success btn-xs dps-btn-desfecho" onclick="dpsResultado(<?= (int) $p->id; ?>,'aceite')"><i class="fa fa-check"></i> Aceite</button>
+                                            <button class="btn btn-danger btn-xs dps-btn-desfecho" onclick="dpsResultado(<?= (int) $p->id; ?>,'recusado')"><i class="fa fa-times"></i> Recusada</button>
+                                            <button class="btn btn-warning btn-xs dps-btn-desfecho" onclick="dpsResultado(<?= (int) $p->id; ?>,'cancelado')"><i class="fa fa-ban"></i> Cancelada</button>
                                             <?php } else { ?>
-                                            <span class="text-muted" style="font-size:11px;"><?= e($p->outcome_at); ?></span>
+                                            <span class="text-muted dps-quando" style="font-size:11px;"><?= e($p->outcome_at); ?></span>
                                             <?php } ?>
+                                            <?php
+                                            /*
+                                             * Marcar lembrete sem sair daqui.
+                                             *
+                                             * Uma proposta sem resposta morre de silêncio: fica na lista
+                                             * semanas e ninguém sabe quando lhe voltar. O lembrete fica
+                                             * ligado à LEAD, e não à proposta — assim aparece na agenda,
+                                             * na lista de lembretes e no aviso de WhatsApp dos 30 minutos,
+                                             * que é onde o comercial já olha. Pedido do dono (18/08/2026).
+                                             */
+                                            ?>
+                                            <button class="btn btn-default btn-xs" title="Marcar lembrete para voltar a esta proposta"
+                                                    onclick="dpsLembreteProposta(this)"
+                                                    data-lead="<?= (int) $p->lead_id; ?>"
+                                                    data-nome="<?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?>"
+                                                    data-tel="<?= e($p->lead_telefone ?? ''); ?>"
+                                                    data-emp="<?= e(trim(($p->empreendimento ?: '') . ' ' . ($p->unidade ?: ''))); ?>">
+                                                <i class="fa fa-bell-o"></i> Lembrete
+                                            </button>
                                         </td>
                                     </tr>
                                     <?php } ?>
@@ -420,8 +439,18 @@ function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
 
     var acc = tr.querySelector('.dps-accoes');
     if (acc) {
-        acc.innerHTML = '<span class="text-muted" style="font-size:11px;"></span>';
-        acc.firstChild.textContent = quando || '';
+        // Saem só os botões de desfecho; o do lembrete fica — pode ser
+        // precisamente agora que faz sentido marcar o próximo contacto.
+        acc.querySelectorAll('.dps-btn-desfecho').forEach(function (b) { b.remove(); });
+
+        if (!acc.querySelector('.dps-quando')) {
+            var q = document.createElement('span');
+            q.className = 'text-muted dps-quando';
+            q.style.fontSize = '11px';
+            q.style.marginRight = '6px';
+            acc.insertBefore(q, acc.firstChild);
+        }
+        acc.querySelector('.dps-quando').textContent = quando || '';
     }
 
     // Um sinal curto de que foi aquela linha que mudou, para não se perder de
@@ -432,6 +461,109 @@ function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
 
     dpsAcertarKpi((cor === 'warning') ? 'Canceladas' : 'Recusadas', 1);
     dpsAcertarKpi('Sem resultado', -1);
+}
+
+/* ---------------------------------------------------------------
+ * LEMBRETE A PARTIR DA LISTA DE PROPOSTAS
+ *
+ * Reaproveita o endereço que o botão Agenda da ficha da lead já usa
+ * (dps_automacao/agendar_lembrete): o lembrete nasce igual aos outros — de
+ * quem o marca, ligado à lead, com o aviso dos 30 minutos e a linha no
+ * histórico da lead. Escrever aqui uma segunda forma de gravar lembretes era
+ * garantir que as duas divergiam.
+ * ------------------------------------------------------------ */
+
+function dpsLembreteProposta(btn) {
+    var lead = btn.getAttribute('data-lead');
+    var nome = btn.getAttribute('data-nome');
+    var tel  = btn.getAttribute('data-tel') || '';
+    var emp  = btn.getAttribute('data-emp') || '';
+
+    if (!lead || lead === '0') { alert_float('warning', 'Esta proposta não tem lead associada.'); return; }
+
+    var cx = document.getElementById('dps-lembrete-cx');
+    if (!cx) { cx = dpsCriarCaixaLembrete(); }
+
+    // Por omissão, amanhã à mesma hora — arredondado ao quarto de hora.
+    var d = new Date(Date.now() + 24 * 3600 * 1000);
+    d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+    var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0') + 'T'
+            + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+
+    document.getElementById('dps-lembrete-lead').value  = lead;
+    document.getElementById('dps-lembrete-quando').value = iso;
+    document.getElementById('dps-lembrete-nota').value =
+        'Voltar à proposta' + (emp ? ' — ' + emp : '') + ' — ' + nome + (tel ? ' — ' + tel : '');
+    document.getElementById('dps-lembrete-quem').textContent = nome + (emp ? '  ·  ' + emp : '');
+    document.getElementById('dps-lembrete-erro').style.display = 'none';
+
+    cx.style.display = 'flex';
+    document.getElementById('dps-lembrete-quando').focus();
+}
+
+function dpsCriarCaixaLembrete() {
+    var html =
+      '<div id="dps-lembrete-cx" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.5);align-items:flex-start;justify-content:center;padding:60px 16px;">' +
+        '<div style="background:#fff;border-radius:8px;max-width:440px;width:100%;padding:20px;">' +
+          '<h4 style="margin:0 0 2px;">Marcar lembrete</h4>' +
+          '<p class="text-muted" id="dps-lembrete-quem" style="font-size:12px;margin:0 0 14px;"></p>' +
+          '<input type="hidden" id="dps-lembrete-lead">' +
+          '<label class="control-label" style="font-size:13px;">Quando</label>' +
+          '<input type="datetime-local" id="dps-lembrete-quando" class="form-control">' +
+          '<label class="control-label" style="font-size:13px;margin-top:10px;">Lembrar de</label>' +
+          '<textarea id="dps-lembrete-nota" class="form-control" rows="2"></textarea>' +
+          '<p class="text-muted" style="font-size:11px;margin:8px 0 0;">' +
+            'Fica na sua agenda e na lista de lembretes. Recebe aviso 30 minutos antes, ' +
+            'no sino e por WhatsApp.' +
+          '</p>' +
+          '<div id="dps-lembrete-erro" class="text-danger" style="display:none;font-size:12px;margin-top:8px;"></div>' +
+          '<div style="margin-top:14px;text-align:right;">' +
+            '<button class="btn btn-default btn-sm" onclick="document.getElementById(\'dps-lembrete-cx\').style.display=\'none\';">Cancelar</button> ' +
+            '<button class="btn btn-info btn-sm" id="dps-lembrete-gravar">Marcar lembrete</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    document.getElementById('dps-lembrete-gravar').addEventListener('click', dpsGravarLembrete);
+
+    return document.getElementById('dps-lembrete-cx');
+}
+
+function dpsGravarLembrete() {
+    var botao = document.getElementById('dps-lembrete-gravar');
+    var erro  = document.getElementById('dps-lembrete-erro');
+    var quando = document.getElementById('dps-lembrete-quando').value;
+
+    if (!quando) { erro.textContent = 'Escolha a data e a hora.'; erro.style.display = 'block'; return; }
+
+    var dados = {
+        lead_id: document.getElementById('dps-lembrete-lead').value,
+        quando:  quando,
+        nota:    document.getElementById('dps-lembrete-nota').value.trim()
+    };
+    dados[DPS_CSRF.name] = DPS_CSRF.hash;
+
+    botao.disabled = true;
+
+    $.post(admin_url + 'dps_automacao/agendar_lembrete', dados, function (r) {
+        botao.disabled = false;
+        try { r = (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) { r = null; }
+
+        if (!r || !r.sucesso) {
+            erro.textContent = (r && r.mensagem) ? r.mensagem : 'Não foi possível gravar o lembrete.';
+            erro.style.display = 'block';
+            return;
+        }
+
+        document.getElementById('dps-lembrete-cx').style.display = 'none';
+        alert_float('success', r.mensagem);
+    }).fail(function () {
+        botao.disabled = false;
+        erro.textContent = 'Erro de comunicação com o servidor.';
+        erro.style.display = 'block';
+    });
 }
 
 function dpsAcertarKpi(rotulo, delta) {
