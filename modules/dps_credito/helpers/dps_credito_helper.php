@@ -301,3 +301,136 @@ function dps_credito_analise_dados($de, $ate, $comercial = 0)
 
     return $linhas;
 }
+
+/* =====================================================================
+ * ENVIO DA LEAD AO PARCEIRO DE CRÉDITO
+ *
+ * Quando o comercial responde SIM, a lead segue por email para o parceiro que
+ * trata do crédito habitação. Substitui o questionário que antes se abria a
+ * seguir ao "sim": as perguntas (situação, banco, montante) eram respondidas
+ * de cor pelo comercial e o parceiro voltava a fazê-las ao cliente na mesma.
+ * O que serve é a ficha da lead. Pedido do dono (19/08/2026).
+ * ================================================================== */
+
+/** Para quem vai a lead. Em opção, para se mudar sem tocar no código. */
+function dps_credito_email_parceiro()
+{
+    $e = trim((string) get_option('dps_credito_email_parceiro'));
+
+    return $e !== '' ? $e : 'nuno.moreira@twinloo.com';
+}
+
+/**
+ * Manda a ficha da lead ao parceiro. Uma vez por lead — não a cada gravação.
+ *
+ * @return bool true quando o email saiu
+ */
+function dps_credito_enviar_ao_parceiro($lead_id)
+{
+    $CI      = &get_instance();
+    $lead_id = (int) $lead_id;
+
+    if ($lead_id <= 0) {
+        return false;
+    }
+
+    $lead = $CI->db->where('id', $lead_id)->get(db_prefix() . 'leads')->row_array();
+
+    if (! $lead) {
+        return false;
+    }
+
+    /*
+     * Uma lead só se envia uma vez. O comercial pode gravar o questionário
+     * várias vezes — e cada gravação a repetir o email seria ruído na caixa do
+     * parceiro e uma lead a parecer nova de cada vez.
+     */
+    $tabela = db_prefix() . 'dps_credito_respostas';
+
+    // A coluna nasce à primeira passagem — o módulo é anterior a esta função.
+    if (! $CI->db->field_exists('enviado_parceiro_em', $tabela)) {
+        $CI->db->query('ALTER TABLE `' . $tabela . '` ADD COLUMN `enviado_parceiro_em` DATETIME NULL DEFAULT NULL');
+    }
+
+    $ja = $CI->db->select('id, enviado_parceiro_em')->where('lead_id', $lead_id)
+                 ->get($tabela)->row();
+
+    if ($ja && ! empty($ja->enviado_parceiro_em)) {
+        return false;
+    }
+
+    // Nome legível para os campos que são id: estado, fonte e responsável.
+    $nome_de = function ($tabela, $id, $coluna = 'name') use ($CI) {
+        $id = (int) $id;
+        if ($id <= 0) { return '—'; }
+        $r = $CI->db->where('id', $id)->get(db_prefix() . $tabela)->row_array();
+
+        return $r[$coluna] ?? ('#' . $id);
+    };
+
+    $linhas = [
+        'Nome'            => $lead['name'] ?? '',
+        'Empresa'         => $lead['company'] ?? '',
+        'Telefone'        => $lead['phonenumber'] ?? '',
+        'Email'           => $lead['email'] ?? '',
+        'Morada'          => trim(($lead['address'] ?? '') . ' ' . ($lead['zip'] ?? '') . ' ' . ($lead['city'] ?? '')),
+        'Estado da lead'  => $nome_de('leads_status', $lead['status'] ?? 0),
+        'Origem'          => $nome_de('leads_sources', $lead['source'] ?? 0),
+        'Responsável'     => $lead['assigned'] ? get_staff_full_name((int) $lead['assigned']) : '—',
+        'Data de entrada' => $lead['dateadded'] ?? '',
+        'Último contacto' => $lead['lastcontact'] ?: '—',
+    ];
+
+    $html = '<p>Olá,</p><p>Envio lead de cliente interessado em proposta de crédito habitação.</p>'
+          . '<table cellpadding="6" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">';
+
+    foreach ($linhas as $rotulo => $valor) {
+        $valor = trim((string) $valor);
+        if ($valor === '') { continue; }
+        $html .= '<tr><td style="color:#666;"><strong>' . html_escape($rotulo) . '</strong></td>'
+               . '<td>' . html_escape($valor) . '</td></tr>';
+    }
+
+    $html .= '</table>';
+
+    // A descrição da lead leva o contexto todo — o que o cliente pediu.
+    if (trim((string) ($lead['description'] ?? '')) !== '') {
+        $html .= '<p style="margin-top:16px;"><strong>Notas da lead</strong><br>'
+               . nl2br(html_escape($lead['description'])) . '</p>';
+    }
+
+    $html .= '<p style="margin-top:20px;">Com os melhores cumprimentos,<br><strong>'
+           . html_escape(get_option('companyname') ?: 'DPS Imobiliário') . '</strong></p>';
+
+    $CI->load->library('email');
+    $CI->email->clear(true);
+    $CI->email->from(get_option('smtp_email') ?: get_option('email'),
+                     get_option('companyname') ?: 'DPS Imobiliário');
+    $CI->email->to(dps_credito_email_parceiro());
+    // O dono quer ficar a par de cada lead que sai para o parceiro.
+    $CI->email->cc('ricardomagalhaes@grupo-dps.com');
+    $CI->email->subject('Lead para crédito habitação — ' . ($lead['name'] ?? ('#' . $lead_id)));
+    $CI->email->message($html);
+    $CI->email->set_mailtype('html');
+
+    $saiu = (bool) $CI->email->send(false);
+
+    if ($saiu) {
+        // Marca para não repetir, e para se saber quando foi.
+        $CI->db->where('lead_id', $lead_id)
+               ->update($tabela, ['enviado_parceiro_em' => date('Y-m-d H:i:s')]);
+
+        $CI->db->insert(db_prefix() . 'lead_activity_log', [
+            'leadid'      => $lead_id,
+            'staffid'     => (int) get_staff_user_id(),
+            'full_name'   => get_staff_full_name(get_staff_user_id()),
+            'date'        => date('Y-m-d H:i:s'),
+            'description' => '🏦 Lead enviada para crédito habitação — ' . dps_credito_email_parceiro(),
+        ]);
+    } else {
+        log_activity('DPS Crédito: falhou o envio da lead #' . $lead_id . ' para '
+            . dps_credito_email_parceiro());
+    }
+
+    return $saiu;
+}

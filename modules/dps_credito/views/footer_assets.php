@@ -72,7 +72,18 @@
             $('#dps-credito-abordado-sim').closest('.form-group').removeClass('has-error');
         }
 
-        $('#dps-credito-detalhes').toggle(abordado === 'sim');
+        /*
+         * O bloco de perguntas deixou de abrir com o "sim".
+         *
+         * O que segue para o parceiro é a ficha da lead, por email — e as
+         * perguntas (situação, banco, montante) eram respondidas de cor pelo
+         * comercial e voltavam a ser feitas ao cliente na mesma. Fica visível
+         * apenas quando já há respostas gravadas de antes, para não se
+         * esconder informação que alguém deu.
+         */
+        var temRespostasAntigas = $('#dps-credito-detalhes').data('preenchido') === 1;
+        $('#dps-credito-detalhes').toggle(abordado === 'sim' && temRespostasAntigas);
+        $('#dps-credito-aviso-parceiro').toggle(abordado === 'sim');
 
         var jaFinanciado = situacao === 'financiamento_existente';
         $('#dps-credito-banco-obrigatorio').toggle(jaFinanciado);

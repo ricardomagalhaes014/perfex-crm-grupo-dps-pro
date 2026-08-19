@@ -199,6 +199,21 @@ function dps_credito_menu()
         'slug'     => 'dps_credito_comissoes',
         'name'     => 'Comissões',
         'href'     => admin_url('dps_credito/comissoes'),
+        'position' => 3,
+    ]);
+
+    /*
+     * "Propostas": as leads em que o comercial respondeu SIM.
+     *
+     * Fica a seguir aos Processos porque é o passo anterior a eles — a lead
+     * seguiu para o parceiro, e ainda não há processo nenhum aberto. Antes
+     * isto não se via em lado nenhum: sabia-se que tinha sido dito "sim"
+     * abrindo a lead uma a uma. Pedido do dono (19/08/2026).
+     */
+    $CI->app_menu->add_sidebar_children_item('dps_credito', [
+        'slug'     => 'dps_credito_propostas',
+        'name'     => 'Propostas',
+        'href'     => admin_url('dps_credito/propostas'),
         'position' => 2,
     ]);
 
@@ -206,7 +221,7 @@ function dps_credito_menu()
         'slug'     => 'dps_credito_analise',
         'name'     => 'Análise Comercial',
         'href'     => admin_url('dps_credito/analise'),
-        'position' => 3,
+        'position' => 4,
     ]);
 }
 

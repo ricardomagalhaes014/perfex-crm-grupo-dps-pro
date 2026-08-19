@@ -143,14 +143,20 @@ class Dps_credito extends AdminController
             show_404();
         }
 
-        if ($this->input->post('abordado') !== 'nao') {
-            echo json_encode(['success' => false, 'message' => 'Só "Não" pode ser gravado directamente.']);
-            die;
+        $abordado = $this->input->post('abordado') === 'sim' ? 'sim' : 'nao';
+
+        $this->dps_credito_model->guardar_resposta((int) $lead_id, ['abordado' => $abordado]);
+
+        $mensagem = 'Crédito marcado como não abordado.';
+
+        if ($abordado === 'sim') {
+            $saiu     = dps_credito_enviar_ao_parceiro((int) $lead_id);
+            $mensagem = $saiu
+                ? 'Crédito abordado. A lead foi enviada ao parceiro de crédito habitação.'
+                : 'Crédito abordado. (A lead já tinha sido enviada ao parceiro, ou o email falhou.)';
         }
 
-        $this->dps_credito_model->guardar_resposta((int) $lead_id, ['abordado' => 'nao']);
-
-        echo json_encode(['success' => true, 'message' => 'Crédito marcado como não abordado.']);
+        echo json_encode(['success' => true, 'message' => $mensagem]);
         die;
     }
 
@@ -180,6 +186,11 @@ class Dps_credito extends AdminController
         }
 
         $mensagem = 'Questionário de crédito guardado.';
+
+        if (($post['abordado'] ?? '') === 'sim' && dps_credito_enviar_ao_parceiro((int) $lead_id)) {
+            $mensagem .= ' A lead foi enviada ao parceiro de crédito habitação.';
+        }
+
         if ($resultado['criou_processo']) {
             $mensagem .= ' Processo aberto em DPS Crédito; a equipa foi notificada.';
         }
@@ -260,6 +271,51 @@ class Dps_credito extends AdminController
     /* ---------------------------------------------------------------------
      * Mapa de comissões
      * ------------------------------------------------------------------ */
+
+    /**
+     * As leads em que o comercial disse SIM ao crédito.
+     *
+     * É o passo anterior ao processo: a lead seguiu para o parceiro e ainda
+     * não há nada aberto do lado dele. Antes não se via em lado nenhum — para
+     * saber quem tinha dito que sim era preciso abrir as leads uma a uma.
+     */
+    public function propostas()
+    {
+        if (!is_admin() && !staff_can('view', 'dps_credito')) {
+            access_denied('dps_credito');
+        }
+
+        $t = db_prefix() . 'dps_credito_respostas';
+
+        if (!$this->db->field_exists('enviado_parceiro_em', $t)) {
+            $this->db->query('ALTER TABLE `' . $t . '` ADD COLUMN `enviado_parceiro_em` DATETIME NULL DEFAULT NULL');
+        }
+
+        $this->db->select('r.*, l.name AS lead_nome, l.email AS lead_email, l.phonenumber AS lead_tel,
+                           l.assigned, ls.name AS estado_lead,
+                           CONCAT(s.firstname," ",s.lastname) AS quem_respondeu', false);
+        $this->db->from($t . ' r');
+        $this->db->join(db_prefix() . 'leads l', 'l.id = r.lead_id', 'left');
+        $this->db->join(db_prefix() . 'leads_status ls', 'ls.id = l.status', 'left');
+        $this->db->join(db_prefix() . 'staff s', 's.staffid = r.staff_id', 'left');
+        $this->db->where('r.abordado', 'sim');
+
+        /*
+         * Um comercial vê as suas; a direcção vê tudo. A mesma regra do resto
+         * do CRM — não é aqui que se abre a carteira de toda a gente.
+         */
+        if (!is_admin()) {
+            $this->db->where('l.assigned', get_staff_user_id());
+        }
+
+        $this->db->order_by('COALESCE(r.dateupdated, r.dateadded)', 'DESC', false);
+
+        $data['propostas'] = $this->db->get()->result();
+        $data['parceiro']  = dps_credito_email_parceiro();
+        $data['title']     = 'Propostas de crédito';
+
+        $this->load->view('dps_credito/propostas', $data);
+    }
 
     public function comissoes()
     {
@@ -550,27 +606,17 @@ class Dps_credito extends AdminController
             return $erros;
         }
 
-        if ($post['abordado'] === 'nao') {
-            return $erros;
-        }
-
-        if (empty($post['situacao'])) {
-            $erros[] = 'Indique se é um novo pedido ou já tem financiamento.';
-        }
-
-        if (!isset($post['montante']) || trim($post['montante']) === '') {
-            $erros[] = 'Indique o montante.';
-        }
-
-        if (empty($post['interessado_proposta'])) {
-            $erros[] = 'Indique se o cliente está interessado em proposta.';
-        }
-
-        // O banco só faz sentido exigir quando já existe financiamento
-        if (($post['situacao'] ?? '') === 'financiamento_existente' && empty(trim($post['banco'] ?? ''))) {
-            $erros[] = 'Indique o banco onde está financiado.';
-        }
-
+        /*
+         * Nem "não" nem "sim" exigem mais nada.
+         *
+         * O "sim" abria um questionário — situação, banco, montante, interesse
+         * — que o comercial respondia de cor e o parceiro voltava a perguntar
+         * ao cliente na mesma. Passou a valer a ficha da lead, que segue por
+         * email para o parceiro. Regra do dono (19/08/2026).
+         *
+         * Os campos continuam a ser gravados quando vierem preenchidos: quem
+         * os souber pode dá-los, mas já não trancam a resposta.
+         */
         return $erros;
     }
 
