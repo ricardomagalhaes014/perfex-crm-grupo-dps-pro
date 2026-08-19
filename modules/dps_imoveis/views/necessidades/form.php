@@ -12,12 +12,25 @@
         <div class="panel_s">
           <div class="panel-body">
             <h4 class="tw-font-semibold tw-mb-4">
-              <?php echo $necessidade ? _l('dps_imoveis_editar_necessidade') : _l('dps_imoveis_nova_necessidade'); ?>
+              <?php
+              /*
+               * "Editar" só quando há mesmo uma necessidade gravada. Vindo de
+               * uma lead, o $necessidade traz os dados do cliente já
+               * preenchidos mas ainda não existe nada — chamar-lhe edição
+               * dizia ao comercial que estava a mexer num registo antigo.
+               */
+              echo !empty($necessidade['id'])
+                  ? _l('dps_imoveis_editar_necessidade')
+                  : _l('dps_imoveis_nova_necessidade');
+              ?>
             </h4>
 
             <?php echo form_open(admin_url('dps_imoveis/guardar_necessidade'), ['id' => 'form-necessidade', 'enctype' => 'multipart/form-data']); ?>
-            <?php if ($necessidade): ?>
+            <?php if (!empty($necessidade['id'])): ?>
               <input type="hidden" name="id" value="<?php echo $necessidade['id']; ?>">
+            <?php endif; ?>
+            <?php if (!empty($lead_id)): ?>
+              <input type="hidden" name="lead_id" value="<?php echo (int) $lead_id; ?>">
             <?php endif; ?>
 
             <!-- Informação do Cliente -->

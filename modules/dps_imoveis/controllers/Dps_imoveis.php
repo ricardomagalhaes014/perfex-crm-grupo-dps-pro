@@ -261,7 +261,30 @@ class Dps_imoveis extends AdminController
             }
         }
 
+        /*
+         * Vindo de uma lead (?lead=123), o formulário abre com o cliente já
+         * escrito. Quem acabou de pôr a lead em NECESSIDADES não tem de voltar
+         * a copiar o nome, o telefone e o email de uma ficha que acabou de ver.
+         */
         $data['necessidade'] = null;
+        $lead_id = (int) $this->input->get('lead');
+
+        if ($lead_id > 0) {
+            $lead = $this->db->select('name, phonenumber, email')
+                             ->where('id', $lead_id)
+                             ->get(db_prefix() . 'leads')->row_array();
+
+            if ($lead) {
+                $data['necessidade'] = [
+                    'id'               => '',
+                    'nome_cliente'     => $lead['name'] ?? '',
+                    'contacto_cliente' => $lead['phonenumber'] ?? '',
+                    'email_cliente'    => $lead['email'] ?? '',
+                ];
+                $data['lead_id'] = $lead_id;
+            }
+        }
+
         $data['title']       = 'Nova Necessidade';
         $data['bodyclass']   = 'dps-imoveis-page';
         $this->load->view('dps_imoveis/necessidades/form', $data);
