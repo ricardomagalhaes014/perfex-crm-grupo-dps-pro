@@ -1370,20 +1370,28 @@ function dps_automacao_aviso_whatsapp($staff_id, $texto, $quando, $link = '')
     }
 
     /*
-     * A Evolution aceita a mensagem e devolve a chave dela. Sem "key" não
-     * saiu nada — tipicamente a sessão do comercial caiu e é preciso voltar a
-     * ler o QR. Fica registado com nome, para se saber a quem dizer.
+     * A Evolution aceita a mensagem e devolve a chave dela. Sem "key" não saiu
+     * nada — tipicamente a sessão do comercial caiu e é preciso voltar a ler o
+     * QR.
+     *
+     * A resposta vem embrulhada: ['ok','http','error','raw'], e a resposta da
+     * Evolution é o 'raw', em texto. Estava a procurar "key" no embrulho todo
+     * já convertido em JSON, onde as aspas do 'raw' aparecem escapadas — nunca
+     * casava, e TODOS os envios ficavam registados como falhados mesmo tendo
+     * saído. Foi o que aconteceu ao aviso do Cláudio às 08:30 de 19/08/2026:
+     * http 201, mensagem entregue, e o registo a dizer "não saiu".
      */
-    $bruto = is_string($r) ? $r : json_encode($r);
+    $resposta = is_array($r) ? (string) ($r['raw'] ?? '') : (string) $r;
+    $http     = is_array($r) ? (int) ($r['http'] ?? 0) : 0;
 
-    if (strpos((string) $bruto, '"key"') === false) {
-        log_activity('Lembretes: WhatsApp para ' . get_staff_full_name($staff_id)
-            . ' não saiu (sessão caída?) — ' . mb_substr((string) $bruto, 0, 160));
-
-        return false;
+    if (strpos($resposta, '"key"') !== false) {
+        return true;
     }
 
-    return true;
+    log_activity('Lembretes: WhatsApp para ' . get_staff_full_name($staff_id)
+        . ' não saiu (sessão caída?) — HTTP ' . $http . ' — ' . mb_substr($resposta, 0, 160));
+
+    return false;
 }
 
 hooks()->add_action('app_admin_footer', 'dps_automacao_js_agenda');

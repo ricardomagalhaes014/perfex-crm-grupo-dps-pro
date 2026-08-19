@@ -5493,7 +5493,16 @@ document.addEventListener('DOMContentLoaded', function() {
       p = qs.get('c') || qs.get('staff_id') || '';
     }catch(e){}
     if(!p){
-      try{ var g=localStorage.getItem('dps_comercial'); if(g){ dpsComercial=JSON.parse(g); mostrarBadge(); } }catch(e){}
+      /*
+       * Identidade guardada de uma visita anterior. Serve para o nome sair na
+       * proposta — NÃO serve para decidir quem pode marcar estados: veio de
+       * uma sessão antiga, pode ser de outra pessoa que usou este browser, e
+       * nunca é reconfirmada. Fica marcada como tal.
+       */
+      try{
+        var g=localStorage.getItem('dps_comercial');
+        if(g){ dpsComercial=JSON.parse(g); dpsComercial.viaUrl=false; mostrarBadge(); }
+      }catch(e){}
       return Promise.resolve(dpsComercial);
     }
     return carregarComerciais().then(function(l){
@@ -5503,7 +5512,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if(String(l[i].id)===String(p) || slug(l[i].nome)===alvo){ achado=l[i]; break; }
       }
       if(achado){
-        dpsComercial={id:achado.id,nome:String(achado.nome).trim(),admin:!!achado.admin};
+        // viaUrl: foi identificado AGORA, pelo endereço, e o admin acabou de
+        // ser confirmado na lista do CRM. Só esta identificação vale como
+        // portão de permissões.
+        dpsComercial={id:achado.id,nome:String(achado.nome).trim(),admin:!!achado.admin,viaUrl:true};
         try{ localStorage.setItem('dps_comercial', JSON.stringify(dpsComercial)); }catch(e){}
         mostrarBadge();
       }
@@ -6063,8 +6075,20 @@ document.addEventListener('DOMContentLoaded', function() {
      *    portão de administrador que existe neste lado, e vale.
      */
     function dpsPodeMarcar(){
-      if (dpsComercial && dpsComercial.id) return !!dpsComercial.admin;
-      return true;   // Modo de Edição já foi destrancado com password
+      /*
+       * Só a identificação vinda do endereço nesta visita decide permissões.
+       *
+       * Antes bastava haver um `dps_comercial` guardado no browser. Bastava um
+       * comercial ter aberto o simulador nesse computador uma vez para o
+       * administrador ficar impedido de marcar Vendido ou DPS PARA SEMPRE
+       * naquele browser — a marcação revertia sem explicação e a página nunca
+       * voltava a perguntar ao CRM quem era. Foi o que aconteceu a 19/08/2026.
+       *
+       * Sem identificação no endereço, quem está aqui destrancou o Modo de
+       * Edição com password, e esse é o portão de administrador deste lado.
+       */
+      if (dpsComercial && dpsComercial.id && dpsComercial.viaUrl) return !!dpsComercial.admin;
+      return true;
     }
     window.dpsPodeMarcar = dpsPodeMarcar;
 
