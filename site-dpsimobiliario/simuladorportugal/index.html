@@ -2638,6 +2638,63 @@ function dpsAvisoReservaManual(newStatus) {
   );
 }
 
+/*
+ * Gravar o estado e dizer o que aconteceu.
+ *
+ * Todas as gravações eram `fetch(...).catch(()=>{})` — um erro desaparecia
+ * sem deixar rasto. Quem marcava uma fracção via a cor mudar, a página
+ * recarregava mais tarde e o estado voltava atrás, sem nada a explicar
+ * porquê. Diagnosticar isso à distância é impossível: não há mensagem, não
+ * há registo, não há nada.
+ *
+ * Agora falha alto: aviso no ecrã e o corpo da resposta na consola.
+ */
+function dpsGravarEstados(payload, table, key, newStatus) {
+  return fetch('save_states.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, http: r.status, corpo: t }; }); })
+  .then(function (res) {
+    var aceite = res.ok;
+    try { aceite = aceite && JSON.parse(res.corpo).ok === true; } catch (e) { aceite = false; }
+
+    if (!aceite) {
+      console.error('[DPS] estado NÃO gravado', table, key, newStatus, res);
+      dpsAvisoEstado('Não consegui gravar ' + key + ' (' + newStatus + '). HTTP ' + res.http
+        + '. A página vai voltar ao estado anterior.', false);
+      return false;
+    }
+
+    dpsAvisoEstado(key + ' → ' + newStatus + ' gravado.', true);
+    return true;
+  })
+  .catch(function (e) {
+    console.error('[DPS] estado NÃO gravado (rede)', table, key, newStatus, e);
+    dpsAvisoEstado('Sem ligação ao servidor. ' + key + ' não ficou gravado.', false);
+    return false;
+  });
+}
+
+/** Aviso curto no canto — verde quando gravou, vermelho quando não. */
+function dpsAvisoEstado(texto, ok) {
+  var d = document.getElementById('dpsAvisoEstado');
+  if (!d) {
+    d = document.createElement('div');
+    d.id = 'dpsAvisoEstado';
+    d.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483647;'
+      + 'padding:11px 20px;border-radius:10px;color:#fff;font:600 13px/1.35 system-ui,sans-serif;'
+      + 'box-shadow:0 8px 26px rgba(0,0,0,.3);max-width:90%;text-align:center;';
+    document.body.appendChild(d);
+  }
+  d.style.background = ok ? '#1f9d55' : '#c0392b';
+  d.textContent = texto;
+  d.style.display = 'block';
+  clearTimeout(d.__t);
+  d.__t = setTimeout(function () { d.style.display = 'none'; }, ok ? 2500 : 9000);
+}
+
 function changeStatus(table, key, newStatus) {
   /*
    * Sem aviso aqui: o "Reservado" desta função é chamado pelo envolvente
@@ -2657,7 +2714,7 @@ function changeStatus(table, key, newStatus) {
       // Guardar no servidor - incluir TODOS os estados (incluindo Disponível para sobrescrever hardcoded)
       const allBhStates = {};
       BH_UNITS.forEach(u => { allBhStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({bh_states: allBhStates}) }).catch(()=>{});
+      dpsGravarEstados({bh_states: allBhStates}, table, key, newStatus);
       applyFilters();
       renderStats();
     }
@@ -2672,7 +2729,7 @@ function changeStatus(table, key, newStatus) {
       // Guardar no servidor - incluir TODOS os estados
       const allRaizesStates = {};
       raizesData.forEach(u => { allRaizesStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({raizes_states: allRaizesStates}) }).catch(()=>{});
+      dpsGravarEstados({raizes_states: allRaizesStates}, table, key, newStatus);
       applyRaizesFilters();
     }
   } else if (table === 'gp') {
@@ -2684,7 +2741,7 @@ function changeStatus(table, key, newStatus) {
       localStorage.setItem('gp_states', JSON.stringify(states));
       const allStates = {};
       gpData.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gp_states: allStates}) }).catch(()=>{});
+      dpsGravarEstados({gp_states: allStates}, table, key, newStatus);
       applyGpFilters();
     }
   } else if (table === 'boavista') {
@@ -2696,7 +2753,7 @@ function changeStatus(table, key, newStatus) {
       localStorage.setItem('boavista_states', JSON.stringify(states));
       const allStates = {};
       BOAVISTA_UNITS.forEach(u => { allStates[u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({boavista_states: allStates}) }).catch(()=>{});
+      dpsGravarEstados({boavista_states: allStates}, table, key, newStatus);
       applyBoavistaFilters();
     }
   } else if (table === 'gaiadouro') {
@@ -2709,7 +2766,7 @@ function changeStatus(table, key, newStatus) {
       localStorage.setItem('gaiadouro_states', JSON.stringify(states));
       const allGdStates = {};
       GAIADOURO_UNITS.forEach(u => { allGdStates[u.torre + '_' + u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({gaiadouro_states: allGdStates}) }).catch(()=>{});
+      dpsGravarEstados({gaiadouro_states: allGdStates}, table, key, newStatus);
       applyGaiadouroFilters();
       renderGaiadouroStats();
     }
@@ -2723,7 +2780,7 @@ function changeStatus(table, key, newStatus) {
       localStorage.setItem('lake_states', JSON.stringify(states));
       const allLakeStates = {};
       LAKE_UNITS.forEach(u => { allLakeStates[u.torre + '_' + u.fraccao] = u.status; });
-      fetch('save_states.php', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({lake_states: allLakeStates}) }).catch(()=>{});
+      dpsGravarEstados({lake_states: allLakeStates}, table, key, newStatus);
       applyLakeFilters();
       renderLakeStats();
     }
