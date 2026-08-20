@@ -37,6 +37,36 @@
         </p>
     </div>
 
+    <?php
+    /*
+     * Dito "sim", falta saber se o cliente QUER proposta.
+     *
+     * É esta resposta que decide se a lead segue para o parceiro do crédito
+     * habitação — abordar não é a mesma coisa que haver interesse, e mandar
+     * para fora quem disse que não queria era mandar trabalho e dados de
+     * clientes sem razão. Regra do dono (19/08/2026).
+     */
+    ?>
+    <div id="dps-credito-interesse" style="display:none;">
+        <div class="form-group">
+            <label class="control-label">O cliente tem interesse? <span class="text-danger">*</span></label><br>
+            <div class="radio radio-primary radio-inline">
+                <input type="radio" name="interessado_proposta" id="dps-credito-interessado-sim" value="sim"
+                    <?php echo ($resposta['interessado_proposta'] ?? '') === 'sim' ? 'checked' : ''; ?>>
+                <label for="dps-credito-interessado-sim">Com interesse</label>
+            </div>
+            <div class="radio radio-primary radio-inline">
+                <input type="radio" name="interessado_proposta" id="dps-credito-interessado-nao" value="nao"
+                    <?php echo ($resposta['interessado_proposta'] ?? '') === 'nao' ? 'checked' : ''; ?>>
+                <label for="dps-credito-interessado-nao">Sem interesse</label>
+            </div>
+            <div class="alert alert-info mtop10" id="dps-credito-aviso-proposta" style="display:none;">
+                Com interesse, a ficha desta lead segue por email para o parceiro do
+                crédito habitação e fica registada em <strong>DPS Crédito &rarr; Propostas</strong>.
+            </div>
+        </div>
+    </div>
+
     <div id="dps-credito-detalhes" style="display:none;">
         <hr>
 
@@ -73,24 +103,6 @@
             <label class="control-label">Montante (€) <span class="text-danger">*</span></label>
             <input type="text" name="montante" class="form-control"
                    value="<?php echo $resposta['montante'] ?? ''; ?>">
-        </div>
-
-        <div class="form-group">
-            <label class="control-label">Interessado em proposta? <span class="text-danger">*</span></label><br>
-            <div class="radio radio-primary radio-inline">
-                <input type="radio" name="interessado_proposta" id="dps-credito-interessado-sim" value="sim"
-                    <?php echo ($resposta['interessado_proposta'] ?? '') === 'sim' ? 'checked' : ''; ?>>
-                <label for="dps-credito-interessado-sim">Sim</label>
-            </div>
-            <div class="radio radio-primary radio-inline">
-                <input type="radio" name="interessado_proposta" id="dps-credito-interessado-nao" value="nao"
-                    <?php echo ($resposta['interessado_proposta'] ?? '') === 'nao' ? 'checked' : ''; ?>>
-                <label for="dps-credito-interessado-nao">Não</label>
-            </div>
-            <div class="alert alert-info mtop10" id="dps-credito-aviso-proposta" style="display:none;">
-                Ao responder <strong>Sim</strong>, é aberto um processo em <strong>DPS Crédito</strong>
-                com os dados desta lead, e a equipa é notificada para dar seguimento.
-            </div>
         </div>
 
         <div class="form-group" id="dps-credito-docs-grupo" style="display:none;">

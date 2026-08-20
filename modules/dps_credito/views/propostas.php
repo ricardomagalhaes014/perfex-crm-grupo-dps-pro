@@ -15,7 +15,8 @@
             </h4>
             <p class="text-muted" style="font-size:13px;margin:6px 0 0;">
               Leads em que o comercial respondeu <strong>sim</strong> à pergunta do crédito.
-              Cada uma segue por email para <strong><?php echo html_escape($parceiro); ?></strong>.
+              As que têm <strong>interesse</strong> seguem por email para
+              <strong><?php echo html_escape($parceiro); ?></strong>; as outras ficam só registadas.
             </p>
             <hr>
 
@@ -34,6 +35,7 @@
                     <th>Contacto</th>
                     <th>Estado da lead</th>
                     <th>Comercial</th>
+                    <th>Interesse</th>
                     <th>Montante</th>
                     <th>Enviada ao parceiro</th>
                     <th>Respondido em</th>
@@ -66,6 +68,15 @@
                     </td>
                     <td><?php echo html_escape($p->estado_lead ?: '—'); ?></td>
                     <td><?php echo html_escape($p->quem_respondeu ?: '—'); ?></td>
+                    <td style="white-space:nowrap;">
+                      <?php if (($p->interessado_proposta ?? '') === 'sim') { ?>
+                        <span class="label label-success">Com interesse</span>
+                      <?php } elseif (($p->interessado_proposta ?? '') === 'nao') { ?>
+                        <span class="label label-default">Sem interesse</span>
+                      <?php } else { ?>
+                        <span class="text-muted">—</span>
+                      <?php } ?>
+                    </td>
                     <td style="white-space:nowrap;">
                       <?php echo $p->montante ? number_format((float) $p->montante, 0, ',', '.') . ' €' : '—'; ?>
                     </td>

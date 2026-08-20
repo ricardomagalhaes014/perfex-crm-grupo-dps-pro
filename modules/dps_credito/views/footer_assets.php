@@ -83,7 +83,9 @@
          */
         var temRespostasAntigas = $('#dps-credito-detalhes').data('preenchido') === 1;
         $('#dps-credito-detalhes').toggle(abordado === 'sim' && temRespostasAntigas);
-        $('#dps-credito-aviso-parceiro').toggle(abordado === 'sim');
+
+        // "Sim" abre a pergunta do interesse — é ela que decide o envio.
+        $('#dps-credito-interesse').toggle(abordado === 'sim');
 
         var jaFinanciado = situacao === 'financiamento_existente';
         $('#dps-credito-banco-obrigatorio').toggle(jaFinanciado);
@@ -116,7 +118,18 @@
         var abordado = $form.find('input[name="abordado"]:checked').val();
         if (!abordado) {
             $('#dps-credito-abordado-sim').closest('.form-group').addClass('has-error');
-            alert_float('warning', 'O campo "Crédito abordado?" não está selecionado. Escolha Sim ou Não para alterar o estado.');
+            alert_float('warning', 'O campo "Crédito abordado?" não está selecionado. Escolha Sim, Não ou Não atendeu.');
+            return;
+        }
+
+        /*
+         * Dito "sim", o interesse é obrigatório: é ele que decide se a lead
+         * segue para o parceiro. Gravar sem ele deixava a resposta a meio e
+         * ninguém saberia se havia proposta a fazer ou não.
+         */
+        if (abordado === 'sim' && !$form.find('input[name="interessado_proposta"]:checked').val()) {
+            $('#dps-credito-interesse').find('.form-group').addClass('has-error');
+            alert_float('warning', 'Indique se o cliente tem interesse — com interesse, a lead segue para o parceiro.');
             return;
         }
 

@@ -144,24 +144,25 @@ class Dps_credito extends AdminController
         }
 
         $abordado = $this->input->post('abordado');
-        $abordado = in_array($abordado, ['sim', 'nao', 'nao_atendeu'], true) ? $abordado : 'nao';
+
+        /*
+         * Só "não" e "não atendeu" se gravam sem abrir nada.
+         *
+         * O "sim" tem de passar pelo questionário, porque falta saber se o
+         * cliente tem interesse — e é o interesse que decide se a ficha segue
+         * para o parceiro. Gravá-lo aqui mandava o email sem essa resposta.
+         */
+        if (!in_array($abordado, ['nao', 'nao_atendeu'], true)) {
+            echo json_encode(['success' => false,
+                'message' => 'Para responder "sim" abra o questionário: falta indicar se há interesse.']);
+            die;
+        }
 
         $this->dps_credito_model->guardar_resposta((int) $lead_id, ['abordado' => $abordado]);
 
-        $rotulos  = [
-            'nao'         => 'Crédito marcado como não abordado.',
-            'nao_atendeu' => 'Marcado como não atendeu — não conta como crédito não abordado.',
-        ];
-        $mensagem = $rotulos[$abordado] ?? 'Crédito marcado como não abordado.';
-
-        if ($abordado === 'sim') {
-            $saiu     = dps_credito_enviar_ao_parceiro((int) $lead_id);
-            $mensagem = $saiu
-                ? 'Crédito abordado. A lead foi enviada ao parceiro de crédito habitação.'
-                : 'Crédito abordado. (A lead já tinha sido enviada ao parceiro, ou o email falhou.)';
-        }
-
-        echo json_encode(['success' => true, 'message' => $mensagem]);
+        echo json_encode(['success' => true, 'message' => $abordado === 'nao_atendeu'
+            ? 'Marcado como não atendeu — não conta como crédito não abordado.'
+            : 'Crédito marcado como não abordado.']);
         die;
     }
 
@@ -192,8 +193,17 @@ class Dps_credito extends AdminController
 
         $mensagem = 'Questionário de crédito guardado.';
 
-        if (($post['abordado'] ?? '') === 'sim' && dps_credito_enviar_ao_parceiro((int) $lead_id)) {
-            $mensagem .= ' A lead foi enviada ao parceiro de crédito habitação.';
+        /*
+         * O email só sai com INTERESSE. Abordar não é querer: mandar para o
+         * parceiro quem disse que não queria era mandar-lhe trabalho e dados
+         * de clientes sem razão nenhuma.
+         */
+        if (($post['abordado'] ?? '') === 'sim' && ($post['interessado_proposta'] ?? '') === 'sim') {
+            $mensagem .= dps_credito_enviar_ao_parceiro((int) $lead_id)
+                ? ' A lead foi enviada ao parceiro de crédito habitação.'
+                : ' (Já tinha sido enviada ao parceiro, ou o email falhou.)';
+        } elseif (($post['abordado'] ?? '') === 'sim') {
+            $mensagem .= ' Sem interesse — não segue para o parceiro.';
         }
 
         if ($resultado['criou_processo']) {
@@ -622,6 +632,14 @@ class Dps_credito extends AdminController
          * Os campos continuam a ser gravados quando vierem preenchidos: quem
          * os souber pode dá-los, mas já não trancam a resposta.
          */
+        /*
+         * Dito "sim", o interesse é obrigatório — é ele que decide o envio.
+         */
+        if ($post['abordado'] === 'sim'
+            && !in_array($post['interessado_proposta'] ?? '', ['sim', 'nao'], true)) {
+            $erros[] = 'Indique se o cliente tem interesse na proposta de crédito.';
+        }
+
         return $erros;
     }
 
