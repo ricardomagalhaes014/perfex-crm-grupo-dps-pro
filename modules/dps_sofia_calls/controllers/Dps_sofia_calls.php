@@ -6,6 +6,25 @@ class Dps_sofia_calls extends AdminController
     public function __construct()
     {
         parent::__construct();
+
+        /*
+         * SÓ A DIRECÇÃO ENTRA AQUI. Regra do dono (20/08/2026).
+         *
+         * A Sofia liga a clientes reais em nome da empresa e gasta saldo a
+         * cada chamada. Não havia verificação nenhuma: qualquer comercial
+         * abria o módulo, criava uma campanha e punha-a a correr.
+         *
+         * Fica no construtor de propósito — apanha TODAS as acções, incluindo
+         * as que são chamadas por AJAX (criar campanha, arrancar, fazer
+         * chamada). Uma verificação acção a acção esquece sempre alguma.
+         */
+        if (! is_admin()) {
+            if ($this->input->is_ajax_request()) {
+                ajax_access_denied();
+            }
+            access_denied('dps_sofia_calls');
+        }
+
         $this->load->model('dps_sofia_calls/Dps_sofia_calls_model');
     }
 

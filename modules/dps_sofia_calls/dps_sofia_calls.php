@@ -15,6 +15,21 @@ define('DPS_SOFIA_CALLS_VERSION', '1.0.0');
 hooks()->add_action('admin_init', 'dps_sofia_calls_menu');
 function dps_sofia_calls_menu()
 {
+    /*
+     * SÓ A DIRECÇÃO. Regra do dono (20/08/2026).
+     *
+     * A Sofia liga a clientes reais em nome da empresa e gasta saldo da
+     * ElevenLabs a cada chamada. Qualquer comercial podia criar uma campanha e
+     * pô-la a correr — não havia verificação nenhuma, nem no menu nem nas
+     * acções.
+     *
+     * Esconder o menu não chega: quem souber o endereço entra à mesma. A
+     * verificação que conta é a do construtor do controlador.
+     */
+    if (! is_admin()) {
+        return;
+    }
+
     $CI = &get_instance();
     $CI->app_menu->add_sidebar_menu_item('dps_sofia_calls', [
         'name'     => 'Sofia Calls',
