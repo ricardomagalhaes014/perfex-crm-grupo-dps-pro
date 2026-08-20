@@ -44,7 +44,17 @@ class Dps_credito_model extends App_Model
     public function guardar_resposta($lead_id, $data)
     {
         $lead_id  = (int) $lead_id;
-        $abordado = $data['abordado'] === 'sim' ? 'sim' : 'nao';
+        /*
+         * TRÊS respostas, não duas.
+         *
+         * "Não atendeu" não é o mesmo que "não abordou": o cliente não chegou
+         * a ser falado. Contadas juntas, as chamadas sem resposta apareciam na
+         * análise como comerciais que não abordam o crédito — e estragavam a
+         * leitura de quem trabalha. Regra do dono (19/08/2026).
+         */
+        $abordado = in_array($data['abordado'] ?? '', ['sim', 'nao', 'nao_atendeu'], true)
+            ? $data['abordado']
+            : 'nao';
 
         $payload = [
             'lead_id'  => $lead_id,

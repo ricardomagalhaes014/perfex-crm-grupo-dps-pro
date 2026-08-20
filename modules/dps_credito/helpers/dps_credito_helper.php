@@ -129,14 +129,12 @@ function dps_credito_lead_tem_resposta($lead_id)
         return false;
     }
 
-    if ($resposta['abordado'] === 'nao') {
-        return true;
-    }
-
-    // Abordado = sim exige situação, montante e a intenção quanto à proposta
-    return !empty($resposta['situacao'])
-        && $resposta['montante'] !== null
-        && !empty($resposta['interessado_proposta']);
+    /*
+     * "Não" e "não atendeu" fecham a resposta — não há mais nada a perguntar.
+     * O "sim" também deixou de exigir os campos: o que segue para o parceiro é
+     * a ficha da lead, e o questionário deixou de trancar a mudança de estado.
+     */
+    return in_array($resposta['abordado'], ['nao', 'nao_atendeu', 'sim'], true);
 }
 
 function dps_credito_pedido_ajax()
@@ -251,6 +249,7 @@ function dps_credito_analise_dados($de, $ate, $comercial = 0)
                COUNT(DISTINCT l.id) AS leads_total,
                COUNT(DISTINCT CASE WHEN r.abordado = 'sim' THEN l.id END) AS sim,
                COUNT(DISTINCT CASE WHEN r.abordado = 'nao' THEN l.id END) AS nao,
+               COUNT(DISTINCT CASE WHEN r.abordado = 'nao_atendeu' THEN l.id END) AS nao_atendeu,
                COUNT(DISTINCT CASE WHEN r.abordado IS NULL  THEN l.id END) AS indefinido,
                COUNT(DISTINCT CASE WHEN r.interessado_proposta = 'sim' THEN l.id END) AS interessados,
                COALESCE(SUM(DISTINCT r.montante),0) AS montante_total
@@ -292,8 +291,24 @@ function dps_credito_analise_dados($de, $ate, $comercial = 0)
         $l['respostas']    = isset($hist[$id]) ? (int) $hist[$id]['respostas'] : 0;
         $l['passou_a_sim'] = isset($hist[$id]) ? (int) $hist[$id]['passou_a_sim'] : 0;
 
-        $l['pct_abordagem']  = $l['leads_total'] > 0 ? round($l['sim'] / $l['leads_total'] * 100, 1) : 0;
-        $l['pct_respondido'] = $l['leads_total'] > 0 ? round(($l['sim'] + $l['nao']) / $l['leads_total'] * 100, 1) : 0;
+        /*
+         * QUEM NÃO ATENDE SAI DA CONTA.
+         *
+         * A taxa de abordagem mede o que o comercial fez com quem conseguiu
+         * falar. Contar no denominador as leads que nunca atenderam faz o
+         * número descer por uma razão que não é dele — e era isso que
+         * estragava a leitura. Regra do dono (19/08/2026).
+         *
+         * O total continua à vista, e as não atendidas têm coluna própria:
+         * muitas chamadas sem resposta são um problema, só que outro.
+         */
+        $l['nao_atendeu']  = (int) ($l['nao_atendeu'] ?? 0);
+        $l['contactaveis'] = max(0, (int) $l['leads_total'] - $l['nao_atendeu']);
+
+        $l['pct_abordagem']  = $l['contactaveis'] > 0
+            ? round($l['sim'] / $l['contactaveis'] * 100, 1) : 0;
+        $l['pct_respondido'] = $l['contactaveis'] > 0
+            ? round(($l['sim'] + $l['nao']) / $l['contactaveis'] * 100, 1) : 0;
         $l['pct_proposta']   = $l['sim'] > 0 ? round($l['props_leads'] / $l['sim'] * 100, 1) : 0;
         $l['pct_interesse']  = $l['sim'] > 0 ? round($l['interessados'] / $l['sim'] * 100, 1) : 0;
     }

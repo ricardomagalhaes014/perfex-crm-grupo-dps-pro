@@ -210,6 +210,44 @@
             });
     });
 
+    /*
+     * "N/A" — não atendeu. Grava directamente, como o "Não".
+     *
+     * Existe porque contar as chamadas sem resposta como "crédito não
+     * abordado" estragava a análise: aparecia como se o comercial não
+     * trabalhasse o crédito, quando o que houve foi um cliente que não
+     * atendeu. Pedido do dono (19/08/2026).
+     */
+    $(document).on('click', '.dps-credito-na', function () {
+        var $b = $(this), leadId = $b.data('lead');
+        if (!leadId || $b.prop('disabled')) { return; }
+        $b.prop('disabled', true).text('...');
+
+        var dados = { abordado: 'nao_atendeu' };
+        if (typeof csrfData !== 'undefined') { dados[csrfData.token_name] = csrfData.hash; }
+
+        $.post(adminUrl + 'dps_credito/responder_rapido/' + leadId, dados, null, 'json')
+            .done(function (r) {
+                if (r && r.success) {
+                    var $cel = $b.closest('.dps-credito-inline');
+                    $cel.find('.label').remove();
+                    $cel.prepend('<span class="label label-warning">Não atendeu</span> ');
+                    $cel.find('.dps-credito-sim, .dps-credito-nao')
+                        .removeClass('btn-success').addClass('btn-default');
+                    $b.prop('disabled', false).text('N/A')
+                      .removeClass('btn-default').addClass('btn-warning');
+                    if (typeof alert_float === 'function') { alert_float('success', 'Crédito: não atendeu.'); }
+                } else {
+                    $b.prop('disabled', false).text('N/A');
+                    alert_float('danger', (r && r.message) || 'Não foi possível gravar.');
+                }
+            })
+            .fail(function () {
+                $b.prop('disabled', false).text('N/A');
+                alert_float('danger', 'Não foi possível gravar.');
+            });
+    });
+
     $(document).on('click', '.dps-credito-sim', function () {
         abrirQuestionario($(this).data('lead'), null);
     });

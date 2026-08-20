@@ -143,11 +143,16 @@ class Dps_credito extends AdminController
             show_404();
         }
 
-        $abordado = $this->input->post('abordado') === 'sim' ? 'sim' : 'nao';
+        $abordado = $this->input->post('abordado');
+        $abordado = in_array($abordado, ['sim', 'nao', 'nao_atendeu'], true) ? $abordado : 'nao';
 
         $this->dps_credito_model->guardar_resposta((int) $lead_id, ['abordado' => $abordado]);
 
-        $mensagem = 'Crédito marcado como não abordado.';
+        $rotulos  = [
+            'nao'         => 'Crédito marcado como não abordado.',
+            'nao_atendeu' => 'Marcado como não atendeu — não conta como crédito não abordado.',
+        ];
+        $mensagem = $rotulos[$abordado] ?? 'Crédito marcado como não abordado.';
 
         if ($abordado === 'sim') {
             $saiu     = dps_credito_enviar_ao_parceiro((int) $lead_id);
@@ -600,7 +605,7 @@ class Dps_credito extends AdminController
     {
         $erros = [];
 
-        if (empty($post['abordado']) || !in_array($post['abordado'], ['sim', 'nao'], true)) {
+        if (empty($post['abordado']) || !in_array($post['abordado'], ['sim', 'nao', 'nao_atendeu'], true)) {
             $erros[] = 'Indique se o crédito foi abordado.';
 
             return $erros;

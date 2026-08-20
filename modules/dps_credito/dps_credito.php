@@ -96,8 +96,8 @@ function dps_credito_ensure_historico()
                 `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `lead_id` INT NOT NULL,
                 `staff_id` INT NULL,
-                `abordado` VARCHAR(10) NULL,
-                `abordado_anterior` VARCHAR(10) NULL,
+                `abordado` VARCHAR(20) NULL,
+                `abordado_anterior` VARCHAR(20) NULL,
                 `mudou` TINYINT(1) NOT NULL DEFAULT 0,
                 `interessado_proposta` VARCHAR(10) NULL,
                 `montante` DECIMAL(15,2) NULL,
@@ -287,7 +287,10 @@ function dps_credito_coluna_celula($row, $aRow)
      * Sem resposta = "Indefinido" (distinto de "não abordou", que é o que a
      * análise de direcção precisa de medir).
      */
-    if ($abordado === 'nao') {
+    if ($abordado === 'nao_atendeu') {
+        // Fica de fora da conta dos "não abordados": o cliente não foi falado.
+        $estado = '<span class="label label-warning">Não atendeu</span>';
+    } elseif ($abordado === 'nao') {
         $estado = '<span class="label label-default">Não abordado</span>';
     } elseif ($abordado === 'sim') {
         $estado = '<span class="label label-success">Abordado</span>';
@@ -302,9 +305,11 @@ function dps_credito_coluna_celula($row, $aRow)
         . ' dps-credito-sim" data-lead="' . $lead_id . '" title="Crédito abordado — abre para completar">Sim</button>';
     $btnNao = '<button type="button" class="btn btn-xs ' . ($abordado === 'nao' ? 'btn-success' : 'btn-default')
         . ' dps-credito-nao" data-lead="' . $lead_id . '" title="Crédito não abordado">Não</button>';
+    $btnNA  = '<button type="button" class="btn btn-xs ' . ($abordado === 'nao_atendeu' ? 'btn-warning' : 'btn-default')
+        . ' dps-credito-na" data-lead="' . $lead_id . '" title="Não atendeu — não conta como crédito não abordado">N/A</button>';
 
     $row[] = '<span class="dps-credito-inline" data-lead="' . $lead_id . '" style="white-space:nowrap;">'
-        . $estado . ' ' . $btnSim . ' ' . $btnNao
+        . $estado . ' ' . $btnSim . ' ' . $btnNao . ' ' . $btnNA
         . ' <button type="button" class="btn btn-default btn-xs dps-credito-abrir" data-lead="' . $lead_id . '" '
         . 'title="Abrir questionário completo"><i class="fa fa-pencil"></i></button>'
         . '</span>';

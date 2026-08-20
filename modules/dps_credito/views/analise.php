@@ -50,11 +50,14 @@
                         <?php } ?>
 
                         <?php
-                        $t = ['leads' => 0, 'sim' => 0, 'nao' => 0, 'ind' => 0, 'int' => 0, 'props' => 0, 'mont' => 0];
+                        $t = ['leads' => 0, 'sim' => 0, 'nao' => 0, 'na' => 0, 'cont' => 0,
+                              'ind' => 0, 'int' => 0, 'props' => 0, 'mont' => 0];
                         foreach ($linhas as $l) {
                             $t['leads'] += $l['leads_total'];
                             $t['sim']   += $l['sim'];
                             $t['nao']   += $l['nao'];
+                            $t['na']    += (int) ($l['nao_atendeu'] ?? 0);
+                            $t['cont']  += (int) ($l['contactaveis'] ?? $l['leads_total']);
                             $t['ind']   += $l['indefinido'];
                             $t['int']   += $l['interessados'];
                             $t['props'] += $l['propostas'];
@@ -65,7 +68,15 @@
 
                         <div class="dpsa-kpis">
                             <div class="dpsa-kpi"><div class="n"><?php echo number_format($t['leads'], 0, ',', '.'); ?></div><div class="l">Leads atribuídas</div></div>
-                            <div class="dpsa-kpi ok"><div class="n"><?php echo $pct($t['sim'], $t['leads']); ?>%</div><div class="l">Crédito abordado</div></div>
+                            <?php
+                            /*
+                             * A taxa é sobre quem foi possível falar. Contar aqui
+                             * as leads que nunca atenderam fazia o número descer
+                             * por uma razão que não é do comercial.
+                             */
+                            ?>
+                            <div class="dpsa-kpi ok"><div class="n"><?php echo $pct($t['sim'], $t['cont']); ?>%</div><div class="l">Crédito abordado<br><small style="font-weight:normal;opacity:.75;">de quem atendeu</small></div></div>
+                            <div class="dpsa-kpi warn"><div class="n"><?php echo number_format($t['na'], 0, ',', '.'); ?></div><div class="l">Não atenderam</div></div>
                             <div class="dpsa-kpi"><div class="n"><?php echo number_format($t['sim'], 0, ',', '.'); ?></div><div class="l">Respostas "Sim"</div></div>
                             <div class="dpsa-kpi warn"><div class="n"><?php echo number_format($t['ind'], 0, ',', '.'); ?></div><div class="l">Por responder</div></div>
                             <div class="dpsa-kpi gold"><div class="n"><?php echo $pct($t['props'], $t['sim']); ?>%</div><div class="l">Sim → proposta</div></div>
@@ -80,6 +91,7 @@
                                         <th class="text-center">Leads</th>
                                         <th class="text-center">Sim</th>
                                         <th class="text-center">Não</th>
+                                        <th class="text-center">Não atendeu</th>
                                         <th class="text-center">Por responder</th>
                                         <th>% Abordagem</th>
                                         <th class="text-center">Quer proposta</th>
@@ -92,7 +104,7 @@
                                 </thead>
                                 <tbody>
                                     <?php if (empty($linhas)) { ?>
-                                        <tr><td colspan="12" class="text-center text-muted">Sem dados no período seleccionado.</td></tr>
+                                        <tr><td colspan="13" class="text-center text-muted">Sem dados no período seleccionado.</td></tr>
                                     <?php } ?>
                                     <?php foreach ($linhas as $l) { ?>
                                         <tr>
@@ -100,6 +112,11 @@
                                             <td class="text-center"><?php echo (int) $l['leads_total']; ?></td>
                                             <td class="text-center"><strong style="color:#2f7d55;"><?php echo (int) $l['sim']; ?></strong></td>
                                             <td class="text-center"><?php echo (int) $l['nao']; ?></td>
+                                            <td class="text-center">
+                                                <?php if ((int) ($l['nao_atendeu'] ?? 0) > 0) { ?>
+                                                    <span class="label label-warning"><?php echo (int) $l['nao_atendeu']; ?></span>
+                                                <?php } else { ?><span class="dpsa-mut">0</span><?php } ?>
+                                            </td>
                                             <td class="text-center">
                                                 <?php if ((int) $l['indefinido'] > 0) { ?>
                                                     <span class="label label-warning"><?php echo (int) $l['indefinido']; ?></span>

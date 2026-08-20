@@ -20,7 +20,7 @@ if (!$CI->db->table_exists($respostas)) {
     $CI->db->query('CREATE TABLE `' . $respostas . "` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
         `lead_id` INT NOT NULL,
-        `abordado` ENUM('sim','nao') NOT NULL,
+        `abordado` ENUM('sim','nao','nao_atendeu') NOT NULL,
         `situacao` ENUM('financiamento_existente','novo_pedido') NULL DEFAULT NULL,
         `banco` VARCHAR(191) NULL DEFAULT NULL,
         `montante` DECIMAL(15,2) NULL DEFAULT NULL,

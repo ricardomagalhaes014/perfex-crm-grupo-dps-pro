@@ -30,6 +30,8 @@
                     <td>
                         <?php if ($resposta['abordado'] === 'sim') { ?>
                             <span class="label label-success">Sim</span>
+                        <?php } elseif ($resposta['abordado'] === 'nao_atendeu') { ?>
+                            <span class="label label-warning">Não atendeu</span>
                         <?php } else { ?>
                             <span class="label label-default">Não</span>
                         <?php } ?>

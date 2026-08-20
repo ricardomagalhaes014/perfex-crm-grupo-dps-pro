@@ -17,6 +17,24 @@
                 <?php echo ($resposta['abordado'] ?? '') === 'nao' ? 'checked' : ''; ?>>
             <label for="dps-credito-abordado-nao">Não</label>
         </div>
+        <?php
+        /*
+         * Terceira resposta: não atendeu.
+         *
+         * Sem ela, uma chamada sem resposta era gravada como "não abordou" e o
+         * comercial aparecia na análise a não trabalhar o crédito. São coisas
+         * diferentes e passam a contar em separado.
+         */
+        ?>
+        <div class="radio radio-primary radio-inline">
+            <input type="radio" name="abordado" id="dps-credito-abordado-na" value="nao_atendeu"
+                <?php echo ($resposta['abordado'] ?? '') === 'nao_atendeu' ? 'checked' : ''; ?>>
+            <label for="dps-credito-abordado-na">Não atendeu</label>
+        </div>
+        <p class="text-muted" style="font-size:12px;margin:6px 0 0;">
+            &laquo;Não atendeu&raquo; é para quem não chegou a ser falado — não conta
+            como crédito por abordar.
+        </p>
     </div>
 
     <div id="dps-credito-detalhes" style="display:none;">
