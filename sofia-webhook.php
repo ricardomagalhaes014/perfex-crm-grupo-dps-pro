@@ -642,6 +642,95 @@ if ($conversa !== '') {
  * indicativo (351...) e na lead está muitas vezes sem ele. Comparar as
  * cadeias inteiras nunca daria coincidência.
  */
+/**
+ * Cria a lead da chamada e etiqueta-a com SITE + o site de onde veio.
+ *
+ * O estado é "Novos" (4) e a fonte a mesma das campanhas — a lead entra no
+ * funil como qualquer outra, para não ficar num limbo só dela.
+ *
+ * As etiquetas são criadas se não existirem. INSERT IGNORE na ligação: a
+ * mesma etiqueta duas vezes na mesma lead não é erro, é ruído.
+ *
+ * @return int id da lead, ou 0 se não foi possível criar
+ */
+function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
+{
+    $nome = trim((string) $nome) !== '' ? trim((string) $nome) : 'Contacto Sofia';
+
+    $descricao = "Lead criada a partir de uma chamada atendida pela Sofia.\n"
+        . 'Empreendimento: ' . ($emp !== '' ? $emp : '—') . "\n"
+        . ($notas !== '' ? "\nResumo da conversa:\n" . $notas . "\n" : '')
+        . "\n[sofia:" . $conversa . ']';
+
+    $agora = date('Y-m-d H:i:s');
+
+    $st = $bd->prepare(
+        "INSERT INTO {$p}leads (status, source, assigned, name, email, phonenumber, description,
+                                dateadded, addedfrom, is_public, lastcontact)
+         VALUES (4, 2, 1, ?, ?, ?, ?, ?, 1, 0, NULL)"
+    );
+
+    if (!$st) {
+        sw_log('ERRO ao preparar a criação da lead', $bd->error);
+
+        return 0;
+    }
+
+    $st->bind_param('sssss', $nome, $email, $tel, $descricao, $agora);
+    $st->execute();
+    $lead = (int) $st->insert_id;
+    $st->close();
+
+    if (!$lead) {
+        sw_log('ERRO ao criar a lead', $bd->error);
+
+        return 0;
+    }
+
+    /*
+     * SITE, e o nome do site. O empreendimento que a Sofia apurou é o que
+     * identifica de onde veio a chamada — cada site tem o seu agente.
+     */
+    $etiquetas = ['SITE'];
+    if (trim((string) $emp) !== '') {
+        $etiquetas[] = trim((string) $emp);
+    }
+
+    foreach ($etiquetas as $et) {
+        $et = mb_substr(trim(preg_replace('/\s+/', ' ', $et)), 0, 50);
+        if ($et === '') { continue; }
+
+        $st = $bd->prepare("SELECT id FROM {$p}tags WHERE name = ? LIMIT 1");
+        $st->bind_param('s', $et);
+        $st->execute();
+        $linha = $st->get_result()->fetch_assoc();
+        $st->close();
+
+        if ($linha) {
+            $tag_id = (int) $linha['id'];
+        } else {
+            $st = $bd->prepare("INSERT INTO {$p}tags (name) VALUES (?)");
+            $st->bind_param('s', $et);
+            $st->execute();
+            $tag_id = (int) $st->insert_id;
+            $st->close();
+        }
+
+        if ($tag_id) {
+            $st = $bd->prepare("INSERT IGNORE INTO {$p}taggables (tag_id, rel_id, rel_type, tag_order)
+                                VALUES (?, ?, 'lead', 0)");
+            $st->bind_param('ii', $tag_id, $lead);
+            $st->execute();
+            $st->close();
+        }
+    }
+
+    sw_log('LEAD CRIADA', 'id=' . $lead . ' nome=' . $nome . ' tel=' . $tel
+        . ' etiquetas=' . implode('+', $etiquetas));
+
+    return $lead;
+}
+
 $staff_destino = 1;                 // por omissão, o Ricardo
 $lead_id       = 0;
 $como          = 'sem correspondência — fica com a direção';
@@ -665,6 +754,26 @@ if ($fim9 !== '') {
             $como          = 'lead #' . $lead_id . ' (' . $lead['name'] . ')';
         }
         $st->close();
+    }
+}
+
+/*
+ * SEM LEAD, CRIA-SE A LEAD. Regra do dono (21/08/2026).
+ *
+ * Até aqui, quem ligasse pela Sofia sem já existir no CRM só gerava uma
+ * tarefa: o contacto ficava escrito na descrição dela e mais nada. Não entrava
+ * no funil, não contava para nada, e ninguém lhe podia mudar o estado — quando
+ * é precisamente uma pessoa que ligou por vontade própria a partir de um site.
+ *
+ * Agora nasce lead, com o que a Sofia recolheu, e a tarefa fica ligada a ela.
+ * Vai com duas etiquetas: SITE, para se saber por onde entrou, e o nome do
+ * site que gerou a chamada.
+ */
+if ($lead_id === 0 && ($tel !== '' || $email !== '')) {
+    $lead_id = sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa);
+
+    if ($lead_id > 0) {
+        $como = 'lead #' . $lead_id . ' criada agora pela Sofia';
     }
 }
 
