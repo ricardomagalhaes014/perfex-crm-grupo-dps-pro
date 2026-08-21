@@ -519,8 +519,15 @@ class Dps_reunioes_model extends App_Model
     /**
      * As leads de um estado que este comercial pode propor.
      *
-     * Só as dele: propor reunião a leads de um colega seria marcar a agenda de
-     * quem não pediu nada. Administradores veem tudo, como no resto do CRM.
+     * SÓ AS DELE — incluindo quando quem lança é administrador.
+     *
+     * A excepção do administrador existia "como no resto do CRM", e aqui não
+     * serve: uma campanha lançada por um admin apanhava a carteira toda e os
+     * convites saíam em nome dele, pelo WhatsApp dele, para clientes de nove
+     * colegas. Aconteceu a 21/08/2026 — 249 convites, dos quais 81 eram dele.
+     *
+     * Cada um propõe aos seus. Quem responde vai encontrar do outro lado a
+     * pessoa com quem já falava. Regra do dono (21/08/2026).
      */
     public function leads_para_propor($lead_status_id, $staff_id)
     {
@@ -532,9 +539,7 @@ class Dps_reunioes_model extends App_Model
             ->or_where('email !=', '')
         ->group_end();
 
-        if (!is_admin()) {
-            $this->db->where('assigned', (int) $staff_id);
-        }
+        $this->db->where('assigned', (int) $staff_id);
 
         $this->db->order_by('id', 'asc');
 
