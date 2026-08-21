@@ -102,33 +102,31 @@ class Dps_interacoes extends AdminController
         $staff_result = $this->db->query("SELECT staffid, CONCAT(firstname, ' ', lastname) AS nome FROM {$p}staff WHERE active = 1{$filtro_staff} ORDER BY firstname ASC");
         $staff_list   = $staff_result ? $staff_result->result_array() : [];
 
+        /*
+         * O QUE CONTA COMO INTERACÇÃO — regra do dono (21/08/2026).
+         *
+         * Um CLIENTE TOCADO num DIA. Quinze notas "não atendeu" em quinze
+         * clientes diferentes são quinze tentativas de contacto e contam
+         * quinze; a mesma nota repetida no MESMO cliente conta uma.
+         *
+         * A regra anterior juntava por TEXTO — a mesma frase no mesmo dia
+         * contava uma, viesse de um cliente ou de cinquenta. Servia para travar
+         * a colagem em massa, mas não distinguia "colei para inflacionar" de
+         * "escrevi o mesmo porque aconteceu o mesmo": uma nota honesta como
+         * "não atendeu" é naturalmente igual de cliente para cliente. A 19/08
+         * o dono aparecia com 24 tendo tocado em 38 leads.
+         *
+         * FICAM DE FORA as linhas que o sistema escreve sozinho — "Estado
+         * alterado para PROPOSTAS ENVIADAS", "Estado alterado (resultado de
+         * proposta) para ...". Não são trabalho de ninguém: é o CRM a
+         * registar-se a si próprio a seguir a um clique que já está contado
+         * pelo seu próprio registo.
+         */
         $filtro_interaccao = "(al.description LIKE '? Nota%'
                                OR al.description LIKE '%Proposta enviada%')
-                              AND al.description NOT LIKE '%Nota gravada por%'";
+                              AND al.description NOT LIKE '%Nota gravada por%'
+                              AND al.description NOT LIKE 'Estado alterado%'";
 
-        /*
-         * TERCEIRA ARMADILHA: a mesma frase repetida em dezenas de leads.
-         *
-         * A 13/08/2026 a Cátia aparecia com 96 interacções num dia. Eram
-         * reais no sentido de existirem — 102 notas em 96 leads entre as
-         * 7h e as 10h — mas 95 delas eram duas frases copiadas:
-         * "Encaminhei SMS e Email" (50 vezes) e "Enviei email e SMS" (45).
-         * Percorrer uma lista a colar a mesma frase não é falar com 96
-         * clientes, e o quadro dizia que era.
-         *
-         * Passa a contar-se DIA + TEXTO em vez de DIA + LEAD: a mesma
-         * frase no mesmo dia conta uma vez, escreva-se em duas leads ou em
-         * cinquenta. Quem escreve uma nota diferente por cliente continua
-         * a contar uma por cliente — que é exactamente a diferença que
-         * este quadro deve mostrar. Decisão do dono (13/08/2026).
-         *
-         * O texto é normalizado antes de comparar: tira-se o prefixo
-         * "? Nota:" que o registo acrescenta, e ignoram-se maiúsculas e
-         * espaços a mais. Sem isso, "Enviei email" e "enviei  email"
-         * contariam como duas coisas.
-         */
-        $texto_normalizado = "LOWER(TRIM(REPLACE(REPLACE(REPLACE("
-            . "SUBSTRING_INDEX(al.description, ': ', -1), '\r', ' '), '\n', ' '), '  ', ' ')))";
 
         /*
          * AS RECUSAS TAMBÉM CONTAM — e contam TODAS.
@@ -183,7 +181,7 @@ class Dps_interacoes extends AdminController
 
             $count_sql = "
                 SELECT COUNT(*) AS total FROM (
-                    SELECT DISTINCT DATE(al.date) AS dia, {$texto_normalizado} AS texto
+                    SELECT DISTINCT DATE(al.date) AS dia, al.leadid
                       FROM {$p}lead_activity_log al
                 INNER JOIN {$p}leads l ON l.id = al.leadid
                      WHERE al.staffid = {$sid}
@@ -231,6 +229,8 @@ class Dps_interacoes extends AdminController
                         ls.name AS status_name,
                         -- Duas contas somadas, como no total: as notas valem
                         -- uma por dia, as recusas valem todas.
+                        -- Dias em que se tocou nesta lead, mais as recusas (que
+                        -- contam todas, uma a uma).
                         COUNT(DISTINCT CASE WHEN al.description LIKE '%Proposta recusada%'
                                             THEN NULL ELSE DATE(al.date) END)
                         + SUM(CASE WHEN al.description LIKE '%Proposta recusada%'
@@ -246,7 +246,8 @@ class Dps_interacoes extends AdminController
                         AND (
                               ((al.description LIKE '? Nota%'
                                 OR al.description LIKE '%Proposta enviada%')
-                               AND al.description NOT LIKE '%Nota gravada por%')
+                               AND al.description NOT LIKE '%Nota gravada por%'
+                               AND al.description NOT LIKE 'Estado alterado%')
                               OR ({$filtro_recusa})
                             )
                         AND al.date >= '{$date_from}'
@@ -310,7 +311,7 @@ class Dps_interacoes extends AdminController
             $q = $this->db->query("
                 SELECT dia, SUM(n) AS n FROM (
                         SELECT dia, COUNT(*) AS n FROM (
-                            SELECT DISTINCT DATE(al.date) AS dia, {$texto_normalizado} AS texto
+                            SELECT DISTINCT DATE(al.date) AS dia, al.leadid
                               FROM {$p}lead_activity_log al
                         INNER JOIN {$p}leads l ON l.id = al.leadid
                              WHERE al.staffid = {$comercial_id}

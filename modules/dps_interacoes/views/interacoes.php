@@ -117,7 +117,7 @@
                     <div style="font-size:12px;color:#888;margin-bottom:12px;">
                         <?php echo (int) ($comercial_id ?? 0) > 0
                             ? 'Os dias sem nenhuma interacção aparecem a zero — são precisamente os que interessa ver.'
-                            : 'Cada mensagem diferente conta uma vez por dia — a mesma frase colada em vinte leads conta uma.'; ?>
+                            : 'Um cliente tocado conta uma vez por dia. Escrever duas notas ao mesmo cliente conta uma; a mesma nota a quinze clientes conta quinze.'; ?>
                     </div>
                     <div style="height:<?php echo (int) ($comercial_id ?? 0) > 0 ? 220 : max(180, count($g_etiquetas) * 26); ?>px;">
                         <canvas id="ic-grafico"></canvas>
