@@ -665,16 +665,20 @@ function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
     $agora = date('Y-m-d H:i:s');
 
     /*
-     * A FONTE TEM DE EXISTIR.
+     * FONTE: IMO PORTUGAL. Regra do dono (21/08/2026).
      *
-     * Gravei source=2 à conta de ser o que o mv-lead.php usa. Nesta base o id
-     * 2 não corresponde a fonte nenhuma, e uma lead com fonte órfã não aparece
-     * na listagem — as sete primeiras ficaram invisíveis, com tudo o resto
-     * certo. Procura-se "Sofia" e cria-se se não existir, em vez de apontar
-     * para um número à sorte.
+     * Gravei source=2 à conta de ser o que o mv-lead.php usa, e nesta base o
+     * id 2 não corresponde a fonte nenhuma — uma lead com fonte órfã não
+     * aparece na listagem, e as sete primeiras ficaram invisíveis com tudo o
+     * resto certo. Cheguei a criar uma fonte "Sofia"; o dono quer estas leads
+     * na mesma fonte das outras, e tem razão: o que as distingue é a etiqueta
+     * SITE, não uma origem à parte que fragmenta os relatórios.
+     *
+     * Procura-se pelo nome, com recurso ao primeiro id que exista — nunca um
+     * número escrito à mão, que foi o que causou isto.
      */
     $fonte = 0;
-    $st = $bd->prepare("SELECT id FROM {$p}leads_sources WHERE name = 'Sofia' LIMIT 1");
+    $st = $bd->prepare("SELECT id FROM {$p}leads_sources WHERE name = 'IMO Portugal' LIMIT 1");
     $st->execute();
     if ($linha = $st->get_result()->fetch_assoc()) {
         $fonte = (int) $linha['id'];
@@ -682,8 +686,8 @@ function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
     $st->close();
 
     if (!$fonte) {
-        $bd->query("INSERT INTO {$p}leads_sources (name) VALUES ('Sofia')");
-        $fonte = (int) $bd->insert_id;
+        $q = $bd->query("SELECT id FROM {$p}leads_sources ORDER BY id LIMIT 1");
+        $fonte = $q && ($x = $q->fetch_assoc()) ? (int) $x['id'] : 0;
     }
 
     $st = $bd->prepare(
