@@ -664,10 +664,32 @@ function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
 
     $agora = date('Y-m-d H:i:s');
 
+    /*
+     * A FONTE TEM DE EXISTIR.
+     *
+     * Gravei source=2 à conta de ser o que o mv-lead.php usa. Nesta base o id
+     * 2 não corresponde a fonte nenhuma, e uma lead com fonte órfã não aparece
+     * na listagem — as sete primeiras ficaram invisíveis, com tudo o resto
+     * certo. Procura-se "Sofia" e cria-se se não existir, em vez de apontar
+     * para um número à sorte.
+     */
+    $fonte = 0;
+    $st = $bd->prepare("SELECT id FROM {$p}leads_sources WHERE name = 'Sofia' LIMIT 1");
+    $st->execute();
+    if ($linha = $st->get_result()->fetch_assoc()) {
+        $fonte = (int) $linha['id'];
+    }
+    $st->close();
+
+    if (!$fonte) {
+        $bd->query("INSERT INTO {$p}leads_sources (name) VALUES ('Sofia')");
+        $fonte = (int) $bd->insert_id;
+    }
+
     $st = $bd->prepare(
         "INSERT INTO {$p}leads (status, source, assigned, name, email, phonenumber, description,
                                 dateadded, addedfrom, is_public, lastcontact)
-         VALUES (4, 2, 1, ?, ?, ?, ?, ?, 1, 0, NULL)"
+         VALUES (4, ?, 1, ?, ?, ?, ?, ?, 1, 0, NULL)"
     );
 
     if (!$st) {
@@ -676,7 +698,7 @@ function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
         return 0;
     }
 
-    $st->bind_param('sssss', $nome, $email, $tel, $descricao, $agora);
+    $st->bind_param('isssss', $fonte, $nome, $email, $tel, $descricao, $agora);
     $st->execute();
     $lead = (int) $st->insert_id;
     $st->close();
