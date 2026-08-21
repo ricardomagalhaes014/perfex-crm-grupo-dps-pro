@@ -407,8 +407,21 @@ class Dps_painel_model extends App_Model
             return 'A percentagem que recebemos não pode ser maior que 100%.';
         }
 
-        // Repartição: ou se deixam as duas vazias (recebe-se tudo no CPCV) ou
-        // somam 100% da verba recebida.
+        /*
+         * DUAS MANEIRAS DE ESCREVER A MESMA COISA.
+         *
+         * O campo pede a REPARTIÇÃO da verba (66 + 34 = 100). Mas quem conhece
+         * o negócio pensa nas TAXAS: "recebemos 1,5% no CPCV e 1,5% na
+         * escritura". Escrever 1,5 e 1,5 dava erro — "tem de somar 100%" — e a
+         * pessoa ficava a olhar para o ecrã sem perceber o que lhe faltava,
+         * porque o que escreveu estava certo. Foi o que travou o Raízes a
+         * 21/08/2026.
+         *
+         * Aceitam-se as duas: se a soma bater com a taxa total, são taxas e
+         * convertem-se em repartição na gravação; se somar 100, é repartição.
+         * Não há confusão possível entre as duas — uma taxa de 100% seria a
+         * casa a entregar o negócio inteiro.
+         */
         $tem_cp = ($data['cpcv_pct'] ?? '') !== '';
         $tem_es = ($data['escritura_pct'] ?? '') !== '';
 
@@ -419,13 +432,26 @@ class Dps_painel_model extends App_Model
             if ($cp < 0 || $es < 0) {
                 return 'As percentagens da repartição não podem ser negativas.';
             }
-            if (abs(($cp + $es) - 100) > 0.001) {
-                return 'A repartição do que recebemos tem de somar 100%: '
-                    . rtrim(rtrim(number_format($cp, 2, ',', ''), '0'), ',') . '% no CPCV + '
-                    . rtrim(rtrim(number_format($es, 2, ',', ''), '0'), ',') . '% na escritura dá '
-                    . rtrim(rtrim(number_format($cp + $es, 2, ',', ''), '0'), ',') . '%. '
-                    . '(Deixe ambas vazias para receber tudo no CPCV.)';
+
+            $soma = $cp + $es;
+
+            if (abs($soma - 100) < 0.001) {
+                return '';   // repartição, como sempre
             }
+
+            // Taxas absolutas: batem com a taxa total, ou definem-na.
+            if ($soma > 0 && ($taxa <= 0 || abs($soma - $taxa) < 0.001)) {
+                return '';
+            }
+
+            $fmt = static function ($n) {
+                return rtrim(rtrim(number_format($n, 2, ',', ''), '0'), ',');
+            };
+
+            return 'Os valores não fecham: ' . $fmt($cp) . '% no CPCV + ' . $fmt($es)
+                . '% na escritura dá ' . $fmt($soma) . '%, e a taxa total é ' . $fmt($taxa) . '%. '
+                . 'Escreva as duas partes da taxa (para 3%: 1,5 e 1,5) ou a repartição em '
+                . 'percentagem da verba (50 e 50). Deixe ambas vazias para receber tudo no CPCV.';
         }
 
         return '';
@@ -433,13 +459,36 @@ class Dps_painel_model extends App_Model
 
     public function guardar_recebimento($data, $id = null)
     {
+        /*
+         * O que se GRAVA é sempre a repartição em % da verba (66/34). Quem
+         * escreveu as taxas — 1,5 e 1,5 para uma taxa de 3% — vê-as convertidas
+         * aqui, e a taxa total é preenchida se vier vazia. A tabela mantém uma
+         * só forma de guardar isto; a liberdade é de quem escreve, não da base.
+         */
+        $taxa = $this->num($data['taxa_recebida'] ?? 0);
+        $cp   = ($data['cpcv_pct'] ?? '') !== '' ? $this->num($data['cpcv_pct']) : null;
+        $es   = ($data['escritura_pct'] ?? '') !== '' ? $this->num($data['escritura_pct']) : null;
+
+        if ($cp !== null || $es !== null) {
+            $soma = (float) $cp + (float) $es;
+
+            if ($soma > 0 && abs($soma - 100) > 0.001) {
+                // Vieram taxas, não repartição.
+                if ($taxa <= 0) {
+                    $taxa = $soma;
+                }
+                $cp = round((float) $cp / $soma * 100, 4);
+                $es = round((float) $es / $soma * 100, 4);
+            }
+        }
+
         $payload = [
             'empreendimento' => trim((string) $data['empreendimento']),
-            'taxa_recebida'  => $this->num($data['taxa_recebida'] ?? 0),
+            'taxa_recebida'  => $taxa,
             // Repartição da verba recebida, em % DA VERBA (66/34), tal como a
             // repartição da comissão. Vazio = tudo de uma vez, no CPCV.
-            'cpcv_pct'       => ($data['cpcv_pct'] ?? '') !== '' ? $this->num($data['cpcv_pct']) : null,
-            'escritura_pct'  => ($data['escritura_pct'] ?? '') !== '' ? $this->num($data['escritura_pct']) : null,
+            'cpcv_pct'       => $cp,
+            'escritura_pct'  => $es,
             'notas'          => trim((string) ($data['notas'] ?? '')) ?: null,
             'updated_by'     => get_staff_user_id(),
             'updated_at'     => date('Y-m-d H:i:s'),

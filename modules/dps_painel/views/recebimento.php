@@ -171,21 +171,25 @@ $pct = function ($n) {
                                 <div class="form-group">
                                     <label class="control-label">No CPCV (%)</label>
                                     <input type="text" name="cpcv_pct" id="receb-cpcv" class="form-control"
-                                           placeholder="ex.: 66">
+                                           placeholder="1,5 ou 66">
                                 </div>
                             </div>
                             <div class="col-xs-6">
                                 <div class="form-group">
                                     <label class="control-label">Na escritura (%)</label>
                                     <input type="text" name="escritura_pct" id="receb-escritura" class="form-control"
-                                           placeholder="ex.: 34">
+                                           placeholder="1,5 ou 34">
                                 </div>
                             </div>
                         </div>
                         <div class="form-group">
                             <small class="text-muted">
-                                Percentagens <strong>da verba que recebemos</strong>, não da venda.
-                                Têm de somar 100%. Em branco = recebemos tudo no CPCV.
+                                Duas maneiras de escrever, ambas aceites:<br>
+                                &bull; <strong>as taxas</strong> — para 3% repartidos, escreva
+                                <strong>1,5</strong> e <strong>1,5</strong>;<br>
+                                &bull; <strong>a repartição da verba</strong> — <strong>50</strong> e
+                                <strong>50</strong>, ou <strong>66</strong> e <strong>34</strong>.<br>
+                                Em branco = recebemos tudo no CPCV.
                             </small>
                         </div>
 
