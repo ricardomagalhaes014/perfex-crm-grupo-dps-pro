@@ -653,9 +653,46 @@ if ($conversa !== '') {
  *
  * @return int id da lead, ou 0 se não foi possível criar
  */
+/**
+ * O número em forma de se poder ligar.
+ *
+ * A Sofia devolve o que a operadora lhe dá, e isso vem tantas vezes sem
+ * indicativo — "966604036". Gravado assim, o botão de ligar do CRM marca nove
+ * dígitos e a chamada dá "número indisponível"; o link do WhatsApp também não
+ * abre conversa nenhuma. Põe-se o +351 nos números portugueses de nove
+ * dígitos e normaliza-se o que já vem com o indicativo colado.
+ *
+ * Números estrangeiros ficam como estão: pôr-lhes +351 seria pior do que
+ * deixá-los sem nada.
+ */
+function sw_telefone_pt($tel)
+{
+    $tel = trim((string) $tel);
+
+    if ($tel === '') {
+        return '';
+    }
+
+    $d = preg_replace('/\D+/', '', $tel);
+
+    // 9 dígitos: telemóvel (9) ou fixo (2) português.
+    if (strlen($d) === 9 && ($d[0] === '9' || $d[0] === '2')) {
+        return '+351' . $d;
+    }
+
+    // Já traz o indicativo, com ou sem o sinal.
+    if (strlen($d) === 12 && strpos($d, '351') === 0) {
+        return '+' . $d;
+    }
+
+    // Outra coisa qualquer — devolve-se como veio.
+    return $tel;
+}
+
 function sw_criar_lead($bd, $p, $nome, $tel, $email, $emp, $notas, $conversa)
 {
     $nome = trim((string) $nome) !== '' ? trim((string) $nome) : 'Contacto Sofia';
+    $tel  = sw_telefone_pt($tel);
 
     $descricao = "Lead criada a partir de uma chamada atendida pela Sofia.\n"
         . 'Empreendimento: ' . ($emp !== '' ? $emp : '—') . "\n"
