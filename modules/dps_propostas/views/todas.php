@@ -337,6 +337,22 @@
                                                     data-emp="<?= e(trim(($p->empreendimento ?: '') . ' ' . ($p->unidade ?: ''))); ?>">
                                                 <i class="fa fa-bell-o"></i> Lembrete
                                             </button>
+                                            <?php if ($p->outcome === 'cancelado') { ?>
+                                            <?php
+                                            /*
+                                             * A proposta caiu porque a fracção foi vendida, e a lead
+                                             * ficou em VIP 1 à espera de outra. O passo seguinte é
+                                             * sempre o mesmo — mandar nova proposta — e obrigar a ir
+                                             * procurar a lead noutro ecrã para o fazer era pedir que
+                                             * se perdesse pelo caminho. Pedido do dono (22/08/2026).
+                                             */
+                                            ?>
+                                            <button class="btn btn-primary btn-xs dps-btn-nova"
+                                                    title="Escolher empreendimento e enviar nova proposta a este cliente"
+                                                    onclick="dpsNovaProposta(<?= (int) $p->lead_id; ?>)">
+                                                <i class="fa fa-paper-plane"></i> Enviar nova proposta
+                                            </button>
+                                            <?php } ?>
                                         </td>
                                     </tr>
                                     <?php } ?>
@@ -451,6 +467,23 @@ function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
             acc.insertBefore(q, acc.firstChild);
         }
         acc.querySelector('.dps-quando').textContent = quando || '';
+
+        /*
+         * Cancelada agora mesmo: o botão de nova proposta aparece já, sem
+         * esperar por um refresh. É neste instante que ele serve.
+         */
+        if (cor === 'warning' && !acc.querySelector('.dps-btn-nova')) {
+            var leadDaLinha = tr.getAttribute('data-lead');
+
+            if (leadDaLinha) {
+                var nova = document.createElement('button');
+                nova.className = 'btn btn-primary btn-xs dps-btn-nova';
+                nova.title = 'Escolher empreendimento e enviar nova proposta a este cliente';
+                nova.innerHTML = '<i class="fa fa-paper-plane"></i> Enviar nova proposta';
+                nova.addEventListener('click', function () { dpsNovaProposta(parseInt(leadDaLinha, 10)); });
+                acc.appendChild(nova);
+            }
+        }
     }
 
     // Um sinal curto de que foi aquela linha que mudou, para não se perder de
@@ -472,6 +505,24 @@ function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
  * histórico da lead. Escrever aqui uma segunda forma de gravar lembretes era
  * garantir que as duas divergiam.
  * ------------------------------------------------------------ */
+
+/*
+ * Nova proposta para a lead desta linha.
+ *
+ * Reaproveita o mesmo caminho do botão "Proposta" da lista de leads — escolher
+ * o empreendimento e abrir o simulador — em vez de ter aqui uma segunda versão
+ * do mesmo écrã para manter. A função vive no dps_vendas e é injectada no
+ * rodapé; se por alguma razão não estiver lá, abre-se a ficha da lead, que é
+ * de onde também se consegue enviar.
+ */
+function dpsNovaProposta(leadId) {
+    if (typeof window.dpsAbrirLead === 'function') {
+        window.dpsAbrirLead(leadId, 'proposta');
+        return;
+    }
+
+    window.open('<?= admin_url('leads/index/'); ?>' + leadId, '_blank');
+}
 
 function dpsLembreteProposta(btn) {
     var lead = btn.getAttribute('data-lead');

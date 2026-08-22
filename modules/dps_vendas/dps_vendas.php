@@ -298,7 +298,12 @@ function dps_vendas_js_abrir_lead()
     $CI  = &get_instance();
     $uri = $CI->uri->uri_string();
 
-    if (strpos($uri, 'leads') === false) {
+    /*
+     * Também nas Propostas Enviadas: é de lá que sai o "Enviar nova proposta"
+     * das que foram canceladas por a fracção ter sido vendida, e sem isto o
+     * botão chamava uma função que não existia naquela página.
+     */
+    if (strpos($uri, 'leads') === false && strpos($uri, 'dps_propostas') === false) {
         return;
     }
     ?>
