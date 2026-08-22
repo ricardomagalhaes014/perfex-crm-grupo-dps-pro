@@ -459,6 +459,106 @@ foreach (($statuses ?? []) as $dps_estado) {
     });
 </script>
 
+<!-- DPS: mensagem de WhatsApp que fica nas notas -->
+<div class="modal fade" id="dps-wa-popup" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document" style="max-width:520px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">
+                    <i class="fa fa-whatsapp" style="color:#25D366;"></i>
+                    Mensagem para <span id="dps-wa-nome"></span>
+                </h4>
+            </div>
+            <div class="modal-body">
+                <textarea id="dps-wa-text" class="form-control" rows="5"
+                          placeholder="Escreve aqui a mensagem..."></textarea>
+                <small class="text-muted">
+                    Abre o WhatsApp com a mensagem já escrita e guarda-a nas notas da lead.
+                    Ainda tem de carregar em enviar no WhatsApp.
+                </small>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="dps-wa-so-abrir" class="pull-left btn btn-link" style="padding-left:0;">
+                    Abrir sem mensagem
+                </a>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="dps-wa-send">
+                    <i class="fa fa-whatsapp"></i> Abrir e guardar nota
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    var _dpsWa = { lead: null, tel: '', nome: '' };
+
+    function dpsWhatsApp(lead_id, telefone, nome) {
+        _dpsWa = { lead: lead_id, tel: telefone, nome: nome || '' };
+        $('#dps-wa-nome').text(_dpsWa.nome);
+        $('#dps-wa-text').val('');
+        $('#dps-wa-popup').modal('show');
+        setTimeout(function(){ $('#dps-wa-text').focus(); }, 400);
+    }
+
+    function dpsWaAbrir(texto) {
+        /*
+         * A janela abre-se aqui, dentro do clique. Abri-la depois da resposta
+         * do servidor era pedir ao bloqueador de pop-ups que a deixasse passar
+         * sem ninguém ter carregado em nada — e ele não deixa.
+         */
+        var url = 'https://wa.me/' + _dpsWa.tel;
+
+        if (texto) {
+            url += '?text=' + encodeURIComponent(texto);
+        }
+
+        window.open(url, '_blank');
+    }
+
+    $(document).on('click', '#dps-wa-so-abrir', function(e) {
+        e.preventDefault();
+        dpsWaAbrir('');
+        $('#dps-wa-popup').modal('hide');
+    });
+
+    $(document).on('click', '#dps-wa-send', function() {
+        var texto = $('#dps-wa-text').val().trim();
+
+        if (!texto || !_dpsWa.lead) {
+            return;
+        }
+
+        // Primeiro a janela, que é o que depende do clique; a nota vai a seguir.
+        dpsWaAbrir(texto);
+
+        var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
+
+        /*
+         * Fica marcada como WhatsApp para se distinguir de uma nota de uma
+         * chamada — quem lê a ficha daqui a um mês percebe por onde é que se
+         * falou com o cliente. leve=1 pelo mesmo motivo do outro popup: a
+         * resposta com a ficha toda nunca é usada e só faz esperar.
+         */
+        var postData = { description: '📱 WhatsApp: ' + texto, leve: 1 };
+        postData[app.options.csrf_token_name] = app.options.csrf_hash;
+
+        $.post(admin_url + 'leads/add_note/' + _dpsWa.lead, postData)
+        .done(function() {
+            $('#dps-wa-popup').modal('hide');
+            table_leads.DataTable().ajax.reload(null, false);
+        }).fail(function() {
+            alert('A mensagem abriu no WhatsApp, mas a nota não ficou guardada. Escreva-a à mão.');
+        }).always(function() {
+            $btn.prop('disabled', false).html('<i class="fa fa-whatsapp"></i> Abrir e guardar nota');
+        });
+    });
+
+    $('#dps-wa-popup').on('keydown', function(e) {
+        if (e.ctrlKey && e.key === 'Enter') $('#dps-wa-send').click();
+    });
+</script>
+
 <script>
     /**
      * Conversão rápida de lead para cliente (botão na linha da tabela)

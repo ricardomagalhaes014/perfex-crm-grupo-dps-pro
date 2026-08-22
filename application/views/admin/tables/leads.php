@@ -245,7 +245,16 @@ return App_table::find('leads')
                  * largura mínima cabem em duas linhas, que é como se lê.
                  */
                 $row[] = '<span style="display:flex;gap:4px;flex-wrap:wrap;min-width:290px;">'
-                    . '<a href="https://wa.me/' . $phone_clean . '" target="_blank" title="WhatsApp" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
+                    /*
+                     * O WhatsApp deixa de ser um link seco para o wa.me.
+                     *
+                     * Antes abria a conversa vazia: escrevia-se a mensagem lá,
+                     * voltava-se aqui e escrevia-se outra vez nas notas — ou,
+                     * o que acontecia mais vezes, não se escrevia. Agora
+                     * escreve-se uma vez: a mensagem vai para a conversa já
+                     * feita e fica na ficha da lead ao mesmo tempo.
+                     */
+                    . '<a href="#" onclick="dpsWhatsApp(' . $aRow['id'] . ', \'' . $phone_clean . '\', \'' . htmlspecialchars(addslashes($aRow['name']), ENT_QUOTES, 'UTF-8') . '\'); return false;" title="Mensagem por WhatsApp (fica nas notas)" class="btn btn-xs" style="background:#25D366;color:#fff;"><i class="fa fa-whatsapp"></i></a>'
                     /*
                      * Âncora tel: escondida — é a "semente" dos botões Ligar e
                      * VoIP.
