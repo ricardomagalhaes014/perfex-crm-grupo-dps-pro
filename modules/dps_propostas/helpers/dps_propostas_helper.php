@@ -1067,13 +1067,21 @@ function dps_propostas_cancelar_indisponiveis($empreendimento = null, $unidade =
             $emails++;
         }
 
+        /*
+         * Guarda-se a fracção e a lead, e não só o nome: o aviso por email diz
+         * ao comercial o que é que caiu e de quem, e sem isso ele tem de abrir
+         * o quadro para descobrir de que cliente se trata.
+         */
         $sid = (int) $prop->staff_id;
         $por_com[$sid] = $por_com[$sid] ?? [];
-        $nome = trim((string) $prop->lead_nome) ?: ('lead #' . (int) $prop->lead_id);
 
-        if (! in_array($nome, $por_com[$sid], true)) {
-            $por_com[$sid][] = $nome;
-        }
+        $por_com[$sid][] = [
+            'nome'           => trim((string) $prop->lead_nome) ?: ('lead #' . (int) $prop->lead_id),
+            'lead_id'        => (int) $prop->lead_id,
+            'unidade'        => (string) $prop->unidade,
+            'empreendimento' => (string) $prop->empreendimento,
+            'estado'         => (string) $estado,
+        ];
     }
 
     if ($avisar) {
@@ -1165,7 +1173,17 @@ function dps_propostas_avisar_cliente_unidade_saiu($prop, $estado)
     return (bool) $CI->email->send(false);
 }
 
-/** Aviso ao comercial, com os clientes que tem de voltar a contactar. */
+/**
+ * Aviso ao comercial, com os clientes que tem de voltar a contactar.
+ *
+ * Vai por dois caminhos, e de propósito. O sino do CRM só se vê a quem lá está
+ * dentro: quem passou a manhã na rua chega ao fim do dia e a proposta já caiu
+ * há horas sem ninguém ter contactado o cliente. O email apanha-o onde ele
+ * estiver. O sino fica, porque é ele que leva ao quadro com um clique.
+ *
+ * @param int   $staff_id
+ * @param array $clientes  linhas com nome, lead_id, unidade, empreendimento, estado
+ */
 function dps_propostas_avisar_comercial_canceladas($staff_id, array $clientes)
 {
     if (empty($clientes)) {
@@ -1173,19 +1191,115 @@ function dps_propostas_avisar_comercial_canceladas($staff_id, array $clientes)
     }
 
     /*
+     * Aceita-se ainda a lista de nomes soltos que a versão anterior passava,
+     * para o caso de alguma chamada antiga ficar por actualizar.
+     */
+    $linhas = [];
+
+    foreach ($clientes as $cliente) {
+        $linhas[] = is_array($cliente)
+            ? $cliente + ['nome' => '', 'lead_id' => 0, 'unidade' => '', 'empreendimento' => '', 'estado' => '']
+            : ['nome' => (string) $cliente, 'lead_id' => 0, 'unidade' => '', 'empreendimento' => '', 'estado' => ''];
+    }
+
+    $nomes = [];
+
+    foreach ($linhas as $l) {
+        if ($l['nome'] !== '' && ! in_array($l['nome'], $nomes, true)) {
+            $nomes[] = $l['nome'];
+        }
+    }
+
+    $quantas = count($linhas);
+    $s       = $quantas === 1 ? '' : 's';
+
+    /*
      * Um aviso com a lista toda, e não um por proposta: dez avisos seguidos
      * são dez avisos que ninguém lê.
      */
-    $lista = count($clientes) > 6
-        ? implode(', ', array_slice($clientes, 0, 6)) . ' e mais ' . (count($clientes) - 6)
-        : implode(', ', $clientes);
+    $lista = count($nomes) > 6
+        ? implode(', ', array_slice($nomes, 0, 6)) . ' e mais ' . (count($nomes) - 6)
+        : implode(', ', $nomes);
 
     add_notification([
-        'description' => '🚫 ' . count($clientes) . ' proposta' . (count($clientes) === 1 ? '' : 's')
-            . ' cancelada' . (count($clientes) === 1 ? '' : 's') . ' — a fracção deixou de estar disponível: '
-            . $lista . '. Estão em VIP 1 — envie nova proposta.',
+        'description' => '🚫 ' . $quantas . ' proposta' . $s . ' cancelada' . $s
+            . ' — a fracção deixou de estar disponível: ' . $lista . '. Estão em VIP 1 — envie nova proposta.',
         'touserid'    => (int) $staff_id,
         'fromcompany' => true,
         'link'        => 'dps_propostas/todas?resultado=cancelado',
     ]);
+
+    dps_propostas_email_comercial_canceladas((int) $staff_id, $linhas);
+}
+
+/**
+ * O mesmo aviso, por email, para quem não está agarrado ao CRM.
+ *
+ * @return bool  se o email seguiu
+ */
+function dps_propostas_email_comercial_canceladas($staff_id, array $linhas)
+{
+    $CI = &get_instance();
+
+    $comercial = $CI->db->select('firstname, lastname, email, active')
+                        ->where('staffid', (int) $staff_id)
+                        ->get(db_prefix() . 'staff')
+                        ->row();
+
+    if (! $comercial || (int) $comercial->active !== 1) {
+        return false;
+    }
+
+    $para = trim((string) $comercial->email);
+
+    if ($para === '' || ! filter_var($para, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $quantas = count($linhas);
+    $s       = $quantas === 1 ? '' : 's';
+    $empresa = get_option('companyname') ?: 'DPS Imobiliário';
+    $ligacao = admin_url('dps_propostas/todas?resultado=cancelado');
+
+    $tabela = '';
+
+    foreach ($linhas as $l) {
+        $nome = $l['lead_id'] > 0
+            ? '<a href="' . admin_url('leads/index/' . (int) $l['lead_id']) . '">' . html_escape($l['nome']) . '</a>'
+            : html_escape($l['nome']);
+
+        $tabela .= '<tr>'
+            . '<td style="padding:6px 10px;border-bottom:1px solid #eee;">' . $nome . '</td>'
+            . '<td style="padding:6px 10px;border-bottom:1px solid #eee;">'
+                . html_escape($l['unidade']) . ' — ' . html_escape($l['empreendimento']) . '</td>'
+            . '<td style="padding:6px 10px;border-bottom:1px solid #eee;">' . html_escape($l['estado']) . '</td>'
+            . '</tr>';
+    }
+
+    $corpo = '<p>Olá ' . html_escape($comercial->firstname) . ',</p>'
+        . '<p><strong>' . $quantas . ' proposta' . $s . '</strong> sua' . $s . ' ' . ($quantas === 1 ? 'foi' : 'foram')
+        . ' cancelada' . $s . ' porque a fracção deixou de estar disponível:</p>'
+        . '<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px;">'
+        . '<tr>'
+            . '<th align="left" style="padding:6px 10px;border-bottom:2px solid #ddd;">Cliente</th>'
+            . '<th align="left" style="padding:6px 10px;border-bottom:2px solid #ddd;">Fracção</th>'
+            . '<th align="left" style="padding:6px 10px;border-bottom:2px solid #ddd;">Passou a</th>'
+        . '</tr>' . $tabela . '</table>'
+        . '<p>' . ($quantas === 1 ? 'O cliente já foi avisado' : 'Os clientes já foram avisados')
+        . ' por email de que a fracção saiu do mercado, e de que o gestor entra em contacto com uma nova proposta.</p>'
+        . '<p><strong>' . ($quantas === 1 ? 'A lead está' : 'As leads estão') . ' em VIP 1.</strong> '
+        . 'Contacte e envie nova proposta — volta' . ($quantas === 1 ? '' : 'm')
+        . ' a PROPOSTAS ENVIADAS assim que a enviar.</p>'
+        . '<p><a href="' . $ligacao . '">Ver no CRM</a></p>'
+        . '<p>' . html_escape($empresa) . '</p>';
+
+    $CI->load->library('email');
+    $CI->email->clear(true);
+    $CI->email->from(get_option('smtp_email') ?: get_option('email'), $empresa);
+    $CI->email->to($para);
+    $CI->email->subject($quantas . ' proposta' . $s . ' cancelada' . $s . ' — envie nova proposta');
+    $CI->email->message($corpo);
+    $CI->email->set_mailtype('html');
+
+    return (bool) $CI->email->send(false);
 }
