@@ -299,19 +299,92 @@
 </script>
 <?php include_once APPPATH . 'views/admin/leads/status.php'; ?>
 <?php init_tail(); ?>
+<?php
+/*
+ * DPS: o id do estado NECESSIDADES, procurado pelo nome na lista que o
+ * controlador já trouxe. Procura-se pelo nome e não se crava o número porque
+ * os estados são criados e apagados no ecrã de definições — e um id cravado
+ * que deixa de existir falha em silêncio.
+ */
+$dps_estado_necessidades = 0;
+
+foreach (($statuses ?? []) as $dps_estado) {
+    if (isset($dps_estado['name']) && mb_strtoupper(trim($dps_estado['name'])) === 'NECESSIDADES') {
+        $dps_estado_necessidades = (int) $dps_estado['id'];
+        break;
+    }
+}
+?>
 <script>
     var openLeadID = '<?= e($leadid); ?>';
 
-    // DPS FIX: Redefinir lead_mark_as para fechar o dropdown antes de alterar o estado
-    function lead_mark_as(status_id, lead_id) {
-        // Fechar via mecanismo nativo do Bootstrap 3 (clearMenus)
+    /*
+     * DPS: mudar o estado a partir da lista.
+     *
+     * Este ficheiro carrega DEPOIS do init_tail(), por isso é esta definição
+     * que fica de pé — a do main.js nunca chega a correr.
+     *
+     * O estado que abre o formulário de necessidades vem do PHP e não escrito
+     * à mão: no dia em que alguém renomear ou recriar o estado, um 16 cravado
+     * aqui deixava de bater e ninguém ia perceber porquê.
+     */
+    var DPS_ESTADO_NECESSIDADES = <?= (int) ($dps_estado_necessidades ?? 0); ?>;
+
+    /*
+     * Fechar o menu do estado.
+     *
+     * O tema, no app.js, tira o <ul> de dentro da tabela e pendura-o no <body>
+     * quando o menu abre, e só o volta a esconder no evento hide.bs.dropdown.
+     * Quem tira a classe "open" à mão salta esse evento: o menu fica no <body>,
+     * visível, e logo a seguir o DataTable redesenha a linha e leva-lhe o dono.
+     * Fica ali uma lista a pairar sobre a página que já não fecha com nada.
+     *
+     * Por isso se fecha pelo caminho do Bootstrap — e, à cautela, esconde-se o
+     * que já esteja pendurado no <body>, para limpar o que ficou de trás.
+     */
+    function dps_fechar_menu_estado() {
         $(document).trigger('click.bs.dropdown.data-api');
-        // Garantia extra: remover classe open de todos os dropdowns da tabela
-        $('table.table-leads .dropdown.open').removeClass('open');
-        // Enviar o pedido
+        $('body').children('.dropdown-menu').hide();
+    }
+
+    function lead_mark_as(status_id, lead_id) {
+        dps_fechar_menu_estado();
+
+        /*
+         * A janela abre-se JÁ, ainda dentro do clique, e só depois se lhe dá o
+         * endereço. Abri-la lá dentro da resposta do servidor era pedir ao
+         * bloqueador de pop-ups que a deixasse passar sem ninguém ter carregado
+         * em nada — e ele não deixa.
+         */
+        var janela = null;
+
+        if (parseInt(status_id, 10) === DPS_ESTADO_NECESSIDADES && DPS_ESTADO_NECESSIDADES > 0) {
+            janela = window.open('', '_blank');
+        }
+
         var data = { status: status_id, leadid: lead_id };
+
         $.post(admin_url + 'leads/update_lead_status', data).done(function(response) {
             table_leads.DataTable().ajax.reload(null, false);
+
+            if (parseInt(status_id, 10) !== DPS_ESTADO_NECESSIDADES || DPS_ESTADO_NECESSIDADES <= 0) {
+                return;
+            }
+
+            var destino = admin_url + 'dps_imoveis/nova_necessidade?lead=' + lead_id;
+
+            if (janela && !janela.closed) {
+                janela.location = destino;
+            } else {
+                // Pop-up bloqueado: vale mais ir lá nesta janela do que não ir.
+                window.location = destino;
+            }
+        }).fail(function() {
+            if (janela && !janela.closed) {
+                janela.close();
+            }
+
+            alert_float('danger', 'Não foi possível alterar o estado.');
         });
     }
 

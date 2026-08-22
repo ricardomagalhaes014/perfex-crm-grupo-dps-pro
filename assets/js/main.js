@@ -5392,9 +5392,12 @@ function lead_mark_as_junk(id) {
 }
 // From lead table mark as
 function lead_mark_as(status_id, lead_id) {
-  // Fechar o dropdown imediatamente
-  $('#tableLeadsStatus-' + lead_id).closest('.dropdown').removeClass('open');
-  $('body').trigger('click'); // Garante que qualquer dropdown aberto é fechado
+  // O ecrã das leads redefine esta função (manage_leads.php, depois do
+  // init_tail) e é essa que corre. Esta fica correcta na mesma: tirar a classe
+  // "open" à mão salta o hide.bs.dropdown, e é esse evento que faz o tema
+  // esconder o menu que ele próprio pendurou no <body>.
+  $(document).trigger('click.bs.dropdown.data-api');
+  $('body').children('.dropdown-menu').hide();
 
   var data = {};
   data.status = status_id;
