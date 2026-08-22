@@ -544,6 +544,26 @@ class Dps_propostas extends AdminController
             $resultado = '';
         }
 
+        /*
+         * A CANCELADA QUE JÁ FOI RESOLVIDA SAI DA LISTA.
+         *
+         * Uma proposta cai porque a fracção foi vendida, a lead vai para VIP 1
+         * e o comercial manda outra. A partir daí a cancelada é história: o
+         * cliente já tem proposta nova. Deixá-la ali fazia com que o mesmo
+         * cliente ocupasse duas linhas, uma delas a pedir uma acção que já foi
+         * feita. Pedido do dono (22/08/2026).
+         *
+         * A régua é a data e não o id: só conta como substituição uma proposta
+         * enviada DEPOIS do cancelamento. Sem isso, duas propostas do mesmo
+         * cliente canceladas no mesmo lote davam-se por substituídas uma à
+         * outra — foi o que aconteceu com quatro leads que tinham duas fracções
+         * a cair ao mesmo tempo.
+         */
+        $sem_substituidas = 'NOT (COALESCE(p.outcome, "") = "cancelado" AND p.outcome_at IS NOT NULL
+             AND EXISTS (SELECT 1 FROM ' . db_prefix() . 'dps_propostas n
+                         WHERE n.lead_id = p.lead_id AND n.tipo = "proposta"
+                         AND n.created_at > p.outcome_at))';
+
         $emps_filtro = $this->db->query(
             'SELECT p.empreendimento, COUNT(*) AS c
              FROM ' . db_prefix() . 'dps_propostas p
@@ -596,6 +616,7 @@ class Dps_propostas extends AdminController
         $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
         $this->db->join(db_prefix() . 'leads_status ls', 'ls.id = l.status', 'left');
         $this->db->where('p.tipo', 'proposta');
+        $this->db->where($sem_substituidas, null, false);
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
@@ -624,6 +645,7 @@ class Dps_propostas extends AdminController
         $this->db->from(db_prefix() . 'dps_propostas p');
         $this->db->join(db_prefix() . 'staff s', 's.staffid = p.staff_id', 'left');
         $this->db->where('p.tipo', 'proposta');
+        $this->db->where($sem_substituidas, null, false);
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
@@ -763,6 +785,7 @@ class Dps_propostas extends AdminController
         $this->db->from(db_prefix() . 'dps_propostas p');
         $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
         $this->db->where('p.tipo', 'proposta');
+        $this->db->where($sem_substituidas, null, false);
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
