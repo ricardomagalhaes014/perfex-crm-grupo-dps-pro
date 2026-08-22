@@ -474,17 +474,16 @@ foreach (($statuses ?? []) as $dps_estado) {
                 <textarea id="dps-wa-text" class="form-control" rows="5"
                           placeholder="Escreve aqui a mensagem..."></textarea>
                 <small class="text-muted">
-                    Abre o WhatsApp com a mensagem já escrita e guarda-a nas notas da lead.
-                    Ainda tem de carregar em enviar no WhatsApp.
+                    Sai pelo seu WhatsApp e fica guardada nas notas da lead.
                 </small>
             </div>
             <div class="modal-footer">
                 <a href="#" id="dps-wa-so-abrir" class="pull-left btn btn-link" style="padding-left:0;">
-                    Abrir sem mensagem
+                    Abrir a conversa no WhatsApp
                 </a>
                 <button type="button" class="btn btn-default" data-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-success" id="dps-wa-send">
-                    <i class="fa fa-whatsapp"></i> Abrir e guardar nota
+                    <i class="fa fa-paper-plane"></i> Enviar
                 </button>
             </div>
         </div>
@@ -501,25 +500,13 @@ foreach (($statuses ?? []) as $dps_estado) {
         setTimeout(function(){ $('#dps-wa-text').focus(); }, 400);
     }
 
-    function dpsWaAbrir(texto) {
-        /*
-         * A janela abre-se aqui, dentro do clique. Abri-la depois da resposta
-         * do servidor era pedir ao bloqueador de pop-ups que a deixasse passar
-         * sem ninguém ter carregado em nada — e ele não deixa.
-         */
-        var url = 'https://wa.me/' + _dpsWa.tel;
-
-        if (texto) {
-            url += '?text=' + encodeURIComponent(texto);
-        }
-
-        window.open(url, '_blank');
-    }
-
+    /*
+     * Continua a haver forma de abrir a conversa à moda antiga — para ver o
+     * histórico, mandar um áudio, o que a caixa daqui não faz.
+     */
     $(document).on('click', '#dps-wa-so-abrir', function(e) {
         e.preventDefault();
-        dpsWaAbrir('');
-        $('#dps-wa-popup').modal('hide');
+        window.open('https://wa.me/' + _dpsWa.tel, '_blank');
     });
 
     $(document).on('click', '#dps-wa-send', function() {
@@ -529,28 +516,35 @@ foreach (($statuses ?? []) as $dps_estado) {
             return;
         }
 
-        // Primeiro a janela, que é o que depende do clique; a nota vai a seguir.
-        dpsWaAbrir(texto);
-
-        var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A guardar...');
-
         /*
-         * Fica marcada como WhatsApp para se distinguir de uma nota de uma
-         * chamada — quem lê a ficha daqui a um mês percebe por onde é que se
-         * falou com o cliente. leve=1 pelo mesmo motivo do outro popup: a
-         * resposta com a ficha toda nunca é usada e só faz esperar.
+         * A mensagem sai pela ligação de WhatsApp do próprio comercial, a
+         * mesma por onde já seguem as propostas. Não se abre o WhatsApp: o
+         * pedido era escrever uma vez e o resto acontecer sozinho.
          */
-        var postData = { description: '📱 WhatsApp: ' + texto, leve: 1 };
+        var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A enviar...');
+
+        var postData = { lead_id: _dpsWa.lead, texto: texto };
         postData[app.options.csrf_token_name] = app.options.csrf_hash;
 
-        $.post(admin_url + 'leads/add_note/' + _dpsWa.lead, postData)
-        .done(function() {
-            $('#dps-wa-popup').modal('hide');
-            table_leads.DataTable().ajax.reload(null, false);
-        }).fail(function() {
-            alert('A mensagem abriu no WhatsApp, mas a nota não ficou guardada. Escreva-a à mão.');
+        $.post(admin_url + 'dps_propostas/mensagem_whatsapp', postData, null, 'json')
+        .done(function(r) {
+            if (r && r.success) {
+                alert_float('success', r.message || 'Mensagem enviada.');
+                $('#dps-wa-popup').modal('hide');
+                table_leads.DataTable().ajax.reload(null, false);
+            } else {
+                alert_float('danger', (r && r.message) || 'Não foi possível enviar.');
+
+                // A nota ficou; a mensagem não. Fecha-se e recarrega-se na mesma.
+                if (r && r.nota) {
+                    $('#dps-wa-popup').modal('hide');
+                    table_leads.DataTable().ajax.reload(null, false);
+                }
+            }
+        }).fail(function(xhr) {
+            alert_float('danger', 'Erro ' + xhr.status + ' ao enviar a mensagem.');
         }).always(function() {
-            $btn.prop('disabled', false).html('<i class="fa fa-whatsapp"></i> Abrir e guardar nota');
+            $btn.prop('disabled', false).html('<i class="fa fa-paper-plane"></i> Enviar');
         });
     });
 

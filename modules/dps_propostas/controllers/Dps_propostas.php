@@ -59,6 +59,110 @@ class Dps_propostas extends AdminController
         ]);
     }
 
+    /**
+     * Mensagem livre para a lead, escrita no CRM e enviada pelo WhatsApp do
+     * próprio comercial.
+     *
+     * O botão verde da lista abria o wa.me e mais nada: escrevia-se a mensagem
+     * no WhatsApp, voltava-se aqui e escrevia-se outra vez na nota — ou, o que
+     * acontecia mais vezes, não se escrevia, e a ficha ficava sem rasto de uma
+     * conversa que houve. Escreve-se uma vez, sai pelo WhatsApp e fica na
+     * ficha. Pedido do dono (22/08/2026).
+     *
+     * A nota grava-se ANTES do envio, e de propósito. Se a Evolution falhar,
+     * fica escrito o que se tentou dizer ao cliente; ao contrário, uma mensagem
+     * entregue sem nota é uma conversa que desapareceu.
+     */
+    public function mensagem_whatsapp()
+    {
+        if (! is_staff_member()) {
+            ajax_access_denied();
+        }
+
+        $lead_id = (int) $this->input->post('lead_id');
+        $texto   = trim((string) $this->input->post('texto'));
+        $staff_id = get_staff_user_id();
+
+        if (! $lead_id || $texto === '') {
+            echo json_encode(['success' => false, 'message' => 'Escreva a mensagem primeiro.']);
+            return;
+        }
+
+        $lead = $this->lead_or_die($lead_id);
+
+        if (! $lead) {
+            echo json_encode(['success' => false, 'message' => 'Lead não encontrada.']);
+            return;
+        }
+
+        $number = preg_replace('/[^0-9]/', '', (string) $lead->phonenumber);
+
+        if ($number === '') {
+            echo json_encode(['success' => false, 'message' => 'A lead não tem telefone.']);
+            return;
+        }
+
+        if (! dps_propostas_staff_connected($staff_id)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'O seu WhatsApp não está ligado. Vá a Definições → WhatsApp e leia o QR.',
+            ]);
+            return;
+        }
+
+        /*
+         * A nota primeiro — ver o comentário acima. Pelo modelo do núcleo e não
+         * por um INSERT à mão: é ele que trata das quebras de linha e dispara o
+         * note_created que o resto do CRM escuta.
+         */
+        $this->load->model('misc_model');
+        $this->misc_model->add_note(
+            ['description' => '📱 WhatsApp: ' . $texto, 'date_contacted' => date('Y-m-d H:i:s')],
+            'lead',
+            $lead_id
+        );
+
+        $r = dps_propostas_send_text($staff_id, $number, $texto);
+
+        if (! $r['ok']) {
+            /*
+             * Deixa-se rasto do falhanço na mesma linha de tempo da lead: quem
+             * abrir a ficha vê a mensagem que se quis mandar e vê, logo a
+             * seguir, que ela não chegou.
+             */
+            $this->dps_marcar_contacto(
+                $lead_id,
+                $staff_id,
+                '⚠️ Mensagem de WhatsApp não entregue — ' . dps_propostas_erro_wa($r, $number)
+            );
+
+            echo json_encode([
+                'success' => false,
+                'nota'    => true,
+                'message' => dps_propostas_erro_wa($r, $number) . ' A nota ficou guardada.',
+            ]);
+            return;
+        }
+
+        /*
+         * O "? Nota:" à frente não é engano nem emoji partido de agora: é
+         * assim que estão gravadas as 2762 linhas que já lá existem, e é esse
+         * prefixo que a régua das interacções procura. Escrever outra coisa
+         * fazia com que estas mensagens não contassem como contacto — que é
+         * precisamente o que elas são.
+         */
+        $this->dps_marcar_contacto(
+            $lead_id,
+            $staff_id,
+            '? Nota: WhatsApp — ' . mb_substr($texto, 0, 120)
+        );
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Mensagem enviada por WhatsApp e guardada nas notas.',
+        ]);
+    }
+
     public function enviar_info()
     {
         if (! is_staff_member()) {
