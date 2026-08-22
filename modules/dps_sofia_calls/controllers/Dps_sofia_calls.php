@@ -7,33 +7,81 @@ class Dps_sofia_calls extends AdminController
     {
         parent::__construct();
 
-        /*
-         * SÓ A DIRECÇÃO ENTRA AQUI. Regra do dono (20/08/2026).
-         *
-         * A Sofia liga a clientes reais em nome da empresa e gasta saldo a
-         * cada chamada. Não havia verificação nenhuma: qualquer comercial
-         * abria o módulo, criava uma campanha e punha-a a correr.
-         *
-         * Fica no construtor de propósito — apanha TODAS as acções, incluindo
-         * as que são chamadas por AJAX (criar campanha, arrancar, fazer
-         * chamada). Uma verificação acção a acção esquece sempre alguma.
-         */
-        if (! is_admin()) {
-            if ($this->input->is_ajax_request()) {
-                ajax_access_denied();
-            }
-            access_denied('dps_sofia_calls');
+        $this->load->model('dps_sofia_calls/Dps_sofia_calls_model');
+    }
+
+    /**
+     * O módulo está aberto aos comerciais desde 22/08/2026, mas não é a mesma
+     * coisa para todos: o comercial cria a campanha e pede-a; quem a põe a
+     * ligar a clientes é a direcção, depois de ouvir a chamada de teste.
+     *
+     * Estas três funções são a fronteira. Estão aqui em cima, juntas, porque
+     * uma verificação espalhada por vinte sítios esquece sempre um — e o que
+     * se esquece é uma campanha a ligar a clientes reais sem ninguém saber.
+     */
+    private function so_direccao()
+    {
+        if (is_admin()) {
+            return;
         }
 
-        $this->load->model('dps_sofia_calls/Dps_sofia_calls_model');
+        if ($this->input->is_ajax_request()) {
+            ajax_access_denied();
+        }
+
+        access_denied('dps_sofia_calls');
+    }
+
+    /** Devolve a campanha se ela for minha (ou eu for da direcção); senão corta. */
+    private function minha_campanha($id)
+    {
+        $c = $this->Dps_sofia_calls_model->get_campaign((int) $id);
+
+        if (! $c) {
+            $this->responder(['success' => false, 'message' => 'Campanha não encontrada.']);
+        }
+
+        if (! is_admin() && (int) $c['created_by'] !== (int) get_staff_user_id()) {
+            $this->responder(['success' => false, 'message' => 'Esta campanha não é sua.']);
+        }
+
+        return $c;
+    }
+
+    /** Uma resposta JSON e ponto final — evita vinte repetições do mesmo bloco. */
+    private function responder($dados)
+    {
+        header('Content-Type: application/json');
+        echo json_encode($dados);
+        exit;
     }
 
     public function index()
     {
+        $eu       = (int) get_staff_user_id();
+        $direccao = is_admin();
+
         $data['title']         = 'Sofia Calls';
+        $data['e_admin']       = $direccao;
         $data['lead_statuses'] = $this->Dps_sofia_calls_model->get_lead_statuses();
         $data['staff_list']    = $this->Dps_sofia_calls_model->get_staff_list();
-        $data['campaigns']     = $this->Dps_sofia_calls_model->get_campaigns(20);
+
+        // O comercial vê as suas; a direcção vê as de toda a gente.
+        $data['campaigns'] = $this->Dps_sofia_calls_model->get_campaigns(20, $direccao ? null : $eu);
+
+        /*
+         * O intervalo mostra-se sempre, mesmo quando ainda falta — é melhor
+         * ler no ecrã que só pode voltar dia 29 do que carregar em Iniciar e
+         * levar com um erro.
+         */
+        $ultimo = $this->Dps_sofia_calls_model->ultimo_arranque($eu);
+
+        $data['intervalo_dias'] = defined('DPS_SOFIA_INTERVALO_DIAS') ? DPS_SOFIA_INTERVALO_DIAS : 7;
+        $data['ultimo_arranque'] = $ultimo;
+        $data['livre_em'] = ($ultimo && ! $direccao)
+            ? date('Y-m-d H:i:s', strtotime($ultimo) + ($data['intervalo_dias'] * 86400))
+            : null;
+        $data['numero_teste'] = $this->Dps_sofia_calls_model->numero_de_teste();
         
         /*
          * A lista de agentes vem da ElevenLabs, não de uma lista escrita à mão.
@@ -64,21 +112,109 @@ class Dps_sofia_calls extends AdminController
             'agent_id'       => $this->input->post('agent_id'),
         ];
 
+        /*
+         * O comercial só liga às leads dele. Sem isto, o campo vinha do
+         * formulário e bastava mudá-lo para pôr a Sofia a ligar à carteira do
+         * colega do lado — ou, deixando-o vazio, à casa toda.
+         */
+        if (! is_admin()) {
+            $data['staff_id'] = (int) get_staff_user_id();
+        }
+
         if (empty($data['name']) || empty($data['lead_status_id'])) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatorios']);
-            exit;
+            $this->responder(['success' => false, 'message' => 'Nome e estado obrigatorios']);
         }
 
         $campaign_id = $this->Dps_sofia_calls_model->create_campaign($data);
 
-        header('Content-Type: application/json');
-        echo json_encode([
+        $this->responder([
             'success'     => true,
             'campaign_id' => $campaign_id,
-            'message'     => 'Campanha criada em estado pausado. Clique em Iniciar quando quiser comecar.',
+            'message'     => is_admin()
+                ? 'Campanha criada em estado pausado. Clique em Iniciar quando quiser comecar.'
+                : 'Campanha criada. Carregue em «Pedir aprovação»: a Sofia faz uma chamada de teste '
+                  . 'à direcção e só depois de aprovada é que a pode iniciar.',
         ]);
-        exit;
+    }
+
+    /**
+     * A chamada de teste: a Sofia liga ao administrador com o guião desta
+     * campanha, para ele ouvir o que ela diria aos clientes antes de aprovar.
+     */
+    public function pedir_teste()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+
+        $c = $this->minha_campanha((int) $this->input->post('id'));
+
+        $r = $this->Dps_sofia_calls_model->pedir_teste((int) $c['id']);
+
+        if (! empty($r['success'])) {
+            $quem = get_staff_full_name(get_staff_user_id());
+
+            log_activity('Sofia Calls: chamada de teste da campanha «' . $c['name'] . '» pedida por ' . $quem);
+
+            /*
+             * A direcção tem de saber que há uma campanha à espera dela. Sem
+             * isto o pedido fica num ecrã que ninguém abre, e o comercial fica
+             * à espera de uma aprovação que nunca chega.
+             */
+            foreach ($this->Dps_sofia_calls_model->get_staff_list() as $s) {
+                if (is_admin($s['staffid'])) {
+                    add_notification([
+                        'description' => '📞 Sofia: ' . $quem . ' pede aprovação para a campanha «'
+                            . $c['name'] . '». A chamada de teste está a sair para ' . $r['numero'] . '.',
+                        'touserid'    => (int) $s['staffid'],
+                        'fromuserid'  => get_staff_user_id(),
+                        'link'        => 'dps_sofia_calls',
+                    ]);
+                }
+            }
+        }
+
+        $this->responder($r);
+    }
+
+    /** Aprovar ou recusar. Só a direcção. */
+    public function decidir()
+    {
+        if (!$this->input->is_ajax_request()) show_404();
+        $this->so_direccao();
+
+        $c       = $this->Dps_sofia_calls_model->get_campaign((int) $this->input->post('id'));
+        $aprovar = $this->input->post('decisao') === 'aprovar';
+
+        if (! $c) {
+            $this->responder(['success' => false, 'message' => 'Campanha não encontrada.']);
+        }
+
+        $this->Dps_sofia_calls_model->decidir(
+            (int) $c['id'],
+            $aprovar,
+            get_staff_user_id(),
+            (string) $this->input->post('nota')
+        );
+
+        log_activity('Sofia Calls: campanha «' . $c['name'] . '» '
+            . ($aprovar ? 'aprovada' : 'recusada') . ' por ' . get_staff_full_name(get_staff_user_id()));
+
+        if ((int) $c['created_by'] !== (int) get_staff_user_id()) {
+            $nota = trim((string) $this->input->post('nota'));
+
+            add_notification([
+                'description' => ($aprovar ? '✅' : '🚫') . ' Sofia: a campanha «' . $c['name'] . '» foi '
+                    . ($aprovar ? 'aprovada — já a pode iniciar.' : 'recusada.')
+                    . ($nota !== '' ? ' ' . $nota : ''),
+                'touserid'    => (int) $c['created_by'],
+                'fromuserid'  => get_staff_user_id(),
+                'link'        => 'dps_sofia_calls',
+            ]);
+        }
+
+        $this->responder([
+            'success' => true,
+            'message' => $aprovar ? 'Campanha aprovada.' : 'Campanha recusada.',
+        ]);
     }
 
     public function campaign_action()
@@ -90,9 +226,22 @@ class Dps_sofia_calls extends AdminController
 
         $allowed = ['active', 'paused', 'stopped'];
         if (!in_array($action, $allowed)) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Acao invalida']);
-            exit;
+            $this->responder(['success' => false, 'message' => 'Acao invalida']);
+        }
+
+        $this->minha_campanha($id);
+
+        /*
+         * Pausar e parar são livres — são travões, e travar nunca fez mal a
+         * ninguém. O que se verifica é o arranque, que é o que gasta saldo e
+         * liga a clientes reais.
+         */
+        if ($action === 'active') {
+            $pode = $this->Dps_sofia_calls_model->pode_arrancar($id, get_staff_user_id(), is_admin());
+
+            if (! $pode['ok']) {
+                $this->responder(['success' => false, 'message' => $pode['message']]);
+            }
         }
 
         $ok = $this->Dps_sofia_calls_model->update_campaign_status($id, $action);
@@ -113,7 +262,21 @@ class Dps_sofia_calls extends AdminController
         if (!$this->input->is_ajax_request()) show_404();
 
         $campaign_id = (int) $this->input->post('campaign_id');
-        $result      = $this->Dps_sofia_calls_model->make_immediate_call($campaign_id);
+
+        /*
+         * Esta acção liga já a um cliente. Passa pelas mesmas condições do
+         * arranque — se não fosse assim, era o buraco por onde se contornava
+         * a aprovação e o intervalo de dias todo.
+         */
+        $this->minha_campanha($campaign_id);
+
+        $pode = $this->Dps_sofia_calls_model->pode_arrancar($campaign_id, get_staff_user_id(), is_admin());
+
+        if (! $pode['ok']) {
+            $this->responder(['success' => false, 'message' => $pode['message']]);
+        }
+
+        $result = $this->Dps_sofia_calls_model->make_immediate_call($campaign_id);
 
         header('Content-Type: application/json');
         echo json_encode($result);
@@ -126,9 +289,22 @@ class Dps_sofia_calls extends AdminController
 
         $id = (int) $this->input->post('id');
         if (!$id) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'ID invalido']);
-            exit;
+            $this->responder(['success' => false, 'message' => 'ID invalido']);
+        }
+
+        $c = $this->minha_campanha($id);
+
+        /*
+         * Mudar o guião de uma campanha já aprovada apagava o sentido da
+         * aprovação: aprovava-se um texto e ligava-se com outro. Quem quiser
+         * mudar volta a pedir, e a direcção volta a ouvir.
+         */
+        if (! is_admin() && $c['aprovacao'] === 'aprovada') {
+            $this->responder([
+                'success' => false,
+                'message' => 'Esta campanha já foi aprovada e não se pode alterar. '
+                    . 'Crie outra, ou peça à direcção.',
+            ]);
         }
 
         $data = [
@@ -140,12 +316,18 @@ class Dps_sofia_calls extends AdminController
         ];
 
         if (empty($data['name']) || empty($data['lead_status_id'])) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Nome e estado obrigatorios']);
-            exit;
+            $this->responder(['success' => false, 'message' => 'Nome e estado obrigatorios']);
         }
 
         $ok = $this->Dps_sofia_calls_model->update_campaign($id, $data);
+
+        /*
+         * Guião mexido, aprovação cai. Volta ao princípio: nova chamada de
+         * teste, nova decisão.
+         */
+        if ($ok && $c['aprovacao'] !== 'rascunho') {
+            $this->db->where('id', $id)->update(db_prefix() . 'dps_sofia_campaigns', ['aprovacao' => 'rascunho']);
+        }
 
         header('Content-Type: application/json');
         echo json_encode(['success' => $ok]);
@@ -158,10 +340,10 @@ class Dps_sofia_calls extends AdminController
 
         $id = (int) $this->input->post('id');
         if (!$id) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false]);
-            exit;
+            $this->responder(['success' => false]);
         }
+
+        $this->minha_campanha($id);
 
         $ok = $this->Dps_sofia_calls_model->delete_campaign($id);
 
@@ -174,7 +356,11 @@ class Dps_sofia_calls extends AdminController
     {
         if (!$this->input->is_ajax_request()) show_404();
 
-        $id    = (int) $this->input->post('id');
+        $id = (int) $this->input->post('id');
+
+        // As transcrições trazem o que o cliente disse — não são de toda a gente.
+        $this->minha_campanha($id);
+
         $stats = $this->Dps_sofia_calls_model->get_campaign_stats($id);
         $logs  = $this->Dps_sofia_calls_model->get_call_logs($id, 50);
 
@@ -370,7 +556,36 @@ class Dps_sofia_calls extends AdminController
 
         $campanha = (int) $this->input->get('campanha');
 
+        /*
+         * O comercial vê os resultados das campanhas dele. As transcrições
+         * trazem o que o cliente disse ao telefone, e isso não é para andar a
+         * circular pela casa toda.
+         */
+        $minhas = null;
+
+        if (! is_admin()) {
+            $minhas = array_column(
+                $this->db->select('id')
+                         ->where('created_by', (int) get_staff_user_id())
+                         ->get(db_prefix() . 'dps_sofia_campaigns')
+                         ->result_array(),
+                'id'
+            );
+
+            // Sem campanhas nenhumas, um id impossível dá a lista vazia certa.
+            if (empty($minhas)) {
+                $minhas = [0];
+            }
+
+            if ($campanha > 0 && ! in_array($campanha, $minhas)) {
+                $campanha = 0;
+            }
+        }
+
         $this->db->select('c.id, c.name');
+        if ($minhas !== null) {
+            $this->db->where_in('c.id', $minhas);
+        }
         $this->db->order_by('c.id', 'DESC');
         $data['campanhas'] = $this->db->get(db_prefix() . 'dps_sofia_campaigns c')->result_array();
 
@@ -381,6 +596,8 @@ class Dps_sofia_calls extends AdminController
         $this->db->where_not_in('l.status', ['pending']);
         if ($campanha > 0) {
             $this->db->where('l.campaign_id', $campanha);
+        } elseif ($minhas !== null) {
+            $this->db->where_in('l.campaign_id', $minhas);
         }
         $this->db->group_by("COALESCE(NULLIF(l.resultado, ''), '')", false);
 
@@ -397,6 +614,8 @@ class Dps_sofia_calls extends AdminController
         $this->db->where_not_in('l.status', ['pending']);
         if ($campanha > 0) {
             $this->db->where('l.campaign_id', $campanha);
+        } elseif ($minhas !== null) {
+            $this->db->where_in('l.campaign_id', $minhas);
         }
         $this->db->order_by('l.started_at', 'DESC');
         $this->db->limit(500);

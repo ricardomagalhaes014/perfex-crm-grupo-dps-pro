@@ -68,11 +68,225 @@ class Dps_sofia_calls_model extends App_Model
         return $this->db->get(db_prefix() . 'staff')->result_array();
     }
 
-    public function get_campaigns($limit = 50)
+    /**
+     * @param int      $limit
+     * @param int|null $so_do_staff  ver só as campanhas deste utilizador
+     */
+    public function get_campaigns($limit = 50, $so_do_staff = null)
     {
+        if ($so_do_staff !== null) {
+            $this->db->where('created_by', (int) $so_do_staff);
+        }
+
         $this->db->order_by('created_at', 'DESC');
         $this->db->limit($limit);
         return $this->db->get(db_prefix() . 'dps_sofia_campaigns')->result_array();
+    }
+
+    /**
+     * O número onde toca a chamada de teste: o do administrador que vai
+     * aprovar. Quem aprova tem de ouvir o que a Sofia vai dizer aos clientes —
+     * aprovar um guião que nunca se ouviu é assinar em branco.
+     *
+     * Preferência: o número gravado nas definições do módulo; senão, o
+     * telefone do primeiro administrador activo que o tenha no perfil.
+     *
+     * @return array|null  ['numero' => '+351…', 'nome' => '…']
+     */
+    public function numero_de_teste()
+    {
+        $escrito = trim((string) get_option('sofia_calls_numero_teste'));
+
+        if ($escrito !== '') {
+            $numero = $this->_normalize_phone($escrito);
+
+            if ($numero) {
+                return ['numero' => $numero, 'nome' => 'número de teste das definições'];
+            }
+        }
+
+        $admins = $this->db->select('staffid, firstname, lastname, phonenumber')
+                           ->where('active', 1)
+                           ->where('admin', 1)
+                           ->where('phonenumber !=', '')
+                           ->order_by('staffid', 'ASC')
+                           ->get(db_prefix() . 'staff')
+                           ->result_array();
+
+        foreach ($admins as $a) {
+            $numero = $this->_normalize_phone($a['phonenumber']);
+
+            if ($numero) {
+                return ['numero' => $numero, 'nome' => trim($a['firstname'] . ' ' . $a['lastname'])];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Faz a chamada de teste da campanha: a Sofia liga ao administrador com o
+     * mesmo agente e o mesmo texto de foco que usaria com os clientes.
+     *
+     * @return array ['success' => bool, 'message' => string, 'numero' => string]
+     */
+    public function pedir_teste($campaign_id)
+    {
+        $c = $this->get_campaign((int) $campaign_id);
+
+        if (! $c) {
+            return ['success' => false, 'message' => 'Campanha não encontrada.'];
+        }
+
+        if ($c['aprovacao'] === 'aprovada') {
+            return ['success' => false, 'message' => 'Esta campanha já está aprovada.'];
+        }
+
+        $destino = $this->numero_de_teste();
+
+        if (! $destino) {
+            return [
+                'success' => false,
+                'message' => 'Não há número para a chamada de teste. Escreva-o em Definições, '
+                    . 'ou preencha o telefone no perfil do administrador.',
+            ];
+        }
+
+        $r = $this->_make_call(
+            $destino['numero'],
+            $c['agent_id'],
+            $c['focus_text'],
+            'teste — ' . $c['name']
+        );
+
+        // Mesma leitura da resposta que _fire_next_call faz para as chamadas reais.
+        $call_id = isset($r['conversation_id']) ? $r['conversation_id']
+                 : (isset($r['call_id'])        ? $r['call_id'] : null);
+
+        if (! $r || (empty($r['success']) && ! $call_id)) {
+            /*
+             * A chave da ElevenLabs devolve 401 quando expira, e aí a resposta
+             * traz o motivo em 'detail'. Repeti-lo poupa meia hora de procura.
+             */
+            $erro = ! empty($r['error']) ? (string) $r['error'] : null;
+
+            if ($erro === null && isset($r['detail'])) {
+                $erro = is_array($r['detail'])
+                    ? (string) ($r['detail']['message'] ?? json_encode($r['detail']))
+                    : (string) $r['detail'];
+            }
+
+            return [
+                'success' => false,
+                'message' => 'A chamada de teste não saiu: ' . ($erro ?: 'a operadora não aceitou a chamada'),
+            ];
+        }
+
+        $this->db->where('id', (int) $campaign_id)->update(db_prefix() . 'dps_sofia_campaigns', [
+            'aprovacao'     => 'teste_feito',
+            'teste_numero'  => $destino['numero'],
+            'teste_em'      => date('Y-m-d H:i:s'),
+            'teste_call_id' => $call_id,
+            'updated_at'    => date('Y-m-d H:i:s'),
+        ]);
+
+        return [
+            'success' => true,
+            'numero'  => $destino['numero'],
+            'message' => 'A Sofia está a ligar para ' . $destino['numero'] . ' (' . $destino['nome'] . '). '
+                . 'Depois de ouvir, a direcção aprova ou recusa a campanha.',
+        ];
+    }
+
+    /** Aprova ou recusa. Só a direcção lá chega — quem verifica é o controlador. */
+    public function decidir($campaign_id, $aprovar, $staff_id, $nota = '')
+    {
+        $this->db->where('id', (int) $campaign_id)->update(db_prefix() . 'dps_sofia_campaigns', [
+            'aprovacao'    => $aprovar ? 'aprovada' : 'recusada',
+            'decidida_por' => (int) $staff_id,
+            'decidida_em'  => date('Y-m-d H:i:s'),
+            'decisao_nota' => mb_substr(trim((string) $nota), 0, 255),
+            'updated_at'   => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->db->affected_rows() >= 0;
+    }
+
+    /**
+     * A última campanha que este comercial pôs a correr.
+     *
+     * Conta-se o arranque e não a criação: criar campanhas não gasta chamadas
+     * nenhumas, e quem cria três num dia para escolher a melhor não está a
+     * fazer nada de mal.
+     */
+    public function ultimo_arranque($staff_id)
+    {
+        $r = $this->db->select('MAX(arrancou_em) AS ultimo')
+                      ->where('created_by', (int) $staff_id)
+                      ->where('arrancou_em IS NOT NULL', null, false)
+                      ->get(db_prefix() . 'dps_sofia_campaigns')
+                      ->row();
+
+        return $r && $r->ultimo ? $r->ultimo : null;
+    }
+
+    /**
+     * Pode esta campanha arrancar?
+     *
+     * @return array ['ok' => bool, 'message' => string]
+     */
+    public function pode_arrancar($campaign_id, $staff_id, $e_admin = false)
+    {
+        $c = $this->get_campaign((int) $campaign_id);
+
+        if (! $c) {
+            return ['ok' => false, 'message' => 'Campanha não encontrada.'];
+        }
+
+        if ($c['aprovacao'] !== 'aprovada') {
+            $porque = [
+                'rascunho'     => 'Falta a chamada de teste. Carregue em «Pedir aprovação».',
+                'teste_pedido' => 'A chamada de teste ainda não saiu.',
+                'teste_feito'  => 'A chamada de teste já foi feita — falta a direcção aprovar.',
+                'recusada'     => 'Esta campanha foi recusada pela direcção.',
+            ];
+
+            return [
+                'ok'      => false,
+                'message' => $porque[$c['aprovacao']] ?? 'Esta campanha ainda não foi aprovada.',
+            ];
+        }
+
+        /*
+         * A direcção não tem intervalo: é ela que aprova as dos outros, e um
+         * travão que a própria pessoa levanta não é travão nenhum.
+         */
+        if ($e_admin) {
+            return ['ok' => true, 'message' => ''];
+        }
+
+        $ultimo = $this->ultimo_arranque($staff_id);
+
+        if ($ultimo === null) {
+            return ['ok' => true, 'message' => ''];
+        }
+
+        $dias  = defined('DPS_SOFIA_INTERVALO_DIAS') ? DPS_SOFIA_INTERVALO_DIAS : 7;
+        $livre = strtotime($ultimo) + ($dias * 86400);
+
+        if (time() >= $livre) {
+            return ['ok' => true, 'message' => ''];
+        }
+
+        $faltam = (int) ceil(($livre - time()) / 86400);
+
+        return [
+            'ok'      => false,
+            'message' => 'Só pode pôr uma campanha a correr de ' . $dias . ' em ' . $dias . ' dias. '
+                . 'A última arrancou em ' . date('d/m/Y H:i', strtotime($ultimo))
+                . ' — pode voltar a ' . date('d/m/Y', $livre)
+                . ' (falta' . ($faltam === 1 ? ' 1 dia' : 'm ' . $faltam . ' dias') . ').',
+        ];
     }
 
     public function get_campaign($id)
@@ -151,11 +365,27 @@ class Dps_sofia_calls_model extends App_Model
 
     public function update_campaign_status($id, $status)
     {
-        $this->db->where('id', $id);
-        $this->db->update(db_prefix() . 'dps_sofia_campaigns', [
+        $update = [
             'status'     => $status,
             'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        ];
+
+        /*
+         * O carimbo do arranque, que é o que conta para o intervalo de dias.
+         * Só na primeira vez: quem pausa e retoma a mesma campanha não está a
+         * começar nada de novo, e reiniciar-lhe a contagem seria castigá-lo
+         * por ter tido o cuidado de a pausar.
+         */
+        if ($status === 'active') {
+            $c = $this->get_campaign($id);
+
+            if ($c && empty($c['arrancou_em'])) {
+                $update['arrancou_em'] = date('Y-m-d H:i:s');
+            }
+        }
+
+        $this->db->where('id', $id);
+        $this->db->update(db_prefix() . 'dps_sofia_campaigns', $update);
         return $this->db->affected_rows() > 0;
     }
 

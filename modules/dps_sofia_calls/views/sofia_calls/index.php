@@ -13,6 +13,51 @@
                     </button>
                 </div>
 
+                <?php
+                /*
+                 * A régua das regras, à vista. Quem chega aqui pela primeira
+                 * vez tem de perceber porque é que o botão Iniciar está
+                 * apagado sem ter de carregar nele para descobrir.
+                 */
+                $dps_estados_aprovacao = [
+                    'rascunho'     => ['default', 'Por pedir'],
+                    'teste_pedido' => ['info',    'Teste a sair'],
+                    'teste_feito'  => ['warning', 'À espera da direcção'],
+                    'aprovada'     => ['success', 'Aprovada'],
+                    'recusada'     => ['danger',  'Recusada'],
+                ];
+                ?>
+                <?php if (! $e_admin): ?>
+                <div class="alert alert-info tw-mb-4">
+                    <p class="tw-mb-1">
+                        <i class="fa fa-info-circle"></i>
+                        A Sofia liga aos <strong>seus</strong> clientes em nome da empresa.
+                        Cada campanha tem de ser aprovada pela direcção antes de arrancar:
+                        cria a campanha, carrega em <strong>Pedir aprovação</strong>, a Sofia faz uma
+                        chamada de teste<?php echo ! empty($numero_teste) ? ' para ' . htmlspecialchars($numero_teste['nome']) : ''; ?>
+                        e é depois de a ouvirem que a aprovam.
+                    </p>
+                    <p class="tw-mb-0">
+                        Pode pôr <strong>uma campanha a correr de <?php echo (int) $intervalo_dias; ?> em <?php echo (int) $intervalo_dias; ?> dias</strong>.
+                        <?php if (! empty($livre_em) && strtotime($livre_em) > time()): ?>
+                            A última arrancou em <?php echo date('d/m/Y H:i', strtotime($ultimo_arranque)); ?> —
+                            <strong>pode voltar a <?php echo date('d/m/Y', strtotime($livre_em)); ?></strong>.
+                        <?php elseif (! empty($ultimo_arranque)): ?>
+                            A última arrancou em <?php echo date('d/m/Y H:i', strtotime($ultimo_arranque)); ?>; já pode lançar outra.
+                        <?php else: ?>
+                            Ainda não lançou nenhuma.
+                        <?php endif; ?>
+                    </p>
+                </div>
+                <?php elseif (empty($numero_teste)): ?>
+                <div class="alert alert-warning tw-mb-4">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    Não há número para as chamadas de teste, por isso nenhum comercial consegue
+                    pedir aprovação. Escreva-o em <a href="<?php echo admin_url('dps_sofia_calls/definicoes'); ?>">Definições</a>,
+                    ou ponha o telefone no perfil do administrador.
+                </div>
+                <?php endif; ?>
+
                 <div class="row" id="campaigns-container">
                     <?php if (empty($campaigns)): ?>
                     <div class="col-md-12">
@@ -70,9 +115,50 @@
                                     <span class="tw-text-red-500"><i class="fa fa-times"></i> <?php echo $c['calls_failed']; ?> falhadas</span>
                                 </div>
 
+                                <?php
+                                $aprov    = $c['aprovacao'] ?? 'aprovada';
+                                $aprovada = ($aprov === 'aprovada');
+                                $trancado = ! $aprovada;
+
+                                // O intervalo só prende quem não é da direcção.
+                                if (! $e_admin && $aprovada && ! empty($livre_em) && strtotime($livre_em) > time()) {
+                                    $trancado = true;
+                                }
+                                ?>
+                                <?php if (! $aprovada || ! $e_admin): ?>
+                                <p class="tw-text-xs tw-mb-2">
+                                    <span class="label label-<?php echo $dps_estados_aprovacao[$aprov][0] ?? 'default'; ?>">
+                                        <?php echo $dps_estados_aprovacao[$aprov][1] ?? $aprov; ?>
+                                    </span>
+                                    <?php if (! empty($c['decisao_nota'])): ?>
+                                    <span class="tw-text-neutral-500"><?php echo htmlspecialchars($c['decisao_nota']); ?></span>
+                                    <?php endif; ?>
+                                </p>
+                                <?php endif; ?>
+
+                                <?php if (in_array($aprov, ['rascunho', 'recusada'], true)): ?>
+                                <button class="btn btn-sm btn-primary btn-block btn-pedir-teste tw-mb-2"
+                                        data-id="<?php echo $c['id']; ?>">
+                                    <i class="fa fa-phone"></i> Pedir aprovação (chamada de teste)
+                                </button>
+                                <?php endif; ?>
+
+                                <?php if ($e_admin && $aprov === 'teste_feito'): ?>
+                                <div class="btn-group btn-group-sm tw-w-full tw-mb-2">
+                                    <button class="btn btn-success btn-decidir" data-id="<?php echo $c['id']; ?>" data-decisao="aprovar">
+                                        <i class="fa fa-check"></i> Aprovar
+                                    </button>
+                                    <button class="btn btn-danger btn-decidir" data-id="<?php echo $c['id']; ?>" data-decisao="recusar">
+                                        <i class="fa fa-times"></i> Recusar
+                                    </button>
+                                </div>
+                                <?php endif; ?>
+
                                 <div class="btn-group btn-group-sm tw-w-full">
                                     <?php if ($c['status'] === 'paused'): ?>
-                                    <button class="btn btn-success btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="active" title="Iniciar campanha">
+                                    <button class="btn btn-success btn-campaign-action" data-id="<?php echo $c['id']; ?>" data-action="active"
+                                        <?php echo $trancado ? 'disabled' : ''; ?>
+                                        title="<?php echo $trancado ? 'Ainda não pode arrancar — ver o estado acima' : 'Iniciar campanha'; ?>">
                                         <i class="fa fa-play"></i> Iniciar
                                     </button>
                                     <?php elseif ($c['status'] === 'active'): ?>
@@ -137,6 +223,7 @@
                     </div>
                     <div class="form-group">
                         <label>Responsável (Staff)</label>
+                        <?php if ($e_admin): ?>
                         <select name="staff_id" class="form-control">
                             <option value="">-- Todos os responsáveis --</option>
                             <?php foreach ($staff_list as $staff): ?>
@@ -144,6 +231,18 @@
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted">Filtrar leads por responsável. Deixe vazio para incluir todos.</small>
+                        <?php else: ?>
+                        <?php
+                        /*
+                         * Ao comercial não se dá a escolha: a campanha é sempre
+                         * sobre as leads dele. O servidor força isto na mesma —
+                         * aqui é só para o ecrã não prometer o que não cumpre.
+                         */
+                        ?>
+                        <input type="text" class="form-control" value="<?php echo htmlspecialchars(get_staff_full_name(get_staff_user_id())); ?>" disabled>
+                        <input type="hidden" name="staff_id" value="<?php echo (int) get_staff_user_id(); ?>">
+                        <small class="text-muted">A Sofia liga só às suas leads.</small>
+                        <?php endif; ?>
                     </div>
                     <div class="form-group">
                         <label>Agente Sofia a usar <span class="text-danger">*</span></label>
@@ -281,7 +380,8 @@ $(document).ready(function() {
             data: (function(){ var d = { name: name, lead_status_id: statusId, staff_id: staffId, focus_text: focus, agent_id: agentId }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
             success: function(r) {
                 if (r.success) {
-                    alert_float('success', 'Campanha criada! Clique em Iniciar quando quiser começar as chamadas.');
+                    // A mensagem vem do servidor: não é a mesma para a direcção e para o comercial.
+                    alert_float('success', r.message || 'Campanha criada.');
                     $('#modalNovaCampanha').modal('hide');
                     setTimeout(function() { location.reload(); }, 1500);
                 } else {
@@ -293,6 +393,77 @@ $(document).ready(function() {
             },
             complete: function() {
                 btn.prop('disabled', false).html('<i class="fa fa-plus"></i> Criar Campanha');
+            }
+        });
+    });
+
+    /*
+     * Pedir aprovação: a Sofia liga ao administrador com o guião desta
+     * campanha. Confirma-se antes porque é uma chamada a sério, que toca no
+     * telefone de alguém e gasta saldo.
+     */
+    $(document).on('click', '.btn-pedir-teste', function() {
+        var btn = $(this);
+
+        if (!confirm('A Sofia vai fazer uma chamada de teste à direcção com o guião desta campanha. Continuar?')) {
+            return;
+        }
+
+        btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> A ligar...');
+
+        $.ajax({
+            url: BASE + '/pedir_teste',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: (function(){ var d = { id: btn.data('id') }; d[CSRF_NAME] = CSRF_HASH; return d; })(),
+            success: function(r) {
+                if (r.success) {
+                    alert_float('success', r.message);
+                    setTimeout(function() { location.reload(); }, 2500);
+                } else {
+                    alert_float('danger', r.message || 'Não foi possível fazer a chamada de teste.');
+                    btn.prop('disabled', false).html('<i class="fa fa-phone"></i> Pedir aprovação (chamada de teste)');
+                }
+            },
+            error: function(xhr) {
+                alert_float('danger', 'Erro ' + xhr.status + ': ' + (xhr.responseText || 'Sem resposta'));
+                btn.prop('disabled', false).html('<i class="fa fa-phone"></i> Pedir aprovação (chamada de teste)');
+            }
+        });
+    });
+
+    // Aprovar / recusar — só aparece à direcção, e o servidor volta a verificar.
+    $(document).on('click', '.btn-decidir', function() {
+        var btn      = $(this);
+        var aprovar  = btn.data('decisao') === 'aprovar';
+        var nota     = '';
+
+        if (!aprovar) {
+            nota = prompt('Porquê? (o comercial vê esta nota)', '');
+
+            if (nota === null) {
+                return;
+            }
+        }
+
+        btn.closest('.btn-group').find('button').prop('disabled', true);
+
+        $.ajax({
+            url: BASE + '/decidir',
+            type: 'POST',
+            headers: {'X-Requested-With': 'XMLHttpRequest'},
+            data: (function(){
+                var d = { id: btn.data('id'), decisao: btn.data('decisao'), nota: nota };
+                d[CSRF_NAME] = CSRF_HASH;
+                return d;
+            })(),
+            success: function(r) {
+                alert_float(r.success ? 'success' : 'danger', r.message || '');
+                setTimeout(function() { location.reload(); }, 1200);
+            },
+            error: function(xhr) {
+                alert_float('danger', 'Erro ' + xhr.status + ': ' + (xhr.responseText || 'Sem resposta'));
+                btn.closest('.btn-group').find('button').prop('disabled', false);
             }
         });
     });
