@@ -1805,16 +1805,36 @@ class Dps_automacao extends AdminController
         }
 
         $pedinte = get_staff_user_id();
-        $destino = dps_automacao_staff_suporte();
 
-        $titulo = '🆘 Apoio para fechar — ' . mb_substr((string) $lead->name, 0, 80);
+        /*
+         * A quem se pede. O comercial escolhe, mas só de entre quem está
+         * mesmo disponível — se vier um id de fora da lista, cai no de sempre.
+         * Nunca se aceita o que veio no pedido sem confirmar: o campo é um
+         * <select>, e um <select> é uma sugestão, não uma garantia.
+         */
+        $equipa  = dps_automacao_suporte_equipa();
+        $pedido  = (int) $this->input->post('destino');
+        $destino = isset($equipa[$pedido]) ? $pedido : dps_automacao_staff_suporte();
 
-        $desc  = 'Pedido de apoio de ' . get_staff_full_name($pedinte) . '.' . "\n\n";
+        // Para quê. O mesmo cuidado: só os tipos que existem.
+        $tipos = dps_automacao_suporte_tipos();
+        $tipo  = (string) $this->input->post('tipo');
+        $tipo  = isset($tipos[$tipo]) ? $tipo : 'fecho';
+
+        $e_reuniao = ($tipo === 'reuniao');
+
+        $titulo = ($e_reuniao ? '🎥 Apoio em reunião online — ' : '🆘 Apoio para fechar — ')
+            . mb_substr((string) $lead->name, 0, 80);
+
+        $desc  = 'Pedido de apoio de ' . get_staff_full_name($pedinte) . '.' . "\n";
+        $desc .= 'Tipo: ' . $tipos[$tipo] . "\n\n";
         $desc .= 'Cliente: ' . $lead->name . "\n";
         $desc .= 'Telefone: ' . ($lead->phonenumber ?: '—') . "\n";
         $desc .= 'Email: ' . ($lead->email ?: '—') . "\n\n";
         $desc .= "O que o comercial escreveu:\n" . $contexto . "\n\n";
-        $desc .= 'Objectivo: ligar ao cliente e ajudar a fechar o negócio.';
+        $desc .= $e_reuniao
+            ? 'Objectivo: acompanhar o comercial na reunião online com o cliente.'
+            : 'Objectivo: ligar ao cliente e ajudar a fechar o negócio.';
 
         $agora = date('Y-m-d H:i:s');
         $hoje  = date('Y-m-d');
@@ -1860,6 +1880,7 @@ class Dps_automacao extends AdminController
             'lead_id'   => $lead_id,
             'pedinte'   => $pedinte,
             'destino'   => $destino,
+            'tipo'      => $tipo,
             'contexto'  => $contexto,
             'estado'    => 'novo',
             'tarefa_id' => $tarefa,
@@ -1871,14 +1892,16 @@ class Dps_automacao extends AdminController
         $this->load->model('leads_model');
         $this->leads_model->log_lead_activity(
             $lead_id,
-            '🆘 Apoio pedido à direcção por ' . get_staff_full_name($pedinte) . ': '
-                . mb_substr($contexto, 0, 250)
+            ($e_reuniao ? '🎥' : '🆘') . ' Apoio (' . $tipos[$tipo] . ') pedido a '
+                . get_staff_full_name($destino) . ' por ' . get_staff_full_name($pedinte) . ': '
+                . mb_substr($contexto, 0, 220)
         );
 
         // Aviso no sino de quem vai ligar. Uma tarefa que ninguém vê é uma
         // tarefa que fica por fazer.
         add_notification([
-            'description' => '🆘 ' . get_staff_full_name($pedinte) . ' pediu apoio para fechar — ' . $lead->name,
+            'description' => ($e_reuniao ? '🎥' : '🆘') . ' ' . get_staff_full_name($pedinte)
+                . ' pediu apoio (' . $tipos[$tipo] . ') — ' . $lead->name,
             'touserid'    => $destino,
             'fromuserid'  => $pedinte,
             'link'        => 'tasks/view/' . $tarefa,
@@ -1913,6 +1936,11 @@ class Dps_automacao extends AdminController
         $eu = (int) get_staff_user_id();
 
         if ($eu === (int) dps_automacao_staff_suporte()) {
+            return true;
+        }
+
+        // Também quem está na lista de quem dá apoio, mesmo sem pedidos ainda.
+        if (array_key_exists($eu, dps_automacao_suporte_equipa())) {
             return true;
         }
 

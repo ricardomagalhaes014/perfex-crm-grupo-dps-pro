@@ -68,6 +68,22 @@
                                     <span class="label label-<?php echo $e[1]; ?>" style="font-size:12px;">
                                         <?php echo $e[0]; ?>
                                     </span>
+                                    <?php
+                                    /*
+                                     * O tipo de apoio, à frente do nome. Sem
+                                     * isto, quem abre a lista não sabe se lhe
+                                     * pediram uma chamada ao cliente ou
+                                     * companhia numa reunião — e são coisas
+                                     * que se preparam de maneira diferente.
+                                     */
+                                    $dps_tipos = function_exists('dps_automacao_suporte_tipos')
+                                        ? dps_automacao_suporte_tipos() : [];
+                                    $dps_tipo  = (string) ($p['tipo'] ?? 'fecho');
+                                    ?>
+                                    <span class="label" style="margin-left:8px;background:<?php echo $dps_tipo === 'reuniao' ? '#0f8b8d' : '#8e44ad'; ?>;color:#fff;">
+                                        <i class="fa <?php echo $dps_tipo === 'reuniao' ? 'fa-video-camera' : 'fa-life-ring'; ?>"></i>
+                                        <?php echo htmlspecialchars($dps_tipos[$dps_tipo] ?? 'Fecho de negócio', ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
                                     <strong style="margin-left:8px;font-size:15px;">
                                         <a href="<?php echo admin_url('leads/index/' . (int) $p['lead_id']); ?>" target="_blank">
                                             <?php echo htmlspecialchars((string) $p['lead_nome'], ENT_QUOTES, 'UTF-8'); ?>

@@ -1502,12 +1502,86 @@ function dps_automacao_js_agenda()
  * comercial, sem ser preciso construir um sistema de respostas à parte.
  * ================================================================== */
 
-/** A quem vão os pedidos de suporte. */
+/** A quem vão os pedidos de suporte, quando o comercial não escolhe. */
 function dps_automacao_staff_suporte()
 {
     $id = (int) get_option('dps_automacao_staff_suporte');
 
     return $id > 0 ? $id : 46;   // Cláudio Carvalho
+}
+
+/**
+ * Quem está disponível para dar apoio.
+ *
+ * Era uma pessoa só — o Cláudio — e todos os pedidos caíam-lhe em cima,
+ * estivesse ele disponível ou não. Passam a ser vários, e é o comercial que
+ * escolhe a quem pede. Regra do dono (23/08/2026): o Ricardo e o Cláudio.
+ *
+ * A lista vive numa opção para não ser preciso mexer no código quando alguém
+ * entrar ou sair; só entram pessoas activas.
+ *
+ * @return array  [staffid => nome]
+ */
+function dps_automacao_suporte_equipa()
+{
+    $guardada = trim((string) get_option('dps_automacao_suporte_equipa'));
+    $ids      = $guardada !== ''
+        ? array_filter(array_map('intval', explode(',', $guardada)))
+        : [1, 46];   // Ricardo Magalhaes, Claudio Carvalho
+
+    if (empty($ids)) {
+        return [];
+    }
+
+    $CI    = &get_instance();
+    $gente = $CI->db->select('staffid, firstname, lastname')
+                    ->where_in('staffid', $ids)
+                    ->where('active', 1)
+                    ->order_by('firstname')
+                    ->get(db_prefix() . 'staff')
+                    ->result_array();
+
+    $lista = [];
+
+    foreach ($gente as $g) {
+        $lista[(int) $g['staffid']] = trim($g['firstname'] . ' ' . $g['lastname']);
+    }
+
+    return $lista;
+}
+
+/**
+ * Os tipos de apoio que se podem pedir.
+ *
+ * Antes só havia um — fechar negócio — e o pedido de alguém que queria
+ * companhia numa reunião online ia disfarçado no meio do texto, se é que ia.
+ * Regra do dono (23/08/2026).
+ */
+function dps_automacao_suporte_tipos()
+{
+    return [
+        'fecho'   => 'Fecho de negócio',
+        'reuniao' => 'Reunião online',
+    ];
+}
+
+/**
+ * A coluna do tipo, acrescentada em instalações que já existiam.
+ *
+ * Os sete pedidos que já lá estão são todos de fecho — foi a única coisa que
+ * até hoje se podia pedir.
+ */
+hooks()->add_action('admin_init', 'dps_automacao_suporte_coluna_tipo');
+function dps_automacao_suporte_coluna_tipo()
+{
+    $CI     = &get_instance();
+    $tabela = db_prefix() . 'dps_suporte';
+
+    if (! $CI->db->table_exists($tabela) || $CI->db->field_exists('tipo', $tabela)) {
+        return;
+    }
+
+    $CI->db->query('ALTER TABLE `' . $tabela . "` ADD COLUMN `tipo` VARCHAR(20) NOT NULL DEFAULT 'fecho'");
 }
 
 hooks()->add_action('app_admin_footer', 'dps_automacao_js_suporte');
@@ -1523,17 +1597,35 @@ function dps_automacao_js_suporte()
         <div class="modal-content">
           <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal">&times;</button>
-            <h4 class="modal-title"><i class="fa fa-life-ring"></i> Pedir apoio para fechar</h4>
+            <h4 class="modal-title"><i class="fa fa-life-ring"></i> Pedir apoio à direcção</h4>
           </div>
           <div class="modal-body">
             <p class="bold" id="dps-suporte-nome" style="margin-bottom:12px;"></p>
+            <div class="row">
+              <div class="form-group col-md-6">
+                <label for="dps-suporte-tipo">Para quê</label>
+                <select class="form-control" id="dps-suporte-tipo">
+                  <?php foreach (dps_automacao_suporte_tipos() as $chave => $rotulo) { ?>
+                  <option value="<?php echo $chave; ?>"><?php echo html_escape($rotulo); ?></option>
+                  <?php } ?>
+                </select>
+              </div>
+              <div class="form-group col-md-6">
+                <label for="dps-suporte-destino">A quem</label>
+                <select class="form-control" id="dps-suporte-destino">
+                  <?php foreach (dps_automacao_suporte_equipa() as $sid => $nome) { ?>
+                  <option value="<?php echo (int) $sid; ?>"><?php echo html_escape($nome); ?></option>
+                  <?php } ?>
+                </select>
+              </div>
+            </div>
             <div class="form-group">
               <label for="dps-suporte-texto">Contexto e o que precisa</label>
               <textarea class="form-control" id="dps-suporte-texto" rows="5"
                         placeholder="Em que ponto está a conversa, o que já ofereceu, e onde está a travar."></textarea>
             </div>
             <p class="text-muted" style="margin-bottom:0;font-size:12px;">
-              A direcção recebe uma tarefa para ligar ao cliente. O que lá for escrito
+              Quem escolher recebe uma tarefa e um aviso. O que lá for escrito
               aparece na ficha desta lead.
             </p>
           </div>
@@ -1567,7 +1659,12 @@ function dps_automacao_js_suporte()
           return;
         }
 
-        var envio = { lead_id: leadId, contexto: texto };
+        var envio = {
+          lead_id:  leadId,
+          contexto: texto,
+          tipo:     document.getElementById('dps-suporte-tipo').value,
+          destino:  document.getElementById('dps-suporte-destino').value
+        };
         if (typeof csrfData !== 'undefined') { envio[csrfData.token_name] = csrfData.hash; }
 
         $(botao).prop('disabled', true).text('A enviar...');
