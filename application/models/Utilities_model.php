@@ -89,15 +89,28 @@ class Utilities_model extends App_Model
      * Get all user events
      * @return array
      */
-    public function get_all_events($start, $end)
+    /**
+     * @param string $start
+     * @param string $end
+     * @param int    $dono  de quem é a agenda; 0 = de toda a gente (só direcção)
+     */
+    public function get_all_events($start, $end, $dono = null)
     {
         $is_staff_member = is_staff_member();
         $this->db->select('title,start,end,eventid,userid,color,public');
         // Check if is passed start and end date
         $this->db->where('(start BETWEEN "' . $start . '" AND "' . $end . '")');
-        $this->db->where('userid', get_staff_user_id());
-        if ($is_staff_member) {
-            $this->db->or_where('public', 1);
+
+        if ($dono === null) {
+            $dono = (int) get_staff_user_id();
+        }
+
+        if ((int) $dono > 0) {
+            $this->db->where('userid', (int) $dono);
+
+            if ($is_staff_member) {
+                $this->db->or_where('public', 1);
+            }
         }
 
         return $this->db->get(db_prefix() . 'events')->result_array();
@@ -149,6 +162,42 @@ class Utilities_model extends App_Model
         }
 
         $data = hooks()->apply_filters('before_fetch_events', $data, $hook);
+
+        /*
+         * DE QUEM É A AGENDA QUE SE ESTÁ A VER.
+         *
+         * Antes disto, um administrador abria o calendário e recebia a casa
+         * toda: 1505 tarefas, quase todas chamadas da Sofia de outros
+         * comerciais. O que era dele ficava perdido no meio.
+         *
+         * Agora há um dono. A direcção escolhe-o no cimo da página e por
+         * omissão é ela própria; o comercial não escolhe nada — vê o dele e
+         * mais nada, que é o mesmo que já acontecia por falta de permissões,
+         * mas agora por regra e não por acidente.
+         *
+         * O valor vem da sessão e não do pedido: o calendário busca os dados
+         * por AJAX com parâmetros que o FullCalendar monta, e enfiar mais um
+         * lá dentro obrigava a mexer no main.js minificado que o servidor
+         * entrega. Guardado na sessão, atravessa os pedidos todos sozinho.
+         *
+         * -1 é "toda a equipa", e só a direcção lá chega.
+         */
+        $dono = 0;
+
+        if (! $client_data) {
+            $CI = &get_instance();
+            $escolhido = (int) $CI->session->userdata('dps_agenda_staff');
+
+            if (! $is_admin) {
+                $dono = (int) get_staff_user_id();
+            } elseif ($escolhido === -1) {
+                $dono = 0;                      // toda a equipa
+            } elseif ($escolhido > 0) {
+                $dono = $escolhido;
+            } else {
+                $dono = (int) get_staff_user_id();
+            }
+        }
 
         $ff = false;
         if ($filters) {
@@ -315,7 +364,13 @@ class Utilities_model extends App_Model
                     $this->db->where('visible_to_client', 1);
                 }
 
-                if ((!$has_permission_tasks_view || get_option('calendar_only_assigned_tasks') == '1') && !$client_data) {
+                /*
+                 * DPS: as tarefas são as do dono da agenda. Sem isto, a
+                 * direcção via as de toda a gente — e são milhares.
+                 */
+                if ($dono > 0 && !$client_data) {
+                    $this->db->where('(id IN (SELECT taskid FROM ' . db_prefix() . 'task_assigned WHERE staffid = ' . (int) $dono . '))');
+                } elseif ((!$has_permission_tasks_view || get_option('calendar_only_assigned_tasks') == '1') && !$client_data) {
                     $this->db->where('(id IN (SELECT taskid FROM ' . db_prefix() . 'task_assigned WHERE staffid = ' . get_staff_user_id() . '))');
                 }
 
@@ -362,6 +417,12 @@ class Utilities_model extends App_Model
                     ->where('(date BETWEEN "' . $start . '" AND "' . $end . '")')
                     ->where('rel_type', $key)
                     ->join(db_prefix() . 'staff', db_prefix() . 'staff.staffid = ' . db_prefix() . 'reminders.staff');
+
+                    // DPS: os lembretes são os do dono da agenda.
+                    if ($dono > 0) {
+                        $this->db->where(db_prefix() . 'reminders.staff', (int) $dono);
+                    }
+
                     if ($hideNotifiedReminders == '1') {
                         $this->db->where('isnotified', 0);
                     }
@@ -587,7 +648,7 @@ class Utilities_model extends App_Model
             }
         }
         if (!$client_data && !$ff || (!$client_data && $ff && array_key_exists('events', $filters))) {
-            $events = $this->get_all_events($start, $end);
+            $events = $this->get_all_events($start, $end, $dono);
             foreach ($events as $event) {
                 if ($event['userid'] != get_staff_user_id() && !$is_admin) {
                     $event['is_not_creator'] = true;

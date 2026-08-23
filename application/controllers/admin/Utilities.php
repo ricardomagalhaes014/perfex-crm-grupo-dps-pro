@@ -77,6 +77,35 @@ class Utilities extends AdminController
             ]);
             die();
         }
+        /*
+         * DPS: de quem é a agenda que se vai ver.
+         *
+         * Guarda-se na sessão porque quem vai buscar os dados é o FullCalendar,
+         * por AJAX e com os parâmetros que ele próprio monta — acrescentar mais
+         * um obrigava a mexer no main.js minificado que o servidor entrega.
+         * Assim escolhe-se aqui uma vez e atravessa os pedidos todos.
+         *
+         * -1 é "toda a equipa". Só a direcção escolhe seja o que for; ao
+         * comercial isto nem aparece, e o modelo força-lhe o seu de qualquer
+         * maneira.
+         */
+        if (is_admin() && $this->input->get('agenda_staff') !== null) {
+            $escolhido = (int) $this->input->get('agenda_staff');
+            $this->session->set_userdata('dps_agenda_staff', $escolhido === -1 ? -1 : max(0, $escolhido));
+        }
+
+        $data['agenda_staff'] = is_admin()
+            ? (int) ($this->session->userdata('dps_agenda_staff') ?: get_staff_user_id())
+            : (int) get_staff_user_id();
+
+        $data['agenda_equipa'] = [];
+
+        if (is_admin()) {
+            // O construtor deste controlador só carrega o utilities_model.
+            $this->load->model('staff_model');
+            $data['agenda_equipa'] = $this->staff_model->get('', ['active' => 1]);
+        }
+
         $data['google_ids_calendars'] = $this->misc_model->get_google_calendar_ids();
         $data['google_calendar_api']  = get_option('google_calendar_api_key');
         $data['title']                = _l('calendar');
