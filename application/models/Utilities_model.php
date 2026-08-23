@@ -162,10 +162,9 @@ class Utilities_model extends App_Model
             $this->db->select('duedate as date,number,id,clientid,hash,' . get_sql_select_client_company());
             $this->db->from(db_prefix() . 'invoices');
             $this->db->join(db_prefix() . 'clients', db_prefix() . 'clients.userid=' . db_prefix() . 'invoices.clientid', 'left');
-            $this->db->where_not_in('status', [
-                2,
-                5,
-            ]);
+            // DPS: com a junção aos clientes, "status" é ambíguo — a tblclients
+            // tem uma coluna com o mesmo nome. Ver a nota no bloco dos projectos.
+            $this->db->where(db_prefix() . 'invoices.status NOT IN (2,5)', null, false);
 
             $this->db->where('(duedate BETWEEN "' . $start . '" AND "' . $end . '")');
 
@@ -173,7 +172,7 @@ class Utilities_model extends App_Model
                 $this->db->where('clientid', $client_id);
 
                 if (get_option('exclude_invoice_from_client_area_with_draft_status') == 1) {
-                    $this->db->where('status !=', 6);
+                    $this->db->where(db_prefix() . 'invoices.status != 6', null, false);
                 }
             } else {
                 if (!$has_permission_invoices) {
@@ -216,8 +215,8 @@ class Utilities_model extends App_Model
             $this->db->select('number,id,clientid,hash,CASE WHEN expirydate IS NULL THEN date ELSE expirydate END as date,' . get_sql_select_client_company(), false);
             $this->db->from(db_prefix() . 'estimates');
             $this->db->join(db_prefix() . 'clients', db_prefix() . 'clients.userid=' . db_prefix() . 'estimates.clientid', 'left');
-            $this->db->where('status !=', 3, false);
-            $this->db->where('status !=', 4, false);
+            // DPS: mesma ambiguidade das facturas — a junção traz tblclients.status.
+            $this->db->where(db_prefix() . 'estimates.status NOT IN (3,4)', null, false);
             // $this->db->where('expirydate IS NOT NULL');
 
             $this->db->where("CASE WHEN expirydate IS NULL THEN (date BETWEEN '$start' AND '$end') ELSE (expirydate BETWEEN '$start' AND '$end') END", null, false);
@@ -226,7 +225,7 @@ class Utilities_model extends App_Model
                 $this->db->where('clientid', $client_id, false);
 
                 if (get_option('exclude_estimate_from_client_area_with_draft_status') == 1) {
-                    $this->db->where('status !=', 1, false);
+                    $this->db->where(db_prefix() . 'estimates.status != 1', null, false);
                 }
             } else {
                 if (!$has_permission_estimates) {
@@ -530,15 +529,32 @@ class Utilities_model extends App_Model
 
             $this->db->from(db_prefix() . 'projects');
 
-            // Exclude cancelled and finished
-            $this->db->where('status !=', 4);
-            $this->db->where('status !=', 5);
+            /*
+             * DPS: o "status" tem de dizer de que tabela é.
+             *
+             * Esta consulta junta projectos com clientes, e aqui a tblclients
+             * TEM uma coluna "status" — acrescentada por um dos módulos
+             * instalados, não vem do Perfex. O MariaDB recusa a consulta por
+             * ambiguidade, a excepção rebentava o get_calendar_data inteiro, o
+             * endpoint devolvia erro em vez de JSON e a AGENDA FICAVA VAZIA:
+             * sem eventos, sem tarefas, sem nada, e sem uma mensagem que
+             * dissesse porquê.
+             *
+             * O mais irónico é que não há um único projecto na base de dados.
+             * Um bloco que nunca teria nada para mostrar apagava o calendário
+             * todo.
+             *
+             * Escreve-se em cru (terceiro argumento false) de propósito: com o
+             * escape ligado, o CodeIgniter pega em "tblprojects.status" e
+             * inventa "tblprojects.tblstatus".
+             */
+            $this->db->where(db_prefix() . 'projects.status NOT IN (4,5)', null, false);
             $this->db->where("CASE WHEN deadline IS NULL THEN (start_date BETWEEN '$start' AND '$end') ELSE (deadline BETWEEN '$start' AND '$end') END", null, false);
 
             $this->db->join(db_prefix() . 'clients', db_prefix() . 'clients.userid=' . db_prefix() . 'projects.clientid');
 
             if (!$client_data && !$has_permission_projects_view) {
-                $this->db->where('id IN (SELECT project_id FROM ' . db_prefix() . 'project_members WHERE staff_id=' . get_staff_user_id() . ')');
+                $this->db->where(db_prefix() . 'projects.id IN (SELECT project_id FROM ' . db_prefix() . 'project_members WHERE staff_id=' . get_staff_user_id() . ')', null, false);
             } elseif ($client_data) {
                 $this->db->where('clientid', $client_id);
             }
