@@ -5,11 +5,17 @@ defined('BASEPATH') or exit('No direct script access allowed');
  * Reorganiza o menu lateral para todos os utilizadores.
  *
  * Ordem pedida:
- *   1 Leads · 2 Simulador · 3 Propostas Enviadas · 4 Automações (WhatsApp,
- *   Sofia Calls, Automação) · 5 Tarefas · 6 Lembrete · 7 Funil de Vendas ·
- *   8 Suporte · 9 DPS Crédito · 10 Simulador de Comissões · 11 Webmail ·
- *   12 DPS Imóveis · 13 Clientes · 14 Outros (Biblioteca de Vídeos, Wiki Book, Reuniões
- *   Online, Interações, Chatbot Interno, VOIP Central, Projectos, Suporte).
+ *   Leads · A Sofia Responde · Simulador · Propostas Enviadas · Vendas ·
+ *   Automações (WhatsApp, Sofia Calls, Em Massa Reunião Online, Automação) ·
+ *   Tarefas · Lembrete · Funil de Vendas · Suporte · DPS Crédito ·
+ *   Simulador de Comissões · Webmail · DPS Imóveis · Clientes ·
+ *   Agenda · Arquivo · Reuniões online ·
+ *   Outros (Biblioteca de Vídeos, Wiki Book, Google Calendar, VoIPstudio,
+ *   Interacções, Chatbot Interno, Projectos, Suporte, IMOBILIARIO) ·
+ *   Painel do Negócio.
+ *
+ * A Agenda, o Arquivo e as Reuniões online estiveram dentro do "Outros" até
+ * 22/08/2026; saíram para item de topo por serem de uso diário.
  *
  * Tudo o resto: escondido para não-admins; para admins agrupado num botão
  * "Admin" no fim.
@@ -129,7 +135,7 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'video_library',
             'wiki-module-menu-wiki-master',
             /*
-             * "Reuniões online" e "Google Calendar" TÊM de estar aqui.
+             * "Google Calendar" TEM de estar aqui.
              *
              * O que não entra em grupo nenhum cai na regra 5 — vai para
              * "Admin" e passa a ser visível só a administradores. Para o
@@ -138,20 +144,17 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
              *
              * O 'dps-meetings' ficou de um módulo que já foi removido; sai.
              */
-            'dps_reunioes',
             'dps_google',
             /*
-             * Agenda, Arquivo e VoIP também aqui (02/08/2026). São coisas que
-             * se usam de vez em quando e estavam a ocupar espaço de topo ao
-             * lado do que se abre todos os dias.
+             * A Agenda, o Arquivo e as Reuniões online SAÍRAM daqui em
+             * 22/08/2026, por ordem do dono: passam a itens de topo, entre
+             * "Clientes" e "Outros". Estão em $ordem_por_nome com as posições
+             * 17, 18 e 19 — e têm de lá estar, senão a regra 5 enterra-as no
+             * submenu "Admin" e os comerciais deixam de as ver.
              *
-             * 'calendar' é a agenda do Perfex e 'appointly' o módulo de
-             * compromissos — não sei qual dos dois é o que está à vista, por
-             * isso vão os dois. Um slug que não exista é ignorado sem erro.
+             * O VoIP fica (02/08/2026): é coisa que se usa de vez em quando e
+             * não precisa de espaço de topo.
              */
-            'calendar',
-            'appointly',
-            'dps_arquivo',
             'voipstudio-dps',
             'dps-interacoes',
             'dps-chatbot',
@@ -159,10 +162,20 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'projects',
             'support',
         ];
+        /*
+         * Estes três ficam SEMPRE de fora do grupo, venham de que slug vierem.
+         *
+         * A lista acima trabalha por slug, e por slug já se falhou aqui: a
+         * Agenda andou a ser procurada por 'calendar' e 'appointly', que não
+         * são o slug dela. Comparar pelo nome apanha-a venha ela do módulo ou
+         * de um link personalizado, que é como entrou o IMOBILIARIO.
+         */
+        $fora_do_grupo = ['agenda', 'arquivo', 'reunioes online'];
+
         $outros_children = [];
         $pos = 1;
         foreach ($outros_slugs as $slug) {
-            if (isset($items[$slug])) {
+            if (isset($items[$slug]) && ! in_array(dps_sidebar_norm($items[$slug]['name'] ?? ''), $fora_do_grupo, true)) {
                 $child                = $items[$slug];
                 $child['parent_slug'] = 'dps_outros';
                 $child['position']    = $pos++;
@@ -244,19 +257,6 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'vendas'                 => 5,
             'automacoes'             => 6,
             'tarefas'                => 7,
-            /*
-             * AGENDA, logo por baixo das Tarefas. Pedido do dono (10/08/2026).
-             *
-             * O item existe em menu_helper.php com o slug 'agenda' e sem
-             * condição nenhuma — mas o passo 5 deste ficheiro esconde dos
-             * não-administradores tudo o que não conste desta lista, e a
-             * Agenda não constava. Os comerciais marcavam lembretes na agenda
-             * e depois não tinham por onde lá voltar.
-             *
-             * Repare-se que mais acima, em $outros_slugs, se tentou apanhá-la
-             * por 'calendar' e 'appointly'. Nenhum desses é o slug real.
-             */
-            'agenda'                 => 8,
             'lembrete'               => 9,
             'funil de vendas'        => 10,
             'funil de leads'         => 10,
@@ -276,13 +276,26 @@ if (!function_exists('dps_sidebar_reorg_apply')) {
             'webmail'                => 14,
             'dps imoveis'            => 15,
             'clientes'               => 16,
-            'outros'                 => 17,
+            /*
+             * AGENDA, ARQUIVO e REUNIÕES ONLINE, entre os Clientes e o
+             * "Outros". Pedido do dono (22/08/2026) — estavam metidos dentro
+             * do "Outros" e é preciso abrir o grupo para lá chegar.
+             *
+             * Têm de constar desta lista como tudo o resto: o passo 5 esconde
+             * dos não-administradores tudo o que aqui não esteja. A Agenda já
+             * tinha passado por isso uma vez — os comerciais marcavam
+             * lembretes e depois não tinham por onde lá voltar.
+             */
+            'agenda'                 => 17,
+            'arquivo'                => 18,
+            'reunioes online'        => 19,
+            'outros'                 => 20,
             // Privado do Ricardo. Tem de estar AQUI: o que não consta desta
             // lista cai na regra do passo 5 e é enterrado dentro do submenu
             // "Admin", que foi como o Painel do Negócio desapareceu do sítio
             // em 29/07/2026. O módulo já só cria o item para o staff 1, por
             // isso ninguém mais o vê.
-            'painel do negocio'      => 18,
+            'painel do negocio'      => 21,
         ];
 
         // Nomes em inglês/alternativos que o Perfex pode usar consoante o idioma
