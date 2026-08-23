@@ -62,12 +62,25 @@ foreach ($CI->db->query(
 /* ------------------------------------------------------------ PROPOSTAS */
 $eq_prop = [];
 
+/*
+ * A mesma régua das Propostas Enviadas: a cancelada que já teve resposta —
+ * uma proposta nova para o mesmo cliente, enviada depois do cancelamento —
+ * sai da conta. O que fica são as fracções vendidas para as quais o cliente
+ * ainda não tem alternativa, que é justamente o que interessa ver aqui.
+ *
+ * Se este quadro contasse todas e o outro não, os dois números discordavam e
+ * ninguém saberia qual acreditar.
+ */
 foreach ($CI->db->query(
     "SELECT CONCAT(s.firstname,' ',s.lastname) AS com,
             COALESCE(NULLIF(pr.outcome, ''), 'pendente') AS resultado, COUNT(*) AS n
      FROM {$p}dps_propostas pr
      LEFT JOIN {$p}staff s ON s.staffid = pr.staff_id
      WHERE pr.tipo = 'proposta'
+       AND NOT (COALESCE(pr.outcome, '') = 'cancelado' AND pr.outcome_at IS NOT NULL
+                AND EXISTS (SELECT 1 FROM {$p}dps_propostas n
+                            WHERE n.lead_id = pr.lead_id AND n.tipo = 'proposta'
+                              AND n.created_at > pr.outcome_at))
      GROUP BY pr.staff_id, COALESCE(NULLIF(pr.outcome, ''), 'pendente')"
 )->result_array() as $r) {
     $com = trim((string) $r['com']) ?: 'Sem comercial';
@@ -161,14 +174,21 @@ $eq_series = function (array $dados, array $estados) {
 
 $g_leads = $eq_series($eq_leads, $eq_leads_estados);
 $g_tar   = $eq_series($eq_tar, $eq_tar_estados);
-$g_prop  = $eq_series($eq_prop, ['aceite' => true, 'recusado' => true, 'pendente' => true]);
+/*
+ * As CANCELADAS faltavam nesta lista e por isso nunca apareciam no gráfico —
+ * a consulta trazia-as, o desenho ignorava-as. São as propostas cujas
+ * fracções foram vendidas antes de o cliente responder: não são recusas, e
+ * somá-las às recusadas inflacionava a taxa com negócios que ninguém perdeu.
+ */
+$g_prop  = $eq_series($eq_prop, ['aceite' => true, 'recusado' => true, 'cancelado' => true, 'pendente' => true]);
 $g_vend  = $eq_series($eq_vend, $eq_vend_estados);
 
 $eq_dados = [
     'leads'   => ['g' => $g_leads, 'cores' => $eq_leads_cores],
     'tarefas' => ['g' => $g_tar,   'cores' => $eq_tar_cores],
     'propostas' => ['g' => $g_prop, 'cores' => [
-        'aceite' => '#2f9e44', 'recusado' => '#c0392b', 'pendente' => '#9aa3ab',
+        // O mesmo castanho das Propostas Enviadas, para se reconhecer de um ecrã para o outro.
+        'aceite' => '#2f9e44', 'recusado' => '#c0392b', 'cancelado' => '#a06a1b', 'pendente' => '#9aa3ab',
     ]],
     'vendas' => ['g' => $g_vend, 'cores' => $cores_venda],
 ];
