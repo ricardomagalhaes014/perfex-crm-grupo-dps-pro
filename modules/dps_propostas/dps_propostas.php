@@ -176,6 +176,39 @@ function dps_propostas_coluna_motivo()
     if (!$CI->db->field_exists('motivo_perda', $t)) {
         $CI->db->query("ALTER TABLE `{$t}` ADD `motivo_perda` VARCHAR(40) NULL DEFAULT NULL AFTER `outcome`");
     }
+
+    /*
+     * A estrela do Top 5 da semana.
+     *
+     * Guarda-se a SEGUNDA-FEIRA da semana em que foi marcada, e não um
+     * simples sim/não. É isso que faz a lista limpar-se sozinha ao domingo à
+     * noite: na semana seguinte a data já não bate com a semana corrente e a
+     * proposta sai do Top sem ninguém ter de apagar nada — e sem se perder o
+     * registo de que naquela semana ela lá esteve.
+     */
+    if (!$CI->db->field_exists('top_semana', $t)) {
+        $CI->db->query("ALTER TABLE `{$t}` ADD `top_semana` DATE NULL DEFAULT NULL");
+    }
+}
+
+/**
+ * A segunda-feira da semana a que uma data pertence.
+ *
+ * A semana de trabalho começa à segunda: a reunião é a essa hora e é sobre o
+ * que se marcou desde então.
+ */
+function dps_propostas_semana($quando = null)
+{
+    $t = $quando ? strtotime($quando) : time();
+
+    // 'monday this week' dá o dia certo mesmo quando hoje É segunda.
+    return date('Y-m-d', strtotime('monday this week', $t));
+}
+
+/** Quantas propostas cabem no Top da semana. */
+function dps_propostas_top_max()
+{
+    return 5;
 }
 
 hooks()->add_action('after_lead_tabs_content', 'dps_propostas_render_lead_tab');

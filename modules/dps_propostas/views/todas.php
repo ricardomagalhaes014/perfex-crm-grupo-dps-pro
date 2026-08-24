@@ -143,6 +143,71 @@
                         </div>
                         <?php } ?>
 
+                        <?php
+                        /* ------------------------------------------------------------------
+                         * TOP 5 DA SEMANA
+                         *
+                         * O que cada comercial escolheu levar para a reunião de segunda: as
+                         * propostas que tem em mão para fechar. Fica em cima e não no meio da
+                         * tabela — é o que se lê na reunião, e ninguém quer procurá-lo.
+                         *
+                         * Limpa-se sozinho: a estrela guarda a segunda-feira em que foi
+                         * posta, e na semana seguinte já não bate com a semana corrente.
+                         * Nada se apaga, por isso o histórico de quem levou o quê fica.
+                         * ------------------------------------------------------------------ */
+                        ?>
+                        <div style="border:1px solid #f0dda8;background:#fffdf5;border-radius:10px;padding:14px 16px;margin-bottom:18px;">
+                            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:<?= empty($top_semana) ? '0' : '10px'; ?>;">
+                                <strong style="color:#8a6d1b;">
+                                    <i class="fa fa-star" style="color:#e0a800;"></i>
+                                    Top <?= (int) $top_max; ?> da semana
+                                </strong>
+                                <span class="text-muted" style="font-size:12px;">
+                                    <?= date('d/m', strtotime($top_inicio)); ?> a <?= date('d/m', strtotime($top_fim)); ?>
+                                    · limpa ao fim da semana
+                                </span>
+                                <span class="text-muted" style="margin-left:auto;font-size:12px;">
+                                    <?= (int) $top_meus; ?> de <?= (int) $top_max; ?> escolhidas por si
+                                </span>
+                            </div>
+
+                            <?php if (empty($top_semana)) { ?>
+                            <p class="text-muted" style="margin:6px 0 0;font-size:13px;">
+                                Ainda ninguém escolheu nada. Carregue na estrela ao lado do cliente,
+                                na lista em baixo, para pôr uma proposta no Top desta semana.
+                            </p>
+                            <?php } else { ?>
+                            <?php foreach ($top_semana as $nome_com => $linhas) { ?>
+                            <div style="margin-bottom:8px;">
+                                <?php if ($comercial <= 0) { ?>
+                                <div style="font-size:12px;color:#8a97a6;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">
+                                    <?= e($nome_com); ?> · <?= count($linhas); ?>
+                                </div>
+                                <?php } ?>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                    <?php foreach ($linhas as $t) { ?>
+                                    <a href="<?= admin_url('leads/index/' . (int) $t->lead_id); ?>"
+                                       style="display:block;background:#fff;border:1px solid #eadfbb;border-radius:8px;padding:8px 12px;text-decoration:none;color:#22252a;min-width:190px;">
+                                        <strong style="font-size:13px;"><?= e($t->lead_nome ?: ('#' . (int) $t->lead_id)); ?></strong>
+                                        <div style="font-size:12px;color:#6b7681;">
+                                            <?= e(trim(($t->empreendimento ?: '') . ' ' . ($t->unidade ?: ''))) ?: '—'; ?>
+                                            <?php if (! empty($t->valor)) { ?>
+                                                · <?= number_format((float) $t->valor, 0, ',', '.'); ?> €
+                                            <?php } ?>
+                                        </div>
+                                        <?php if (($t->outcome ?? '') !== '' && $t->outcome !== 'pendente') { ?>
+                                        <div style="font-size:11px;color:#8a97a6;text-transform:uppercase;letter-spacing:.04em;">
+                                            <?= e($dps_rot[$t->outcome] ?? $t->outcome); ?>
+                                        </div>
+                                        <?php } ?>
+                                    </a>
+                                    <?php } ?>
+                                </div>
+                            </div>
+                            <?php } ?>
+                            <?php } ?>
+                        </div>
+
                         <?php if (!empty($g_comerciais)) { ?>
                         <!-- Gráfico: propostas por comercial, segmentadas por empreendimento -->
                         <div style="border:1px solid #e6eaef;border-radius:10px;padding:16px;margin-bottom:18px;background:#fff;">
@@ -209,8 +274,24 @@
                                     </td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
+                                    <?php $dps_top = ((string) ($p->top_semana ?? '') === $top_inicio); ?>
                                     <tr data-proposta="<?= (int) $p->id; ?>" data-lead="<?= (int) $p->lead_id; ?>">
-                                        <td><a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a></td>
+                                        <td>
+                                            <?php
+                                            /*
+                                             * A estrela do Top 5 da semana. Fica à frente do nome
+                                             * porque é a primeira coisa que se procura quando se
+                                             * abre o quadro para preparar a reunião de segunda.
+                                             */
+                                            ?>
+                                            <a href="#" class="dps-estrela<?= $dps_top ? ' dps-estrela-on' : ''; ?>"
+                                               data-id="<?= (int) $p->id; ?>"
+                                               title="<?= $dps_top ? 'Está no Top da semana — carregue para tirar' : 'Pôr no Top da semana'; ?>"
+                                               style="text-decoration:none;margin-right:6px;color:<?= $dps_top ? '#e0a800' : '#ccd0d4'; ?>;">
+                                                <i class="fa <?= $dps_top ? 'fa-star' : 'fa-star-o'; ?>"></i>
+                                            </a>
+                                            <a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a>
+                                        </td>
                                         <td style="white-space:nowrap;">
                                             <?php
                                             $tel = trim((string) ($p->lead_telefone ?? ''));
@@ -515,6 +596,68 @@ function dpsMarcarFechada(id, quando, leadId, estadoNovo, rotulo, cor) {
  * rodapé; se por alguma razão não estiver lá, abre-se a ficha da lead, que é
  * de onde também se consegue enviar.
  */
+/* ---------------------------------------------------------------
+ * A ESTRELA DO TOP 5
+ *
+ * Muda o ícone e a cor logo, sem esperar pelo servidor — carregar numa
+ * estrela e não ver nada acontecer durante meio segundo faz carregar outra
+ * vez. Se o servidor recusar (já tem cinco), desfaz-se e diz-se porquê.
+ * --------------------------------------------------------------- */
+document.addEventListener('click', function (ev) {
+    var alvo = ev.target.closest ? ev.target.closest('.dps-estrela') : null;
+    if (!alvo) { return; }
+
+    ev.preventDefault();
+
+    if (alvo.dataset.ocupado === '1') { return; }
+    alvo.dataset.ocupado = '1';
+
+    var icone   = alvo.querySelector('i');
+    var estava  = alvo.classList.contains('dps-estrela-on');
+
+    var pintar = function (ligada) {
+        alvo.classList.toggle('dps-estrela-on', ligada);
+        icone.className = 'fa ' + (ligada ? 'fa-star' : 'fa-star-o');
+        alvo.style.color = ligada ? '#e0a800' : '#ccd0d4';
+        alvo.title = ligada ? 'Está no Top da semana — carregue para tirar' : 'Pôr no Top da semana';
+    };
+
+    pintar(!estava);
+
+    var corpo = { id: alvo.dataset.id };
+    corpo[DPS_CSRF.name] = DPS_CSRF.hash;
+
+    fetch('<?= admin_url('dps_propostas/marcar_top'); ?>', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: new URLSearchParams(corpo)
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (r) {
+        if (!r || !r.success) {
+            pintar(estava);                       // o servidor recusou
+            if (typeof alert_float === 'function') {
+                alert_float('warning', (r && r.message) || 'Não foi possível marcar.');
+            }
+            return;
+        }
+
+        /*
+         * O quadro de cima só se refaz no servidor. Recarrega-se a página em
+         * vez de o remendar aqui — são cinco cartões, e um quadro que mente
+         * é pior do que um segundo de espera.
+         */
+        setTimeout(function () { location.reload(); }, 350);
+    })
+    .catch(function () {
+        pintar(estava);
+        if (typeof alert_float === 'function') {
+            alert_float('danger', 'Falha ao contactar o servidor.');
+        }
+    })
+    .then(function () { alvo.dataset.ocupado = '0'; });
+});
+
 function dpsNovaProposta(leadId) {
     if (typeof window.dpsAbrirLead === 'function') {
         window.dpsAbrirLead(leadId, 'proposta');
