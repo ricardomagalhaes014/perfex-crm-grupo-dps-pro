@@ -19,6 +19,18 @@ const CANDIDATOS_INDEX = [
 
 const MARCADOR_ANCORA = "// 2. Tornar o banner Portugal clicável";
 const ID_PATCH        = 'aura-card-injected';
+const ID_SOFIA_FIX    = 'dps-sofia-fix';
+
+// Esconde o popup grande da Sofia (tapava o site no telemóvel) e move o
+// widget pequeno do ElevenLabs para a esquerda, para não ficar em cima
+// do botão do WhatsApp. Injectado antes do </body> — não remove nada,
+// só neutraliza, por isso é reversível apagando este bloco.
+const BLOCO_SOFIA_FIX = <<<'HTML'
+<style id="dps-sofia-fix">
+#sofia-popup{display:none!important}
+elevenlabs-convai{position:fixed!important;bottom:14px!important;left:14px!important;right:auto!important;z-index:99998!important}
+</style>
+HTML;
 
 const BLOCO_AURA = <<<'JS'
     // 1b. Adicionar card Aura Residence ao lado do Lake Towers
@@ -88,6 +100,34 @@ if ($a === 'aura_card') {
     exit;
 }
 
+if ($a === 'sofia_fix') {
+    if (strpos($html, ID_SOFIA_FIX) !== false) {
+        echo '✅ O ajuste da Sofia já está aplicado — nada a fazer.';
+        exit;
+    }
+    $pos = strrpos($html, '</body>');
+    if ($pos === false) {
+        echo '❌ Não encontrei o </body> — o ficheiro do servidor é diferente do esperado. Nada foi alterado.';
+        exit;
+    }
+
+    $bak = $alvo . '.bak-' . date('Ymd-His');
+    if (!copy($alvo, $bak)) {
+        echo '❌ Não consegui criar o backup. Nada foi alterado.';
+        exit;
+    }
+
+    $novo = substr($html, 0, $pos) . BLOCO_SOFIA_FIX . "\n" . substr($html, $pos);
+    if (file_put_contents($alvo, $novo) === false) {
+        echo '❌ Falha na escrita. O backup está em ' . htmlspecialchars($bak);
+        exit;
+    }
+    echo '✅ Ajuste aplicado: popup grande da Sofia escondido; widget pequeno movido para a esquerda.<br>Backup: '
+        . htmlspecialchars($bak)
+        . '<br><br>Abre <a href="https://dpsimobiliario.pt" target="_blank">dpsimobiliario.pt</a> no telemóvel e recarrega para confirmar.';
+    exit;
+}
+
 if ($a === 'restaurar') {
     $baks = glob($alvo . '.bak-*');
     if (empty($baks)) {
@@ -111,10 +151,16 @@ echo '<h3>Patch do site dpsimobiliario.pt</h3>';
 echo '<p>Ficheiro: <code>' . htmlspecialchars($alvo) . '</code> (' . filesize($alvo) . ' bytes)</p>';
 echo '<p>Card Aura Residence: ' . ($aplicado ? '✅ já aplicado' : '⬜ por aplicar') . '</p>';
 echo '<p>Ponto de inserção encontrado: ' . ($ancora ? '✅ sim' : '❌ NÃO — não é seguro aplicar') . '</p>';
+$sofia_fixado = strpos($html, ID_SOFIA_FIX) !== false;
+echo '<p>Ajuste da Sofia (popup escondido + widget à esquerda): ' . ($sofia_fixado ? '✅ já aplicado' : '⬜ por aplicar') . '</p>';
 echo '<p>Backups existentes: ' . count($baks) . '</p>';
 if (!$aplicado && $ancora) {
     echo '<form method="post"><input type="hidden" name="a" value="aura_card">'
         . '<button type="submit" style="padding:10px 20px;background:#1a73e8;color:#fff;border:0;border-radius:6px;">Aplicar card Aura Residence (com backup)</button></form>';
+}
+if (!$sofia_fixado) {
+    echo '<form method="post" style="margin-top:12px;"><input type="hidden" name="a" value="sofia_fix">'
+        . '<button type="submit" style="padding:10px 20px;background:#0D1F3C;color:#fff;border:0;border-radius:6px;">Aplicar ajuste da Sofia (com backup)</button></form>';
 }
 if (!empty($baks)) {
     echo '<form method="post" style="margin-top:12px;"><input type="hidden" name="a" value="restaurar">'
