@@ -258,6 +258,9 @@
                             <table class="table table-striped">
                                 <thead>
                                     <tr>
+                                        <th style="width:38px;text-align:center;" title="Top <?= (int) $top_max; ?> — as suas propostas para a reunião">
+                                            <span style="color:#e0a800;font-size:15px;">&#9733;</span>
+                                        </th>
                                         <th>Lead</th>
                                         <th>Telefone</th>
                                         <th>Comercial</th>
@@ -272,7 +275,7 @@
                                 </thead>
                                 <tbody>
                                     <?php if (empty($propostas)) { ?>
-                                    <tr><td colspan="10" class="text-muted text-center">
+                                    <tr><td colspan="11" class="text-muted text-center">
                                         <?= ($procura ?? '') !== ''
                                             ? 'Nenhuma proposta para «' . e($procura) . '».'
                                             : 'Sem propostas enviadas.'; ?>
@@ -284,36 +287,38 @@
                                     $dps_meu  = ((int) $p->staff_id === (int) get_staff_user_id());
                                     ?>
                                     <tr data-proposta="<?= (int) $p->id; ?>" data-lead="<?= (int) $p->lead_id; ?>">
-                                        <td>
-                                            <?php
-                                            /*
-                                             * A estrela do Top 5 da semana. Fica à frente do nome
-                                             * porque é a primeira coisa que se procura quando se
-                                             * abre o quadro para preparar a reunião de segunda.
-                                             */
-                                            ?>
-                                            <?php
-                                            /*
-                                             * A estrela é o CARACTERE ★, não um ícone do Font
-                                             * Awesome. O CRM usa a versão 6, onde o "fa-star-o"
-                                             * do antigamente já não existe — a estrela por marcar
-                                             * saía invisível e não havia nada onde carregar.
-                                             *
-                                             * Quem não é dono da proposta vê-a, mas apagada e
-                                             * sem clique: quem escolhe é o comercial dela.
-                                             */
-                                            ?>
+                                        <?php
+                                        /*
+                                         * A ESTRELA TEM COLUNA PRÓPRIA, com cabeçalho.
+                                         *
+                                         * Estava encostada ao nome do cliente, pequena e cinzenta,
+                                         * e os comerciais não davam por ela — no meio de botões
+                                         * vermelhos, azuis e verdes, um ☆ pálido lê-se como
+                                         * enfeite. Com coluna, cabeçalho e a cor da casa, há um
+                                         * sítio onde carregar e nota-se que ele existe.
+                                         *
+                                         * É o CARACTERE ★, não um ícone do Font Awesome: o CRM
+                                         * usa a versão 6, onde o "fa-star-o" de antigamente já
+                                         * não existe — e a estrela por marcar saía invisível.
+                                         *
+                                         * Quem não é dono da proposta não tem onde carregar:
+                                         * quem escolhe é o comercial dela.
+                                         */
+                                        ?>
+                                        <td style="text-align:center;vertical-align:middle;padding-left:4px;padding-right:4px;">
                                             <?php if ($dps_meu) { ?>
                                             <a href="#" class="dps-estrela<?= $dps_top ? ' dps-estrela-on' : ''; ?>"
                                                data-id="<?= (int) $p->id; ?>"
                                                title="<?= $dps_top ? 'No Top — carregue para tirar' : 'Pôr no Top (' . (int) $top_dias . ' dias)'; ?>"
-                                               style="text-decoration:none;margin-right:6px;font-size:17px;line-height:1;color:<?= $dps_top ? '#e0a800' : '#c3c9d0'; ?>;"><?= $dps_top ? '&#9733;' : '&#9734;'; ?></a>
+                                               style="display:inline-block;text-decoration:none;font-size:22px;line-height:1;color:<?= $dps_top ? '#e0a800' : '#d7b23a'; ?>;"><?= $dps_top ? '&#9733;' : '&#9734;'; ?></a>
                                             <?php } elseif ($dps_top) { ?>
-                                            <span title="No Top de <?= e($p->lead_nome ? get_staff_full_name($p->staff_id) : ''); ?>"
-                                                  style="margin-right:6px;font-size:17px;line-height:1;color:#e0a800;">&#9733;</span>
+                                            <span title="No Top de <?= e(get_staff_full_name($p->staff_id)); ?>"
+                                                  style="font-size:22px;line-height:1;color:#e0a800;">&#9733;</span>
                                             <?php } else { ?>
-                                            <span style="margin-right:6px;font-size:17px;line-height:1;color:#eceff2;">&#9734;</span>
+                                            <span style="font-size:22px;line-height:1;color:#eef1f4;">&#9734;</span>
                                             <?php } ?>
+                                        </td>
+                                        <td>
                                             <a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a>
                                         </td>
                                         <td style="white-space:nowrap;">
