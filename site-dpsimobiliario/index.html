@@ -113,6 +113,30 @@
       container4.appendChild(pescCard);
     }
 
+        // 1d. Cedofeita 271 e Sta Catarina Apartments, no Porto
+    [
+      {id:'cedofeita-card-injected', href:'https://dpsimobiliario.pt/cedofeita',
+       img:'https://dpsimobiliario.pt/cedofeita/img/edificio.jpg',
+       nome:'Cedofeita 271', local:'Rua de Cedofeita \u00b7 Porto',
+       nota:'Casa do s\u00e9c. XIX reabilitada \u2014 desde 200.000 \u20ac'},
+      {id:'stacatarina-card-injected', href:'https://dpsimobiliario.pt/santacatarina',
+       img:'https://dpsimobiliario.pt/santacatarina/img/r_sala.jpg',
+       nome:'Sta Catarina Apartments', local:'Rua de Santa Catarina \u00b7 Porto',
+       nota:'T1 e T2 no cora\u00e7\u00e3o do Porto \u2014 desde 280.000 \u20ac'}
+    ].forEach(function (c) {
+      var base = allLinks.find(function(a) { return a.textContent.includes('Lake Towers'); });
+      if (!base || document.getElementById(c.id)) { return; }
+      var card = document.createElement('a');
+      card.id = c.id;
+      card.href = c.href;
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+      card.className = base.className;
+      card.style.textDecoration = 'none';
+      card.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="' + c.nome + '" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="' + c.img + '" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">' + c.nome + '</h4><p class="text-[#666] text-xs mb-2">' + c.local + '</p><p class="text-[#C5A55A] font-semibold text-sm">' + c.nota + '</p></div></div>';
+      base.parentElement.appendChild(card);
+    });
+
     // 2. Tornar o banner Portugal clicável para portugal.php
     var ptHeadings = Array.from(document.querySelectorAll('h2, h3, h4'));
     var ptH = ptHeadings.find(function(h) { return h.textContent.includes('\uD83C\uDDF5\uD83C\uDDF9'); });

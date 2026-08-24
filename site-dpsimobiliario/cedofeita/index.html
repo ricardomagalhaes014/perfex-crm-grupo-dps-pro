@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cedofeita 271 — Porto | DPS Imobiliário</title>
+<meta name="description" content="Casa burguesa do final do século XIX reabilitada na Rua de Cedofeita, no Bairro das Artes do Porto. Loja, T2 duplex com jardim e dois T0 duplex, desde 200.000 €. DPS Imobiliário.">
+<meta property="og:title" content="Cedofeita 271 — Porto">
+<meta property="og:description" content="Uma casa burguesa do século XIX no Bairro das Artes, reabilitada com elevador e materiais de origem.">
+<meta property="og:image" content="https://dpsimobiliario.pt/cedofeita/img/azulejo.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%233C4F3F'/%3E%3Crect x='3.5' y='3.5' width='25' height='25' rx='3' fill='none' stroke='%23F6F2EA' stroke-width='1.4'/%3E%3Ctext x='16' y='14' font-family='Helvetica' font-size='7' fill='%23F6F2EA' text-anchor='middle'%3ECED%3C/text%3E%3Ctext x='16' y='24' font-family='Helvetica' font-size='9' fill='%23F6F2EA' text-anchor='middle' letter-spacing='1'%3E271%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Karla:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CEDOFEITA 271
+   Tudo aqui sai da fachada: o verde e o ocre do azulejo, o verde
+   escuro da placa de rua esmaltada, o creme da cantaria e o
+   castanho do soalho de carvalho lá dentro. O azulejo repete-se
+   como motivo, desenhado em SVG — é a assinatura do edifício.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --tinta:#1E241F;
+  --tinta-72:rgba(30,36,31,.72);
+  --tinta-48:rgba(30,36,31,.48);
+  --verde:#2F6B62;
+  --placa:#3C4F3F;
+  --ocre:#D8B980;
+  --ocre-claro:#EBD9B4;
+  --creme:#F6F2EA;
+  --creme-fundo:#EFE9DD;
+  --terra:#B4593C;
+  --linha:rgba(30,36,31,.13);
+  --max:1300px;
+  --gutter:clamp(20px,5vw,72px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--creme);color:var(--tinta);
+  font-family:'Karla',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-weight:300;font-size:17px;line-height:1.68;overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit}
+
+/* ── tipografia ───────────────────────────────────────────────── */
+.eyebrow{font-size:11px;letter-spacing:.3em;text-transform:uppercase;font-weight:500;color:var(--verde)}
+h1,h2,h3{margin:0;font-family:'Fraunces',Georgia,serif;font-weight:300;text-wrap:balance;letter-spacing:-.015em}
+h2{font-size:clamp(2rem,5vw,3.7rem);line-height:1.06}
+h3{font-size:clamp(1.25rem,2.2vw,1.7rem);line-height:1.2;font-weight:400}
+.prosa{font-size:clamp(1rem,1.25vw,1.1rem);line-height:1.78;color:var(--tinta-72);max-width:60ch}
+.prosa p+p{margin-top:1.2em}
+.prosa strong{font-weight:500;color:var(--tinta)}
+
+/* ── estrutura ────────────────────────────────────────────────── */
+.faixa{padding:clamp(70px,10vw,140px) var(--gutter)}
+.dentro{max-width:var(--max);margin:0 auto}
+
+/* ── o azulejo, desenhado ─────────────────────────────────────── */
+.tira-azulejo{
+  height:clamp(38px,5vw,58px);
+  background-color:var(--ocre-claro);
+  /* O azulejo da fachada: losangos verdes numa malha, com os cantos em
+     ocre. Feito com gradientes cónicos porque um losango é um quadrado
+     virado — e assim não se carrega uma imagem só para uma faixa. */
+  background-image:
+    conic-gradient(from 45deg at 50% 50%, var(--verde) 0 25%, transparent 0 100%),
+    conic-gradient(from 45deg at 0 0,     var(--ocre)  0 25%, transparent 0 100%),
+    conic-gradient(from 45deg at 100% 0,  var(--ocre)  0 25%, transparent 0 100%),
+    conic-gradient(from 45deg at 0 100%,  var(--ocre)  0 25%, transparent 0 100%),
+    conic-gradient(from 45deg at 100% 100%, var(--ocre) 0 25%, transparent 0 100%);
+  background-size:21px 21px;
+}
+
+/* ── a placa de rua ───────────────────────────────────────────── */
+.placa{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  background:var(--placa);color:var(--creme);
+  border-radius:9px;padding:.5em .85em;line-height:1.05;
+  box-shadow:inset 0 0 0 1.5px var(--creme), 0 3px 14px rgba(0,0,0,.28);
+  font-family:'Karla',sans-serif;text-align:center;
+}
+.placa b{font-weight:400;font-size:1em;letter-spacing:.06em}
+.placa span{font-weight:400;font-size:1.05em;letter-spacing:.42em;margin-left:.42em}
+
+/* ═══ HERO ════════════════════════════════════════════════════ */
+.hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;
+  padding:var(--gutter);overflow:hidden;background:var(--placa)}
+.hero-fundo{position:absolute;inset:0;
+  background:url('img/azulejo.jpg') 6% 48%/cover no-repeat;
+  transform:scale(1.05);animation:respirar 30s ease-in-out infinite alternate}
+@keyframes respirar{to{transform:scale(1.12)}}
+.hero::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(30,36,31,.5) 0%,rgba(30,36,31,0) 30%),
+             linear-gradient(0deg,rgba(30,36,31,.9) 0%,rgba(30,36,31,.34) 40%,rgba(30,36,31,0) 68%)}
+.hero-conteudo{position:relative;z-index:2;width:100%;max-width:var(--max);margin:0 auto;color:var(--creme)}
+.hero-topo{position:absolute;top:0;left:0;right:0;z-index:3;
+  padding:calc(var(--gutter)*.8) var(--gutter);
+  display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--creme)}
+.dps-logo{display:block;line-height:0;flex:0 0 auto}
+.dps-logo img{width:auto;height:clamp(46px,6vw,72px);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)) drop-shadow(0 6px 22px rgba(0,0,0,.4))}
+.hero-topo .placa{font-size:12px}
+.zap{display:inline-flex;align-items:center;gap:8px;text-decoration:none;
+  font-size:13px;letter-spacing:.06em;font-weight:400;padding:9px 16px;
+  border:1px solid rgba(246,242,234,.45);border-radius:100px;
+  background:rgba(30,36,31,.3);backdrop-filter:blur(6px);white-space:nowrap;
+  transition:background .3s ease,border-color .3s ease,color .3s ease}
+.zap:hover{background:#25D366;border-color:#25D366;color:#fff}
+@media(max-width:760px){
+  .hero-topo{flex-wrap:wrap;gap:10px 14px}
+  .hero-topo .placa{order:3}
+  .zap{font-size:12px;padding:8px 13px}
+}
+.hero h1{font-size:clamp(2.4rem,6.6vw,5.2rem);line-height:.98;font-weight:300;
+  letter-spacing:-.025em;margin-bottom:.2em}
+.hero h1 em{font-style:normal;display:block;font-family:'Karla',sans-serif;
+  font-size:.19em;letter-spacing:.3em;text-transform:uppercase;font-weight:400;
+  opacity:.85;margin-bottom:1.1em}
+.hero-linha{height:1px;background:rgba(246,242,234,.4);transform-origin:left;margin:26px 0 22px}
+.hero-pe{display:flex;flex-wrap:wrap;gap:10px 38px;font-size:12.5px;
+  letter-spacing:.16em;text-transform:uppercase;opacity:.88}
+
+/* ═══ TESE ════════════════════════════════════════════════════ */
+.tese{background:var(--verde);color:var(--creme);text-align:center}
+.tese p{font-family:'Fraunces',Georgia,serif;font-weight:300;
+  font-size:clamp(1.4rem,3.4vw,2.5rem);line-height:1.32;max-width:22ch;margin:0 auto;text-wrap:balance}
+.tese .eyebrow{color:rgba(246,242,234,.62);margin-bottom:1.5em;display:block}
+
+/* ═══ NÚMEROS ═════════════════════════════════════════════════ */
+.numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:1px;background:var(--linha);border-block:1px solid var(--linha)}
+.numeros div{background:var(--creme);padding:clamp(26px,3.4vw,42px) 16px;text-align:center}
+.numeros b{display:block;font-family:'Fraunces',serif;font-weight:300;
+  font-size:clamp(2rem,4.4vw,3.2rem);line-height:1;font-variant-numeric:tabular-nums}
+.numeros span{display:block;margin-top:.9em;font-size:10.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--tinta-48);line-height:1.5}
+
+/* ═══ EDITORIAL ═══════════════════════════════════════════════ */
+.duas{display:grid;grid-template-columns:1fr;gap:clamp(32px,5vw,74px)}
+@media(min-width:900px){.duas{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);align-items:start}}
+.cabeca .eyebrow{display:block;margin-bottom:1.5em}
+.cabeca h2{margin-bottom:.4em}
+
+/* ═══ GALERIA ═════════════════════════════════════════════════ */
+.galeria{display:grid;gap:clamp(10px,1.3vw,18px);grid-template-columns:repeat(6,1fr)}
+.galeria figure{margin:0;position:relative;overflow:hidden;background:var(--creme-fundo)}
+.galeria img{width:100%;height:100%;object-fit:cover;transition:transform 1.1s cubic-bezier(.2,.7,.3,1)}
+.galeria figure:hover img{transform:scale(1.045)}
+@media(min-width:760px){
+  .g-a{grid-column:span 4;aspect-ratio:16/10}
+  .g-b{grid-column:span 2;aspect-ratio:3/4}
+  .g-c{grid-column:span 3;aspect-ratio:4/3}
+  .g-d{grid-column:span 3;aspect-ratio:4/3}
+  .g-e{grid-column:span 6;aspect-ratio:21/9}
+}
+@media(max-width:759px){.galeria figure{grid-column:span 6;aspect-ratio:4/3}}
+.galeria figcaption{position:absolute;left:14px;bottom:12px;font-size:10px;
+  letter-spacing:.22em;text-transform:uppercase;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.65)}
+
+/* ═══ FRACÇÕES ════════════════════════════════════════════════ */
+.grelha{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(232px,1fr))}
+.uni{background:var(--creme);border:1px solid var(--linha);padding:20px;
+  text-align:left;cursor:pointer;font:inherit;color:inherit;position:relative;
+  transition:background .28s ease,border-color .28s ease,transform .28s cubic-bezier(.2,.7,.3,1)}
+.uni:hover,.uni:focus-visible{background:#fff;border-color:var(--verde);transform:translateY(-2px);outline:0}
+.uni:focus-visible{box-shadow:0 0 0 2px var(--verde)}
+.uni>span{display:block}
+.uni .letra{font-family:'Fraunces',serif;font-size:clamp(1.9rem,3vw,2.4rem);
+  font-weight:300;line-height:1;letter-spacing:-.02em}
+.uni .tipo{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--verde);
+  margin-top:1em;font-weight:500}
+.uni .area{font-size:15.5px;margin-top:.4em;font-variant-numeric:tabular-nums}
+.uni .extra{font-size:12px;line-height:1.55;color:var(--tinta-48);margin-top:.25em;font-variant-numeric:tabular-nums}
+.uni .preco{font-family:'Fraunces',serif;font-size:1.22rem;margin-top:.75em;
+  font-variant-numeric:tabular-nums;color:var(--terra);font-weight:400}
+.uni .ver{display:block;position:absolute;top:16px;right:16px;font-size:15px;
+  color:var(--tinta-48);opacity:0;transition:opacity .25s}
+.uni:hover .ver,.uni:focus-visible .ver{opacity:1}
+
+/* ═══ ACABAMENTOS ═════════════════════════════════════════════ */
+.acabamentos{display:grid;gap:clamp(26px,4vw,54px);grid-template-columns:1fr}
+@media(min-width:820px){.acabamentos{grid-template-columns:repeat(3,1fr)}}
+.acabamentos h3{margin-bottom:.9em;font-size:1.15rem}
+.acabamentos ul{list-style:none;margin:0;padding:0;font-size:15px;color:var(--tinta-72)}
+.acabamentos li{padding:9px 0;border-top:1px solid var(--linha)}
+
+/* ═══ LOCALIZAÇÃO ═════════════════════════════════════════════ */
+.escuro{background:var(--placa);color:var(--creme)}
+.escuro .eyebrow{color:var(--ocre)}
+.escuro .prosa{color:rgba(246,242,234,.78)}
+.escuro .prosa strong{color:var(--creme)}
+.tempos{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:1px;
+  background:rgba(246,242,234,.18);margin-top:clamp(32px,4vw,52px)}
+.tempos div{background:var(--placa);padding:22px 14px}
+.tempos b{display:block;font-family:'Fraunces',serif;font-size:clamp(1.5rem,3vw,2rem);
+  font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+.tempos span{display:block;margin-top:.8em;font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(246,242,234,.55);line-height:1.5}
+.mapa-fig{margin:clamp(32px,4vw,52px) 0 0;cursor:zoom-in;background:#e8e5de}
+
+/* ═══ FECHO ═══════════════════════════════════════════════════ */
+.fecho{background:var(--verde);color:var(--creme);text-align:center}
+.fecho .prosa{color:rgba(246,242,234,.84);margin:0 auto 2.4em;text-align:center;max-width:50ch}
+.botoes{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:15px 30px;text-decoration:none;
+  font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  border:1px solid rgba(246,242,234,.55);color:var(--creme);
+  transition:background .3s ease,color .3s ease,border-color .3s ease}
+.btn:hover{background:var(--creme);color:var(--verde);border-color:var(--creme)}
+.btn.cheio{background:var(--creme);color:var(--verde);border-color:var(--creme)}
+.btn.cheio:hover{background:transparent;color:var(--creme);border-color:rgba(246,242,234,.55)}
+
+footer{background:var(--tinta);color:rgba(246,242,234,.55);padding:42px var(--gutter);font-size:12px}
+footer .dentro{display:flex;flex-wrap:wrap;gap:14px 32px;justify-content:space-between;align-items:center}
+footer a{text-decoration:none;border-bottom:1px solid rgba(246,242,234,.25)}
+
+/* ═══ WHATSAPP ════════════════════════════════════════════════ */
+.zap-fixo{position:fixed;left:clamp(14px,2.2vw,26px);bottom:clamp(14px,2.2vw,26px);z-index:80;
+  display:inline-flex;align-items:center;gap:10px;background:#25D366;color:#fff;
+  text-decoration:none;padding:13px 20px;border-radius:100px;font-size:14px;
+  box-shadow:0 8px 30px rgba(0,0,0,.22);transition:transform .3s cubic-bezier(.2,.7,.3,1)}
+.zap-fixo:hover{transform:translateY(-3px)}
+@media(max-width:520px){.zap-fixo{padding:13px;gap:0}.zap-fixo span{display:none}}
+
+/* ═══ LIGHTBOX ════════════════════════════════════════════════ */
+.caixa{position:fixed;inset:0;z-index:90;background:rgba(24,29,25,.95);display:none;
+  align-items:center;justify-content:center;padding:clamp(16px,4vw,52px);backdrop-filter:blur(3px)}
+.caixa.aberta{display:flex}
+.caixa img{max-width:100%;max-height:82vh;object-fit:contain;background:var(--creme)}
+.caixa .rot{position:absolute;top:clamp(16px,4vw,40px);left:clamp(16px,4vw,52px);
+  color:var(--creme);font-size:11px;letter-spacing:.24em;text-transform:uppercase}
+.caixa .fecha{position:absolute;top:clamp(12px,3.5vw,30px);right:clamp(14px,4vw,46px);
+  background:none;border:0;color:var(--creme);font-size:30px;line-height:1;cursor:pointer;padding:8px}
+
+/* ═══ REVELAR ═════════════════════════════════════════════════ */
+.revelar{opacity:0;transform:translateY(24px);
+  transition:opacity 1s cubic-bezier(.2,.7,.3,1),transform 1s cubic-bezier(.2,.7,.3,1)}
+.revelar.vista{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .revelar{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-fundo"></div>
+  <div class="hero-topo">
+    <a class="dps-logo" href="https://dpsimobiliario.pt" aria-label="DPS Imobiliário">
+      <img src="img/dps.png" alt="DPS Imobiliário" width="338" height="187">
+    </a>
+    <span class="placa"><b>CEDOFEITA</b><span>271</span></span>
+    <a class="zap" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cedofeita%20271%2C%20no%20Porto." target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.4 1.3 4.9L2 22l5.2-1.3c1.4.8 3 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.9-1.4-1.3-3-1.3-4.6 0-4.6 3.8-8.4 8.4-8.4s8.4 3.8 8.4 8.4-3.7 8.5-8.3 8.5zm5.5-5.8c-.3-.2-1.8-.9-2-1s-.5-.2-.7.1c-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5 0-.2 0-.4 0-.5 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/></svg>
+      <span>925 610 864</span>
+    </a>
+  </div>
+
+  <div class="hero-conteudo">
+    <h1 data-anim="titulo">
+      <em>Rua de Cedofeita · Porto</em>
+      Cedofeita 271
+    </h1>
+    <div class="hero-linha" data-anim="linha"></div>
+    <div class="hero-pe" data-anim="pe">
+      <span>Bairro das Artes</span>
+      <span>Casa burguesa do séc. XIX</span>
+      <span>443 m²</span>
+      <span>Com elevador</span>
+    </div>
+  </div>
+</header>
+
+<div class="tira-azulejo" aria-hidden="true"></div>
+
+<section class="faixa tese revelar">
+  <div class="dentro">
+    <span class="eyebrow">Bairro das Artes</span>
+    <p>Uma casa do século XIX no meio da rua mais viva do Porto.</p>
+  </div>
+</section>
+
+<section class="numeros revelar">
+  <div><b>5</b><span>Pisos</span></div>
+  <div><b>7</b><span>Fracções</span></div>
+  <div><b>1</b><span>Espaço comercial</span></div>
+  <div><b>443</b><span>m² de área</span></div>
+  <div><b>XIX</b><span>Casa de origem</span></div>
+</section>
+
+<section class="faixa" id="edificio">
+  <div class="dentro duas">
+    <div class="cabeca revelar">
+      <span class="eyebrow">O edifício</span>
+      <h2>Guardar<br>o que é bom.<br>Trazer<br>o que falta.</h2>
+    </div>
+    <div class="prosa revelar">
+      <p>O Cedofeita 271 é uma <strong>reabilitação cuidada de uma casa burguesa do final do século XIX</strong>. Recupera-se e mantém-se aquilo que faz uma casa daquele tempo: as <strong>madeiras nobres</strong>, os <strong>estuques trabalhados</strong>, as <strong>cantarias de granito</strong>.</p>
+      <p>E acrescenta-se o que ela nunca teve. <strong>Elevador</strong> — raro numa casa desta idade e desta rua. Conforto acústico e eficiência térmica ao nível do que se exige a uma casa do século XXI. Ar condicionado, vídeo-porteiro, cozinhas em mármore.</p>
+      <p>São <strong>cinco pisos e sete fracções</strong>, num total de 443 m², desde os T0 de 42 m² ao <strong>T2 duplex de 135 m² com jardim</strong>. No piso 1 há ainda um espaço comercial de 26 m², com porta para a rua.</p>
+      <p>É esta simbiose — salvaguardar o valor patrimonial e histórico sem abdicar do que hoje se pede a uma casa — que faz do Cedofeita 271 um edifício diferente e um investimento com retorno.</p>
+    </div>
+  </div>
+</section>
+
+<section class="faixa" style="padding-top:0">
+  <div class="dentro">
+    <div class="galeria">
+      <figure class="g-a revelar"><img src="img/r_sala.jpg" alt="Sala de estar da fracção do jardim" loading="lazy"><figcaption>Sala &middot; T2 duplex</figcaption></figure>
+      <figure class="g-b revelar"><img src="img/edificio.jpg" alt="A fachada do Cedofeita 271 na rua" loading="lazy"><figcaption>A fachada</figcaption></figure>
+      <figure class="g-c revelar"><img src="img/r_cozinha.jpg" alt="Cozinha em ilha com bancada de mármore" loading="lazy"><figcaption>Cozinha em mármore</figcaption></figure>
+      <figure class="g-d revelar"><img src="img/r_quarto.jpg" alt="Quarto com porta de sacada" loading="lazy"><figcaption>Quarto</figcaption></figure>
+      <figure class="g-e revelar"><img src="img/r_sala_f.jpg" alt="Sala do duplex do último piso, com escada para o sótão" loading="lazy"><figcaption>Duplex do último piso</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<div class="tira-azulejo" aria-hidden="true"></div>
+
+<section class="faixa" id="fraccoes" style="background:var(--creme-fundo)">
+  <div class="dentro">
+    <div class="cabeca revelar" style="margin-bottom:clamp(32px,4vw,54px);max-width:56ch">
+      <span class="eyebrow">Disponíveis</span>
+      <h2>Quatro fracções<br>à venda.</h2>
+      <p class="prosa" style="margin-top:1.5em">Carregue numa fracção para ver a planta.</p>
+    </div>
+    <div class="grelha" id="grelha"></div>
+  </div>
+</section>
+
+<section class="faixa">
+  <div class="dentro">
+    <div class="cabeca revelar" style="margin-bottom:clamp(30px,4vw,48px);max-width:50ch">
+      <span class="eyebrow">Acabamentos</span>
+      <h2>O que entra<br>em cada casa.</h2>
+    </div>
+    <div class="acabamentos">
+      <div class="revelar">
+        <h3>Quartos, salas e corredores</h3>
+        <ul>
+          <li>Paredes e tectos em reboco pintado a branco</li>
+          <li>Carpintarias em MDF lacado a branco</li>
+          <li>Pavimento em madeira de carvalho</li>
+          <li>Ar condicionado</li>
+          <li>Vídeo-porteiro</li>
+        </ul>
+      </div>
+      <div class="revelar">
+        <h3>Cozinhas</h3>
+        <ul>
+          <li>Paredes e tectos pintados a branco</li>
+          <li>Carpintarias em MDF lacado a branco</li>
+          <li>Pavimento em cerâmico Revigrés ou equivalente</li>
+          <li>Bancada e contrabancada em mármore</li>
+          <li>Banca e misturadora Bruma ou equivalente</li>
+          <li>Forno, frigorífico, placa, máquina de roupa e de loiça Bosch ou equivalente</li>
+        </ul>
+      </div>
+      <div class="revelar">
+        <h3>Instalações sanitárias</h3>
+        <ul>
+          <li>Paredes em azulejo cerâmico Revigrés ou equivalente</li>
+          <li>Tectos em reboco pintado a branco</li>
+          <li>Pavimento em cerâmico Revigrés ou equivalente</li>
+          <li>Loiças sanitárias Sanindusa ou equivalente</li>
+          <li>Equipamentos e misturadoras Bruma ou equivalente</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="faixa escuro" id="lugar">
+  <div class="dentro">
+    <div class="duas">
+      <div class="cabeca revelar">
+        <span class="eyebrow">O lugar</span>
+        <h2>A rua onde<br>o Porto<br>se passeia.</h2>
+      </div>
+      <div class="prosa revelar">
+        <p>O <strong>Bairro das Artes</strong> é das zonas mais procuradas do Porto. Vibrante, jovem, cheio de comércio alternativo, moda, galerias, cafés e restaurantes.</p>
+        <p>A <strong>Rua de Cedofeita</strong> é uma das ruas pedonais de comércio mais importantes da cidade — e uma rua histórica, que faz parte do traçado secular dos <strong>Caminhos de Santiago</strong>.</p>
+        <p>Estamos muito perto do centro, rodeados de serviços, e a menos de quinze minutos das estações de metro da <strong>Trindade, Aliados e Lapa</strong>, com paragens de autocarro a poucos metros. A baixa faz-se toda a pé.</p>
+      </div>
+    </div>
+
+    <div class="tempos revelar">
+      <div><b>2&prime;</b><span>Casa da Música</span></div>
+      <div><b>7&prime;</b><span>Aliados</span></div>
+      <div><b>10&prime;</b><span>Clérigos</span></div>
+      <div><b>15&prime;</b><span>Metro Trindade</span></div>
+      <div><b>15&prime;</b><span>Metro Lapa</span></div>
+      <div><b>20&prime;</b><span>Ribeira, a pé</span></div>
+    </div>
+
+    <figure class="mapa-fig revelar" data-lightbox="img/mapa.jpg" data-rot="Cedofeita 271 no mapa do Porto">
+      <img src="img/mapa.jpg" alt="Mapa do Porto com a localização do Cedofeita 271" loading="lazy">
+    </figure>
+  </div>
+</section>
+
+<section class="faixa fecho">
+  <div class="dentro revelar">
+    <span class="eyebrow" style="color:rgba(246,242,234,.65);display:block;margin-bottom:1.5em">Comercialização</span>
+    <h2>Quer ver<br>o Cedofeita 271?</h2>
+    <p class="prosa">Falamos consigo sobre disponibilidade, plantas, condições de pagamento e visita ao local.</p>
+    <div class="botoes">
+      <a class="btn cheio" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cedofeita%20271%2C%20no%20Porto." target="_blank" rel="noopener">Falar por WhatsApp</a>
+      <a class="btn" href="mailto:imobiliario@grupo-dps.com?subject=Cedofeita%20271%20—%20Porto">Enviar email</a>
+      <a class="btn" href="tel:+351925610864">+351 925 610 864</a>
+    </div>
+  </div>
+</section>
+
+<a class="zap-fixo" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cedofeita%20271%2C%20no%20Porto." target="_blank" rel="noopener" aria-label="Falar por WhatsApp: 925 610 864">
+  <svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.4 1.3 4.9L2 22l5.2-1.3c1.4.8 3 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.9-1.4-1.3-3-1.3-4.6 0-4.6 3.8-8.4 8.4-8.4s8.4 3.8 8.4 8.4-3.7 8.5-8.3 8.5zm5.5-5.8c-.3-.2-1.8-.9-2-1s-.5-.2-.7.1c-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5 0-.2 0-.4 0-.5 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/></svg>
+  <span>925 610 864</span>
+</a>
+
+<footer>
+  <div class="dentro">
+    <a href="https://dpsimobiliario.pt" style="line-height:0;border:0"><img src="img/dps.png" alt="DPS Imobiliário" style="height:40px;width:auto;opacity:.85"></a>
+    <span class="placa" style="font-size:11px"><b>CEDOFEITA</b><span>271</span></span>
+    <span><a href="https://dpsimobiliario.pt">DPS Imobiliário</a> &middot; LIC AMI 26301</span>
+  </div>
+</footer>
+
+<div class="caixa" id="caixa" role="dialog" aria-modal="true" aria-label="Planta">
+  <span class="rot" id="caixa-rot"></span>
+  <button class="fecha" id="caixa-fecha" aria-label="Fechar">&times;</button>
+  <img id="caixa-img" src="" alt="">
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var parado = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /*
+   * As fracções são as da tabela de preços, que é o documento que manda.
+   * A brochura numera-as de outra maneira — chama "Commercial Space" à
+   * loja e "A" ao duplex do jardim — mas quem vende trabalha com as
+   * letras da tabela, e são estas que o cliente vai ver no contrato.
+   */
+  var UNIDADES = [
+    {l:'A', tipo:'Loja',      piso:'Piso 1',      area:26.00,  preco:200000, planta:'img/pl_loja.png'},
+    {l:'B', tipo:'T2 duplex', piso:'Pisos -1 e 1', area:135.70, varanda:24.00, jardim:168.40, preco:850000, planta:'img/pl_B.png'},
+    {l:'G', tipo:'T0 duplex', piso:'Pisos 4 e 5', area:70.00,  preco:350000, planta:'img/pl_G.png'},
+    {l:'H', tipo:'T0 duplex', piso:'Pisos 4 e 5', area:64.13,  varanda:4.70, preco:350000, planta:'img/pl_H.png'}
+  ];
+
+  function n2(v){ return v.toFixed(2).replace('.', ','); }
+  function eur(v){ return v.toLocaleString('pt-PT') + ' €'; }
+
+  var g = document.getElementById('grelha');
+  UNIDADES.forEach(function(u){
+    var b = document.createElement('button');
+    b.className = 'uni'; b.type = 'button';
+    b.dataset.lightbox = u.planta;
+    b.dataset.rot = 'Fracção ' + u.l + ' — ' + u.tipo + ' — ' + n2(u.area) + ' m²';
+    var extra = [];
+    if (u.varanda) { extra.push('Varanda ' + n2(u.varanda) + ' m²'); }
+    if (u.jardim)  { extra.push('Jardim ' + n2(u.jardim) + ' m²'); }
+    b.innerHTML =
+      '<span class="ver" aria-hidden="true">&#8599;</span>' +
+      '<span class="letra">' + u.l + '</span>' +
+      '<span class="tipo">' + u.tipo + ' &middot; ' + u.piso + '</span>' +
+      '<span class="area">' + n2(u.area) + ' m²</span>' +
+      (extra.length ? '<span class="extra">' + extra.join(' &middot; ') + '</span>' : '') +
+      '<span class="preco">' + eur(u.preco) + '</span>';
+    b.setAttribute('aria-label', 'Ver planta da fracção ' + u.l);
+    g.appendChild(b);
+  });
+
+  /* ── lightbox ──────────────────────────────────────────────── */
+  var caixa = document.getElementById('caixa'),
+      cimg  = document.getElementById('caixa-img'),
+      crot  = document.getElementById('caixa-rot'),
+      antes = null;
+  function abrir(src, rot, origem){
+    antes = origem || null;
+    cimg.src = src; cimg.alt = rot || ''; crot.textContent = rot || '';
+    caixa.classList.add('aberta'); document.body.style.overflow = 'hidden';
+    document.getElementById('caixa-fecha').focus();
+  }
+  function fechar(){
+    caixa.classList.remove('aberta'); document.body.style.overflow = '';
+    cimg.src = ''; if (antes && antes.focus) { antes.focus(); }
+  }
+  document.addEventListener('click', function(e){
+    var alvo = e.target.closest ? e.target.closest('[data-lightbox]') : null;
+    if (alvo) { abrir(alvo.dataset.lightbox, alvo.dataset.rot, alvo); return; }
+    if (e.target === caixa || e.target.id === 'caixa-fecha') { fechar(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && caixa.classList.contains('aberta')) { fechar(); }
+  });
+
+  /* ── revelar ───────────────────────────────────────────────── */
+  var obs = new IntersectionObserver(function(ent){
+    ent.forEach(function(x){
+      if (x.isIntersecting) { x.target.classList.add('vista'); obs.unobserve(x.target); }
+    });
+  }, {threshold:.12, rootMargin:'0px 0px -8% 0px'});
+  document.querySelectorAll('.revelar').forEach(function(el, i){
+    el.style.transitionDelay = ((i % 4) * 70) + 'ms';
+    obs.observe(el);
+  });
+
+  /* ── abertura ──────────────────────────────────────────────── */
+  if (!parado) {
+    var t = document.querySelector('[data-anim="titulo"]'),
+        l = document.querySelector('[data-anim="linha"]'),
+        p = document.querySelector('[data-anim="pe"]');
+    [t,l,p].forEach(function(el){
+      if (!el) { return; }
+      el.style.opacity = '0';
+      el.style.transform = el === l ? 'scaleX(0)' : 'translateY(18px)';
+    });
+    window.addEventListener('load', function(){
+      [[t,260],[l,720],[p,980]].forEach(function(par){
+        var el = par[0]; if (!el) { return; }
+        setTimeout(function(){
+          el.style.transition = 'opacity 1.2s cubic-bezier(.2,.7,.3,1), transform 1.2s cubic-bezier(.2,.7,.3,1)';
+          el.style.opacity = '1'; el.style.transform = 'none';
+        }, par[1]);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
