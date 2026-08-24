@@ -184,76 +184,32 @@ nav[class*="fixed"] a[class*="text-[#F5F2ED]"]:hover {
   <body>
     <div id="root"></div>
     <script type="module" crossorigin src="/assets/index-DPS-v5-1776373017.js"></script>
-<!-- POPUP SOFIA DPS -->
-<div id="sofia-popup" style="display:none;position:fixed;bottom:90px;right:24px;z-index:999;width:310px;background:linear-gradient(135deg,#050810 0%,#0a0f1e 100%);border:1px solid rgba(201,168,76,0.35);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,0.6),0 0 40px rgba(201,168,76,0.1);overflow:hidden;font-family:'Inter',sans-serif;">
-<style>
-@keyframes sofia-slide-in{from{opacity:0;transform:translateY(30px) scale(0.92)}to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes sp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.4)}70%{box-shadow:0 0 0 8px rgba(0,255,136,0)}}
-/* ---------------------------------------------------------------
-   TELEMÓVEL — o popup estava a tapar a Sofia.
-   ---------------------------------------------------------------
-   O cartão tem 310px de largura e ficava a 90px do fundo, fixo, com
-   z-index 99999. Num ecrã de 375px isso ocupa quase toda a largura e
-   assenta em cima do botão redondo da Sofia (bottom 32px, z-index 1000):
-   quem carregava na Sofia acertava no cartão, e quem fechava o cartão já
-   tinha desistido. A página não tinha uma única media query.
+<!-- O cartão da Sofia foi retirado em 23/08/2026, por ordem do dono.
+     No telemóvel ocupava meio ecrã e tapava o botão do WhatsApp. O widget da
+     ElevenLabs, logo aqui abaixo, já diz o mesmo e ocupa uma linha. -->
 
-   Agora: o cartão passa a caber no ecrã, sobe o suficiente para não
-   encostar ao botão, e o z-index desce para 999 — o widget da Sofia fica
-   sempre por cima, que é o que tem de acontecer quando ele abre.
+<style>
+/* ---------------------------------------------------------------
+   O botão do WhatsApp muda de lado.
+   Vive no canto inferior direito (client/src/components/WhatsAppButton.tsx,
+   classes "fixed bottom-6 right-6"), que é exactamente onde o widget da
+   ElevenLabs se instala. Um tapava o outro, e no telemóvel só se via o verde
+   a espreitar por trás. Passa para a esquerda; o widget fica com a direita
+   só para ele.
+   Só o botão flutuante é apanhado — o link do WhatsApp no cabeçalho não tem
+   a classe "fixed" e fica onde está.
    --------------------------------------------------------------- */
-@media (max-width: 520px){
-  #sofia-popup{
-    width:calc(100vw - 28px)!important;
-    max-width:310px!important;
-    right:14px!important;
-    left:auto!important;
-    bottom:170px!important;
+a[href*="wa.me"].fixed{
+  right:auto!important;
+  left:1.5rem!important;
+}
+@media (max-width:520px){
+  a[href*="wa.me"].fixed{
+    left:1rem!important;
+    bottom:1rem!important;
   }
-  #sofia-popup .sp-img-wrap{height:120px}
-  #sofia-popup .sp-msg{font-size:12.5px;margin-bottom:11px}
 }
-/* Ecrãs muito baixos: o cartão daria com o botão fora do ecrã. */
-@media (max-height: 640px){
-  #sofia-popup .sp-img-wrap{height:96px}
-}
-#sofia-popup.sp-show{display:block!important;animation:sofia-slide-in 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards}
-#sofia-popup .sp-close{position:absolute;top:10px;right:12px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;z-index:10;line-height:1}
-#sofia-popup .sp-close:hover{background:rgba(255,255,255,0.18);color:#fff}
-#sofia-popup .sp-img-wrap{position:relative;height:170px;overflow:hidden;background:linear-gradient(180deg,#0a0f1e 0%,#1a2a4a 100%)}
-#sofia-popup .sp-img{width:100%;height:100%;object-fit:cover;object-position:center top;-webkit-mask-image:linear-gradient(to bottom,black 55%,transparent 100%);mask-image:linear-gradient(to bottom,black 55%,transparent 100%)}
-#sofia-popup .sp-badge{position:absolute;top:10px;left:10px;background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.4);border-radius:100px;padding:4px 10px;font-size:10px;font-weight:600;color:#00ff88;letter-spacing:0.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px}
-#sofia-popup .sp-dot{width:6px;height:6px;background:#00ff88;border-radius:50%;animation:sp-pulse 1.5s infinite}
-#sofia-popup .sp-body{padding:14px 16px 16px}
-#sofia-popup .sp-name{font-size:11px;font-weight:700;color:rgba(201,168,76,0.9);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px}
-#sofia-popup .sp-msg{font-size:13px;color:rgba(255,255,255,0.82);line-height:1.55;margin-bottom:13px}
-#sofia-popup .sp-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;background:linear-gradient(135deg,#c9a84c,#9a7a2e);color:#050810;font-weight:700;font-size:13px;padding:12px 18px;border-radius:12px;border:none;cursor:pointer;text-decoration:none;transition:all 0.3s;letter-spacing:0.02em}
-#sofia-popup .sp-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(201,168,76,0.4)}
 </style>
-<button class="sp-close" onclick="document.getElementById('sofia-popup').style.display='none';sessionStorage.setItem('sofia-closed','1')" aria-label="Fechar">&times;</button>
-<div class="sp-img-wrap">
-  <img class="sp-img" src="https://raw.githubusercontent.com/ricardomagalhaes014/sofiadps/master/sofia.png" alt="Sofia DPS" />
-  <div class="sp-badge"><span class="sp-dot"></span>Online Agora</div>
-</div>
-<div class="sp-body">
-  <div class="sp-name">Sofia &mdash; DPS Imobili&aacute;rio</div>
-  <div class="sp-msg">Ol&aacute;! Estou dispon&iacute;vel <strong>24 horas</strong> para responder a todas as suas quest&otilde;es sobre im&oacute;veis. Pressione para falarmos!</div>
-  <a href="https://dpsimobiliario.pt/sofiadps/" target="_blank" class="sp-btn">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.68A2 2 0 012 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-    Falamos Consigo &mdash; 24 Horas
-  </a>
-</div>
-</div>
-<script>
-(function(){
-  if(sessionStorage.getItem('sofia-closed')) return;
-  setTimeout(function(){
-    var p=document.getElementById('sofia-popup');
-    if(p){p.style.display='block';p.classList.add('sp-show');}
-  },3000);
-})();
-</script>
-<!-- FIM POPUP SOFIA DPS -->
 <!-- Assistente Virtual Sofia -->
 <elevenlabs-convai agent-id="agent_0901kv03vzc4eqnvzt5758mms6t8"></elevenlabs-convai>
 <script src="https://elevenlabs.io/convai-widget/index.js" async type="text/javascript"></script>
