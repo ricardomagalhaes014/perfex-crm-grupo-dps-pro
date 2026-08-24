@@ -178,37 +178,44 @@ function dps_propostas_coluna_motivo()
     }
 
     /*
-     * A estrela do Top 5 da semana.
+     * A estrela do Top 5.
      *
-     * Guarda-se a SEGUNDA-FEIRA da semana em que foi marcada, e não um
-     * simples sim/não. É isso que faz a lista limpar-se sozinha ao domingo à
-     * noite: na semana seguinte a data já não bate com a semana corrente e a
-     * proposta sai do Top sem ninguém ter de apagar nada — e sem se perder o
-     * registo de que naquela semana ela lá esteve.
+     * Guarda-se O MOMENTO em que foi posta, e não um sim/não. É isso que faz
+     * a estrela apagar-se sozinha: vale sete dias a contar do dia em que o
+     * comercial a pôs, e passado esse prazo deixa de contar sem ninguém ter
+     * de apagar nada — e sem se perder o registo de que ela lá esteve.
      */
-    if (!$CI->db->field_exists('top_semana', $t)) {
-        $CI->db->query("ALTER TABLE `{$t}` ADD `top_semana` DATE NULL DEFAULT NULL");
+    if (!$CI->db->field_exists('top_marcada_em', $t)) {
+        $CI->db->query("ALTER TABLE `{$t}` ADD `top_marcada_em` DATETIME NULL DEFAULT NULL");
+    }
+
+    /*
+     * A primeira versão guardava a segunda-feira da semana. O dono corrigiu
+     * (24/08/2026): a estrela dura sete dias a contar de quando é posta, e
+     * não até ao próximo domingo. A coluna antiga nunca chegou a ter dados —
+     * foi criada e substituída no mesmo dia.
+     */
+    if ($CI->db->field_exists('top_semana', $t)) {
+        $CI->db->query("ALTER TABLE `{$t}` DROP COLUMN `top_semana`");
     }
 }
 
-/**
- * A segunda-feira da semana a que uma data pertence.
- *
- * A semana de trabalho começa à segunda: a reunião é a essa hora e é sobre o
- * que se marcou desde então.
- */
-function dps_propostas_semana($quando = null)
+/** Quantos dias vale uma estrela. */
+function dps_propostas_top_dias()
 {
-    $t = $quando ? strtotime($quando) : time();
-
-    // 'monday this week' dá o dia certo mesmo quando hoje É segunda.
-    return date('Y-m-d', strtotime('monday this week', $t));
+    return 7;
 }
 
-/** Quantas propostas cabem no Top da semana. */
+/** Quantas propostas cabem no Top de cada comercial. */
 function dps_propostas_top_max()
 {
     return 5;
+}
+
+/** A partir de que momento uma estrela ainda conta. */
+function dps_propostas_top_desde()
+{
+    return date('Y-m-d H:i:s', strtotime('-' . dps_propostas_top_dias() . ' days'));
 }
 
 hooks()->add_action('after_lead_tabs_content', 'dps_propostas_render_lead_tab');

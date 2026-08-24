@@ -533,7 +533,7 @@ class Dps_propostas extends AdminController
 
         $id = (int) $this->input->post('id');
 
-        $prop = $this->db->select('id, staff_id, top_semana')
+        $prop = $this->db->select('id, staff_id, top_marcada_em')
             ->where('id', $id)->get(db_prefix() . 'dps_propostas')->row();
 
         if (! $prop) {
@@ -542,45 +542,53 @@ class Dps_propostas extends AdminController
         }
 
         /*
-         * Só o dono da proposta a marca. A direcção também pode — é ela que
-         * conduz a reunião e por vezes é ela que aponta o que quer ouvir.
+         * QUEM PÕE A ESTRELA É O COMERCIAL. Regra do dono (24/08/2026).
+         *
+         * Nem a direcção marca por ele: são as propostas que ELE escolhe levar
+         * à reunião, e escolhidas por outro deixavam de ser escolha dele.
          */
-        if (! is_admin() && (int) $prop->staff_id !== (int) get_staff_user_id()) {
-            echo json_encode(['success' => false, 'message' => 'Essa proposta não é sua.']);
-            return;
-        }
-
-        $semana = dps_propostas_semana();
-        $ligada = ((string) $prop->top_semana === $semana);
-
-        if ($ligada) {
-            $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', ['top_semana' => null]);
-
-            echo json_encode(['success' => true, 'marcada' => false, 'total' => $this->top_quantas($prop->staff_id, $semana)]);
-            return;
-        }
-
-        $max      = dps_propostas_top_max();
-        $quantas  = $this->top_quantas($prop->staff_id, $semana);
-
-        if ($quantas >= $max) {
+        if ((int) $prop->staff_id !== (int) get_staff_user_id()) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Já tem ' . $max . ' escolhidas esta semana. Tire uma estrela antes de pôr outra.',
+                'message' => 'Só o comercial da proposta a pode pôr no Top.',
             ]);
             return;
         }
 
-        $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', ['top_semana' => $semana]);
+        $desde  = dps_propostas_top_desde();
+        $ligada = ! empty($prop->top_marcada_em) && $prop->top_marcada_em >= $desde;
+
+        if ($ligada) {
+            $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', ['top_marcada_em' => null]);
+
+            echo json_encode(['success' => true, 'marcada' => false, 'total' => $this->top_quantas($prop->staff_id)]);
+            return;
+        }
+
+        $max     = dps_propostas_top_max();
+        $quantas = $this->top_quantas($prop->staff_id);
+
+        if ($quantas >= $max) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Já tem ' . $max . ' com estrela. Tire uma antes de pôr outra — '
+                    . 'ou espere que a mais antiga passe os ' . dps_propostas_top_dias() . ' dias.',
+            ]);
+            return;
+        }
+
+        $this->db->where('id', $id)->update(db_prefix() . 'dps_propostas', [
+            'top_marcada_em' => date('Y-m-d H:i:s'),
+        ]);
 
         echo json_encode(['success' => true, 'marcada' => true, 'total' => $quantas + 1]);
     }
 
-    /** Quantas estrelas este comercial já tem nesta semana. */
-    private function top_quantas($staff_id, $semana)
+    /** Quantas estrelas deste comercial ainda estão dentro dos sete dias. */
+    private function top_quantas($staff_id)
     {
         return (int) $this->db->where('staff_id', (int) $staff_id)
-            ->where('top_semana', $semana)
+            ->where('top_marcada_em >=', dps_propostas_top_desde())
             ->count_all_results(db_prefix() . 'dps_propostas');
     }
 
@@ -887,21 +895,21 @@ class Dps_propostas extends AdminController
          * ver um comercial vê o top desse comercial; a direcção sem filtro vê
          * o de toda a gente, agrupado, que é como a reunião de segunda corre.
          */
-        $semana = dps_propostas_semana();
+        $desde = dps_propostas_top_desde();
 
         $this->db->select('p.id, p.lead_id, p.staff_id, p.empreendimento, p.unidade, p.valor,
-                           p.outcome, l.name AS lead_nome, l.phonenumber AS lead_telefone,
+                           p.outcome, p.top_marcada_em, l.name AS lead_nome, l.phonenumber AS lead_telefone,
                            CONCAT(s.firstname, " ", s.lastname) AS comercial', false);
         $this->db->from(db_prefix() . 'dps_propostas p');
         $this->db->join(db_prefix() . 'leads l', 'l.id = p.lead_id', 'left');
         $this->db->join(db_prefix() . 'staff s', 's.staffid = p.staff_id', 'left');
-        $this->db->where('p.top_semana', $semana);
+        $this->db->where('p.top_marcada_em >=', $desde);
 
         if ($comercial > 0) {
             $this->db->where('p.staff_id', $comercial);
         }
 
-        $this->db->order_by('s.firstname, p.id');
+        $this->db->order_by('s.firstname, p.top_marcada_em');
 
         $top = [];
 
@@ -910,11 +918,11 @@ class Dps_propostas extends AdminController
             $top[$nome][] = $linha;
         }
 
-        $data['top_semana']      = $top;
-        $data['top_max']         = dps_propostas_top_max();
-        $data['top_inicio']      = $semana;
-        $data['top_fim']         = date('Y-m-d', strtotime($semana . ' +6 days'));
-        $data['top_meus']        = $this->top_quantas(get_staff_user_id(), $semana);
+        $data['top_semana'] = $top;
+        $data['top_max']    = dps_propostas_top_max();
+        $data['top_dias']   = dps_propostas_top_dias();
+        $data['top_desde']  = $desde;
+        $data['top_meus']   = $this->top_quantas(get_staff_user_id());
 
         $data['g_comerciais'] = $g_comerciais;
         $data['g_emps']       = $g_emps;

@@ -159,12 +159,11 @@
                         <div style="border:1px solid #f0dda8;background:#fffdf5;border-radius:10px;padding:14px 16px;margin-bottom:18px;">
                             <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:<?= empty($top_semana) ? '0' : '10px'; ?>;">
                                 <strong style="color:#8a6d1b;">
-                                    <i class="fa fa-star" style="color:#e0a800;"></i>
-                                    Top <?= (int) $top_max; ?> da semana
+                                    <span style="color:#e0a800;">&#9733;</span>
+                                    Top <?= (int) $top_max; ?>
                                 </strong>
                                 <span class="text-muted" style="font-size:12px;">
-                                    <?= date('d/m', strtotime($top_inicio)); ?> a <?= date('d/m', strtotime($top_fim)); ?>
-                                    · limpa ao fim da semana
+                                    cada estrela dura <?= (int) $top_dias; ?> dias e apaga-se sozinha
                                 </span>
                                 <span class="text-muted" style="margin-left:auto;font-size:12px;">
                                     <?= (int) $top_meus; ?> de <?= (int) $top_max; ?> escolhidas por si
@@ -173,8 +172,8 @@
 
                             <?php if (empty($top_semana)) { ?>
                             <p class="text-muted" style="margin:6px 0 0;font-size:13px;">
-                                Ainda ninguém escolheu nada. Carregue na estrela ao lado do cliente,
-                                na lista em baixo, para pôr uma proposta no Top desta semana.
+                                Ainda ninguém escolheu nada. Carregue na estrela &#9734; ao lado do cliente,
+                                na lista em baixo, para pôr uma proposta no Top.
                             </p>
                             <?php } else { ?>
                             <?php foreach ($top_semana as $nome_com => $linhas) { ?>
@@ -195,11 +194,17 @@
                                                 · <?= number_format((float) $t->valor, 0, ',', '.'); ?> €
                                             <?php } ?>
                                         </div>
-                                        <?php if (($t->outcome ?? '') !== '' && $t->outcome !== 'pendente') { ?>
-                                        <div style="font-size:11px;color:#8a97a6;text-transform:uppercase;letter-spacing:.04em;">
-                                            <?= e($dps_rot[$t->outcome] ?? $t->outcome); ?>
+                                        <?php
+                                        $dps_falta = (int) ceil(
+                                            (strtotime($t->top_marcada_em) + ($top_dias * 86400) - time()) / 86400
+                                        );
+                                        ?>
+                                        <div style="font-size:11px;color:#a08a4a;">
+                                            <?= $dps_falta <= 1 ? 'último dia' : 'faltam ' . $dps_falta . ' dias'; ?>
+                                            <?php if (($t->outcome ?? '') !== '' && $t->outcome !== 'pendente') { ?>
+                                                · <?= e($dps_rot[$t->outcome] ?? $t->outcome); ?>
+                                            <?php } ?>
                                         </div>
-                                        <?php } ?>
                                     </a>
                                     <?php } ?>
                                 </div>
@@ -274,7 +279,10 @@
                                     </td></tr>
                                     <?php } ?>
                                     <?php foreach ($propostas as $p) { ?>
-                                    <?php $dps_top = ((string) ($p->top_semana ?? '') === $top_inicio); ?>
+                                    <?php
+                                    $dps_top  = ! empty($p->top_marcada_em) && $p->top_marcada_em >= $top_desde;
+                                    $dps_meu  = ((int) $p->staff_id === (int) get_staff_user_id());
+                                    ?>
                                     <tr data-proposta="<?= (int) $p->id; ?>" data-lead="<?= (int) $p->lead_id; ?>">
                                         <td>
                                             <?php
@@ -284,12 +292,28 @@
                                              * abre o quadro para preparar a reunião de segunda.
                                              */
                                             ?>
+                                            <?php
+                                            /*
+                                             * A estrela é o CARACTERE ★, não um ícone do Font
+                                             * Awesome. O CRM usa a versão 6, onde o "fa-star-o"
+                                             * do antigamente já não existe — a estrela por marcar
+                                             * saía invisível e não havia nada onde carregar.
+                                             *
+                                             * Quem não é dono da proposta vê-a, mas apagada e
+                                             * sem clique: quem escolhe é o comercial dela.
+                                             */
+                                            ?>
+                                            <?php if ($dps_meu) { ?>
                                             <a href="#" class="dps-estrela<?= $dps_top ? ' dps-estrela-on' : ''; ?>"
                                                data-id="<?= (int) $p->id; ?>"
-                                               title="<?= $dps_top ? 'Está no Top da semana — carregue para tirar' : 'Pôr no Top da semana'; ?>"
-                                               style="text-decoration:none;margin-right:6px;color:<?= $dps_top ? '#e0a800' : '#ccd0d4'; ?>;">
-                                                <i class="fa <?= $dps_top ? 'fa-star' : 'fa-star-o'; ?>"></i>
-                                            </a>
+                                               title="<?= $dps_top ? 'No Top — carregue para tirar' : 'Pôr no Top (' . (int) $top_dias . ' dias)'; ?>"
+                                               style="text-decoration:none;margin-right:6px;font-size:17px;line-height:1;color:<?= $dps_top ? '#e0a800' : '#c3c9d0'; ?>;"><?= $dps_top ? '&#9733;' : '&#9734;'; ?></a>
+                                            <?php } elseif ($dps_top) { ?>
+                                            <span title="No Top de <?= e($p->lead_nome ? get_staff_full_name($p->staff_id) : ''); ?>"
+                                                  style="margin-right:6px;font-size:17px;line-height:1;color:#e0a800;">&#9733;</span>
+                                            <?php } else { ?>
+                                            <span style="margin-right:6px;font-size:17px;line-height:1;color:#eceff2;">&#9734;</span>
+                                            <?php } ?>
                                             <a href="<?= admin_url('leads/index/' . (int) $p->lead_id); ?>"><?= e($p->lead_nome ?: ('#' . (int) $p->lead_id)); ?></a>
                                         </td>
                                         <td style="white-space:nowrap;">
@@ -612,14 +636,13 @@ document.addEventListener('click', function (ev) {
     if (alvo.dataset.ocupado === '1') { return; }
     alvo.dataset.ocupado = '1';
 
-    var icone   = alvo.querySelector('i');
-    var estava  = alvo.classList.contains('dps-estrela-on');
+    var estava = alvo.classList.contains('dps-estrela-on');
 
     var pintar = function (ligada) {
         alvo.classList.toggle('dps-estrela-on', ligada);
-        icone.className = 'fa ' + (ligada ? 'fa-star' : 'fa-star-o');
-        alvo.style.color = ligada ? '#e0a800' : '#ccd0d4';
-        alvo.title = ligada ? 'Está no Top da semana — carregue para tirar' : 'Pôr no Top da semana';
+        alvo.innerHTML   = ligada ? '\u2605' : '\u2606';
+        alvo.style.color = ligada ? '#e0a800' : '#c3c9d0';
+        alvo.title = ligada ? 'No Top — carregue para tirar' : 'Pôr no Top';
     };
 
     pintar(!estava);
