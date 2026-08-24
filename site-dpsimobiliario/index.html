@@ -98,6 +98,21 @@
       auraCard.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="Aura Residence" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="https://dpsimobiliario.pt/auraresidence/assets/render7.jpg" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">Aura Residence</h4><p class="text-[#666] text-xs mb-2">Meixomil, Paços de Ferreira · Portugal</p><p class="text-[#C5A55A] font-semibold text-sm">Novo - T0 a T3 com varandas</p></div></div>';
       container3.appendChild(auraCard);
     }
+        // 1c. Adicionar card Cais da Pescaria ao lado do Lake Towers
+    var lakeLink4 = allLinks.find(function(a) { return a.textContent.includes('Lake Towers'); });
+    if (lakeLink4 && !document.getElementById('pescaria-card-injected')) {
+      var container4 = lakeLink4.parentElement;
+      var pescCard = document.createElement('a');
+      pescCard.id = 'pescaria-card-injected';
+      pescCard.href = 'https://dpsimobiliario.pt/pescariacaisgaia';
+      pescCard.target = '_blank';
+      pescCard.rel = 'noopener noreferrer';
+      pescCard.className = lakeLink4.className;
+      pescCard.style.textDecoration = 'none';
+      pescCard.innerHTML = '<div class="border border-[#C5A55A]/20 overflow-hidden hover:border-[#C5A55A]/60 transition-all duration-300 hover:shadow-lg hover:shadow-[#C5A55A]/10"><div class="relative h-48 overflow-hidden"><img alt="Cais da Pescaria" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" src="https://dpsimobiliario.pt/pescariacaisgaia/img/depois_angulo.jpg" style="object-position:center"></div><div class="p-4 bg-white"><h4 class="font-bold text-[#1a1a1a] text-base mb-1" style="font-family: var(--font-display);">Cais da Pescaria</h4><p class="text-[#666] text-xs mb-2">Vila Nova de Gaia \u00b7 Portugal</p><p class="text-[#C5A55A] font-semibold text-sm">Lofts e T1 sobre o Douro \u2014 desde 350.000 \u20ac</p></div></div>';
+      container4.appendChild(pescCard);
+    }
+
     // 2. Tornar o banner Portugal clicável para portugal.php
     var ptHeadings = Array.from(document.querySelectorAll('h2, h3, h4'));
     var ptH = ptHeadings.find(function(h) { return h.textContent.includes('\uD83C\uDDF5\uD83C\uDDF9'); });

@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cais da Pescaria — Vila Nova de Gaia | DPS Imobiliário</title>
+<meta name="description" content="Antiga tanoaria do vinho do Porto, na marginal do Douro em Vila Nova de Gaia, em frente à Alfândega. Lofts e T1 sobre o rio, desde 350.000 €. DPS Imobiliário.">
+<meta property="og:title" content="Cais da Pescaria — Vila Nova de Gaia">
+<meta property="og:description" content="A tanoaria do vinho do Porto renasce em 20 unidades sobre o Douro, em frente à Alfândega.">
+<meta property="og:image" content="https://dpsimobiliario.pt/pescariacaisgaia/img/depois_angulo.jpg">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%238FA3A2'/%3E%3Cg fill='%23F3F0EA'%3E%3Crect x='6' y='9' width='2.4' height='9'/%3E%3Crect x='10' y='9' width='2.4' height='9'/%3E%3Crect x='14' y='9' width='2.4' height='9'/%3E%3Crect x='6' y='19.5' width='20' height='2.2'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@200;300;400;500&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   CAIS DA PESCARIA
+   A paleta sai do próprio edifício e do livro do projecto: o verde
+   eucalipto da capa, o papel de aveia das páginas, o azul-tinta da
+   água ao fim da tarde, e o vinho da fachada recuperada — que é a
+   única cor forte da página e por isso aparece pouco.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --tinta:#1B2A2A;
+  --tinta-70:rgba(27,42,42,.70);
+  --tinta-45:rgba(27,42,42,.45);
+  --sage:#8FA3A2;
+  --sage-fundo:#6E8483;
+  --papel:#E5E1D8;
+  --papel-claro:#F3F0EA;
+  --vinho:#A2505E;
+  --marinho:#22405F;
+  --linha:rgba(27,42,42,.14);
+  --max:1320px;
+  --gutter:clamp(20px,5vw,72px);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:'Jost',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-weight:300;
+  font-size:17px;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+img{max-width:100%;display:block}
+a{color:inherit}
+
+/* ── tipografia ───────────────────────────────────────────────── */
+.eyebrow{
+  font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+  font-weight:400;color:var(--tinta-45);
+}
+h1,h2,h3{font-weight:200;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:clamp(2rem,5.2vw,4rem);line-height:1.04}
+h3{font-size:clamp(1.3rem,2.4vw,1.85rem);line-height:1.15;font-weight:300}
+.prosa{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:clamp(1.12rem,1.55vw,1.35rem);
+  line-height:1.72;font-weight:300;color:var(--tinta-70);
+  max-width:62ch;
+}
+.prosa p+p{margin-top:1.15em}
+.prosa strong{font-weight:400;color:var(--tinta)}
+
+/* ── estrutura ────────────────────────────────────────────────── */
+.faixa{padding:clamp(72px,11vw,150px) var(--gutter)}
+.dentro{max-width:var(--max);margin:0 auto}
+.regua{height:1px;background:var(--linha);border:0;margin:0}
+
+/* ── marca ────────────────────────────────────────────────────── */
+.marca{display:inline-flex;align-items:flex-end;gap:.42em;line-height:1}
+.marca .barras{display:flex;gap:.16em;align-items:flex-end}
+.marca .barras i{display:block;width:.115em;background:currentColor}
+.marca .nome{
+  font-size:1em;letter-spacing:.055em;font-weight:300;
+  text-transform:uppercase;
+}
+
+/* ═══ HERO ════════════════════════════════════════════════════ */
+.hero{
+  position:relative;min-height:100svh;display:flex;align-items:flex-end;
+  padding:var(--gutter);overflow:hidden;background:var(--tinta);
+}
+.hero-fundo{
+  position:absolute;inset:0;
+  background:url('img/depois_angulo.jpg') center 58%/cover no-repeat;
+  transform:scale(1.06);
+  animation:respirar 26s ease-in-out infinite alternate;
+}
+@keyframes respirar{to{transform:scale(1.13)}}
+.hero::after{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(180deg,rgba(27,42,42,.55) 0%,rgba(27,42,42,0) 32%),
+    linear-gradient(0deg,rgba(27,42,42,.88) 0%,rgba(27,42,42,.32) 38%,rgba(27,42,42,0) 66%);
+}
+.hero-conteudo{position:relative;z-index:2;width:100%;max-width:var(--max);margin:0 auto;color:var(--papel-claro)}
+.hero-topo{
+  position:absolute;top:0;left:0;right:0;z-index:3;
+  padding:calc(var(--gutter) * .8) var(--gutter);
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  color:var(--papel-claro);
+}
+.hero-topo .marca{font-size:19px;opacity:.9}
+.hero-topo .marca .barras{height:.78em}
+.hero-topo .marca .barras i{height:100%}
+.dps-logo{display:block;line-height:0;flex:0 0 auto}
+.dps-logo img{
+  width:auto;height:clamp(46px,6vw,72px);
+  /* O logótipo é dourado e vem de fundo branco. Sobre o céu da fotografia
+     desaparecia — a sombra curta devolve-lhe o contorno sem lhe pôr caixa. */
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.55)) drop-shadow(0 6px 22px rgba(0,0,0,.4));
+}
+.zap{
+  display:inline-flex;align-items:center;gap:8px;text-decoration:none;
+  font-size:13px;letter-spacing:.08em;font-weight:400;
+  padding:9px 16px;border:1px solid rgba(243,240,234,.45);border-radius:100px;
+  background:rgba(27,42,42,.28);backdrop-filter:blur(6px);
+  transition:background .3s ease,border-color .3s ease,color .3s ease;
+  white-space:nowrap;
+}
+.zap:hover{background:#25D366;border-color:#25D366;color:#fff}
+@media(max-width:720px){
+  .hero-topo{flex-wrap:wrap;gap:10px 14px}
+  .hero-topo .marca{order:3;font-size:16px}
+  .zap{font-size:12px;padding:8px 13px}
+}
+.hero h1{
+  font-size:clamp(3rem,10.5vw,8.5rem);line-height:.92;font-weight:200;
+  letter-spacing:-.02em;margin-bottom:.22em;
+}
+.hero h1 em{font-style:normal;display:block;font-size:.42em;letter-spacing:.14em;
+  text-transform:uppercase;font-weight:300;opacity:.82;margin-bottom:.5em}
+.hero-linha{height:1px;background:rgba(243,240,234,.4);transform-origin:left;margin:26px 0 22px}
+.hero-pe{display:flex;flex-wrap:wrap;gap:10px 40px;align-items:baseline;font-size:13.5px;letter-spacing:.12em;text-transform:uppercase;opacity:.86}
+.desce{position:absolute;right:var(--gutter);bottom:calc(var(--gutter) + 4px);z-index:3;
+  writing-mode:vertical-rl;font-size:10px;letter-spacing:.3em;text-transform:uppercase;
+  color:rgba(243,240,234,.6);display:flex;align-items:center;gap:12px}
+.desce::after{content:'';width:1px;height:52px;background:linear-gradient(rgba(243,240,234,.6),transparent)}
+
+/* ═══ TESE ════════════════════════════════════════════════════ */
+.tese{background:var(--sage-fundo);color:var(--papel-claro);text-align:center}
+.tese p{
+  font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+  font-size:clamp(1.45rem,3.6vw,2.6rem);line-height:1.34;
+  max-width:24ch;margin:0 auto;text-wrap:balance;
+}
+.tese .eyebrow{color:rgba(243,240,234,.6);margin-bottom:1.6em;display:block}
+
+/* ═══ ANTES / DEPOIS ══════════════════════════════════════════ */
+.comparador{
+  position:relative;aspect-ratio:2041/1149;overflow:hidden;
+  background:var(--tinta);cursor:ew-resize;user-select:none;touch-action:none;
+  border-radius:2px;
+}
+.comparador img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.comparador .depois{clip-path:inset(0 0 0 var(--corte,50%))}
+.comparador .puxador{
+  position:absolute;top:0;bottom:0;left:var(--corte,50%);width:2px;
+  background:var(--papel-claro);z-index:3;pointer-events:none;
+  box-shadow:0 0 22px rgba(0,0,0,.35);
+}
+.comparador .puxador::before{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:58px;height:58px;border-radius:50%;
+  background:rgba(243,240,234,.94);
+  box-shadow:0 6px 26px rgba(0,0,0,.28);
+}
+.comparador .puxador::after{
+  content:'‹ ›';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:var(--tinta);font-size:19px;letter-spacing:.18em;
+}
+.selo{
+  position:absolute;bottom:16px;z-index:4;font-size:10px;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--papel-claro);
+  background:rgba(27,42,42,.5);padding:7px 14px;backdrop-filter:blur(6px);
+}
+.selo.esq{left:16px}.selo.dir{right:16px}
+
+/* ═══ NÚMEROS ═════════════════════════════════════════════════ */
+.numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;background:var(--linha);border-block:1px solid var(--linha)}
+.numeros div{background:var(--papel);padding:clamp(26px,3.6vw,44px) 18px;text-align:center}
+.numeros b{display:block;font-weight:200;font-size:clamp(2.1rem,4.6vw,3.4rem);line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.numeros span{display:block;margin-top:.85em;font-size:10.5px;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--tinta-45);line-height:1.5}
+
+/* ═══ EDITORIAL ═══════════════════════════════════════════════ */
+.duas{display:grid;grid-template-columns:1fr;gap:clamp(34px,5vw,80px)}
+@media(min-width:900px){.duas{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);align-items:start}}
+.cabeca h2{margin-bottom:.5em}
+.cabeca .eyebrow{display:block;margin-bottom:1.6em}
+
+/* ═══ GALERIA ═════════════════════════════════════════════════ */
+.galeria{display:grid;gap:clamp(10px,1.4vw,20px);grid-template-columns:repeat(6,1fr)}
+.galeria figure{margin:0;position:relative;overflow:hidden;background:var(--papel-claro)}
+.galeria img{width:100%;height:100%;object-fit:cover;transition:transform 1.1s cubic-bezier(.2,.7,.3,1)}
+.galeria figure:hover img{transform:scale(1.045)}
+.g-alta{grid-column:span 6;aspect-ratio:16/10}
+@media(min-width:760px){
+  .g-a{grid-column:span 4;aspect-ratio:16/9}
+  .g-b{grid-column:span 2;aspect-ratio:3/4}
+  .g-c{grid-column:span 2;aspect-ratio:3/4}
+  .g-d{grid-column:span 4;aspect-ratio:16/9}
+  .g-e{grid-column:span 3;aspect-ratio:4/3}
+  .g-f{grid-column:span 3;aspect-ratio:4/3}
+}
+@media(max-width:759px){.galeria figure{grid-column:span 6;aspect-ratio:4/3}}
+.galeria figcaption{
+  position:absolute;left:14px;bottom:12px;font-size:10px;letter-spacing:.24em;
+  text-transform:uppercase;color:#fff;text-shadow:0 1px 12px rgba(0,0,0,.6);
+}
+
+/* ═══ UNIDADES ════════════════════════════════════════════════ */
+.piso+.piso{margin-top:clamp(40px,5vw,68px)}
+.piso-cab{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-bottom:20px}
+.piso-cab h3{font-weight:300}
+.piso-cab span{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--tinta-45)}
+.grelha{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+.uni{
+  background:var(--papel);border:1px solid var(--linha);padding:18px 18px 16px;
+  text-align:left;cursor:pointer;font:inherit;color:inherit;position:relative;
+  transition:background .28s ease,border-color .28s ease,transform .28s cubic-bezier(.2,.7,.3,1);
+}
+.uni:hover,.uni:focus-visible{background:#fff;border-color:var(--sage);transform:translateY(-2px);outline:0}
+.uni:focus-visible{box-shadow:0 0 0 2px var(--sage)}
+.uni>span{display:block}
+.uni .letra{font-size:clamp(1.9rem,3vw,2.4rem);font-weight:200;line-height:1;letter-spacing:-.02em}
+.uni .tipo{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--tinta-45);margin-top:1em}
+.uni .area{font-size:16px;margin-top:.3em;font-variant-numeric:tabular-nums;font-weight:400}
+.uni .extra{font-size:11.5px;line-height:1.5;color:var(--tinta-45);margin-top:.3em;font-variant-numeric:tabular-nums}
+.uni .ver{display:block;position:absolute;top:16px;right:16px;font-size:16px;color:var(--tinta-45);opacity:0;transition:opacity .25s}
+.uni:hover .ver,.uni:focus-visible .ver{opacity:1}
+
+/* ═══ PLANTAS DE PISO ═════════════════════════════════════════ */
+.pisos-fig{display:grid;gap:clamp(14px,2vw,28px);grid-template-columns:1fr}
+@media(min-width:820px){.pisos-fig{grid-template-columns:repeat(3,1fr)}}
+.pisos-fig figure{margin:0;background:var(--papel-claro);padding:12px;cursor:zoom-in}
+.pisos-fig figcaption{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--tinta-45);margin-top:12px;text-align:center}
+
+/* ═══ LOCALIZAÇÃO ═════════════════════════════════════════════ */
+.escuro{background:var(--tinta);color:var(--papel-claro)}
+.escuro .eyebrow{color:rgba(243,240,234,.45)}
+.escuro .prosa{color:rgba(243,240,234,.76)}
+.escuro .prosa strong{color:var(--papel-claro)}
+.escuro .regua{background:rgba(243,240,234,.16)}
+.tempos{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:1px;
+  background:rgba(243,240,234,.16);margin-top:clamp(34px,4vw,54px)}
+.tempos div{background:var(--tinta);padding:22px 14px}
+.tempos b{display:block;font-size:clamp(1.5rem,3vw,2.1rem);font-weight:200;line-height:1;font-variant-numeric:tabular-nums}
+.tempos span{display:block;margin-top:.8em;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:rgba(243,240,234,.5);line-height:1.5}
+.mapas{display:grid;gap:clamp(12px,1.8vw,22px);grid-template-columns:1fr;margin-top:clamp(34px,4vw,54px)}
+@media(min-width:860px){.mapas{grid-template-columns:repeat(3,1fr)}}
+.mapas figure{margin:0;cursor:zoom-in;background:#d9d5cb}
+.mapas figcaption{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:rgba(243,240,234,.5);margin-top:12px}
+
+/* ═══ FECHO ═══════════════════════════════════════════════════ */
+.fecho{background:var(--sage-fundo);color:var(--papel-claro);text-align:center}
+.fecho h2{margin-bottom:.6em}
+.fecho .prosa{color:rgba(243,240,234,.82);margin:0 auto 2.6em;text-align:center;max-width:52ch}
+.botoes{display:flex;flex-wrap:wrap;gap:14px;justify-content:center}
+.btn{
+  display:inline-flex;align-items:center;gap:10px;padding:15px 30px;
+  text-decoration:none;font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+  border:1px solid rgba(243,240,234,.55);color:var(--papel-claro);
+  transition:background .3s ease,color .3s ease,border-color .3s ease;
+}
+.btn:hover{background:var(--papel-claro);color:var(--sage-fundo);border-color:var(--papel-claro)}
+.btn.cheio{background:var(--papel-claro);color:var(--sage-fundo);border-color:var(--papel-claro)}
+.btn.cheio:hover{background:transparent;color:var(--papel-claro);border-color:rgba(243,240,234,.55)}
+
+footer{background:var(--tinta);color:rgba(243,240,234,.55);padding:44px var(--gutter);font-size:12px}
+footer .dentro{display:flex;flex-wrap:wrap;gap:14px 34px;justify-content:space-between;align-items:center}
+footer a{text-decoration:none;border-bottom:1px solid rgba(243,240,234,.25)}
+footer .creditos{letter-spacing:.14em;text-transform:uppercase;font-size:10.5px}
+
+/* ═══ CONTACTO SEMPRE À MÃO ═══════════════════════════════════ */
+.zap-fixo{
+  position:fixed;left:clamp(14px,2.2vw,26px);bottom:clamp(14px,2.2vw,26px);z-index:80;
+  display:inline-flex;align-items:center;gap:10px;
+  background:#25D366;color:#fff;text-decoration:none;
+  padding:13px 20px;border-radius:100px;
+  font-size:14px;letter-spacing:.04em;font-weight:400;
+  box-shadow:0 8px 30px rgba(0,0,0,.22);
+  transition:transform .3s cubic-bezier(.2,.7,.3,1),box-shadow .3s ease;
+}
+.zap-fixo:hover{transform:translateY(-3px);box-shadow:0 14px 38px rgba(0,0,0,.3)}
+@media(max-width:520px){
+  .zap-fixo{padding:13px;gap:0}
+  .zap-fixo span{display:none}
+}
+
+/* ═══ LIGHTBOX ════════════════════════════════════════════════ */
+.caixa{
+  position:fixed;inset:0;z-index:90;background:rgba(20,30,30,.94);
+  display:none;align-items:center;justify-content:center;padding:clamp(16px,4vw,54px);
+  backdrop-filter:blur(3px);
+}
+.caixa.aberta{display:flex}
+.caixa img{max-width:100%;max-height:82vh;object-fit:contain;background:var(--papel-claro)}
+.caixa .rot{position:absolute;top:clamp(16px,4vw,40px);left:clamp(16px,4vw,54px);
+  color:var(--papel-claro);font-size:11px;letter-spacing:.26em;text-transform:uppercase}
+.caixa .fecha{position:absolute;top:clamp(12px,3.5vw,32px);right:clamp(14px,4vw,48px);
+  background:none;border:0;color:var(--papel-claro);font-size:30px;line-height:1;cursor:pointer;
+  font-family:'Jost',sans-serif;font-weight:200;padding:8px}
+
+/* ═══ REVELAR ═════════════════════════════════════════════════ */
+.revelar{opacity:0;transform:translateY(26px);transition:opacity 1s cubic-bezier(.2,.7,.3,1),transform 1s cubic-bezier(.2,.7,.3,1)}
+.revelar.vista{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .revelar{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ HERO ══════════════════ -->
+<header class="hero">
+  <div class="hero-fundo"></div>
+  <div class="hero-topo">
+    <a class="dps-logo" href="https://dpsimobiliario.pt" aria-label="DPS Imobiliário">
+      <img src="img/dps.png" alt="DPS Imobiliário" width="338" height="187">
+    </a>
+    <span class="marca" aria-label="Pescaria">
+      <span class="barras" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="nome">Pescaria</span>
+    </span>
+    <a class="zap" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cais%20da%20Pescaria%20em%20Gaia." target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1s-.5-.2-.7.1c-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5 0-.2 0-.4 0-.5 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.4 1.3 4.9L2 22l5.2-1.3c1.4.8 3 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.9-1.4-1.3-3-1.3-4.6 0-4.6 3.8-8.4 8.4-8.4s8.4 3.8 8.4 8.4-3.7 8.5-8.3 8.5z"/></svg>
+      <span>925 610 864</span>
+    </a>
+  </div>
+
+  <div class="hero-conteudo">
+    <h1 data-anim="titulo">
+      <em>Vila Nova de Gaia</em>
+      Cais da Pescaria
+    </h1>
+    <div class="hero-linha" data-anim="linha"></div>
+    <div class="hero-pe" data-anim="pe">
+      <span>Marginal do Douro</span>
+      <span>20 unidades</span>
+      <span>1.631,60 m²</span>
+      <span>Fim de 2027</span>
+    </div>
+  </div>
+  <span class="desce">Descer</span>
+</header>
+
+<!-- ══════════════════ TESE ══════════════════ -->
+<section class="faixa tese revelar">
+  <div class="dentro">
+    <span class="eyebrow">Uma tanoaria do vinho do Porto</span>
+    <p>Onde se fizeram as pipas que levaram o Douro ao mundo, faz-se agora habitação sobre o rio.</p>
+  </div>
+</section>
+
+<!-- ══════════════════ ANTES / DEPOIS ══════════════════ -->
+<section class="faixa" id="edificio">
+  <div class="dentro">
+    <div class="cabeca revelar" style="margin-bottom:clamp(30px,4vw,52px);max-width:56ch">
+      <span class="eyebrow">O edifício</span>
+      <h2>O mesmo lugar,<br>outra vida.</h2>
+    </div>
+
+    <div class="comparador revelar" id="comp" role="group" aria-label="Antes e depois da fachada. Arraste para comparar.">
+      <img src="img/antes_angulo.jpg" alt="A fachada do edifício antes da intervenção, vista do rio" loading="lazy">
+      <img class="depois" src="img/depois_angulo.jpg" alt="A fachada recuperada, com o reboco cor de vinho e as caixilharias novas" loading="lazy">
+      <span class="selo esq">Antes</span>
+      <span class="selo dir">Depois</span>
+      <span class="puxador" aria-hidden="true"></span>
+    </div>
+    <p class="eyebrow revelar" style="margin-top:16px">Arraste para comparar</p>
+  </div>
+</section>
+
+<!-- ══════════════════ NÚMEROS ══════════════════ -->
+<section class="numeros revelar">
+  <div><b>20</b><span>Unidades</span></div>
+  <div><b>18</b><span>Apartamentos T1</span></div>
+  <div><b>12</b><span>Em duplex</span></div>
+  <div><b>2</b><span>Espaços comerciais</span></div>
+  <div><b>8</b><span>Lugares de garagem</span></div>
+  <div><b>1.631</b><span>m² de área bruta</span></div>
+</section>
+
+<!-- ══════════════════ CONCEITO ══════════════════ -->
+<section class="faixa">
+  <div class="dentro duas">
+    <div class="cabeca revelar">
+      <span class="eyebrow">O projecto</span>
+      <h2>Abrir<br>o edifício<br>ao rio.</h2>
+    </div>
+    <div class="prosa revelar">
+      <p>O edifício nasceu virado para o Douro e viveu dele: era aqui que se fabricavam as <strong>pipas de madeira do vinho do Porto</strong>. Como toda a construção industrial, tinha vãos largos e poucas janelas — servia para trabalhar, não para olhar.</p>
+      <p>A intervenção faz precisamente o contrário. <strong>Abre janelas</strong>, procura a luz e devolve as vistas, mas fá-lo depois de um longo estudo da envolvente e dos edifícios vizinhos, para que nada disto se note como intrusão. As cores da fachada, os materiais e as caixilharias seguem a tradição da arquitectura industrial da marginal de Gaia.</p>
+      <p>São <strong>20 unidades</strong>: dois espaços comerciais no piso térreo e 18 apartamentos de um quarto, com oito lugares de estacionamento. Doze deles são <strong>duplex</strong>, uma decisão tomada para levar a vista do rio até ao quarto.</p>
+      <p>É património protegido, numa margem onde já quase não há terreno para construir — as duas margens do Douro são <strong>Património Mundial da UNESCO desde 1996</strong>. Ter aqui uma casa é fazer parte dessa continuidade.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ GALERIA ══════════════════ -->
+<section class="faixa" style="padding-top:0" id="interiores">
+  <div class="dentro">
+    <div class="cabeca revelar" style="margin-bottom:clamp(28px,3.5vw,46px);max-width:52ch">
+      <span class="eyebrow">Interiores</span>
+      <h2>Madeira clara,<br>cal e o rio à janela.</h2>
+    </div>
+    <div class="galeria">
+      <figure class="g-a revelar"><img src="img/int_sala.jpg" alt="Sala de estar com vão alto sobre o Douro" loading="lazy"><figcaption>Sala sobre o rio</figcaption></figure>
+      <figure class="g-b revelar"><img src="img/int_corredor.jpg" alt="Entrada e corredor com galeria de quadros" loading="lazy"><figcaption>Entrada</figcaption></figure>
+      <figure class="g-c revelar"><img src="img/int_banho.jpg" alt="Casa de banho com azulejo vertical e chão em granito lavado" loading="lazy"><figcaption>Casa de banho</figcaption></figure>
+      <figure class="g-d revelar"><img src="img/int_escada.jpg" alt="Escada interior do duplex, em madeira" loading="lazy"><figcaption>Duplex</figcaption></figure>
+      <figure class="g-e revelar"><img src="img/int_cozinha.jpg" alt="Cozinha aberta em madeira clara" loading="lazy"><figcaption>Cozinha</figcaption></figure>
+      <figure class="g-f revelar"><img src="img/int_quarto.jpg" alt="Quarto em mezanino, aberto sobre a sala" loading="lazy"><figcaption>Quarto em mezanino</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ UNIDADES ══════════════════ -->
+<section class="faixa" id="unidades" style="background:var(--papel-claro)">
+  <div class="dentro">
+    <div class="cabeca revelar" style="margin-bottom:clamp(34px,4vw,56px);max-width:56ch">
+      <span class="eyebrow">As unidades</span>
+      <h2>Vinte fracções,<br>uma a uma.</h2>
+      <p class="prosa" style="margin-top:1.6em">Carregue numa fracção para ver a planta.</p>
+    </div>
+
+    <div class="piso revelar">
+      <div class="piso-cab"><h3>Piso 0</h3><span>Comércio &middot; 8 lugares de garagem</span></div>
+      <div class="grelha" data-piso="0"></div>
+    </div>
+
+    <div class="piso revelar">
+      <div class="piso-cab"><h3>Piso 1 &amp; mezanino</h3><span>12 duplex T1</span></div>
+      <div class="grelha" data-piso="1"></div>
+    </div>
+
+    <div class="piso revelar">
+      <div class="piso-cab"><h3>Piso 2 &amp; mezanino</h3><span>6 apartamentos com terraço</span></div>
+      <div class="grelha" data-piso="2"></div>
+    </div>
+
+    <hr class="regua" style="margin:clamp(48px,6vw,84px) 0">
+
+    <div class="cabeca revelar" style="margin-bottom:clamp(24px,3vw,40px)">
+      <span class="eyebrow">Plantas de piso</span>
+    </div>
+    <div class="pisos-fig">
+      <figure class="revelar" data-lightbox="img/planta_piso0.png" data-rot="Piso 0 — comércio e garagem"><img src="img/planta_piso0.png" alt="Planta do piso 0" loading="lazy"><figcaption>Piso 0</figcaption></figure>
+      <figure class="revelar" data-lightbox="img/planta_piso1.png" data-rot="Piso 1 — fracções C a N"><img src="img/planta_piso1.png" alt="Planta do piso 1" loading="lazy"><figcaption>Piso 1 &amp; mezanino</figcaption></figure>
+      <figure class="revelar" data-lightbox="img/planta_piso2.png" data-rot="Piso 2 — fracções O a T"><img src="img/planta_piso2.png" alt="Planta do piso 2" loading="lazy"><figcaption>Piso 2 &amp; mezanino</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ LOCALIZAÇÃO ══════════════════ -->
+<section class="faixa escuro" id="lugar">
+  <div class="dentro">
+    <div class="duas">
+      <div class="cabeca revelar">
+        <span class="eyebrow">O lugar</span>
+        <h2>Em frente<br>à Alfândega.</h2>
+      </div>
+      <div class="prosa revelar">
+        <p>O Cais da Pescaria fica na margem sul do Douro, com <strong>vista desimpedida sobre o rio e o Porto</strong>, mesmo em frente ao edifício oitocentista da Alfândega — uma das jóias neoclássicas da cidade. As vistas não são apenas boas: são <strong>vistas que ficam</strong>, porque o que está em frente é património classificado.</p>
+        <p>A poente, a marginal segue com passadiços e ciclovia até à <strong>Afurada</strong>, o bairro piscatório dos restaurantes de peixe, e daí à praia e ao Atlântico — o pôr do sol mais ocidental da Europa continental. A nascente, dez minutos a pé, começam as <strong>Caves do Vinho do Porto</strong>, a primeira região demarcada do mundo.</p>
+        <p>A poucos metros a poente nasce a <strong>ponte Antónia Ferreira</strong>, já consignada e prevista para o final de 2027: metro, bicicleta e peões, a quinze minutos a pé daqui. Vai ligar esta margem à Boavista, à Casa da Música, às faculdades — e ao aeroporto, pelo metro.</p>
+      </div>
+    </div>
+
+    <div class="tempos revelar">
+      <div><b>4&prime;</b><span>Nó da A1</span></div>
+      <div><b>8&prime;</b><span>Estação das Devesas</span></div>
+      <div><b>12&prime;</b><span>Campanhã</span></div>
+      <div><b>19&prime;</b><span>Aeroporto</span></div>
+      <div><b>19&prime;</b><span>Terminal de cruzeiros</span></div>
+      <div><b>10&prime;</b><span>Caves, a pé</span></div>
+    </div>
+
+    <div class="mapas">
+      <figure class="revelar" data-lightbox="img/mapa_gaia.jpg" data-rot="Gaia — praias, marina e estuário"><img src="img/mapa_gaia.jpg" alt="Mapa de Vila Nova de Gaia com praias, marina e pontes" loading="lazy"><figcaption>Gaia e o estuário</figcaption></figure>
+      <figure class="revelar" data-lightbox="img/mapa_porto.jpg" data-rot="Porto — centro histórico UNESCO"><img src="img/mapa_porto.jpg" alt="Mapa do Porto com o centro histórico UNESCO" loading="lazy"><figcaption>O Porto em frente</figcaption></figure>
+      <figure class="revelar" data-lightbox="img/mapa_acessos.jpg" data-rot="Acessos — aeroporto, A1, comboio"><img src="img/mapa_acessos.jpg" alt="Mapa de acessos ao aeroporto, autoestradas e estações" loading="lazy"><figcaption>Acessos</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════ FECHO ══════════════════ -->
+<section class="faixa fecho">
+  <div class="dentro revelar">
+    <span class="eyebrow" style="color:rgba(243,240,234,.6);display:block;margin-bottom:1.6em">Comercialização</span>
+    <h2>Quer conhecer<br>o Cais da Pescaria?</h2>
+    <p class="prosa">Falamos consigo sobre disponibilidade, plantas, condições de pagamento e visita ao local.</p>
+    <div class="botoes">
+      <a class="btn cheio" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cais%20da%20Pescaria%20em%20Gaia." target="_blank" rel="noopener">Falar por WhatsApp</a>
+      <a class="btn" href="mailto:imobiliario@grupo-dps.com?subject=Cais%20da%20Pescaria%20—%20Gaia">Enviar email</a>
+      <a class="btn" href="tel:+351925610864">+351 925 610 864</a>
+    </div>
+  </div>
+</section>
+
+<a class="zap-fixo" href="https://wa.me/351925610864?text=Ol%C3%A1%2C%20gostaria%20de%20saber%20mais%20sobre%20o%20Cais%20da%20Pescaria%20em%20Gaia." target="_blank" rel="noopener" aria-label="Falar por WhatsApp: 925 610 864">
+  <svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1s-.5-.2-.7.1c-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6c.1-.2.2-.3.3-.5 0-.2 0-.4 0-.5 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4 0-.1-.2-.2-.5-.3z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.4 1.3 4.9L2 22l5.2-1.3c1.4.8 3 1.2 4.8 1.2 5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3c-.9-1.4-1.3-3-1.3-4.6 0-4.6 3.8-8.4 8.4-8.4s8.4 3.8 8.4 8.4-3.7 8.5-8.3 8.5z"/></svg>
+  <span>925 610 864</span>
+</a>
+
+<footer>
+  <div class="dentro">
+    <a href="https://dpsimobiliario.pt" style="line-height:0;border:0"><img src="img/dps.png" alt="DPS Imobiliário" style="height:40px;width:auto;opacity:.85"></a>
+    <span class="marca" style="font-size:15px"><span class="barras" style="height:.78em" aria-hidden="true"><i style="height:100%"></i><i style="height:100%"></i><i style="height:100%"></i></span><span class="nome">Pescaria</span></span>
+    <span><a href="https://dpsimobiliario.pt">DPS Imobiliário</a> &middot; LIC AMI 26301</span>
+  </div>
+</footer>
+
+<!-- ══════════════════ LIGHTBOX ══════════════════ -->
+<div class="caixa" id="caixa" role="dialog" aria-modal="true" aria-label="Planta">
+  <span class="rot" id="caixa-rot"></span>
+  <button class="fecha" id="caixa-fecha" aria-label="Fechar">&times;</button>
+  <img id="caixa-img" src="" alt="">
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var parado = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── as fracções, tal como vêm do projecto ─────────────────── */
+  var UNIDADES = [
+    {l:'A', piso:0, tipo:'Comércio',  area:100.04},
+    {l:'B', piso:0, tipo:'Comércio',  area:145.30},
+
+    {l:'C', piso:1, tipo:'T1 duplex', area:95.30},
+    {l:'D', piso:1, tipo:'T1 duplex', area:61.20},
+    {l:'E', piso:1, tipo:'T1 duplex', area:62.00},
+    {l:'F', piso:1, tipo:'T1 duplex', area:62.70},
+    {l:'G', piso:1, tipo:'T1 duplex', area:62.00},
+    {l:'H', piso:1, tipo:'T1 duplex', area:69.50},
+    {l:'I', piso:1, tipo:'T1 duplex', area:71.60},
+    {l:'J', piso:1, tipo:'T1 duplex', area:67.10},
+    {l:'K', piso:1, tipo:'T1 duplex', area:64.30},
+    {l:'L', piso:1, tipo:'T1 duplex', area:65.60},
+    {l:'M', piso:1, tipo:'T1 duplex', area:64.70},
+    {l:'N', piso:1, tipo:'T1 duplex', area:89.50},
+
+    {l:'O', piso:2, tipo:'T1',        area:43.70, terraco:20.00},
+    {l:'P', piso:2, tipo:'T1',        area:36.50, terraco:17.60},
+    {l:'Q', piso:2, tipo:'T1',        area:57.20, terraco:21.70, arrumo:12.60},
+    {l:'R', piso:2, tipo:'T1',        area:57.20, terraco:21.90, arrumo:12.60},
+    {l:'S', piso:2, tipo:'T1',        area:36.50, terraco:17.60},
+    {l:'T', piso:2, tipo:'T1',        area:46.90, terraco:16.00}
+  ];
+
+  function num(n){ return n.toFixed(2).replace('.', ','); }
+
+  document.querySelectorAll('.grelha').forEach(function(g){
+    var piso = parseInt(g.dataset.piso, 10);
+    UNIDADES.filter(function(u){ return u.piso === piso; }).forEach(function(u){
+      var b = document.createElement('button');
+      b.className = 'uni';
+      b.type = 'button';
+      b.dataset.lightbox = 'img/planta_' + u.l + '.png';
+      b.dataset.rot = 'Fracção ' + u.l + ' — ' + u.tipo + ' — ' + num(u.area) + ' m²';
+      var extra = '';
+      if (u.terraco) { extra += 'Terraço ' + num(u.terraco) + ' m²'; }
+      if (u.arrumo)  { extra += (extra ? ' &middot; ' : '') + 'Arrumo ' + num(u.arrumo) + ' m²'; }
+      b.innerHTML =
+        '<span class="ver" aria-hidden="true">&#8599;</span>' +
+        '<span class="letra">' + u.l + '</span>' +
+        '<span class="tipo">' + u.tipo + '</span>' +
+        '<span class="area">' + num(u.area) + ' m²</span>' +
+        (extra ? '<span class="extra">' + extra + '</span>' : '');
+      b.setAttribute('aria-label', 'Ver planta da fracção ' + u.l);
+      g.appendChild(b);
+    });
+  });
+
+  /* ── lightbox ──────────────────────────────────────────────── */
+  var caixa = document.getElementById('caixa'),
+      cimg  = document.getElementById('caixa-img'),
+      crot  = document.getElementById('caixa-rot'),
+      antes = null;
+
+  function abrir(src, rot, origem){
+    antes = origem || null;
+    cimg.src = src;
+    cimg.alt = rot || '';
+    crot.textContent = rot || '';
+    caixa.classList.add('aberta');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('caixa-fecha').focus();
+  }
+  function fechar(){
+    caixa.classList.remove('aberta');
+    document.body.style.overflow = '';
+    cimg.src = '';
+    if (antes && antes.focus) { antes.focus(); }
+  }
+  document.addEventListener('click', function(e){
+    var alvo = e.target.closest('[data-lightbox]');
+    if (alvo) { abrir(alvo.dataset.lightbox, alvo.dataset.rot, alvo); return; }
+    if (e.target === caixa || e.target.id === 'caixa-fecha') { fechar(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && caixa.classList.contains('aberta')) { fechar(); }
+  });
+
+  /* ── comparador antes/depois ───────────────────────────────── */
+  var comp = document.getElementById('comp');
+  if (comp) {
+    var arrasta = false;
+    function mover(x){
+      var r = comp.getBoundingClientRect();
+      var p = Math.min(100, Math.max(0, ((x - r.left) / r.width) * 100));
+      comp.style.setProperty('--corte', p + '%');
+    }
+    comp.addEventListener('pointerdown', function(e){
+      arrasta = true; comp.setPointerCapture(e.pointerId); mover(e.clientX);
+    });
+    comp.addEventListener('pointermove', function(e){ if (arrasta) { mover(e.clientX); } });
+    comp.addEventListener('pointerup',    function(){ arrasta = false; });
+    comp.addEventListener('pointercancel',function(){ arrasta = false; });
+
+    /*
+     * Um empurrão de boas-vindas: o cursor desliza sozinho da direita
+     * até ao meio, uma vez, para se perceber que a imagem se abre.
+     * Quem já lhe tocou não leva com isto por cima.
+     */
+    if (!parado) {
+      var espreita = new IntersectionObserver(function(ent){
+        ent.forEach(function(x){
+          if (!x.isIntersecting) { return; }
+          espreita.disconnect();
+          var t0 = null;
+          function passo(t){
+            if (!t0) { t0 = t; }
+            var k = Math.min(1, (t - t0) / 1600);
+            var e = 1 - Math.pow(1 - k, 3);
+            if (!arrasta) { comp.style.setProperty('--corte', (88 - 38 * e) + '%'); }
+            if (k < 1 && !arrasta) { requestAnimationFrame(passo); }
+          }
+          comp.style.setProperty('--corte', '88%');
+          setTimeout(function(){ requestAnimationFrame(passo); }, 420);
+        });
+      }, {threshold: .45});
+      espreita.observe(comp);
+    }
+  }
+
+  /* ── revelar ao entrar ─────────────────────────────────────── */
+  var obs = new IntersectionObserver(function(ent){
+    ent.forEach(function(x){
+      if (x.isIntersecting) { x.target.classList.add('vista'); obs.unobserve(x.target); }
+    });
+  }, {threshold: .12, rootMargin: '0px 0px -8% 0px'});
+  document.querySelectorAll('.revelar').forEach(function(el, i){
+    el.style.transitionDelay = ((i % 4) * 70) + 'ms';
+    obs.observe(el);
+  });
+
+  /* ── abertura do hero ──────────────────────────────────────── */
+  if (!parado) {
+    var t = document.querySelector('[data-anim="titulo"]'),
+        l = document.querySelector('[data-anim="linha"]'),
+        p = document.querySelector('[data-anim="pe"]');
+    [t, l, p].forEach(function(el){
+      if (!el) { return; }
+      el.style.opacity = '0';
+      el.style.transform = el === l ? 'scaleX(0)' : 'translateY(20px)';
+    });
+    window.addEventListener('load', function(){
+      [[t, 260], [l, 720], [p, 980]].forEach(function(par){
+        var el = par[0];
+        if (!el) { return; }
+        setTimeout(function(){
+          el.style.transition = 'opacity 1.2s cubic-bezier(.2,.7,.3,1), transform 1.2s cubic-bezier(.2,.7,.3,1)';
+          el.style.opacity = '1';
+          el.style.transform = 'none';
+        }, par[1]);
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
