@@ -483,4 +483,91 @@ class Dps_imoveis_model extends CI_Model
         $this->db->delete($tbl);
         return $this->db->affected_rows() > 0;
     }
+
+    // ---------------------------------------------------------------
+    // MATCHING: cruza necessidades com imóveis disponíveis
+    // ---------------------------------------------------------------
+    public function get_matches()
+    {
+        $necessidades = $this->get_necessidades();
+        $imoveis_disponiveis = $this->get_all(['status' => 'aprovado']);
+
+        $results = [];
+
+        foreach ($necessidades as $nec) {
+            $matches = [];
+            foreach ($imoveis_disponiveis as $im) {
+                $score = 0;
+
+                // Tipo (Apartment/House/...)
+                if (!empty($nec['tipo']) && $nec['tipo'] === $im['tipo']) {
+                    $score += 3;
+                } elseif (!empty($nec['tipo']) && $nec['tipo'] !== $im['tipo']) {
+                    continue; // tipo obrigatório se definido
+                }
+
+                // Tipologia
+                if (!empty($nec['tipologia']) && $nec['tipologia'] === $im['tipologia']) {
+                    $score += 3;
+                } elseif (!empty($nec['tipologia']) && $nec['tipologia'] !== $im['tipologia']) {
+                    continue;
+                }
+
+                // Preço
+                if (!empty($nec['preco_max']) && !empty($im['preco'])) {
+                    if ($im['preco'] > $nec['preco_max']) continue;
+                    $score += 2;
+                }
+                if (!empty($nec['preco_min']) && !empty($im['preco'])) {
+                    if ($im['preco'] >= $nec['preco_min']) $score += 1;
+                }
+
+                // Distrito
+                if (!empty($nec['distrito']) && $nec['distrito'] === $im['distrito']) {
+                    $score += 2;
+                } elseif (!empty($nec['distrito']) && $nec['distrito'] !== $im['distrito']) {
+                    continue;
+                }
+
+                // Quartos mínimos
+                if (!is_null($nec['nr_quartos_min']) && $nec['nr_quartos_min'] !== '') {
+                    if ((int)$im['nr_quartos'] < (int)$nec['nr_quartos_min']) continue;
+                    $score += 1;
+                }
+
+                // Área mínima
+                if (!empty($nec['area_min']) && !empty($im['area_total'])) {
+                    if ($im['area_total'] < $nec['area_min']) continue;
+                    $score += 1;
+                }
+
+                // Garagem
+                if (!is_null($nec['garagem']) && $nec['garagem'] !== '') {
+                    if ((int)$im['garagem'] !== (int)$nec['garagem']) $score -= 1;
+                }
+
+                $matches[] = array_merge($im, ['match_score' => $score]);
+            }
+
+            // Ordenar matches por score decrescente
+            usort($matches, function($a, $b) { return $b['match_score'] - $a['match_score']; });
+
+            if (!empty($matches)) {
+                $results[] = [
+                    'necessidade' => $nec,
+                    'matches'     => array_slice($matches, 0, 5), // top 5
+                ];
+            }
+        }
+
+        // Ordenar por urgência: urgente primeiro
+        usort($results, function($a, $b) {
+            $order = ['urgente' => 0, 'normal' => 1, 'sem_pressa' => 2];
+            $oa = $order[$a['necessidade']['urgencia']] ?? 1;
+            $ob = $order[$b['necessidade']['urgencia']] ?? 1;
+            return $oa - $ob;
+        });
+
+        return $results;
+    }
 }

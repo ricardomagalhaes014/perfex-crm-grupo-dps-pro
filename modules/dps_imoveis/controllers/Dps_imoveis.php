@@ -245,6 +245,14 @@ class Dps_imoveis extends AdminController
         $this->load->view('dps_imoveis/necessidades/index', $data);
     }
 
+    public function matching()
+    {
+        $data['matches']  = $this->dps_imoveis_model->get_matches();
+        $data['title']    = 'Matching — Clientes vs Imóveis';
+        $data['bodyclass']= 'dps-imoveis-page';
+        $this->load->view('dps_imoveis/matching/index', $data);
+    }
+
     /**
      * Formulário de nova necessidade
      */

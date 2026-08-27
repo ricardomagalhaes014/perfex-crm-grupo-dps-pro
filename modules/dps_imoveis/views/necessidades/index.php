@@ -17,6 +17,11 @@
               <i class="fa fa-search"></i> Necessidades
             </a>
           </li>
+          <li>
+            <a href="<?php echo admin_url('dps_imoveis/matching'); ?>">
+              <i class="fa fa-magic"></i> Matching
+            </a>
+          </li>
         </ul>
 
         <!-- Cabeçalho com botão Nova Necessidade -->
