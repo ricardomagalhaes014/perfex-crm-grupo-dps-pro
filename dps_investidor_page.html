@@ -75,25 +75,50 @@
  * escritura     : mês previsto da escritura (AAAA-MM) — "?" = A CONFIRMAR
  * plano         : fases de pagamento; a última ("escritura":true) é paga na
  *                 escritura, as restantes contam como investimento em planta
- * Fontes: simulador DPS (planos BH/Lake), páginas dos empreendimentos.
- * Boavista, Gaia Douro e Aura: plano por defeito 10% CPCV + 10% reforço,
- * A CONFIRMAR pela DPS.
+ * Fontes: simulador DPS (planos reais de todos os projectos).
+ * Gaia Premium: data de escritura A CONFIRMAR.
  */
 var PROJETOS = {
   boavista: {
     nome:'Boavista Towers', regiao:'Porto', local:'Avenida da Boavista, Porto',
-    escritura:'2028-12', prontoAgora:false, confirmar:true,
-    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+    escritura:'2030-06', prontoAgora:false, confirmar:false,
+    plano:[
+      {label:'CPCV — agora', pct:0.15},
+      {label:'Reforço — 15 de Outubro', pct:0.15},
+      {label:'Conclusão 10.º piso — Dez 2027', pct:0.10},
+      {label:'Conclusão estrutura betão — Dez 2028', pct:0.10},
+      {label:'Escritura — 2030', pct:0.50, escritura:true}
+    ]
   },
   gaiadouro: {
     nome:'Gaia Douro · D\'Ouro Mar Towers', regiao:'Vila Nova de Gaia', local:'Vila Nova de Gaia',
+    escritura:'2029-12', prontoAgora:false, confirmar:false,
+    plano:[
+      {label:'CPCV — agora', pct:0.15},
+      {label:'2.ª prestação — até 15 Out 2026', pct:0.15},
+      {label:'3.ª — conclusão da 5.ª laje', pct:0.10},
+      {label:'4.ª — conclusão do betão', pct:0.10},
+      {label:'Escritura — fim 2029', pct:0.50, escritura:true}
+    ]
+  },
+  gp: {
+    nome:'Gaia Premium', regiao:'Vila Nova de Gaia', local:'Vila Nova de Gaia',
     escritura:'2027-12', prontoAgora:false, confirmar:true,
-    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+    plano:[
+      {label:'CPCV — agora', pct:0.15},
+      {label:'2.ª prestação — 2027', pct:0.10},
+      {label:'Escritura', pct:0.75, escritura:true}
+    ]
   },
   aura: {
     nome:'Aura Residence', regiao:'Paços de Ferreira', local:'Meixomil, Paços de Ferreira',
-    escritura:'2027-06', prontoAgora:false, confirmar:true,
-    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+    escritura:'2029-12', prontoAgora:false, confirmar:false,
+    plano:[
+      {label:'CPCV — agora', pct:0.10},
+      {label:'2.ª prestação — Jun 2027', pct:0.10},
+      {label:'3.ª prestação — Jul 2028', pct:0.10},
+      {label:'Escritura — fim 2029', pct:0.70, escritura:true}
+    ]
   },
   belohorizonte: {
     nome:'Belo Horizonte Residences', regiao:'Setúbal', local:'Setúbal (junto a Tróia)',
@@ -121,7 +146,7 @@ var WHATSAPP = '351925610864';
 var STATE_KEYS = {
   lake:['lake_states'], belohorizonte:['bh_states','belohorizonte_states'],
   boavista:['boavista_states','bt_states'], gaiadouro:['gaia_states','gaiadouro_states','douro_states'],
-  aura:['aura_states']
+  aura:['aura_states'], gp:['gp_states','gaiapremium_states']
 };
 /* ======================================================================= */
 
@@ -166,6 +191,8 @@ function carregar(){
         var u = lista[fr];
         var tb = tipBase(u.tipologia);
         if (!tb) { return; }
+        if (!u.preco || u.preco <= 0) { return; }
+        if (indisponivel(u.status)) { return; }        // estado do próprio catálogo (ex.: Gaia Premium)
         if (indisponivel(mapa[fr])) { return; }
         unidades.push({ projeto: pk, fraccao: fr, tipologia: u.tipologia, tip: tb,
           area: u.area, preco: u.preco, piso: u.piso, orientacao: u.orientacao, varanda: u.varanda });
@@ -194,7 +221,7 @@ var PASSOS = {
     ajuda: 'Temos empreendimentos no Grande Porto e em Setúbal.',
     opcoes: [
       { v:'Porto',              t:'Porto', s:'Avenida da Boavista' },
-      { v:'Vila Nova de Gaia',  t:'Vila Nova de Gaia', s:'Frente ao Douro e mar' },
+      { v:'Vila Nova de Gaia',  t:'Vila Nova de Gaia', s:'Douro Mar Towers e Gaia Premium' },
       { v:'Paços de Ferreira',  t:'Paços de Ferreira', s:'Meixomil' },
       { v:'Setúbal',            t:'Setúbal', s:'Junto a Tróia' },
       { v:'indiferente',        t:'Indiferente', s:'Mostrar todas as regiões' }

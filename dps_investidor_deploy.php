@@ -73,6 +73,15 @@ if ($a === 'instalar') {
     }
     unset($catalogo['raizes']); // o Raízes sai de todas as montras novas
 
+    // Gaia Premium (e outros que não estejam no módulo) vêm num ficheiro extra
+    $extra = __DIR__ . '/dps_investidor_extra_units.json';
+    if (is_readable($extra)) {
+        $mais = json_decode((string) file_get_contents($extra), true);
+        if (is_array($mais)) {
+            $catalogo['gp'] = $mais;
+        }
+    }
+
     $ok1 = copy($origem, $destino);
     $ok2 = file_put_contents(
         $pasta . '/units.json',
