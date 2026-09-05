@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador do Investidor · Grupo DPS</title>
+<meta name="description" content="Responda a algumas perguntas e descubra o imóvel em planta ideal para o seu investimento ou habitação.">
+<style>
+  :root{ --navy:#0D1F3C; --gold:#C5A55A; --bg:#f6f4ef; --ink:#1a1a1a; --muted:#6b6b6b; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;flex-direction:column}
+  header{background:var(--navy);color:#fff;padding:18px 20px;text-align:center;border-bottom:3px solid var(--gold)}
+  header h1{font-size:1.15rem;font-weight:700;letter-spacing:.5px}
+  header p{font-size:.8rem;color:#cbd5e1;margin-top:4px}
+  main{flex:1;width:100%;max-width:680px;margin:0 auto;padding:22px 16px 60px}
+  .progress{height:6px;background:#e2ddd2;border-radius:3px;overflow:hidden;margin-bottom:26px}
+  .progress > div{height:100%;background:var(--gold);width:0;transition:width .35s}
+  .card{background:#fff;border:1px solid #e5e0d5;border-radius:14px;padding:26px 22px;box-shadow:0 4px 18px rgba(13,31,60,.06)}
+  .pergunta{font-size:1.25rem;font-weight:700;color:var(--navy);margin-bottom:6px}
+  .ajuda{font-size:.85rem;color:var(--muted);margin-bottom:18px}
+  .opcoes{display:flex;flex-direction:column;gap:10px}
+  .op{display:block;width:100%;text-align:left;padding:15px 16px;border:2px solid #e5e0d5;border-radius:11px;background:#fff;font-size:1rem;cursor:pointer;transition:border-color .15s, background .15s}
+  .op:hover,.op:focus{border-color:var(--gold);background:#fdfaf3;outline:none}
+  .op small{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}
+  .campo-valor{display:flex;gap:10px;align-items:center;margin:8px 0 16px}
+  .campo-valor input{flex:1;padding:14px 14px;font-size:1.2rem;border:2px solid #e5e0d5;border-radius:11px;width:100%}
+  .campo-valor input:focus{border-color:var(--gold);outline:none}
+  .botao{display:inline-block;background:var(--navy);color:#fff;border:0;border-radius:11px;padding:14px 26px;font-size:1rem;font-weight:600;cursor:pointer}
+  .botao:hover{background:#16305a}
+  .botao-ouro{background:var(--gold);color:var(--navy)}
+  .botao-ouro:hover{background:#d4b76e}
+  .voltar{background:none;border:0;color:var(--muted);font-size:.85rem;cursor:pointer;margin-top:18px;text-decoration:underline}
+  .resultado-cabeca{margin-bottom:16px}
+  .resultado-cabeca h2{color:var(--navy);font-size:1.3rem}
+  .resultado-cabeca p{color:var(--muted);font-size:.9rem;margin-top:4px}
+  .unidade{background:#fff;border:1px solid #e5e0d5;border-left:5px solid var(--gold);border-radius:12px;padding:16px 16px;margin-bottom:12px}
+  .unidade.melhor{border:2px solid var(--gold);border-left-width:6px;background:#fffdf6}
+  .etiqueta-melhor{display:inline-block;background:var(--gold);color:var(--navy);font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px;letter-spacing:.5px}
+  .unidade h3{color:var(--navy);font-size:1.05rem}
+  .unidade .sub{color:var(--muted);font-size:.82rem;margin:2px 0 10px}
+  .linhas{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.88rem}
+  .linhas b{color:var(--navy)}
+  .preco-destaque{font-size:1.15rem;font-weight:700;color:var(--navy);margin-top:10px}
+  .preco-destaque small{display:block;font-weight:400;color:var(--muted);font-size:.75rem}
+  .cta-zona{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+  .cta-wa{display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;text-decoration:none;padding:15px;border-radius:11px;font-weight:700;font-size:1rem}
+  .aviso-credito{background:#fdf6e7;border:1px solid var(--gold);border-radius:11px;padding:14px 16px;font-size:.88rem;margin-bottom:14px}
+  .sem-resultado{background:#fff;border:1px dashed #cbb;border-radius:12px;padding:20px;text-align:center;color:var(--muted)}
+  footer{background:var(--navy);color:#94a3b8;text-align:center;font-size:.72rem;padding:14px}
+  .escondido{display:none}
+  @media(max-width:480px){ .linhas{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulador do Investidor</h1>
+  <p>Grupo DPS · Imóveis em planta — encontre a solução certa para si</p>
+</header>
+<main>
+  <div class="progress"><div id="barra"></div></div>
+  <div id="ecra" class="card">A carregar as oportunidades disponíveis…</div>
+  <button id="btn-voltar" class="voltar escondido" onclick="voltar()">&larr; Voltar à pergunta anterior</button>
+</main>
+<footer>Grupo DPS · dpsimobiliario.pt · Simulação indicativa, sujeita a confirmação comercial</footer>
+
+<script>
+/* ================= CONFIGURAÇÃO (editar aqui) =================
+ * conclusaoMeses: meses estimados até à conclusão/escritura (A CONFIRMAR pela DPS)
+ * prontoAgora: já concluído / pronto a habitar
+ * entradaPct: fração do preço paga até à escritura (plano em planta)
+ * stateKeys: chaves possíveis no save_states.php do simulador
+ */
+var PROJETOS = {
+  lake:          { nome:'Lake Towers',        local:'Portugal',                       conclusaoMeses:10, prontoAgora:false, entradaPct:0.20, stateKeys:['lake_states'] },
+  belohorizonte: { nome:'Belo Horizonte Towers', local:'Portugal',                    conclusaoMeses:18, prontoAgora:false, entradaPct:0.20, stateKeys:['bh_states','belohorizonte_states'] },
+  boavista:      { nome:'Boavista Towers',    local:'Porto',                          conclusaoMeses:30, prontoAgora:false, entradaPct:0.20, stateKeys:['boavista_states','bt_states'] },
+  gaiadouro:     { nome:'Gaia Douro',         local:'Vila Nova de Gaia',              conclusaoMeses:24, prontoAgora:false, entradaPct:0.20, stateKeys:['gaia_states','gaiadouro_states','douro_states'] },
+  aura:          { nome:'Aura Residence',     local:'Meixomil, Paços de Ferreira',    conclusaoMeses:18, prontoAgora:false, entradaPct:0.20, stateKeys:['aura_states'] }
+};
+var WHATSAPP = '351925610864';
+/* ============================================================== */
+
+var unidades = [];      // lista achatada: {projeto, fraccao, tipologia, tip, area, preco, piso, orientacao, varanda}
+var respostas = {};
+var historico = [];
+var passoAtual = null;
+
+function euro(v){ return v.toLocaleString('pt-PT', {style:'currency', currency:'EUR', maximumFractionDigits:0}); }
+function tipBase(t){ var m = /T(\d)/.exec(t || ''); return m ? 'T' + m[1] : null; }
+function indisponivel(estado){ return /vend|reserv|cpcv|bloq|indispon/i.test(String(estado || '')); }
+
+function carregar(){
+  var pUnits = fetch('units.json').then(function(r){ return r.json(); });
+  var pStates = fetch('/simuladorportugal/save_states.php').then(function(r){ return r.json(); }).catch(function(){ return {}; });
+  Promise.all([pUnits, pStates]).then(function(res){
+    var catalogo = res[0], estados = res[1] || {};
+    Object.keys(PROJETOS).forEach(function(pk){
+      var proj = PROJETOS[pk];
+      var mapa = {};
+      // chaves conhecidas + qualquer chave *_states cujo prefixo corresponda
+      (proj.stateKeys || []).forEach(function(k){ if (estados[k]) { Object.assign(mapa, estados[k]); } });
+      Object.keys(estados).forEach(function(k){
+        if (/_states$/.test(k) && k.replace(/_states$/, '').toLowerCase().indexOf(pk.slice(0, 4)) === 0) { Object.assign(mapa, estados[k]); }
+      });
+      var lista = catalogo[pk] || {};
+      Object.keys(lista).forEach(function(fr){
+        var u = lista[fr];
+        var tb = tipBase(u.tipologia);
+        if (!tb) { return; }                       // exclui Lojas e entradas sem tipologia
+        if (indisponivel(mapa[fr])) { return; }    // exclui vendidos/reservados
+        unidades.push({ projeto: pk, fraccao: fr, tipologia: u.tipologia, tip: tb,
+          area: u.area, preco: u.preco, piso: u.piso, orientacao: u.orientacao, varanda: u.varanda });
+      });
+    });
+    mostrarPasso('interesse');
+  }).catch(function(){
+    document.getElementById('ecra').innerHTML = 'Não foi possível carregar as oportunidades. Tente novamente mais tarde ou fale connosco no WhatsApp: <a href="https://wa.me/' + WHATSAPP + '">+351 925 610 864</a>.';
+  });
+}
+
+/* ---------- definição dos passos ---------- */
+var PASSOS = {
+  interesse: {
+    pergunta: 'Qual é o seu interesse?',
+    ajuda: 'Vamos orientá-lo para as melhores oportunidades do Grupo DPS.',
+    opcoes: [
+      { v:'habitacao',   t:'Habitação própria',                s:'Procuro casa para viver' },
+      { v:'cedencia',    t:'Investimento para cedência de posição', s:'Comprar em planta e ceder a posição antes da escritura, com mais-valia' },
+      { v:'arrendamento',t:'Investimento para arrendamento',   s:'Comprar para arrendar e obter rendimento' }
+    ],
+    proximo: function(){ return respostas.interesse === 'habitacao' ? 'prazo_casa' : (respostas.interesse === 'cedencia' ? 'valor_planta' : 'valor_escritura'); }
+  },
+  prazo_casa: {
+    pergunta: 'Para quando precisa da casa?',
+    opcoes: [
+      { v:'agora',    t:'Pronta a habitar já',   s:'Só imóveis concluídos' },
+      { v:'ate1ano',  t:'No prazo de 1 ano',     s:'Concluídos ou a concluir em breve' },
+      { v:'sempressa',t:'Sem pressa',            s:'Posso esperar pela conclusão da obra' }
+    ],
+    proximo: function(){ return 'financiamento'; }
+  },
+  financiamento: {
+    pergunta: 'Como pensa financiar a compra?',
+    opcoes: [
+      { v:'proprios', t:'Capitais próprios',            s:'Não preciso de crédito' },
+      { v:'aprovado', t:'Crédito já aprovado',          s:'Tenho financiamento garantido' },
+      { v:'semcredito', t:'Ainda não tenho crédito aprovado', s:'Vou precisar de financiamento' }
+    ],
+    proximo: function(){ return respostas.financiamento === 'semcredito' ? 'contacto_credito' : 'valor_total'; }
+  },
+  contacto_credito: {
+    pergunta: 'Quer ser contactado pela DPS Crédito?',
+    ajuda: 'A nossa equipa apresenta-lhe, sem compromisso, a melhor solução de financiamento.',
+    opcoes: [
+      { v:'sim', t:'Sim, quero ser contactado', s:'Falamos consigo sobre a solução de financiamento' },
+      { v:'nao', t:'Não, obrigado' }
+    ],
+    proximo: function(){ return 'valor_total'; }
+  },
+  valor_total: {
+    pergunta: 'Qual o valor total de que dispõe para a compra?',
+    ajuda: 'Capitais próprios e/ou crédito. Valor aproximado em euros.',
+    tipo: 'valor',
+    proximo: function(){ return 'tipologia'; }
+  },
+  valor_planta: {
+    pergunta: 'Qual o valor disponível para investir em planta?',
+    ajuda: 'Valor que consegue mobilizar durante a fase de obra (entrada e reforços até à cedência). Aprox. em euros.',
+    tipo: 'valor',
+    proximo: function(){ return 'prazo_cedencia'; }
+  },
+  prazo_cedencia: {
+    pergunta: 'Para quando quer ceder a posição?',
+    ajuda: 'A cedência acontece antes da escritura — o projeto deve ainda estar em obra nessa altura.',
+    opcoes: [
+      { v:6,  t:'Dentro de 6 a 12 meses' },
+      { v:12, t:'Dentro de 1 a 2 anos' },
+      { v:24, t:'Daqui a mais de 2 anos' }
+    ],
+    proximo: function(){ return 'tipologia'; }
+  },
+  valor_escritura: {
+    pergunta: 'Qual o valor que pretende investir até à escritura?',
+    ajuda: 'Valor a desembolsar durante a fase de obra (o remanescente é pago na escritura). Aprox. em euros.',
+    tipo: 'valor',
+    proximo: function(){ return 'financiamento_resto'; }
+  },
+  financiamento_resto: {
+    pergunta: 'E o valor remanescente, na escritura?',
+    opcoes: [
+      { v:'proprios',  t:'Pago com capitais próprios' },
+      { v:'aprovado',  t:'Tenho crédito aprovado' },
+      { v:'semcredito',t:'Vou precisar de financiamento', s:'A DPS Crédito pode ajudar' }
+    ],
+    proximo: function(){ return respostas.financiamento_resto === 'semcredito' ? 'contacto_credito2' : 'tipologia'; }
+  },
+  contacto_credito2: {
+    pergunta: 'Quer ser contactado pela DPS Crédito?',
+    ajuda: 'A nossa equipa apresenta-lhe, sem compromisso, a melhor solução de financiamento para a escritura.',
+    opcoes: [
+      { v:'sim', t:'Sim, quero ser contactado' },
+      { v:'nao', t:'Não, obrigado' }
+    ],
+    proximo: function(){ return 'tipologia'; }
+  },
+  tipologia: {
+    pergunta: 'Que tipologia procura?',
+    opcoes: [
+      { v:'T0', t:'T0' }, { v:'T1', t:'T1 (inclui T1+1)' }, { v:'T2', t:'T2 (inclui T2+1)' }, { v:'T3', t:'T3' },
+      { v:'indiferente', t:'Indiferente', s:'Mostrar as melhores opções de qualquer tipologia' }
+    ],
+    proximo: function(){ return null; }
+  }
+};
+
+var TOTAL_PASSOS = 5;
+
+function mostrarPasso(id){
+  passoAtual = id;
+  var p = PASSOS[id];
+  var el = document.getElementById('ecra');
+  document.getElementById('barra').style.width = Math.min(95, Math.round((historico.length / TOTAL_PASSOS) * 100)) + '%';
+  document.getElementById('btn-voltar').classList.toggle('escondido', historico.length === 0);
+  var html = '<div class="pergunta">' + p.pergunta + '</div>';
+  if (p.ajuda) { html += '<div class="ajuda">' + p.ajuda + '</div>'; }
+  if (p.tipo === 'valor') {
+    html += '<div class="campo-valor"><input id="inp-valor" type="text" inputmode="numeric" placeholder="Ex.: 50 000 €"></div>'
+      + '<button class="botao" onclick="responderValor()">Continuar &rarr;</button>';
+  } else {
+    html += '<div class="opcoes">' + p.opcoes.map(function(o){
+      return '<button class="op" onclick="responder(\'' + id + '\',' + JSON.stringify(String(o.v)).replace(/"/g, '&quot;') + ')"><strong>' + o.t + '</strong>' + (o.s ? '<small>' + o.s + '</small>' : '') + '</button>';
+    }).join('') + '</div>';
+  }
+  el.innerHTML = html;
+  if (p.tipo === 'valor') {
+    var inp = document.getElementById('inp-valor');
+    inp.addEventListener('input', function(){
+      var n = this.value.replace(/[^\d]/g, '');
+      this.value = n ? Number(n).toLocaleString('pt-PT') + ' €' : '';
+    });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { responderValor(); } });
+    inp.focus();
+  }
+  window.scrollTo(0, 0);
+}
+
+function responder(id, valor){
+  respostas[id] = isNaN(Number(valor)) ? valor : Number(valor);
+  historico.push(id);
+  avancar(id);
+}
+function responderValor(){
+  var n = Number((document.getElementById('inp-valor').value || '').replace(/[^\d]/g, ''));
+  if (!n || n < 1000) { document.getElementById('inp-valor').style.borderColor = '#c0392b'; return; }
+  respostas[passoAtual] = n;
+  historico.push(passoAtual);
+  avancar(passoAtual);
+}
+function avancar(id){
+  var prox = PASSOS[id].proximo();
+  if (prox) { mostrarPasso(prox); } else { mostrarResultado(); }
+}
+function voltar(){
+  if (!historico.length) { return; }
+  var ant = historico.pop();
+  delete respostas[ant];
+  mostrarPasso(ant);
+}
+
+/* ---------- filtragem e resultado ---------- */
+function filtrar(){
+  var i = respostas.interesse;
+  var tip = respostas.tipologia;
+  var lista = unidades.slice();
+
+  if (tip && tip !== 'indiferente') { lista = lista.filter(function(u){ return u.tip === tip; }); }
+
+  if (i === 'habitacao') {
+    var prazo = respostas.prazo_casa;
+    lista = lista.filter(function(u){
+      var pr = PROJETOS[u.projeto];
+      if (prazo === 'agora')   { return pr.prontoAgora; }
+      if (prazo === 'ate1ano') { return pr.prontoAgora || pr.conclusaoMeses <= 12; }
+      return true;
+    });
+    var orc = respostas.valor_total || 0;
+    lista.forEach(function(u){ u.custo = u.preco; u.custoLabel = 'Preço total'; });
+    lista = lista.filter(function(u){ return u.preco <= orc * 1.05; });
+  } else {
+    // cedência ou arrendamento: conta o valor até à escritura (entrada em planta)
+    var orc2 = (i === 'cedencia' ? respostas.valor_planta : respostas.valor_escritura) || 0;
+    lista.forEach(function(u){
+      var pr = PROJETOS[u.projeto];
+      u.custo = Math.round(u.preco * pr.entradaPct);
+      u.custoLabel = 'Investimento até à escritura (' + Math.round(pr.entradaPct * 100) + '%)';
+    });
+    lista = lista.filter(function(u){ return u.custo <= orc2 * 1.05; });
+    if (i === 'cedencia') {
+      var horizonte = Number(respostas.prazo_cedencia) || 6;
+      lista = lista.filter(function(u){ return PROJETOS[u.projeto].conclusaoMeses >= horizonte; });
+    }
+  }
+  // pontuação: aproveitar o orçamento ao máximo (preço mais alto ainda dentro do valor)
+  lista.sort(function(a, b){ return b.custo - a.custo; });
+  return lista;
+}
+
+function cartaoUnidade(u, melhor){
+  var pr = PROJETOS[u.projeto];
+  return '<div class="unidade' + (melhor ? ' melhor' : '') + '">'
+    + (melhor ? '<span class="etiqueta-melhor">SOLUÇÃO MAIS PRÓXIMA</span>' : '')
+    + '<h3>' + pr.nome + ' · Fração ' + u.fraccao + '</h3>'
+    + '<div class="sub">' + pr.local + (pr.prontoAgora ? ' · Pronto a habitar' : ' · Conclusão prevista em cerca de ' + pr.conclusaoMeses + ' meses') + '</div>'
+    + '<div class="linhas">'
+    + '<span><b>Tipologia:</b> ' + u.tipologia + '</span>'
+    + '<span><b>Área:</b> ' + u.area + ' m²</span>'
+    + '<span><b>Piso:</b> ' + u.piso + '</span>'
+    + '<span><b>Orientação:</b> ' + (u.orientacao || '—') + '</span>'
+    + '</div>'
+    + '<div class="preco-destaque">' + euro(u.preco) + '<small>' + u.custoLabel + ': ' + euro(u.custo) + '</small></div>'
+    + '</div>';
+}
+
+function mostrarResultado(){
+  var lista = filtrar();
+  var el = document.getElementById('ecra');
+  document.getElementById('barra').style.width = '100%';
+  document.getElementById('btn-voltar').classList.remove('escondido');
+
+  var interesseTxt = { habitacao:'Habitação própria', cedencia:'Investimento para cedência de posição', arrendamento:'Investimento para arrendamento' }[respostas.interesse];
+  var querCredito = respostas.contacto_credito === 'sim' || respostas.contacto_credito2 === 'sim';
+
+  var html = '<div class="resultado-cabeca"><h2>' + (lista.length ? 'Encontrámos ' + lista.length + ' oportunidade' + (lista.length > 1 ? 's' : '') + ' para si' : 'Resultado da simulação') + '</h2>'
+    + '<p>' + interesseTxt + (respostas.tipologia && respostas.tipologia !== 'indiferente' ? ' · ' + respostas.tipologia : '') + '</p></div>';
+
+  if (querCredito) {
+    html += '<div class="aviso-credito"><b>DPS Crédito:</b> registámos o seu pedido — ao falar connosco, a equipa apresenta-lhe a melhor solução de financiamento.</div>';
+  }
+
+  var top = lista.slice(0, 5);
+  if (top.length) {
+    html += top.map(function(u, idx){ return cartaoUnidade(u, idx === 0); }).join('');
+    if (lista.length > 5) { html += '<p class="ajuda" style="margin-top:6px">… e mais ' + (lista.length - 5) + ' unidades dentro dos seus critérios.</p>'; }
+  } else {
+    // sem correspondência exacta: mostrar as 3 mais próximas acima do valor
+    var proximas = unidades.slice();
+    if (respostas.tipologia && respostas.tipologia !== 'indiferente') { proximas = proximas.filter(function(u){ return u.tip === respostas.tipologia; }); }
+    proximas.forEach(function(u){
+      var pr = PROJETOS[u.projeto];
+      u.custo = respostas.interesse === 'habitacao' ? u.preco : Math.round(u.preco * pr.entradaPct);
+      u.custoLabel = respostas.interesse === 'habitacao' ? 'Preço total' : 'Investimento até à escritura (' + Math.round(pr.entradaPct * 100) + '%)';
+    });
+    proximas.sort(function(a, b){ return a.custo - b.custo; });
+    html += '<div class="sem-resultado">Não encontrámos unidades exatamente dentro do valor indicado.'
+      + (proximas.length ? ' Estas são as opções mais próximas:' : '') + '</div>';
+    html += proximas.slice(0, 3).map(function(u){ return cartaoUnidade(u, false); }).join('');
+  }
+
+  var msg = 'Olá! Fiz a simulação no Simulador do Investidor da DPS.\n'
+    + 'Interesse: ' + interesseTxt + '\n'
+    + (respostas.tipologia ? 'Tipologia: ' + respostas.tipologia + '\n' : '')
+    + (respostas.valor_total ? 'Valor disponível: ' + euro(respostas.valor_total) + '\n' : '')
+    + (respostas.valor_planta ? 'Valor para investir em planta: ' + euro(respostas.valor_planta) + '\n' : '')
+    + (respostas.valor_escritura ? 'Valor até à escritura: ' + euro(respostas.valor_escritura) + '\n' : '')
+    + (top.length ? 'Sugestão: ' + PROJETOS[top[0].projeto].nome + ' fração ' + top[0].fraccao + ' (' + top[0].tipologia + ', ' + euro(top[0].preco) + ')\n' : '')
+    + (querCredito ? 'Quero ser contactado pela DPS Crédito para solução de financiamento.\n' : '')
+    + 'Gostava de saber mais.';
+
+  html += '<div class="cta-zona">'
+    + '<a class="cta-wa" href="https://wa.me/' + WHATSAPP + '?text=' + encodeURIComponent(msg) + '" target="_blank" rel="noopener">💬 Falar já com a DPS no WhatsApp</a>'
+    + '<button class="botao botao-ouro" onclick="location.reload()">↻ Nova simulação</button>'
+    + '</div>';
+
+  el.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+
+carregar();
+</script>
+</body>
+</html>
