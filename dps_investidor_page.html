@@ -42,10 +42,16 @@
   .linhas b{color:var(--navy)}
   .preco-destaque{font-size:1.15rem;font-weight:700;color:var(--navy);margin-top:10px}
   .preco-destaque small{display:block;font-weight:400;color:var(--muted);font-size:.75rem}
+  .plano{margin-top:12px;border-top:1px dashed #e5e0d5;padding-top:10px}
+  .plano h4{font-size:.8rem;color:var(--gold);letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px}
+  .plano table{width:100%;border-collapse:collapse;font-size:.85rem}
+  .plano td{padding:4px 0;border-bottom:1px solid #f2eee4}
+  .plano td:last-child{text-align:right;font-weight:600;color:var(--navy);white-space:nowrap}
+  .plano tr.total td{border-bottom:0;padding-top:7px;font-weight:700;color:var(--navy)}
   .cta-zona{margin-top:22px;display:flex;flex-direction:column;gap:10px}
   .cta-wa{display:flex;align-items:center;justify-content:center;gap:8px;background:#25D366;color:#fff;text-decoration:none;padding:15px;border-radius:11px;font-weight:700;font-size:1rem}
   .aviso-credito{background:#fdf6e7;border:1px solid var(--gold);border-radius:11px;padding:14px 16px;font-size:.88rem;margin-bottom:14px}
-  .sem-resultado{background:#fff;border:1px dashed #cbb;border-radius:12px;padding:20px;text-align:center;color:var(--muted)}
+  .sem-resultado{background:#fff;border:1px dashed #cbb;border-radius:12px;padding:20px;text-align:center;color:var(--muted);margin-bottom:12px}
   footer{background:var(--navy);color:#94a3b8;text-align:center;font-size:.72rem;padding:14px}
   .escondido{display:none}
   @media(max-width:480px){ .linhas{grid-template-columns:1fr} }
@@ -64,23 +70,78 @@
 <footer>Grupo DPS · dpsimobiliario.pt · Simulação indicativa, sujeita a confirmação comercial</footer>
 
 <script>
-/* ================= CONFIGURAÇÃO (editar aqui) =================
- * conclusaoMeses: meses estimados até à conclusão/escritura (A CONFIRMAR pela DPS)
- * prontoAgora: já concluído / pronto a habitar
- * entradaPct: fração do preço paga até à escritura (plano em planta)
- * stateKeys: chaves possíveis no save_states.php do simulador
+/* ============== CATÁLOGO DE EMPREENDIMENTOS (editar aqui) ==============
+ * regiao        : usado na pergunta de região
+ * escritura     : mês previsto da escritura (AAAA-MM) — "?" = A CONFIRMAR
+ * plano         : fases de pagamento; a última ("escritura":true) é paga na
+ *                 escritura, as restantes contam como investimento em planta
+ * Fontes: simulador DPS (planos BH/Lake), páginas dos empreendimentos.
+ * Boavista, Gaia Douro e Aura: plano por defeito 10% CPCV + 10% reforço,
+ * A CONFIRMAR pela DPS.
  */
 var PROJETOS = {
-  lake:          { nome:'Lake Towers',        local:'Portugal',                       conclusaoMeses:10, prontoAgora:false, entradaPct:0.20, stateKeys:['lake_states'] },
-  belohorizonte: { nome:'Belo Horizonte Towers', local:'Portugal',                    conclusaoMeses:18, prontoAgora:false, entradaPct:0.20, stateKeys:['bh_states','belohorizonte_states'] },
-  boavista:      { nome:'Boavista Towers',    local:'Porto',                          conclusaoMeses:30, prontoAgora:false, entradaPct:0.20, stateKeys:['boavista_states','bt_states'] },
-  gaiadouro:     { nome:'Gaia Douro',         local:'Vila Nova de Gaia',              conclusaoMeses:24, prontoAgora:false, entradaPct:0.20, stateKeys:['gaia_states','gaiadouro_states','douro_states'] },
-  aura:          { nome:'Aura Residence',     local:'Meixomil, Paços de Ferreira',    conclusaoMeses:18, prontoAgora:false, entradaPct:0.20, stateKeys:['aura_states'] }
+  boavista: {
+    nome:'Boavista Towers', regiao:'Porto', local:'Avenida da Boavista, Porto',
+    escritura:'2028-12', prontoAgora:false, confirmar:true,
+    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+  },
+  gaiadouro: {
+    nome:'Gaia Douro · D\'Ouro Mar Towers', regiao:'Vila Nova de Gaia', local:'Vila Nova de Gaia',
+    escritura:'2027-12', prontoAgora:false, confirmar:true,
+    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+  },
+  aura: {
+    nome:'Aura Residence', regiao:'Paços de Ferreira', local:'Meixomil, Paços de Ferreira',
+    escritura:'2027-06', prontoAgora:false, confirmar:true,
+    plano:[ {label:'CPCV — na compra', pct:0.10}, {label:'Reforço em obra', pct:0.10}, {label:'Escritura', pct:0.80, escritura:true} ]
+  },
+  belohorizonte: {
+    nome:'Belo Horizonte Residences', regiao:'Setúbal', local:'Setúbal (junto a Tróia)',
+    escritura:'2028-06', prontoAgora:false, confirmar:false,
+    plano:[
+      {label:'Reserva — agora', pct:0.02},
+      {label:'CPCV — Dez 2026', pct:0.10},
+      {label:'2.ª prestação — Jun 2027', pct:0.10},
+      {label:'3.ª prestação — Dez 2027', pct:0.08},
+      {label:'Escritura', pct:0.70, escritura:true}
+    ]
+  },
+  lake: {
+    nome:'Lake Towers', regiao:'Setúbal', local:'Setúbal',
+    escritura:'2029-09', prontoAgora:false, confirmar:false,
+    plano:[
+      {label:'CPCV — agora', pct:0.20},
+      {label:'2.ª prestação — início 2028', pct:0.15},
+      {label:'Escritura — Set 2029', pct:0.65, escritura:true}
+    ]
+  }
 };
 var WHATSAPP = '351925610864';
-/* ============================================================== */
+/* chaves possíveis no save_states.php do simulador, por projecto */
+var STATE_KEYS = {
+  lake:['lake_states'], belohorizonte:['bh_states','belohorizonte_states'],
+  boavista:['boavista_states','bt_states'], gaiadouro:['gaia_states','gaiadouro_states','douro_states'],
+  aura:['aura_states']
+};
+/* ======================================================================= */
 
-var unidades = [];      // lista achatada: {projeto, fraccao, tipologia, tip, area, preco, piso, orientacao, varanda}
+function mesesAteEscritura(p){
+  if (!p.escritura || p.escritura.indexOf('?') !== -1) { return 24; }
+  var partes = p.escritura.split('-');
+  var alvo = new Date(Number(partes[0]), Number(partes[1]) - 1, 1);
+  return Math.max(0, Math.round((alvo - new Date()) / (30.44 * 24 * 3600 * 1000)));
+}
+function pctPlanta(p){
+  return p.plano.filter(function(f){ return !f.escritura; }).reduce(function(s, f){ return s + f.pct; }, 0);
+}
+function escrituraTxt(p){
+  if (!p.escritura || p.escritura.indexOf('?') !== -1) { return 'a confirmar'; }
+  var m = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  var partes = p.escritura.split('-');
+  return m[Number(partes[1]) - 1] + ' ' + partes[0];
+}
+
+var unidades = [];
 var respostas = {};
 var historico = [];
 var passoAtual = null;
@@ -95,10 +156,8 @@ function carregar(){
   Promise.all([pUnits, pStates]).then(function(res){
     var catalogo = res[0], estados = res[1] || {};
     Object.keys(PROJETOS).forEach(function(pk){
-      var proj = PROJETOS[pk];
       var mapa = {};
-      // chaves conhecidas + qualquer chave *_states cujo prefixo corresponda
-      (proj.stateKeys || []).forEach(function(k){ if (estados[k]) { Object.assign(mapa, estados[k]); } });
+      (STATE_KEYS[pk] || []).forEach(function(k){ if (estados[k]) { Object.assign(mapa, estados[k]); } });
       Object.keys(estados).forEach(function(k){
         if (/_states$/.test(k) && k.replace(/_states$/, '').toLowerCase().indexOf(pk.slice(0, 4)) === 0) { Object.assign(mapa, estados[k]); }
       });
@@ -106,8 +165,8 @@ function carregar(){
       Object.keys(lista).forEach(function(fr){
         var u = lista[fr];
         var tb = tipBase(u.tipologia);
-        if (!tb) { return; }                       // exclui Lojas e entradas sem tipologia
-        if (indisponivel(mapa[fr])) { return; }    // exclui vendidos/reservados
+        if (!tb) { return; }
+        if (indisponivel(mapa[fr])) { return; }
         unidades.push({ projeto: pk, fraccao: fr, tipologia: u.tipologia, tip: tb,
           area: u.area, preco: u.preco, piso: u.piso, orientacao: u.orientacao, varanda: u.varanda });
       });
@@ -118,7 +177,7 @@ function carregar(){
   });
 }
 
-/* ---------- definição dos passos ---------- */
+/* ---------- passos ---------- */
 var PASSOS = {
   interesse: {
     pergunta: 'Qual é o seu interesse?',
@@ -127,6 +186,18 @@ var PASSOS = {
       { v:'habitacao',   t:'Habitação própria',                s:'Procuro casa para viver' },
       { v:'cedencia',    t:'Investimento para cedência de posição', s:'Comprar em planta e ceder a posição antes da escritura, com mais-valia' },
       { v:'arrendamento',t:'Investimento para arrendamento',   s:'Comprar para arrendar e obter rendimento' }
+    ],
+    proximo: function(){ return 'regiao'; }
+  },
+  regiao: {
+    pergunta: 'Em que região?',
+    ajuda: 'Temos empreendimentos no Grande Porto e em Setúbal.',
+    opcoes: [
+      { v:'Porto',              t:'Porto', s:'Avenida da Boavista' },
+      { v:'Vila Nova de Gaia',  t:'Vila Nova de Gaia', s:'Frente ao Douro e mar' },
+      { v:'Paços de Ferreira',  t:'Paços de Ferreira', s:'Meixomil' },
+      { v:'Setúbal',            t:'Setúbal', s:'Junto a Tróia' },
+      { v:'indiferente',        t:'Indiferente', s:'Mostrar todas as regiões' }
     ],
     proximo: function(){ return respostas.interesse === 'habitacao' ? 'prazo_casa' : (respostas.interesse === 'cedencia' ? 'valor_planta' : 'valor_escritura'); }
   },
@@ -209,11 +280,22 @@ var PASSOS = {
       { v:'T0', t:'T0' }, { v:'T1', t:'T1 (inclui T1+1)' }, { v:'T2', t:'T2 (inclui T2+1)' }, { v:'T3', t:'T3' },
       { v:'indiferente', t:'Indiferente', s:'Mostrar as melhores opções de qualquer tipologia' }
     ],
+    proximo: function(){ return 'extras'; }
+  },
+  extras: {
+    pergunta: 'Alguma preferência adicional?',
+    ajuda: 'Opcional — ajuda-nos a afinar a proposta.',
+    opcoes: [
+      { v:'varanda',    t:'Varanda generosa', s:'Dou prioridade a varandas maiores' },
+      { v:'pisoalto',   t:'Piso alto', s:'Vistas e privacidade' },
+      { v:'pisobaixo',  t:'Piso baixo', s:'Acesso fácil' },
+      { v:'nenhuma',    t:'Sem preferência' }
+    ],
     proximo: function(){ return null; }
   }
 };
 
-var TOTAL_PASSOS = 5;
+var TOTAL_PASSOS = 6;
 
 function mostrarPasso(id){
   passoAtual = id;
@@ -245,7 +327,7 @@ function mostrarPasso(id){
 }
 
 function responder(id, valor){
-  respostas[id] = isNaN(Number(valor)) ? valor : Number(valor);
+  respostas[id] = (valor !== '' && !isNaN(Number(valor))) ? Number(valor) : valor;
   historico.push(id);
   avancar(id);
 }
@@ -267,42 +349,65 @@ function voltar(){
   mostrarPasso(ant);
 }
 
-/* ---------- filtragem e resultado ---------- */
+/* ---------- filtragem, pontuação e proposta ---------- */
+function custoPlanta(u){ return Math.round(u.preco * pctPlanta(PROJETOS[u.projeto])); }
+
 function filtrar(){
   var i = respostas.interesse;
-  var tip = respostas.tipologia;
   var lista = unidades.slice();
 
-  if (tip && tip !== 'indiferente') { lista = lista.filter(function(u){ return u.tip === tip; }); }
+  if (respostas.regiao && respostas.regiao !== 'indiferente') {
+    lista = lista.filter(function(u){ return PROJETOS[u.projeto].regiao === respostas.regiao; });
+  }
+  if (respostas.tipologia && respostas.tipologia !== 'indiferente') {
+    lista = lista.filter(function(u){ return u.tip === respostas.tipologia; });
+  }
 
   if (i === 'habitacao') {
     var prazo = respostas.prazo_casa;
     lista = lista.filter(function(u){
       var pr = PROJETOS[u.projeto];
       if (prazo === 'agora')   { return pr.prontoAgora; }
-      if (prazo === 'ate1ano') { return pr.prontoAgora || pr.conclusaoMeses <= 12; }
+      if (prazo === 'ate1ano') { return pr.prontoAgora || mesesAteEscritura(pr) <= 12; }
       return true;
     });
     var orc = respostas.valor_total || 0;
     lista.forEach(function(u){ u.custo = u.preco; u.custoLabel = 'Preço total'; });
     lista = lista.filter(function(u){ return u.preco <= orc * 1.05; });
   } else {
-    // cedência ou arrendamento: conta o valor até à escritura (entrada em planta)
     var orc2 = (i === 'cedencia' ? respostas.valor_planta : respostas.valor_escritura) || 0;
     lista.forEach(function(u){
-      var pr = PROJETOS[u.projeto];
-      u.custo = Math.round(u.preco * pr.entradaPct);
-      u.custoLabel = 'Investimento até à escritura (' + Math.round(pr.entradaPct * 100) + '%)';
+      u.custo = custoPlanta(u);
+      u.custoLabel = 'Investimento até à escritura (' + Math.round(pctPlanta(PROJETOS[u.projeto]) * 100) + '%)';
     });
     lista = lista.filter(function(u){ return u.custo <= orc2 * 1.05; });
     if (i === 'cedencia') {
       var horizonte = Number(respostas.prazo_cedencia) || 6;
-      lista = lista.filter(function(u){ return PROJETOS[u.projeto].conclusaoMeses >= horizonte; });
+      lista = lista.filter(function(u){ return mesesAteEscritura(PROJETOS[u.projeto]) >= horizonte; });
     }
   }
-  // pontuação: aproveitar o orçamento ao máximo (preço mais alto ainda dentro do valor)
-  lista.sort(function(a, b){ return b.custo - a.custo; });
+
+  // pontuação: aproveitar o orçamento + preferências adicionais
+  var pref = respostas.extras;
+  lista.forEach(function(u){
+    u.score = u.custo; // usar o orçamento ao máximo
+    if (pref === 'varanda')   { u.score += (Number(u.varanda) || 0) * 3000; }
+    if (pref === 'pisoalto')  { u.score += (Number(u.piso) || 0) * 2000; }
+    if (pref === 'pisobaixo') { u.score -= (Number(u.piso) || 0) * 2000; }
+  });
+  lista.sort(function(a, b){ return b.score - a.score; });
   return lista;
+}
+
+function tabelaPlano(u){
+  var pr = PROJETOS[u.projeto];
+  var linhas = pr.plano.map(function(f){
+    return '<tr><td>' + f.label + ' · ' + Math.round(f.pct * 100) + '%</td><td>' + euro(Math.round(u.preco * f.pct)) + '</td></tr>';
+  }).join('');
+  return '<div class="plano"><h4>Plano de pagamento' + (pr.confirmar ? ' (a confirmar pela DPS)' : '') + '</h4>'
+    + '<table>' + linhas
+    + '<tr class="total"><td>Até à escritura · ' + Math.round(pctPlanta(pr) * 100) + '%</td><td>' + euro(custoPlanta(u)) + '</td></tr>'
+    + '</table></div>';
 }
 
 function cartaoUnidade(u, melhor){
@@ -310,14 +415,16 @@ function cartaoUnidade(u, melhor){
   return '<div class="unidade' + (melhor ? ' melhor' : '') + '">'
     + (melhor ? '<span class="etiqueta-melhor">SOLUÇÃO MAIS PRÓXIMA</span>' : '')
     + '<h3>' + pr.nome + ' · Fração ' + u.fraccao + '</h3>'
-    + '<div class="sub">' + pr.local + (pr.prontoAgora ? ' · Pronto a habitar' : ' · Conclusão prevista em cerca de ' + pr.conclusaoMeses + ' meses') + '</div>'
+    + '<div class="sub">' + pr.local + (pr.prontoAgora ? ' · Pronto a habitar' : ' · Escritura prevista: ' + escrituraTxt(pr)) + '</div>'
     + '<div class="linhas">'
     + '<span><b>Tipologia:</b> ' + u.tipologia + '</span>'
     + '<span><b>Área:</b> ' + u.area + ' m²</span>'
     + '<span><b>Piso:</b> ' + u.piso + '</span>'
     + '<span><b>Orientação:</b> ' + (u.orientacao || '—') + '</span>'
+    + (u.varanda ? '<span><b>Varanda:</b> ' + u.varanda + ' m²</span>' : '')
     + '</div>'
     + '<div class="preco-destaque">' + euro(u.preco) + '<small>' + u.custoLabel + ': ' + euro(u.custo) + '</small></div>'
+    + (melhor ? tabelaPlano(u) : '')
     + '</div>';
 }
 
@@ -331,7 +438,9 @@ function mostrarResultado(){
   var querCredito = respostas.contacto_credito === 'sim' || respostas.contacto_credito2 === 'sim';
 
   var html = '<div class="resultado-cabeca"><h2>' + (lista.length ? 'Encontrámos ' + lista.length + ' oportunidade' + (lista.length > 1 ? 's' : '') + ' para si' : 'Resultado da simulação') + '</h2>'
-    + '<p>' + interesseTxt + (respostas.tipologia && respostas.tipologia !== 'indiferente' ? ' · ' + respostas.tipologia : '') + '</p></div>';
+    + '<p>' + interesseTxt
+    + (respostas.regiao && respostas.regiao !== 'indiferente' ? ' · ' + respostas.regiao : '')
+    + (respostas.tipologia && respostas.tipologia !== 'indiferente' ? ' · ' + respostas.tipologia : '') + '</p></div>';
 
   if (querCredito) {
     html += '<div class="aviso-credito"><b>DPS Crédito:</b> registámos o seu pedido — ao falar connosco, a equipa apresenta-lhe a melhor solução de financiamento.</div>';
@@ -342,23 +451,26 @@ function mostrarResultado(){
     html += top.map(function(u, idx){ return cartaoUnidade(u, idx === 0); }).join('');
     if (lista.length > 5) { html += '<p class="ajuda" style="margin-top:6px">… e mais ' + (lista.length - 5) + ' unidades dentro dos seus critérios.</p>'; }
   } else {
-    // sem correspondência exacta: mostrar as 3 mais próximas acima do valor
     var proximas = unidades.slice();
-    if (respostas.tipologia && respostas.tipologia !== 'indiferente') { proximas = proximas.filter(function(u){ return u.tip === respostas.tipologia; }); }
+    if (respostas.regiao && respostas.regiao !== 'indiferente') { proximas = proximas.filter(function(u){ return PROJETOS[u.projeto].regiao === respostas.regiao; }); }
+    if (!proximas.length) { proximas = unidades.slice(); }
+    if (respostas.tipologia && respostas.tipologia !== 'indiferente') {
+      var mesmaTip = proximas.filter(function(u){ return u.tip === respostas.tipologia; });
+      if (mesmaTip.length) { proximas = mesmaTip; }
+    }
     proximas.forEach(function(u){
-      var pr = PROJETOS[u.projeto];
-      u.custo = respostas.interesse === 'habitacao' ? u.preco : Math.round(u.preco * pr.entradaPct);
-      u.custoLabel = respostas.interesse === 'habitacao' ? 'Preço total' : 'Investimento até à escritura (' + Math.round(pr.entradaPct * 100) + '%)';
+      u.custo = respostas.interesse === 'habitacao' ? u.preco : custoPlanta(u);
+      u.custoLabel = respostas.interesse === 'habitacao' ? 'Preço total' : 'Investimento até à escritura (' + Math.round(pctPlanta(PROJETOS[u.projeto]) * 100) + '%)';
     });
     proximas.sort(function(a, b){ return a.custo - b.custo; });
-    html += '<div class="sem-resultado">Não encontrámos unidades exatamente dentro do valor indicado.'
-      + (proximas.length ? ' Estas são as opções mais próximas:' : '') + '</div>';
-    html += proximas.slice(0, 3).map(function(u){ return cartaoUnidade(u, false); }).join('');
+    html += '<div class="sem-resultado">Não encontrámos unidades exatamente dentro dos seus critérios. Estas são as opções mais próximas:</div>';
+    html += proximas.slice(0, 3).map(function(u, idx){ return cartaoUnidade(u, idx === 0); }).join('');
   }
 
   var msg = 'Olá! Fiz a simulação no Simulador do Investidor da DPS.\n'
     + 'Interesse: ' + interesseTxt + '\n'
-    + (respostas.tipologia ? 'Tipologia: ' + respostas.tipologia + '\n' : '')
+    + (respostas.regiao && respostas.regiao !== 'indiferente' ? 'Região: ' + respostas.regiao + '\n' : '')
+    + (respostas.tipologia && respostas.tipologia !== 'indiferente' ? 'Tipologia: ' + respostas.tipologia + '\n' : '')
     + (respostas.valor_total ? 'Valor disponível: ' + euro(respostas.valor_total) + '\n' : '')
     + (respostas.valor_planta ? 'Valor para investir em planta: ' + euro(respostas.valor_planta) + '\n' : '')
     + (respostas.valor_escritura ? 'Valor até à escritura: ' + euro(respostas.valor_escritura) + '\n' : '')
