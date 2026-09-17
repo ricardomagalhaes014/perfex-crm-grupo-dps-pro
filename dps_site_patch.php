@@ -20,6 +20,33 @@ const CANDIDATOS_INDEX = [
 const MARCADOR_ANCORA = "// 2. Tornar o banner Portugal clicável";
 const ID_PATCH        = 'aura-card-injected';
 const ID_SOFIA_FIX    = 'dps-sofia-fix';
+const ID_PT_IMG       = 'dps-portugal-img-fix';
+
+/*
+ * A imagem do banner "Portugal" vinha de um URL temporário do Manus
+ * (private-us-east-1.manuscdn.com) que expirou — dai o ícone partido.
+ * Este bloco troca, já com a página montada (e sempre que o React
+ * re-renderizar), qualquer imagem desse domínio por uma fotografia
+ * estável do Porto.
+ */
+const BLOCO_PT_IMG = <<<'HTML'
+<script id="dps-portugal-img-fix">
+(function(){
+  var BOA = 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1600&q=80';
+  function corrigir(){
+    document.querySelectorAll('img').forEach(function(img){
+      var s = img.getAttribute('src') || '';
+      if (s.indexOf('private-us-east-1.manuscdn.com') !== -1 && img.src !== BOA) { img.src = BOA; }
+    });
+    document.querySelectorAll('[style*="private-us-east-1.manuscdn.com"]').forEach(function(el){
+      el.style.backgroundImage = 'url(' + BOA + ')';
+    });
+  }
+  corrigir();
+  new MutationObserver(corrigir).observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
+HTML;
 
 // HISTÓRICO — já não é usado; a acção 'sofia_fix' está desactivada mais
 // abaixo. Ficou escrito para se perceber o que chegou a existir.
@@ -118,6 +145,31 @@ if ($a === 'sofia_fix') {
     exit;
 }
 
+if ($a === 'portugal_img') {
+    if (strpos($html, ID_PT_IMG) !== false) {
+        echo '✅ A correcção da imagem do Portugal já está aplicada — nada a fazer.';
+        exit;
+    }
+    $pos = strripos($html, '</body>');
+    if ($pos === false) {
+        echo '❌ Não encontrei o </body> — o ficheiro do servidor é diferente do esperado. Nada foi alterado.';
+        exit;
+    }
+    $bak = $alvo . '.bak-' . date('Ymd-His');
+    if (!copy($alvo, $bak)) {
+        echo '❌ Não consegui criar o backup. Nada foi alterado.';
+        exit;
+    }
+    $novo = substr($html, 0, $pos) . BLOCO_PT_IMG . "\n" . substr($html, $pos);
+    if (file_put_contents($alvo, $novo) === false) {
+        echo '❌ Falha na escrita. O backup está em ' . htmlspecialchars($bak);
+        exit;
+    }
+    echo '✅ Imagem do banner Portugal corrigida.<br>Backup: ' . htmlspecialchars($bak)
+        . '<br><br>Abre <a href="https://dpsimobiliario.pt" target="_blank">dpsimobiliario.pt</a> e faz Ctrl+F5 para confirmar.';
+    exit;
+}
+
 if ($a === 'restaurar') {
     $baks = glob($alvo . '.bak-*');
     if (empty($baks)) {
@@ -146,7 +198,13 @@ echo '<p>Ajuste da Sofia: <strong>desactivado</strong> — resolvido de outra ma
     . 'no próprio index.html (cartão removido, WhatsApp à esquerda).'
     . ($sofia_fixado ? ' <span style="color:#b8860b;">Atenção: este ficheiro ainda tem o bloco antigo aplicado.</span>' : '')
     . '</p>';
+$pt_ok = strpos($html, ID_PT_IMG) !== false;
+echo '<p>Imagem do banner Portugal: ' . ($pt_ok ? '✅ correcção aplicada' : '⬜ por aplicar (o URL original do Manus expirou)') . '</p>';
 echo '<p>Backups existentes: ' . count($baks) . '</p>';
+if (!$pt_ok) {
+    echo '<form method="post"><input type="hidden" name="a" value="portugal_img">'
+        . '<button type="submit" style="padding:10px 20px;background:#0D1F3C;color:#fff;border:0;border-radius:6px;">Corrigir imagem do banner Portugal (com backup)</button></form>';
+}
 if (!$aplicado && $ancora) {
     echo '<form method="post"><input type="hidden" name="a" value="aura_card">'
         . '<button type="submit" style="padding:10px 20px;background:#1a73e8;color:#fff;border:0;border-radius:6px;">Aplicar card Aura Residence (com backup)</button></form>';
