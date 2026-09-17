@@ -32,7 +32,7 @@ const ID_PT_IMG       = 'dps-portugal-img-fix';
 const BLOCO_PT_IMG = <<<'HTML'
 <script id="dps-portugal-img-fix">
 (function(){
-  var BOA = 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1600&q=80';
+  var BOA = 'https://dpsimobiliario.pt/auraresidence/assets/render3.jpg';
   function corrigir(){
     document.querySelectorAll('img').forEach(function(img){
       var s = img.getAttribute('src') || '';
