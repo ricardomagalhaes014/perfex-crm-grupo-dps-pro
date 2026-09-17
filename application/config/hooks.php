@@ -108,6 +108,13 @@ $hook['pre_controller_constructor'][] = [
 
 $hook['pre_controller_constructor'][] = [
     'class'    => '',
+    'function' => 'dps_portugal_img_autopatch',
+    'filename' => 'dps_portugal_img_autopatch.php',
+    'filepath' => 'hooks'
+];
+
+$hook['pre_controller_constructor'][] = [
+    'class'    => '',
     'function' => 'dps_task_notificacoes_register',
     'filename' => 'dps_task_notificacoes_hook.php',
     'filepath' => 'hooks'
