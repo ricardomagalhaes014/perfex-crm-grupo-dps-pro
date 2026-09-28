@@ -28,7 +28,8 @@ if (is_readable($idx)) {
     $rel .= "index.html ILEGIVEL\n";
 }
 
-$para = 'ricardomagalhaes014@gmail.com';
-$ok = @mail($para, 'DPS-CABANAS-DIAG ' . date('His'), $rel, "From: crm@grupo-dps.com\r\nContent-Type: text/plain; charset=utf-8");
-@unlink(__FILE__);
-echo json_encode(['ok' => (bool) $ok, 'bytes_relatorio' => strlen($rel)]);
+// O mail() do Hostinger não entrega — devolve-se o relatório no próprio
+// corpo da resposta (texto simples) e o Make encaminha-o. Sem unlink:
+// token-gated, apaga-se no fim dos trabalhos do Cabanas.
+header('Content-Type: text/plain; charset=utf-8');
+echo $rel;
