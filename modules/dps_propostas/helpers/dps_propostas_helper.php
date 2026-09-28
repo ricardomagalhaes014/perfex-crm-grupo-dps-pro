@@ -168,6 +168,22 @@ function dps_propostas_apresentacao($key)
             . "Qual a melhor altura para ser contactado?\n\n"
             . "http://dpsimobiliario.pt/boavistatowers",
 
+        'cabanas' => "No coração de Fânzeres, em Gondomar, nasce o Cabanas Residence: um empreendimento contemporâneo composto por 120 apartamentos T1, T2 e T3, pensado para quem procura conforto, funcionalidade e uma localização privilegiada na Área Metropolitana do Porto.\n\n"
+            . "Todas as frações incluem varanda, lavandaria e lugar de garagem privativo. Os interiores distinguem-se pelas áreas sociais em open space, ambientes luminosos, acabamentos modernos, climatização com bomba de calor e cozinhas equipadas.\n\n"
+            . "Com jardins e amplas zonas verdes envolventes, o Cabanas Residence oferece a tranquilidade de uma área residencial consolidada, sem abdicar da proximidade aos principais serviços e acessos.\n\n"
+            . "O Metro de Fânzeres fica apenas a 550 metros, o Mercadona a 400 metros e a Baixa do Porto a cerca de 25 minutos.\n"
+            . "Mais do que uma casa, é uma escolha de qualidade de vida — seja para habitação própria ou investimento.\n\n"
+            . "🏗️ Início de obras: Janeiro de 2027 · Fim de obra previsto: Janeiro de 2029\n\n"
+            . "💶 Fases de pagamento:\n"
+            . "• 15% CPCV\n"
+            . "• 15% Conclusão do betão — final de 2027\n"
+            . "• 10% Colocação das caixilharias — 1.º semestre de 2028\n"
+            . "• 60% Escritura\n\n"
+            . "🏡 T1 desde 191.850 €\n"
+            . "🏡 T2 desde 354.975 €\n"
+            . "🏡 T3 desde 308.900 €\n\n"
+            . "https://dpsimobiliario.pt/cabanasresidence/",
+
         'gaiadouro' => "Quero apresentar-lhe o D'Ouro Mar Towers, um novo empreendimento em Vila Nova de Gaia, numa localização privilegiada junto à Douro Marina, entre o rio e o mar.\n\n"
             . "🏡 Apartamentos T2 e T2 Smart\n"
             . "🌊 Vistas sobre o Douro, mar e envolvente verde\n"
