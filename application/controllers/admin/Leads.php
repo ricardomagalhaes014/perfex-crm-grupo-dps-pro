@@ -1383,6 +1383,11 @@ class Leads extends AdminController
                                     $update['dateadded']   = date('Y-m-d H:i:s');
                                     $update['lastcontact'] = null;
                                 }
+
+                                // DPS: a atribuição em massa escrevia direto na
+                                // tabela sem registar QUANDO foi atribuída —
+                                // sem isto, "alocadas hoje" é indetetável.
+                                $update['dateassigned'] = date('Y-m-d H:i:s');
                             }
                             if ($last_contact) {
                                 $last_contact          = to_sql_date($last_contact, true);

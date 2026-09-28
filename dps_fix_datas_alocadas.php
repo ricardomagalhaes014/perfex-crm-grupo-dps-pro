@@ -1,12 +1,10 @@
 <?php
 /**
- * ARRANJO ÚNICO — leads ALOCADAS HOJE passam a "criadas hoje".
+ * ARRANJO ÚNICO — leads em "Novos" com comercial e data antiga passam a
+ * "criadas agora" (não "há 2–3 semanas"). Também preenche dateassigned
+ * quando está vazio. Apaga-se depois de fixar.
  *
- * Renova a dateadded (e limpa o lastcontact) de todas as leads cuja
- * atribuição (dateassigned) aconteceu hoje e que têm comercial. Executa,
- * responde com o total, e apaga-se a si próprio.
- *
- * Uso: GET ?t=dps2026fixdatas[&dry=1]  (dry=1 só conta, não altera)
+ * Uso: ?t=dps2026fixdatas&modo=relatorio | &modo=fixar
  */
 
 declare(strict_types=1);
@@ -32,22 +30,31 @@ if ($bd->connect_error) {
     exit(json_encode(['error' => 'bd indisponivel']));
 }
 $bd->set_charset('utf8mb4');
-$prefixo = $ler('APP_DB_PREFIX') ?: 'tbl';
+$p = $ler('APP_DB_PREFIX') ?: 'tbl';
 
-$onde = "assigned IS NOT NULL AND assigned != 0
-         AND dateassigned IS NOT NULL AND DATE(dateassigned) = CURDATE()
-         AND DATE(dateadded) < CURDATE()";
+$onde = "l.assigned IS NOT NULL AND l.assigned != 0
+         AND DATE(l.dateadded) < CURDATE()
+         AND LOWER(TRIM(s.name)) IN ('novos','novo','nova','novas')";
+$join = "FROM {$p}leads l JOIN {$p}leads_status s ON s.id = l.status";
 
-$res   = $bd->query("SELECT COUNT(*) c FROM {$prefixo}leads WHERE {$onde}");
-$antes = (int) ($res ? $res->fetch_assoc()['c'] : 0);
+$modo = $_GET['modo'] ?? 'relatorio';
 
-if (isset($_GET['dry'])) {
-    exit(json_encode(['dry' => true, 'leads_a_atualizar' => $antes]));
+if ($modo === 'fixar') {
+    $bd->query("UPDATE {$p}leads l JOIN {$p}leads_status s ON s.id = l.status
+                SET l.dateadded = NOW(), l.lastcontact = NULL,
+                    l.dateassigned = COALESCE(l.dateassigned, NOW())
+                WHERE {$onde}");
+    $feitas = $bd->affected_rows;
+    @unlink(__FILE__);
+    exit(json_encode(['ok' => true, 'modo' => 'fixar', 'leads_atualizadas' => $feitas, 'quando' => date('c')]));
 }
 
-$bd->query("UPDATE {$prefixo}leads SET dateadded = NOW(), lastcontact = NULL WHERE {$onde}");
-$feitas = $bd->affected_rows;
+$tot = (int) $bd->query("SELECT COUNT(*) c {$join} WHERE {$onde}")->fetch_assoc()['c'];
+$porIdade = [];
+$r = $bd->query("SELECT DATEDIFF(CURDATE(), DATE(l.dateadded)) dias, COUNT(*) c {$join} WHERE {$onde} GROUP BY dias ORDER BY dias");
+while ($l = $r->fetch_assoc()) { $porIdade[$l['dias'] . ' dias'] = (int) $l['c']; }
+$porFonte = [];
+$r = $bd->query("SELECT COALESCE(f.name,'?') fonte, COUNT(*) c {$join} LEFT JOIN {$p}leads_sources f ON f.id = l.source WHERE {$onde} GROUP BY f.name ORDER BY c DESC");
+while ($l = $r->fetch_assoc()) { $porFonte[$l['fonte']] = (int) $l['c']; }
 
-@unlink(__FILE__); // arranjo único: apaga-se depois de correr
-
-echo json_encode(['ok' => true, 'leads_atualizadas' => $feitas, 'encontradas' => $antes, 'quando' => date('c')]);
+echo json_encode(['ok' => true, 'modo' => 'relatorio', 'total_para_fixar' => $tot, 'por_idade' => $porIdade, 'por_fonte' => $porFonte], JSON_UNESCAPED_UNICODE);
