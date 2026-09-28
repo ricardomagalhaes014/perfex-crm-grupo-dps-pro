@@ -544,6 +544,13 @@ function dps_propostas_disponibilidade($slug)
     }
     $states_key = $emps[$slug]['states_key'];
 
+    // Empreendimentos sem tabela no simulador (Cabanas, Cedofeita, Sta
+    // Catarina, Pescaria): não há contagem para ler nem para errar — a
+    // proposta segue com o site e a apresentação, sem a linha das unidades.
+    if (empty($states_key)) {
+        return ['ok' => true, 'count' => null, 'por_tipologia' => [], 'codes' => [], 'sem_contagem' => true];
+    }
+
     /*
      * Ler os estados do simulador. Três tentativas com tempo largo: uma
      * leitura falhada devolvia "0 disponíveis" e chegou a sair para clientes

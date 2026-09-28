@@ -231,7 +231,7 @@ class Dps_propostas extends AdminController
             return;
         }
 
-        if ((int) $disp['count'] === 0) {
+        if (empty($disp['sem_contagem']) && (int) $disp['count'] === 0) {
             echo json_encode([
                 'success' => false,
                 'message' => 'Não há unidades disponíveis neste empreendimento neste momento — '
@@ -261,7 +261,9 @@ class Dps_propostas extends AdminController
         if ($apresentacao === '') {
             $msg .= "🌐 Mais informação:\n" . $emp['site'] . "\n\n";
         }
-        $msg .= '🏠 *' . $disp['count'] . ' unidade' . ($disp['count'] === 1 ? '' : 's') . ' disponíve' . ($disp['count'] === 1 ? 'l' : 'is') . '*';
+        if (empty($disp['sem_contagem'])) {
+            $msg .= '🏠 *' . $disp['count'] . ' unidade' . ($disp['count'] === 1 ? '' : 's') . ' disponíve' . ($disp['count'] === 1 ? 'l' : 'is') . '*';
+        }
         if (! empty($disp['por_tipologia'])) {
             $msg .= ":\n";
             foreach ($disp['por_tipologia'] as $t) {
