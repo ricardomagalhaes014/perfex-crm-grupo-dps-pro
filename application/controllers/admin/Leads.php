@@ -1358,9 +1358,12 @@ class Leads extends AdminController
                                         'dateadded'   => date('Y-m-d H:i:s'),
                                         'lastcontact' => null,
                                     ]);
-                                    $this->db->where('rel_id', $id);
-                                    $this->db->where('rel_type', 'lead');
-                                    $this->db->delete(db_prefix() . 'notes');
+                                    /*
+                                     * DPS 28/09/2026: as notas deixam de ser
+                                     * apagadas ao passar a "Novos" — perdeu-se
+                                     * histórico de conversas em massa. A data
+                                     * renova-se; as notas ficam.
+                                     */
                                 }
                             }
                             if ($source) {

@@ -180,7 +180,7 @@ function dps_propostas_apresentacao($key)
             . "• 10% Colocação das caixilharias — 1.º semestre de 2028\n"
             . "• 60% Escritura\n\n"
             . "🏡 T1 desde 191.850 €\n"
-            . "🏡 T2 desde 354.975 €\n"
+            . "🏡 T2 desde 254.975 €\n"
             . "🏡 T3 desde 308.900 €\n\n"
             . "https://dpsimobiliario.pt/cabanasresidence/",
 
