@@ -14,30 +14,16 @@ define('CAPI_META_WEBHOOK', 'https://hook.eu1.make.com/w14e5b8einkrdv49sc8l8lubg
 define('CAPI_META_CF_SLUG', 'leads_facebook_lead_id');
 
 /**
- * ESTADOS VIP — substituir pelos nomes EXATOS dos 3 estados no Perfex.
- * Quando um lead entra num destes estados, a Meta recebe o funil completo
- * até ao nível indicado (incluindo os eventos das fases anteriores).
+ * Estados que contam como conversão. Quando a lead entra num destes,
+ * a Meta recebe UM evento: lead_qualified. Mais nenhum evento é enviado.
  */
-function capi_meta_vip_statuses()
+function capi_meta_qualifying_statuses()
 {
     return [
-        // 'nome exato do estado' => nível do funil (1-4, ver capi_meta_funnel)
-        'VIP 1' => 2,
-        'VIP 2' => 2,
-        'VIP 3' => 2,
-    ];
-}
-
-/**
- * Funil ordenado. Atingir o nível N envia TODOS os eventos de 1 até N.
- */
-function capi_meta_funnel()
-{
-    return [
-        1 => 'lead_qualified',
-        2 => 'opportunity',
-        3 => 'meeting_scheduled',
-        4 => 'converted_lead',
+        'proposta enviada',
+        'vip 1',
+        'vip 2',
+        'vip 3',
     ];
 }
 
@@ -97,73 +83,17 @@ function capi_meta_on_lead_status_changed($data)
     $statusRow  = $CI->db->get_where(db_prefix() . 'leads_status', ['id' => $newStatus])->row();
     $statusName = $statusRow ? $statusRow->name : ('status_' . $newStatus);
 
-    // 1. Estado VIP? -> nível definido na configuração
-    $level = capi_meta_vip_level($statusName);
-
-    // 2. Senão, mapear pelo nome
-    if ($level === null) {
-        $level = capi_meta_map_level($statusName);
-    }
-
-    if ($level === null) {
-        return; // estado neutro (ex: Novo) ou desconhecido
-    }
-
-    $fbLeadId = capi_meta_get_fb_lead_id($CI, $leadId);
-    $funnel   = capi_meta_funnel();
-
-    if ($level === 0) {
-        // Desqualificado: evento único, não cumulativo
-        capi_meta_send($leadId, $fbLeadId, $lead, 'lead_disqualified', $statusName);
+    // Só os estados configurados disparam, e só lead_qualified.
+    // O event_id determinístico ("pfx{id}_lead_qualified") garante que a
+    // Meta conta o evento uma única vez por lead, mesmo que passe por
+    // Proposta Enviada e depois pelos VIPs.
+    $s = trim(mb_strtolower($statusName));
+    if (!in_array($s, capi_meta_qualifying_statuses(), true)) {
         return;
     }
 
-    // FUNIL CUMULATIVO: envia todos os eventos de 1 até $level.
-    // O event_id determinístico ("pfx{id}_{evento}") evita duplicados na Meta.
-    foreach ($funnel as $lvl => $eventName) {
-        if ($lvl > $level) {
-            break;
-        }
-        capi_meta_send($leadId, $fbLeadId, $lead, $eventName, $statusName);
-    }
-}
-
-function capi_meta_vip_level($statusName)
-{
-    $s = trim(mb_strtolower($statusName));
-    foreach (capi_meta_vip_statuses() as $vip => $level) {
-        if (trim(mb_strtolower($vip)) === $s) {
-            return (int) $level;
-        }
-    }
-    return null;
-}
-
-/**
- * Mapeia estados normais para o nível do funil.
- * Devolve 0 para desqualificado, null para estados neutros.
- */
-function capi_meta_map_level($statusName)
-{
-    $s = mb_strtolower($statusName);
-
-    if (strpos($s, 'convert') !== false || strpos($s, 'client') !== false || strpos($s, 'ganho') !== false || strpos($s, 'vend') !== false || strpos($s, 'cpcv') !== false) {
-        return 4;
-    }
-    if (strpos($s, 'agend') !== false || strpos($s, 'visita') !== false || strpos($s, 'reuni') !== false) {
-        return 3;
-    }
-    if (strpos($s, 'proposta') !== false || strpos($s, 'quente') !== false || strpos($s, 'interess') !== false || strpos($s, 'oportunidade') !== false) {
-        return 2;
-    }
-    if (strpos($s, 'qualific') !== false && strpos($s, 'desqualific') === false) {
-        return 1;
-    }
-    if (strpos($s, 'frio') !== false || strpos($s, 'perdid') !== false || strpos($s, 'desqualific') !== false) {
-        return 0;
-    }
-
-    return null;
+    $fbLeadId = capi_meta_get_fb_lead_id($CI, $leadId);
+    capi_meta_send($leadId, $fbLeadId, $lead, 'lead_qualified', $statusName);
 }
 
 function capi_meta_send($leadId, $fbLeadId, $lead, $eventName, $statusName)
