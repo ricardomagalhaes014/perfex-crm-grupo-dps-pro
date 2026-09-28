@@ -1370,6 +1370,19 @@ class Leads extends AdminController
                                 $update['assigned'] = $assigned;
                                 // DPS: NÃO apagar notas ao atribuir agente em massa.
                                 // As notas só devem ser apagadas quando o estado é alterado para 'Novos'.
+
+                                // DPS: uma lead no estado "Novos" alocada em massa
+                                // tem de chegar ao comercial como nova — data de
+                                // criação renovada, não "criada há X semanas".
+                                $lead_atual = $this->db->select('l.status, s.name')
+                                    ->from(db_prefix() . 'leads l')
+                                    ->join(db_prefix() . 'leads_status s', 's.id = l.status', 'left')
+                                    ->where('l.id', $id)
+                                    ->get()->row();
+                                if ($lead_atual && in_array(strtolower(trim((string) $lead_atual->name)), ['novos', 'novo', 'nova', 'novas'], true)) {
+                                    $update['dateadded']   = date('Y-m-d H:i:s');
+                                    $update['lastcontact'] = null;
+                                }
                             }
                             if ($last_contact) {
                                 $last_contact          = to_sql_date($last_contact, true);
