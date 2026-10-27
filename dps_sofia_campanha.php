@@ -45,6 +45,13 @@ try {
     sc_out(500, ['ok' => false, 'error' => 'db']);
 }
 
+// ---------- Diagnóstico de uma lead ----------
+if (isset($_GET['lead'])) {
+    $q = $pdo->prepare("SELECT l.id,l.name,l.phonenumber,l.status,s.name AS status_name,l.source,l.assigned,CONCAT(st.firstname,' ',st.lastname) AS comercial,l.junk,l.lost,l.dateadded FROM tblleads l LEFT JOIN tblleads_status s ON s.id=l.status LEFT JOIN tblstaff st ON st.staffid=l.assigned WHERE l.id=?");
+    $q->execute([(int)$_GET['lead']]);
+    sc_out(200, ['ok' => true, 'lead' => $q->fetch(PDO::FETCH_ASSOC)]);
+}
+
 // ---------- Diagnóstico ----------
 if (isset($_GET['check'])) {
     $rows = $pdo->query("
