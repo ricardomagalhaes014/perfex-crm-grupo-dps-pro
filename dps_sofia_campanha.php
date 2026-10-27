@@ -20,7 +20,6 @@
 define('BASEPATH', __DIR__ . '/');
 define('SOFIA_CAMP_TOKEN', '593b034e64301c3da1dafcb0');
 define('SOFIA_CAMP_TAG', 'Sofia');
-define('SOFIA_CAMP_SOURCE', 'Sofia IA - Campanha');
 define('SOFIA_CAMP_FALLBACK_STAFF', 1); // se o número não existir no CRM
 
 header('Content-Type: application/json; charset=utf-8');
@@ -52,6 +51,14 @@ $agora = date('Y-m-d H:i:s');
 
 if (isset($_GET['horas'])) {
     sc_out(200, ['php' => $agora, 'mysql' => $pdo->query('SELECT NOW()')->fetchColumn(), 'tz' => $tz]);
+}
+
+// ---------- Corrigir fonte das leads já criadas ----------
+if (isset($_GET['fixsrc'])) {
+    $imo = $pdo->query("SELECT id FROM tblleads_sources WHERE name LIKE '%Imo Portugal%' ORDER BY id LIMIT 1")->fetchColumn();
+    $old = $pdo->query("SELECT id FROM tblleads_sources WHERE name = 'Sofia IA - Campanha' LIMIT 1")->fetchColumn();
+    $n = ($imo && $old) ? $pdo->exec("UPDATE tblleads SET source = " . (int)$imo . " WHERE source = " . (int)$old) : 0;
+    sc_out(200, ['ok' => true, 'imo_portugal_id' => $imo, 'atualizadas' => $n]);
 }
 
 // ---------- Diagnóstico de uma lead ----------
@@ -129,12 +136,12 @@ $phone    = '+' . (strlen($digits) == 9 ? '351' . $digits : $digits);
 $st = $pdo->query("SELECT value FROM tbloptions WHERE name = 'leads_default_status' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 $status_id = ($st && (int)$st['value'] > 0) ? (int)$st['value'] : (int)$pdo->query("SELECT id FROM tblleads_status ORDER BY statusorder ASC LIMIT 1")->fetchColumn();
 
-// Fonte "Sofia IA - Campanha"
-$s = $pdo->prepare("SELECT id FROM tblleads_sources WHERE name = ? LIMIT 1");
-$s->execute([SOFIA_CAMP_SOURCE]);
+// Fonte: sempre "Imo Portugal"
+$s = $pdo->prepare("SELECT id FROM tblleads_sources WHERE name LIKE ? ORDER BY id LIMIT 1");
+$s->execute(['%Imo Portugal%']);
 $source_id = $s->fetchColumn();
 if (!$source_id) {
-    $pdo->prepare("INSERT INTO tblleads_sources (name) VALUES (?)")->execute([SOFIA_CAMP_SOURCE]);
+    $pdo->prepare("INSERT INTO tblleads_sources (name) VALUES ('Imo Portugal')")->execute();
     $source_id = $pdo->lastInsertId();
 }
 
