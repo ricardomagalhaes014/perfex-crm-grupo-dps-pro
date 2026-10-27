@@ -45,6 +45,15 @@ try {
     sc_out(500, ['ok' => false, 'error' => 'db']);
 }
 
+// Fuso horário do Perfex (as datas têm de bater certo com as outras leads)
+$tz = $pdo->query("SELECT value FROM tbloptions WHERE name = 'default_timezone' LIMIT 1")->fetchColumn();
+if ($tz) { @date_default_timezone_set($tz); }
+$agora = date('Y-m-d H:i:s');
+
+if (isset($_GET['horas'])) {
+    sc_out(200, ['php' => $agora, 'mysql' => $pdo->query('SELECT NOW()')->fetchColumn(), 'tz' => $tz]);
+}
+
 // ---------- Diagnóstico de uma lead ----------
 if (isset($_GET['lead'])) {
     $q = $pdo->prepare("SELECT l.id,l.name,l.phonenumber,l.status,s.name AS status_name,l.source,l.assigned,CONCAT(st.firstname,' ',st.lastname) AS comercial,l.junk,l.lost,l.dateadded FROM tblleads l LEFT JOIN tblleads_status s ON s.id=l.status LEFT JOIN tblstaff st ON st.staffid=l.assigned WHERE l.id=?");
@@ -91,10 +100,10 @@ $dup = $pdo->prepare("
     JOIN tbltaggables t ON t.rel_id = l.id AND t.rel_type = 'lead'
     JOIN tbltags tg ON tg.id = t.tag_id AND tg.name = ?
     WHERE RIGHT(REPLACE(REPLACE(REPLACE(REPLACE(l.phonenumber,' ',''),'+',''),'-',''),'.',''), 9) = ?
-      AND l.dateadded > (NOW() - INTERVAL 1 DAY)
+      AND l.dateadded > DATE_SUB(?, INTERVAL 1 DAY)
     LIMIT 1
 ");
-$dup->execute([SOFIA_CAMP_TAG, $last9]);
+$dup->execute([SOFIA_CAMP_TAG, $last9, $agora]);
 if ($d = $dup->fetch(PDO::FETCH_ASSOC)) {
     sc_log('Duplicado ignorado', $d['id']);
     sc_out(200, ['ok' => true, 'acao' => 'duplicado', 'lead_id' => (int)$d['id']]);
@@ -114,7 +123,7 @@ $o = $orig->fetch(PDO::FETCH_ASSOC);
 $assigned = ($o && (int)$o['assigned'] > 0) ? (int)$o['assigned'] : SOFIA_CAMP_FALLBACK_STAFF;
 $name     = ($o && trim($o['name']) !== '') ? $o['name'] : ('Contacto Sofia ' . $telefone);
 $email    = $o['email'] ?? '';
-$phone    = $o['phonenumber'] ?? $telefone;
+$phone    = '+' . (strlen($digits) == 9 ? '351' . $digits : $digits);
 
 // Estado por defeito do CRM
 $st = $pdo->query("SELECT value FROM tbloptions WHERE name = 'leads_default_status' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
@@ -140,11 +149,12 @@ try {
         INSERT INTO tblleads
             (status, source, assigned, name, email, phonenumber, company, country, city,
              description, dateadded, dateassigned, lastcontact, addedfrom, is_public, date_converted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), CURDATE(), NOW(), 0, 0, NULL)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, NULL)
     ");
     $ins->execute([
         $status_id, $source_id, $assigned, $name, $email, $phone,
         $o['company'] ?? '', (int)($o['country'] ?? 0), $o['city'] ?? '', $desc,
+        $agora, substr($agora, 0, 10), $agora,
     ]);
     $lead_id = (int)$pdo->lastInsertId();
 
@@ -168,8 +178,9 @@ try {
 try {
     $pdo->prepare("
         INSERT INTO tblnotifications (isread, isread_inline, date, description, fromuserid, fromclientid, from_fullname, touserid, fromcompany, link, additional_data)
-        VALUES (0, 0, NOW(), ?, 0, 0, '', ?, 1, ?, ?)
+        VALUES (0, 0, ?, ?, 0, 0, '', ?, 1, ?, ?)
     ")->execute([
+        $agora,
         'not_assigned_lead_to_you',
         $assigned,
         '#leadid=' . $lead_id,
